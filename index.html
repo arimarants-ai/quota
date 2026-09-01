@@ -87,22 +87,17 @@ dialog h2{margin-bottom:2px}
 </nav>
 <main id="app"></main>
 <dialog id="dlg"></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
-// ---- storage: IndexedDB. ponytail: single-device; swap these lines for Supabase/fetch() calls when a server exists.
-// Version bump wipes the stores (throwaway local data) so the schema can change freely.
-const DB = new Promise((res, rej) => {
-  const r = indexedDB.open('quota', 2);
-  r.onupgradeneeded = e => { const d = e.target.result; [...d.objectStoreNames].forEach(s => d.deleteObjectStore(s));
-    ['users', 'groups', 'posts', 'invites'].forEach(s => d.createObjectStore(s, {keyPath: 'id', autoIncrement: true})); };
-  r.onsuccess = e => res(e.target.result);
-  r.onerror = () => rej(r.error);
-});
-const tx = async (s, mode, fn) => { const d = await DB; return new Promise((res, rej) => { const q = fn(d.transaction(s, mode).objectStore(s)); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); };
-const all = s => tx(s, 'readonly', o => o.getAll());
-const put = (s, v) => tx(s, 'readwrite', o => o.put(v));
-const del = (s, id) => tx(s, 'readwrite', o => o.delete(id));
-// ponytail: SHA-256 needs a secure context (localhost/https/file). Over plain http on LAN it falls back to the raw string. Real auth lives on the server.
-const hash = async s => crypto.subtle ? [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('') : s;
+// ---- config: paste your Supabase project URL and anon (public) key here. The anon key is safe in the page; row level security does the guarding.
+const SUPABASE_URL = '';
+const SUPABASE_KEY = '';
+// ponytail: username-only login. Supabase Auth wants an email, so each account gets a synthetic one. Password reset needs real emails; add later.
+const emailFor = u => `${u}@users.quota.local`;
+
+const sb = SUPABASE_URL && supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// every query goes through q(): unwraps {data,error}, alerts on error
+const q = async p => { const {data, error} = await p; if (error) { alert(error.message); throw error; } return data; };
 
 // ---- theme
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t; document.querySelector('meta[name=theme-color]').content = t === 'dark' ? '#181b22' : '#ffffff'; };
@@ -113,10 +108,10 @@ const themeBtn = () => `<button class="theme" onclick="toggleTheme()" title="Tog
 // ---- state
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {users: [], groups: [], posts: [], invites: [], tab: 'home', open: null};
-const me = () => S.users.find(u => u.id === +localStorage.me);
-const user = id => S.users.find(u => u.id === id) || {username: '?', friends: []};
-const today = () => new Date().toDateString();
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], invites: [], tab: 'home', open: null, busy: false};
+const me = () => S.me;
+const user = id => S.profiles[id] || {id, username: '?'};
+const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in the phone's timezone
 const done = (g, uid, metric, day = today()) => S.posts.filter(p => p.groupId === g.id && p.userId === uid && p.metric === metric && p.day === day).reduce((a, p) => a + p.amount, 0);
 const hit = (g, uid) => g.quotas.every(q => done(g, uid, q.metric) >= q.target);
 const myGroups = () => S.groups.filter(g => g.members.includes(me().id));
@@ -124,15 +119,36 @@ const hue = s => [...s].reduce((a, c) => a + c.charCodeAt(0), 0) * 47 % 360;
 const avatar = (u, cls = '') => `<div class="avatar ${cls}" style="background:linear-gradient(135deg,hsl(${hue(u.username)} 80% 58%),hsl(${hue(u.username) + 40} 80% 52%))">${esc(u.username[0] || '?')}</div>`;
 const quotaText = g => g.quotas.map(q => `${q.target} ${esc(q.metric)}`).join(' · ');
 const time = ts => new Date(ts).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+const dayLabel = d => d === today() ? 'Today' : new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
 
 async function load() {
-  [S.users, S.groups, S.posts, S.invites] = await Promise.all([all('users'), all('groups'), all('posts'), all('invites')]);
+  if (!sb) return render();
+  const {data: {session}} = await sb.auth.getSession();
+  if (!session) { S.me = null; return render(); }
+  const uid = session.user.id;
+  const [fr, inv, gm, groups, posts] = await Promise.all([
+    q(sb.from('friendships').select('a,b')),
+    q(sb.from('invites').select('*')),
+    q(sb.from('group_members').select('*')),
+    q(sb.from('groups').select('*')),
+    q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(300)),
+  ]);
+  S.friends = fr.map(f => f.a === uid ? f.b : f.a);
+  S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
+  S.groups = groups.map(g => ({...g, members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
+  S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at)}));
+  if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId)])];
+  S.profiles = Object.fromEntries((await q(sb.from('profiles').select('id,username').in('id', ids))).map(p => [p.id, p]));
+  S.me = S.profiles[uid];
+  if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
   render();
 }
 function render() {
   const m = me();
   $('nav').hidden = $('header').hidden = !m;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+  if (!sb) return $('#app').innerHTML = `<div class="card" style="margin-top:10vh"><h2>Not connected yet</h2><p class="muted">Paste the Supabase URL and anon key into the top of index.html, then redeploy. See README.md.</p></div>`;
   if (!m) return $('#app').innerHTML = authView();
   $('#who').innerHTML = `<span class="row">${themeBtn()}<span class="row" style="cursor:pointer" onclick="S.open=null;S.tab='me';render()"><span class="muted">@${esc(m.username)}</span>${avatar(m)}</span></span>`;
   $('#app').innerHTML = S.open ? groupView(S.groups.find(g => g.id === S.open)) : {home: homeView, groups: groupsView, me: meView}[S.tab]();
@@ -143,7 +159,7 @@ function authView() {
   return `<div style="max-width:400px;margin:14vh auto 0;text-align:center"><div class="logo" style="font-size:44px">Quota</div><p class="muted" style="margin-bottom:20px">Daily goals with friends. Proof or it didn't happen.</p>
     <div class="card" style="text-align:left"><form onsubmit="event.preventDefault();auth(this,event)">
     <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
-    <label>Password</label><input name="password" type="password" required autocomplete="current-password" minlength="4" placeholder="••••••••">
+    <label>Password</label><input name="password" type="password" required autocomplete="current-password" minlength="6" placeholder="••••••••">
     <div class="row" style="margin-top:18px"><button class="primary grow" value="login">Log in</button><button class="grow" value="signup">Create account</button></div></form></div><div style="margin-top:14px">${themeBtn()}</div></div>`;
 }
 function homeView() {
@@ -182,14 +198,14 @@ function groupView(g) {
   <h3>Proof</h3>${feed(g)}`;
 }
 function feed(g) {
-  const ps = S.posts.filter(p => p.groupId === g.id).sort((a, b) => b.ts - a.ts);
+  const ps = S.posts.filter(p => p.groupId === g.id);
   if (!ps.length) return `<div class="card empty"><div class="big">🎥</div><b>No proof yet</b><p class="muted">Be the first to post today.</p></div>`;
   let day = '';
   return ps.map(p => {
-    const h = p.day !== day ? `<p class="muted" style="margin:14px 0 8px;font-weight:600">${p.day === today() ? 'Today' : p.day}</p>` : ''; day = p.day;
+    const h = p.day !== day ? `<p class="muted" style="margin:14px 0 8px;font-weight:600">${dayLabel(p.day)}</p>` : ''; day = p.day;
     const u = user(p.userId);
     return h + `<div class="card post"><div class="row head">${avatar(u)}<div class="grow"><b>@${esc(u.username)}</b><div class="muted">${time(p.ts)}</div></div><span class="chip grad">${p.amount} ${esc(p.metric)}</span></div>
-      <video controls playsinline preload="metadata" src="${URL.createObjectURL(p.video)}"></video>
+      <video controls playsinline preload="metadata" src="${esc(p.url)}"></video>
       <div class="foot row between"><span class="grow">${p.caption ? esc(p.caption) : '<span class="muted">No caption</span>'}</span>${p.userId === me().id ? `<button class="ghost small" onclick="delPost(${p.id})">Delete</button>` : ''}</div></div>`;
   }).join('');
 }
@@ -197,10 +213,10 @@ function meView() {
   const m = me(), incoming = S.invites.filter(i => i.type === 'friend' && i.to === m.id), outgoing = S.invites.filter(i => i.type === 'friend' && i.from === m.id);
   const person = (id, extra = '') => `<div class="card row">${avatar(user(id))}<b class="grow">@${esc(user(id).username)}</b>${extra}</div>`;
   return `<h1>Friends</h1>
-  <div class="card row">${avatar(m, 'lg')}<div class="grow"><b style="font-size:17px">@${esc(m.username)}</b><div class="muted">${m.friends.length} friend${m.friends.length !== 1 ? 's' : ''} · ${myGroups().length} group${myGroups().length !== 1 ? 's' : ''}</div></div><button class="small" onclick="logout()">Log out</button></div>
+  <div class="card row">${avatar(m, 'lg')}<div class="grow"><b style="font-size:17px">@${esc(m.username)}</b><div class="muted">${S.friends.length} friend${S.friends.length !== 1 ? 's' : ''} · ${myGroups().length} group${myGroups().length !== 1 ? 's' : ''}</div></div><button class="small" onclick="logout()">Log out</button></div>
   <div class="card"><b>Add a friend</b><form onsubmit="event.preventDefault();sendFriend(this)" class="row" style="margin-top:10px"><input name="username" placeholder="@username" autocapitalize="none" required><button class="primary">Invite</button></form></div>
   ${incoming.length ? `<h3>Requests</h3>` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') : ''}
-  <h3>Your friends</h3>${m.friends.length ? m.friends.map(id => person(id)).join('') : `<div class="card empty"><div class="big">👋</div><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
+  <h3>Your friends</h3>${S.friends.length ? S.friends.map(id => person(id)).join('') : `<div class="card empty"><div class="big">👋</div><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3>` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') : ''}`;
 }
 
@@ -210,7 +226,7 @@ function submitDlg(gid) {
   const g = S.groups.find(x => x.id === gid);
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${gid})">
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(q => `<option>${esc(q.metric)}</option>`).join('')}</select></div>
-    <label>Video proof</label><input name="video" type="file" accept="video/*" required>
+    <label>Video proof <span style="font-weight:400">(under 50 MB, keep it short)</span></label><input name="video" type="file" accept="video/*" required>
     <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag">
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
@@ -225,69 +241,85 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
 }
 function inviteDlg(gid) {
   const g = S.groups.find(x => x.id === gid), pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
-  const list = me().friends.filter(id => !g.members.includes(id) && !pend.includes(id));
-  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${avatar(user(id))}<b class="grow">@${esc(user(id).username)}</b><button class="small primary" onclick="inviteToGroup(${gid},${id})">Invite</button></div>`).join('')
+  const list = S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
+  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${avatar(user(id))}<b class="grow">@${esc(user(id).username)}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
     : `<p class="muted">All your friends are in this group or already invited. Add more under Friends.</p>`}<button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
 }
 
-// ---- actions
+// ---- actions (each one runs the change, then reloads everything from the server)
+const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); f.querySelector('button.primary').textContent = label; };
 async function auth(f, e) {
-  const username = f.username.value.trim().toLowerCase(), pw = await hash(f.password.value);
-  const u = S.users.find(x => x.username === username);
-  if (e.submitter.value === 'signup') {
-    if (u) return alert('That username is taken');
-    localStorage.me = await put('users', {username, pw, friends: []});
-  } else {
-    if (!u || u.pw !== pw) return alert('Wrong username or password');
-    localStorage.me = u.id;
-  }
-  S.tab = 'home'; load();
+  const username = f.username.value.trim().toLowerCase(), password = f.password.value;
+  working(f, '…');
+  try {
+    if (e.submitter.value === 'signup') {
+      if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) return alert('That username is taken');
+      const {data, error} = await sb.auth.signUp({email: emailFor(username), password, options: {data: {username}}});
+      if (error) return alert(error.message);
+      if (!data.session) return alert('Account created but email confirmation is still on. In Supabase: Authentication → Providers → Email → turn off "Confirm email", then log in.');
+    } else {
+      const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
+      if (error) return alert('Wrong username or password');
+    }
+    S.tab = 'home'; await load();
+  } finally { render(); }
 }
-function logout() { localStorage.removeItem('me'); S.open = null; S.tab = 'home'; render(); }
+async function logout() { await sb.auth.signOut(); S.open = null; S.tab = 'home'; load(); }
 async function sendFriend(f) {
-  const name = f.username.value.trim().toLowerCase().replace(/^@/, ''), u = S.users.find(x => x.username === name), m = me();
+  const name = f.username.value.trim().toLowerCase().replace(/^@/, ''), m = me();
+  const u = await q(sb.from('profiles').select('id,username').eq('username', name).maybeSingle());
   if (!u) return alert('No user with that username');
   if (u.id === m.id) return alert("That's you");
-  if (m.friends.includes(u.id)) return alert('Already friends');
+  if (S.friends.includes(u.id)) return alert('Already friends');
   if (S.invites.some(i => i.type === 'friend' && ((i.from === m.id && i.to === u.id) || (i.from === u.id && i.to === m.id)))) return alert('A request is already pending');
-  await put('invites', {type: 'friend', from: m.id, to: u.id, ts: Date.now()}); f.reset(); load();
+  await q(sb.from('invites').insert({type: 'friend', from_user: m.id, to_user: u.id})); f.reset(); load();
 }
-async function accept(id) {
-  const i = S.invites.find(x => x.id === id);
-  if (i.type === 'friend') { const a = user(i.from), b = user(i.to); a.friends.push(b.id); b.friends.push(a.id); await put('users', a); await put('users', b); }
-  else { const g = S.groups.find(x => x.id === i.groupId); if (g && !g.members.includes(i.to)) { g.members.push(i.to); await put('groups', g); } }
-  await del('invites', id); load();
-}
-async function decline(id) { await del('invites', id); load(); }
-async function inviteToGroup(gid, uid) { await put('invites', {type: 'group', from: me().id, to: uid, groupId: gid, ts: Date.now()}); dlg(); load(); }
+async function accept(id) { await q(sb.rpc('accept_invite', {invite_id: id})); load(); }
+async function decline(id) { await q(sb.from('invites').delete().eq('id', id)); load(); }
+async function inviteToGroup(gid, uid) { await q(sb.from('invites').insert({type: 'group', from_user: me().id, to_user: uid, group_id: gid})); dlg(); load(); }
 async function saveGroup(f, id) {
   const fd = new FormData(f), metrics = fd.getAll('metric'), targets = fd.getAll('target');
-  const g = S.groups.find(x => x.id === id) || {createdBy: me().id, members: [me().id]};
-  Object.assign(g, {name: fd.get('name').trim(), goal: fd.get('goal').trim(),
-    quotas: metrics.map((m, i) => ({metric: m.trim(), target: +targets[i]})).filter(q => q.metric && q.target > 0)});
-  if (!g.quotas.length) return alert('Add at least one metric');
-  const gid = await put('groups', g); dlg(); await load(); openGroup(gid);
+  const name = fd.get('name').trim(), goal = fd.get('goal').trim();
+  const quotas = metrics.map((m, i) => ({metric: m.trim(), target: +targets[i]})).filter(q => q.metric && q.target > 0);
+  if (!quotas.length) return alert('Add at least one metric');
+  working(f, 'Saving…');
+  const gid = id ? (await q(sb.from('groups').update({name, goal, quotas}).eq('id', id)), id) : await q(sb.rpc('create_group', {p_name: name, p_goal: goal, p_quotas: quotas}));
+  dlg(); await load(); openGroup(gid);
 }
 function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
 async function addPost(f, gid) {
   const fd = new FormData(f), video = fd.get('video');
   if (!video || !video.size) return alert('Attach a video');
-  await put('posts', {groupId: gid, userId: me().id, metric: fd.get('metric'), amount: +fd.get('amount'), video, caption: fd.get('caption').trim(), day: today(), ts: Date.now()});
+  if (video.size > 50 * 1024 * 1024) return alert('That video is over 50 MB. Record a shorter clip.');
+  working(f, 'Uploading…');
+  const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
+  try {
+    await q(sb.storage.from('proof').upload(path, video, {contentType: video.type || 'video/mp4'}));
+    await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'), caption: fd.get('caption').trim(), video_path: path, day: today()}));
+  } catch (e) { return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
   dlg(); await load(); openGroup(gid);
 }
-async function delPost(id) { if (confirm('Delete this post?')) { await del('posts', id); load(); } }
+async function delPost(id) {
+  if (!confirm('Delete this post?')) return;
+  const p = S.posts.find(x => x.id === id);
+  await q(sb.from('posts').delete().eq('id', id));
+  await sb.storage.from('proof').remove([p.path]);
+  load();
+}
 
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; S.open = null; render(); scrollTo(0, 0); });
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; S.open = null; render(); scrollTo(0, 0); load(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me()) load(); }); // refresh when you come back to the app
 load();
 
 // ---- self-check: open index.html#test and look at the console
 if (location.hash === '#test') {
   const g = {id: 1, quotas: [{metric: 'pushups', target: 50}]}, d = today();
-  S.posts = [{groupId: 1, userId: 1, metric: 'pushups', amount: 20, day: d}, {groupId: 1, userId: 1, metric: 'pushups', amount: 30, day: d},
-    {groupId: 1, userId: 1, metric: 'pushups', amount: 99, day: 'Mon Jan 01 2024'}, {groupId: 1, userId: 2, metric: 'pushups', amount: 5, day: d}, {groupId: 2, userId: 1, metric: 'pushups', amount: 7, day: d}];
-  console.assert(done(g, 1, 'pushups') === 50, 'sums only today, this user, this group');
-  console.assert(done(g, 1, 'situps') === 0, 'other metric is 0');
-  console.assert(hit(g, 1) && !hit(g, 2), 'hit() compares against every quota');
+  S.posts = [{groupId: 1, userId: 'a', metric: 'pushups', amount: 20, day: d}, {groupId: 1, userId: 'a', metric: 'pushups', amount: 30, day: d},
+    {groupId: 1, userId: 'a', metric: 'pushups', amount: 99, day: '2024-01-01'}, {groupId: 1, userId: 'b', metric: 'pushups', amount: 5, day: d}, {groupId: 2, userId: 'a', metric: 'pushups', amount: 7, day: d}];
+  console.assert(done(g, 'a', 'pushups') === 50, 'sums only today, this user, this group');
+  console.assert(done(g, 'a', 'situps') === 0, 'other metric is 0');
+  console.assert(hit(g, 'a') && !hit(g, 'b'), 'hit() compares against every quota');
+  console.assert(/^\d{4}-\d{2}-\d{2}$/.test(d), 'today() is YYYY-MM-DD');
   console.log('self-check ok');
 }
 </script>
