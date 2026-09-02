@@ -15,6 +15,15 @@ One static page (`index.html`) talking straight to Supabase (accounts, database,
 
 Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it behaves like an app.
 
+## Updating the database for the redesign
+
+The redesign adds comments. In Supabase → SQL Editor, paste and run the block at the bottom of `schema.sql` (from the line `-- v2 (redesign)` down). Until then the app shows "Comments are off".
+
+## Branches
+
+- `main` is the published app (what the live URL serves).
+- `redesign` is the unpublished work. Merge it into `main` and deploy to publish.
+
 ## Limits worth knowing (free tiers)
 
 - Videos: 50 MB per file (set in `schema.sql`), 1 GB storage total on Supabase free. Keep clips short.
