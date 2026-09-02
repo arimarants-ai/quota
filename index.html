@@ -8,12 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Unbounded:wght@800&display=swap">
 <style>
-:root{--bg:#fff;--card:#fff;--line:#e3ebee;--text:#12212b;--muted:#5e7580;--soft:#eef3f5;--teal:#0f4c5c;--teal2:#a9d3dc;--acc:#ff8a3d;--ok:#0f4c5c;--okbg:#e2eff2;--todo:#cfd9dd;--sheet:#fff}
-:root[data-theme=dark]{--bg:#0b0b0d;--card:#16161b;--line:#26262d;--text:#f2f2f5;--muted:#9a9aa6;--soft:#1f1f25;--okbg:#0f2a31;--todo:#2c2c34;--sheet:#16161b}
+:root{--bg:#fff;--card:#fff;--line:#e3ebee;--text:#12212b;--muted:#5e7580;--soft:#eef3f5;--teal:#0f4c5c;--teal2:#a9d3dc;--acc:#ff8a3d;--ok:#0f4c5c;--okbg:#e2eff2;--todo:#cfd9dd;--sheet:#fff;--barbg:rgba(255,255,255,.9)}
+:root[data-theme=dark]{--bg:#0b0b0d;--card:#16161b;--line:#26262d;--text:#f2f2f5;--muted:#9a9aa6;--soft:#1f1f25;--okbg:#0f2a31;--todo:#2c2c34;--sheet:#16161b;--barbg:rgba(22,22,27,.92)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Plus Jakarta Sans",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
-main{max-width:600px;margin:0 auto;padding:0 0 40px;position:relative;min-height:100vh}
+main{max-width:600px;margin:0 auto;padding:0 0 120px;position:relative;min-height:100vh}
 .num{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-variant-numeric:tabular-nums}
 h2{margin:0;font-size:17px;font-weight:800}
 h3{margin:22px 18px 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
@@ -35,19 +35,21 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .grow{flex:1;min-width:0}
 .muted{color:var(--muted);font-size:13px;font-weight:600}
 /* header block */
-.hdr{background:var(--teal);color:#fff;padding:16px 20px 20px;border-radius:0 0 30px 30px}
+.hdr{background:var(--teal);color:#fff;padding:16px 20px 22px;border-radius:0 0 30px 30px}
 .hdr .top{display:flex;justify-content:space-between;align-items:center}
 .logo{font-weight:800;font-size:20px;letter-spacing:-.02em}
 .hdr .date{font-size:13px;color:var(--teal2);font-weight:600}
-.hdr .theme{background:rgba(255,255,255,.14);color:#fff;padding:6px 9px;border-radius:999px;font-size:14px;line-height:1}
-.hdr .big{display:flex;align-items:baseline;gap:10px;margin-top:16px}
+.hdr h1{margin:14px 0 0;font-size:28px;font-weight:800;letter-spacing:-.02em}
+.hdr .big{display:flex;align-items:baseline;gap:10px;margin-top:14px}
 .hdr .big b{font-size:72px;letter-spacing:-.05em;line-height:.9}
 .hdr .big div{font-weight:700;font-size:15px;line-height:1.3}
 .hdr .big div small{display:block;color:var(--teal2);font-weight:600;font-size:13px}
-.seg{margin-top:18px;background:rgba(255,255,255,.14);border-radius:999px;padding:4px;display:grid;grid-template-columns:1fr 1fr 1fr}
-.seg button{text-align:center;padding:9px 0;font-weight:700;font-size:13px;border-radius:999px;color:#cfe8ee;background:none}
-.seg button.on{background:#fff;color:var(--teal)}
-.seg button:active{transform:none}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-top:16px}
+.mini div{font-size:12px;font-weight:600;color:var(--teal2)}
+.mini div b{color:#fff;font-weight:800}
+.mini i{display:block;height:4px;background:rgba(255,255,255,.18);margin-top:6px;border-radius:2px;overflow:hidden}
+.mini i::after{content:"";display:block;height:100%;background:var(--acc);width:var(--w)}
+.mini i.done::after{background:#fff}
 /* cards */
 .card{margin:14px 18px;border:1px solid var(--line);border-radius:18px;padding:16px;background:var(--card)}
 .card h2{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -62,14 +64,23 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .ppl .av{border:2px solid var(--card);margin-left:-8px}
 .ppl .av:first-child{margin-left:0}
 .ppl span{margin-left:10px}
-.av{width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:800;font-size:12px;flex:none;text-transform:uppercase}
+.av{width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:800;font-size:12px;flex:none;text-transform:uppercase;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
 .av.todo{background:var(--todo);color:var(--text)}
+.av.todo img{opacity:.45}
 .av.lg{width:40px;height:40px;font-size:15px}
+.av.xl{width:76px;height:76px;font-size:30px}
 .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--soft);font-size:12px;font-weight:700;white-space:nowrap}
 .chip.ok{background:var(--okbg);color:var(--ok)}
-.chip.acc{background:var(--acc);color:#fff}
 .empty{text-align:center;padding:28px 16px}
 .empty b{display:block;font-size:16px;margin-bottom:4px}
+.list{padding:4px 16px}
+.list .row{padding:10px 0;border-top:1px solid var(--line)}
+.list .row:first-child{border-top:0}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px;text-align:center}
+.stats div{background:var(--soft);border-radius:12px;padding:10px 4px}
+.stats b{display:block;font-size:20px;color:var(--teal)}
+.stats small{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 /* posts */
 .post{padding:0;overflow:hidden}
 .reel{position:relative;aspect-ratio:4/5;background:#000;color:#fff}
@@ -96,22 +107,29 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .cin input{padding:10px 12px;font-size:14px}
 .cin button{padding:0 14px}
 .postfoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-/* fab + sheets */
-.fab{position:fixed;right:max(18px,calc(50% - 300px + 18px));bottom:calc(18px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:30px;font-weight:800;box-shadow:0 10px 24px -8px rgba(255,138,61,.8);z-index:5;padding:0}
+/* bubble bar */
+.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
+.bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:999px}
+.bar button.on{color:var(--teal);background:var(--soft)}
+:root[data-theme=dark] .bar button.on{color:#fff}
+.bar button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bar .add{width:54px;height:54px;border-radius:50%;background:var(--acc);color:#fff;font-size:30px;font-weight:800;display:grid;place-items:center;margin:-16px 6px 0;padding:0;box-shadow:0 10px 24px -8px rgba(255,138,61,.9)}
+.bar .add:disabled{opacity:.4}
 dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24px 0 0;width:100%;max-width:100%;margin:auto 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
 /* auth */
-.auth{max-width:400px;margin:0 auto}
-.auth .hdr{border-radius:0 0 30px 30px;padding-bottom:28px}
-.auth .hdr .logo{font-size:36px}
-.auth .hdr p{color:var(--teal2);font-weight:600;margin-top:6px}
+.auth{max-width:400px;margin:12vh auto 0;padding:0 18px;text-align:center}
+.auth .word{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:40px;letter-spacing:-.03em;color:var(--teal)}
+.auth p{color:var(--muted);font-weight:600;margin:6px 0 18px}
+.auth .card{margin:0;text-align:left}
 .back{margin:12px 18px 0}
 </style>
 </head>
 <body>
 <main id="app"></main>
+<nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
@@ -123,18 +141,19 @@ const emailFor = u => `${u}@users.quota.local`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const q = async p => { const {data, error} = await p; if (error) { alert(error.message); throw error; } return data; };
 
-// ---- theme
+// ---- theme (light unless you switch)
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t; };
-setTheme(localStorage.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-const toggleTheme = () => { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); render(); };
-const themeBtn = () => `<button class="theme" onclick="toggleTheme()" title="Light / dark">${document.documentElement.dataset.theme === 'dark' ? '☀' : '☾'}</button>`;
+setTheme(localStorage.theme || 'light');
+const isDark = () => document.documentElement.dataset.theme === 'dark';
+const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 
 // ---- state + helpers
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'home', open: null, noComments: false};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
+const name = u => u.display_name || u.username;
 const ymd = d => d.toLocaleDateString('en-CA');
 const today = () => ymd(new Date());
 const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
@@ -145,12 +164,13 @@ const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.i
 const streak = (g, uid) => { const days = hitDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
 const best = (g, uid) => { const days = [...hitDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
 const myGroups = () => S.groups.filter(g => g.members.includes(me().id));
-const avatar = (u, cls = '') => `<div class="avatar av ${cls}">${esc(u.username[0] || '?')}</div>`;
+const avatarUrl = u => u.avatar_path ? sb.storage.from('avatars').getPublicUrl(u.avatar_path).data.publicUrl : '';
+const av = (u, cls = '') => `<div class="av ${cls}">${u.avatar_path ? `<img src="${esc(avatarUrl(u))}" alt="">` : esc(name(u)[0] || '?')}</div>`;
 const quotaText = g => g.quotas.map(qq => `${qq.target} ${esc(qq.metric)}`).join(' · ');
 const time = ts => new Date(ts).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
 const dayLabel = d => d === today() ? 'Today' : d === daysAgo(1) ? 'Yesterday' : new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-const names = ids => { const n = ids.map(id => id === me().id ? 'you' : user(id).username); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
+const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(user(id))); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
 async function load() {
   const {data: {session}} = await sb.auth.getSession();
@@ -173,55 +193,57 @@ async function load() {
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body}));
   const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId)])];
-  S.profiles = Object.fromEntries((await q(sb.from('profiles').select('id,username').in('id', ids))).map(p => [p.id, p]));
+  S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
   render();
 }
 function render() {
   const m = me();
+  $('#bar').hidden = !m;
   if (!m) return $('#app').innerHTML = authView();
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
-  $('#app').innerHTML = header() + (g ? groupView(g) : {home: homeView, groups: groupsView, me: meView}[S.tab]()) + ((S.tab === 'home' && myGroups().length) || g ? `<button class="fab" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof">+</button>` : '');
+  $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+  const ico = {feed: '<path d="M4 6h16M4 12h16M4 18h10"/>', groups: '<circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/>', friends: '<circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/>', profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'};
+  const tab = (t, l) => `<button class="${S.tab === t && !S.open ? 'on' : ''}" onclick="go('${t}')"><svg viewBox="0 0 24 24">${ico[t]}</svg>${l}</button>`;
+  $('#bar').innerHTML = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof" ${myGroups().length ? '' : 'disabled'}>+</button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
 }
 
 // ---- views
-function header() {
+const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
+function feedView() {
   const m = me(), gs = myGroups();
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
-  const metrics = gs.flatMap(g => g.quotas.map(qq => done(g, m.id, qq.metric) >= qq.target)), doneN = metrics.filter(Boolean).length;
-  return `<div class="hdr"><div class="top"><div class="logo">Quota</div><div class="row"><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>${themeBtn()}</div></div>
-    <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${metrics.length ? ` · ${doneN} of ${metrics.length} quota${metrics.length === 1 ? '' : 's'} done` : ''}</small></div></div>
-    <div class="seg">${[['home', 'Today'], ['groups', 'Groups'], ['me', 'Friends']].map(([t, l]) => `<button class="${S.tab === t && !S.open ? 'on' : ''}" onclick="go('${t}')">${l}</button>`).join('')}</div></div>`;
+  const lines = gs.flatMap(g => g.quotas.map(qq => ({g, qq, d: done(g, m.id, qq.metric)})));
+  const doneN = lines.filter(l => l.d >= l.qq.target).length;
+  return `<div class="hdr"><div class="top"><div class="logo">Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
+    <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
+    ${lines.length ? `<div class="mini">${lines.map(l => `<div>${esc(l.qq.metric)}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(l.g.name)}</span>` : ''}<br><b>${l.d}</b>/${l.qq.target}<i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i></div>`).join('')}</div>` : ''}</div>`
+    + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
-function groupCard(g, full) {
+function groupCard(g) {
   const m = me(), doneIds = g.members.filter(id => hit(g, id)), st = streak(g, m.id);
-  return `<div class="card" ${full ? '' : `onclick="openGroup(${g.id})" style="cursor:pointer"`}><h2>${esc(g.name)}<span>${doneIds.length} of ${g.members.length} done${st ? ` · ${st} day streak` : ''}</span></h2>
+  return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><h2>${esc(g.name)}<span>${doneIds.length} of ${g.members.length} done${st ? ` · ${st} day streak` : ''}</span></h2>
     ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="width:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
-    <div class="ppl">${g.members.map(id => `<div class="av ${hit(g, id) ? '' : 'todo'}" title="${esc(user(id).username)}">${esc(user(id).username[0])}</div>`).join('')}<span class="muted">${doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
-}
-function homeView() {
-  const gs = myGroups();
-  if (!gs.length) return `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite.</p></div>`;
-  return gs.map(g => groupCard(g)).join('') + `<h3>Proof</h3>` + feed(S.posts, true);
+    <div class="ppl">${g.members.map(id => av(user(id), hit(g, id) ? '' : 'todo')).join('')}<span class="muted">${doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
 }
 function groupsView() {
   const mine = myGroups(), invites = S.invites.filter(i => i.type === 'group' && i.to === me().id && S.groups.some(g => g.id === i.groupId));
-  return (invites.length ? `<h3>Invites</h3>` + invites.map(i => { const g = S.groups.find(x => x.id === i.groupId); return `<div class="card"><div class="row">${avatar(user(i.from))}<div class="grow"><b>${esc(g.name)}</b><div class="muted">@${esc(user(i.from).username)} invited you · ${quotaText(g)}</div></div></div>
+  return smallHdr('Groups') + (invites.length ? `<h3>Invites</h3>` + invites.map(i => { const g = S.groups.find(x => x.id === i.groupId); return `<div class="card"><div class="row">${av(user(i.from), 'lg')}<div class="grow"><b>${esc(g.name)}</b><div class="muted">${esc(name(user(i.from)))} invited you · ${quotaText(g)}</div></div></div>
       <div class="row" style="margin-top:12px"><button class="small primary grow" onclick="accept(${i.id})">Accept</button><button class="small grow" onclick="decline(${i.id})">Decline</button></div></div>`; }).join('') : '')
     + `<div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">My groups</h3><button class="small teal" onclick="groupDlg()">＋ New group</button></div>`
-    + (mine.length ? mine.map(g => groupCard(g)).join('') : `<div class="card empty"><b>No groups yet</b><p class="muted">Start one and invite your friends.</p></div>`);
+    + (mine.length ? mine.map(groupCard).join('') : `<div class="card empty"><b>No groups yet</b><p class="muted">Start one and invite your friends.</p></div>`);
 }
 function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
-  return `<button class="ghost back" onclick="S.open=null;render()">‹ Groups</button>
-  <div class="card"><h2>${esc(g.name)}<span>${plural(g.members.length, 'member')}</span></h2>${g.goal ? `<p style="margin-top:6px;font-weight:600">${esc(g.goal)}</p>` : ''}
-    <div class="row wrap" style="margin-top:10px">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}</div>
+  return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="S.open=null;render()">‹ Groups</button>
+  <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
+    <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}</div>
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div></div>
   <h3>Today</h3>
-  <div class="card" style="padding:6px 16px">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id); return `<div class="row" style="padding:10px 0;border-top:1px solid var(--line)"><div class="av ${ok ? '' : 'todo'}">${esc(user(id).username[0])}</div><div class="grow"><b>@${esc(user(id).username)}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('').replace('border-top:1px solid var(--line)', '')}</div>
-  ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => '@' + esc(user(i.to).username)).join(', ')}</p>` : ''}
+  <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
+  ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
   <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
 function feed(ps, showGroup) {
@@ -230,39 +252,51 @@ function feed(ps, showGroup) {
   return ps.map(p => {
     const h = p.day !== day ? `<p class="muted" style="margin:14px 18px 0">${dayLabel(p.day)}</p>` : ''; day = p.day;
     const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
-    return h + `<div class="card post"><div class="reel" id="reel${p.id}">
+    return h + `<div class="card post"><div class="reel">
       <video playsinline preload="metadata" src="${esc(p.url)}" onclick="if(!this.controls){this.controls=true;this.play()}" onplay="this.parentNode.classList.add('playing')" onpause="this.controls=false;this.parentNode.classList.remove('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
-      <div class="ov top"><div class="av">${esc(u.username[0])}</div><div><div class="who">${esc(u.username)}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${p.amount} ${esc(p.metric)}</div></div>
+      <div class="ov top">${av(u)}<div><div class="who">${esc(name(u))}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${p.amount} ${esc(p.metric)}</div></div>
       <div class="play"><i></i></div>
       <div class="ov bot"><div class="cap">${esc(p.caption)}</div></div></div>
-      <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(user(c.userId).username)}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
+      <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(name(user(c.userId)))}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
       ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>` : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})"><input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off"><button class="primary">Send</button></form>`}
       ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div></div>`;
   }).join('');
 }
-function meView() {
+function friendsView() {
   const m = me(), incoming = S.invites.filter(i => i.type === 'friend' && i.to === m.id), outgoing = S.invites.filter(i => i.type === 'friend' && i.from === m.id);
-  const person = (id, extra = '') => `<div class="card row">${avatar(user(id), 'lg')}<b class="grow">@${esc(user(id).username)}</b>${extra}</div>`;
-  return `<div class="card row">${avatar(m, 'lg')}<div class="grow"><b style="font-size:16px">@${esc(m.username)}</b><div class="muted">${plural(S.friends.length, 'friend')} · ${plural(myGroups().length, 'group')}</div></div><button class="small" onclick="logout()">Log out</button></div>
-  <div class="card"><b>Add a friend</b><form onsubmit="event.preventDefault();sendFriend(this)" class="row" style="margin-top:10px"><input name="username" placeholder="@username" autocapitalize="none" autocomplete="off" required><button class="teal">Invite</button></form></div>
-  ${incoming.length ? `<h3>Requests</h3>` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') : ''}
-  <h3>Your friends</h3>${S.friends.length ? S.friends.map(id => person(id)).join('') : `<div class="card empty"><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
-  ${outgoing.length ? `<h3>Sent</h3>` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') : ''}`;
+  const person = (id, extra = '') => { const u = user(id); return `<div class="row">${av(u, 'lg')}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div>${extra}</div>`; };
+  return smallHdr('Friends') + `<div class="card"><b>Add a friend</b><form onsubmit="event.preventDefault();sendFriend(this)" class="row" style="margin-top:10px"><input name="username" value="@" oninput="if(!this.value.startsWith('@'))this.value='@'+this.value.replace(/@/g,'')" autocapitalize="none" autocomplete="off" spellcheck="false" required><button class="teal">Invite</button></form><p class="muted" style="margin-top:8px">They'll see your request under Friends and can accept it.</p></div>
+  ${incoming.length ? `<h3>Requests</h3><div class="card list">` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') + `</div>` : ''}
+  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
+  ${outgoing.length ? `<h3>Sent</h3><div class="card list">` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') + `</div>` : ''}`;
+}
+function profileView() {
+  const m = me(), gs = myGroups();
+  const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id))), postsN = S.totals.filter(t => t.u === m.id).length;
+  return smallHdr('Profile') + `<div class="card"><div class="row">${av(m, 'xl')}<div class="grow"><b style="font-size:20px;display:block">${esc(name(m))}</b><span class="muted">@${esc(m.username)}</span></div></div>
+    <div class="stats"><div><b class="num">${cur}</b><small>streak</small></div><div><b class="num">${bst}</b><small>best</small></div><div><b class="num">${postsN}</b><small>proofs</small></div></div>
+    <div class="row" style="margin-top:14px"><button class="teal grow" onclick="profileDlg()">Edit profile</button><button onclick="toggleTheme()">${isDark() ? 'Light mode' : 'Dark mode'}</button></div></div>
+  <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Your groups</h3><button class="ghost small" onclick="go('groups')">See all ›</button></div>
+  ${gs.length ? `<div class="card list">` + gs.map(g => `<div class="row"><div class="grow"><b>${esc(g.name)}</b><div class="muted">${plural(g.members.length, 'member')} · ${quotaText(g)}${streak(g, m.id) ? ` · ${streak(g, m.id)} day streak` : ''}</div></div><button class="small" onclick="openGroup(${g.id})">Open</button><button class="ghost small" onclick="leaveGroup(${g.id})">Leave</button></div>`).join('') + `</div>` : `<div class="card empty"><b>No groups yet</b></div>`}
+  <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Friends</h3><button class="ghost small" onclick="go('friends')">Manage ›</button></div>
+  <div class="card row wrap" style="gap:6px">${S.friends.length ? S.friends.map(id => `<span class="chip row" style="gap:6px;padding:4px 10px 4px 4px">${av(user(id))}${esc(name(user(id)))}</span>`).join('') : `<span class="muted">No friends yet</span>`}</div>
+  <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>`;
 }
 function authView() {
-  return `<div class="auth"><div class="hdr"><div class="logo">Quota</div><p>Daily goals with friends. Proof or it didn't happen.</p></div>
+  return `<div class="auth"><div class="word">Quota</div><p>Daily goals with friends. Proof or it didn't happen.</p>
     <div class="card"><form onsubmit="event.preventDefault();auth(this,event)">
     <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
     <label>Password</label><input name="password" type="password" required autocomplete="current-password" minlength="6" placeholder="••••••••">
     <div class="row" style="margin-top:18px"><button class="primary grow" value="login">Log in</button><button class="grow" value="signup">Create account</button></div></form></div>
-    <div style="text-align:center;margin-top:8px"><button class="ghost" onclick="toggleTheme()">${document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode'}</button></div></div>`;
+    <div style="margin-top:12px"><button class="ghost" onclick="toggleTheme()">${isDark() ? 'Light mode' : 'Dark mode'}</button></div></div>`;
 }
 
 // ---- dialogs
 function dlg(html) { const d = $('#dlg'); if (!html) return d.close(); d.innerHTML = html; d.showModal(); }
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
-  const pick = gs.length > 1 && !gid ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
+  if (!g) return;
+  const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
     <label>Video proof <span style="font-weight:500">(under 50 MB, keep it short)</span></label><input name="video" type="file" accept="video/*" required>
@@ -281,8 +315,16 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
 function inviteDlg(gid) {
   const g = S.groups.find(x => x.id === gid), pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
   const list = S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
-  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${avatar(user(id), 'lg')}<b class="grow">@${esc(user(id).username)}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
+  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
     : `<p class="muted" style="margin-top:10px">All your friends are in this group or already invited. Add more under Friends.</p>`}<button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
+}
+function profileDlg() {
+  const m = me();
+  dlg(`<h2>Edit profile</h2><form onsubmit="event.preventDefault();saveProfile(this)">
+    <div class="row" style="margin-top:12px">${av(m, 'xl')}<div class="grow"><label style="margin-top:0">Profile picture</label><input name="photo" type="file" accept="image/*"></div></div>
+    <label>Display name</label><input name="display_name" value="${esc(m.display_name || '')}" placeholder="${esc(m.username)}" maxlength="40">
+    <p class="muted" style="margin-top:8px">Your username @${esc(m.username)} stays the same. That's what friends use to find you.</p>
+    <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
 
 // ---- actions
@@ -302,30 +344,48 @@ async function auth(f, e) {
       const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
       if (error) return alert('Wrong username or password');
     }
-    S.tab = 'home'; await load();
+    S.tab = 'feed'; await load();
   } finally { render(); }
 }
-async function logout() { await sb.auth.signOut(); S.open = null; S.tab = 'home'; load(); }
+async function logout() { await sb.auth.signOut(); S.open = null; S.tab = 'feed'; load(); }
 async function sendFriend(f) {
-  const name = f.username.value.trim().toLowerCase().replace(/^@/, ''), m = me();
-  const u = await q(sb.from('profiles').select('id,username').eq('username', name).maybeSingle());
+  const uname = f.username.value.trim().toLowerCase().replace(/^@/, ''), m = me();
+  if (!uname) return alert('Type a username');
+  const u = await q(sb.from('profiles').select('id,username').eq('username', uname).maybeSingle());
   if (!u) return alert('No user with that username');
   if (u.id === m.id) return alert("That's you");
   if (S.friends.includes(u.id)) return alert('Already friends');
   if (S.invites.some(i => i.type === 'friend' && ((i.from === m.id && i.to === u.id) || (i.from === u.id && i.to === m.id)))) return alert('A request is already pending');
-  await q(sb.from('invites').insert({type: 'friend', from_user: m.id, to_user: u.id})); f.reset(); load();
+  await q(sb.from('invites').insert({type: 'friend', from_user: m.id, to_user: u.id})); load();
 }
 async function accept(id) { await q(sb.rpc('accept_invite', {invite_id: id})); load(); }
 async function decline(id) { await q(sb.from('invites').delete().eq('id', id)); load(); }
+async function unfriend(id) { if (!confirm(`Remove ${name(user(id))} from your friends?`)) return; const [a, b] = [me().id, id].sort(); await q(sb.from('friendships').delete().eq('a', a).eq('b', b)); load(); }
+async function leaveGroup(gid) { const g = S.groups.find(x => x.id === gid); if (!confirm(`Leave ${g.name}? Your posts stay, but you won't see the group anymore.`)) return; await q(sb.from('group_members').delete().eq('group_id', gid).eq('user_id', me().id)); load(); }
 async function inviteToGroup(gid, uid) { await q(sb.from('invites').insert({type: 'group', from_user: me().id, to_user: uid, group_id: gid})); dlg(); load(); }
 async function saveGroup(f, id) {
   const fd = new FormData(f), metrics = fd.getAll('metric'), targets = fd.getAll('target');
-  const name = fd.get('name').trim(), goal = fd.get('goal').trim();
+  const gname = fd.get('name').trim(), goal = fd.get('goal').trim();
   const quotas = metrics.map((m, i) => ({metric: m.trim(), target: +targets[i]})).filter(qq => qq.metric && qq.target > 0);
   if (!quotas.length) return alert('Add at least one metric');
   working(f, 'Saving…');
-  const gid = id ? (await q(sb.from('groups').update({name, goal, quotas}).eq('id', id)), id) : await q(sb.rpc('create_group', {p_name: name, p_goal: goal, p_quotas: quotas}));
+  const gid = id ? (await q(sb.from('groups').update({name: gname, goal, quotas}).eq('id', id)), id) : await q(sb.rpc('create_group', {p_name: gname, p_goal: goal, p_quotas: quotas}));
   dlg(); await load(); openGroup(gid);
+}
+async function saveProfile(f) {
+  const fd = new FormData(f), photo = fd.get('photo'), display_name = fd.get('display_name').trim() || null, patch = {display_name};
+  working(f, 'Saving…');
+  try {
+    if (photo && photo.size) {
+      if (photo.size > 5 * 1024 * 1024) throw alert('Picture must be under 5 MB');
+      patch.avatar_path = `${me().id}/${Date.now()}.${(photo.name.split('.').pop() || 'jpg').toLowerCase()}`; // new file name each time so browsers don't show a cached old picture
+      await q(sb.storage.from('avatars').upload(patch.avatar_path, photo, {contentType: photo.type || 'image/jpeg'}));
+      if (me().avatar_path) sb.storage.from('avatars').remove([me().avatar_path]);
+    }
+    const {error} = await sb.from('profiles').update(patch).eq('id', me().id);
+    if (error) throw alert(error.message.includes('column') ? 'Profile editing needs the v3 block of schema.sql. Run it in Supabase, then try again.' : error.message);
+  } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
+  dlg(); load();
 }
 async function addPost(f, gid) {
   const fd = new FormData(f), video = fd.get('video');
@@ -367,6 +427,7 @@ if (location.hash === '#test') {
   console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
   console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
   console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
+  console.assert(name({username: 'sam'}) === 'sam' && name({username: 'sam', display_name: 'Sam D'}) === 'Sam D', 'display name falls back to username');
   console.log('self-check ok');
 }
 </script>

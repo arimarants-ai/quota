@@ -154,3 +154,21 @@ create policy "members see comments" on public.comments for select
 create policy "members comment" on public.comments for insert
   with check (user_id = auth.uid() and public.is_member((select group_id from public.posts where id = post_id)));
 create policy "delete own comments" on public.comments for delete using (user_id = auth.uid());
+
+-- ============================================================
+-- v3 (profile): display name + profile picture. Safe to run on an existing project.
+-- ============================================================
+alter table public.profiles add column if not exists display_name text check (length(display_name) between 1 and 40);
+alter table public.profiles add column if not exists avatar_path text;
+drop policy if exists "edit own profile" on public.profiles;
+create policy "edit own profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('avatars', 'avatars', true, 5242880, array['image/*']) on conflict (id) do nothing;
+drop policy if exists "avatars are public" on storage.objects;
+drop policy if exists "upload own avatar" on storage.objects;
+drop policy if exists "replace own avatar" on storage.objects;
+drop policy if exists "delete own avatar" on storage.objects;
+create policy "avatars are public" on storage.objects for select using (bucket_id = 'avatars');
+create policy "upload own avatar" on storage.objects for insert with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "replace own avatar" on storage.objects for update using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "delete own avatar" on storage.objects for delete using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
