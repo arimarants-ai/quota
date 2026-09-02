@@ -133,3 +133,24 @@ create policy "members upload own proof" on storage.objects for insert
   with check (bucket_id = 'proof' and (storage.foldername(name))[2] = auth.uid()::text and public.is_member(((storage.foldername(name))[1])::bigint));
 create policy "delete own proof" on storage.objects for delete
   using (bucket_id = 'proof' and (storage.foldername(name))[2] = auth.uid()::text);
+
+-- ============================================================
+-- v2 (redesign): comments on posts. Safe to run on an existing project.
+-- ============================================================
+create table if not exists public.comments (
+  id bigint generated always as identity primary key,
+  post_id bigint not null references public.posts on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  body text not null check (length(body) between 1 and 500),
+  created_at timestamptz default now()
+);
+create index if not exists comments_post on public.comments (post_id);
+alter table public.comments enable row level security;
+drop policy if exists "members see comments" on public.comments;
+drop policy if exists "members comment" on public.comments;
+drop policy if exists "delete own comments" on public.comments;
+create policy "members see comments" on public.comments for select
+  using (public.is_member((select group_id from public.posts where id = post_id)));
+create policy "members comment" on public.comments for insert
+  with check (user_id = auth.uid() and public.is_member((select group_id from public.posts where id = post_id)));
+create policy "delete own comments" on public.comments for delete using (user_id = auth.uid());

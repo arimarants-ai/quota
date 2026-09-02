@@ -3,142 +3,176 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#0f4c5c">
 <title>Quota</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Unbounded:wght@800&display=swap">
 <style>
-:root{--bg:#f4f5f7;--card:#fff;--line:#e6e8ec;--text:#141820;--muted:#6b7280;--soft:#f1f2f5;
-  --a1:#ff5f3d;--a2:#ff2d78;--grad:linear-gradient(135deg,var(--a1),var(--a2));--ok:#16a34a;--okbg:#e6f7ec;--miss:#dc2626;--missbg:#fdecec;
-  --hdr:rgba(255,255,255,.88);--ring:#fff;--r:18px;--shadow:0 1px 2px rgba(20,24,32,.04),0 8px 24px -12px rgba(20,24,32,.12)}
-:root[data-theme=dark]{--bg:#0f1115;--card:#181b22;--line:#262a33;--text:#eef0f4;--muted:#8b93a3;--soft:#23272f;--okbg:#0f3d22;--ok:#4ade80;--missbg:#3f1414;--miss:#fca5a5;--hdr:rgba(24,27,34,.88);--ring:#181b22;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.6)}
+:root{--bg:#fff;--card:#fff;--line:#e3ebee;--text:#12212b;--muted:#5e7580;--soft:#eef3f5;--teal:#0f4c5c;--teal2:#a9d3dc;--acc:#ff8a3d;--ok:#0f4c5c;--okbg:#e2eff2;--todo:#cfd9dd;--sheet:#fff}
+:root[data-theme=dark]{--bg:#0b0b0d;--card:#16161b;--line:#26262d;--text:#f2f2f5;--muted:#9a9aa6;--soft:#1f1f25;--okbg:#0f2a31;--todo:#2c2c34;--sheet:#16161b}
 *{box-sizing:border-box}
 html{background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
-main{max-width:600px;margin:0 auto;padding:12px 14px 96px}
-h1{font-size:26px;letter-spacing:-.02em;margin:6px 0 12px}
-h2{font-size:22px;letter-spacing:-.01em;margin:0 0 6px}
-h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 10px}
-p{margin:0 0 8px}
-a{color:var(--a1)}
-.card{background:var(--card);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Plus Jakarta Sans",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+main{max-width:600px;margin:0 auto;padding:0 0 40px;position:relative;min-height:100vh}
+.num{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-variant-numeric:tabular-nums}
+h2{margin:0;font-size:17px;font-weight:800}
+h3{margin:22px 18px 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+p{margin:0}
+button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:11px 16px;background:var(--soft);color:var(--text);cursor:pointer;white-space:nowrap}
+button:active{transform:scale(.97)}
+button.primary{background:var(--acc);color:#fff}
+button.teal{background:var(--teal);color:#fff}
+button.small{padding:7px 12px;font-size:13px}
+button.ghost{background:none;color:var(--muted);padding:6px 4px;font-weight:600}
+button:disabled{opacity:.6}
+input,select{font:inherit;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
+input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,76,92,.15)}
+input[type=file]{padding:10px;font-size:14px}
+label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 6px}
 .row{display:flex;gap:10px;align-items:center}
 .wrap{flex-wrap:wrap}
 .between{justify-content:space-between}
 .grow{flex:1;min-width:0}
-.muted{color:var(--muted);font-size:14px}
-button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:11px 18px;background:var(--soft);color:var(--text);cursor:pointer;white-space:nowrap;transition:transform .08s,filter .15s}
-button:active{transform:scale(.97)}
-button.primary{background:var(--grad);color:#fff;box-shadow:0 6px 16px -6px rgba(255,61,110,.6)}
-button.small{padding:7px 13px;font-size:13px}
-button.ghost{background:none;color:var(--muted);padding:6px 8px;font-weight:500}
-button.theme{background:var(--soft);padding:6px 9px;font-size:16px;line-height:1}
-input,select,textarea{font:inherit;width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--soft);color:var(--text);min-width:0;outline:none}
-input:focus,select:focus{border-color:var(--a1);background:var(--card);box-shadow:0 0 0 3px rgba(255,95,61,.15)}
-input[type=file]{padding:10px;font-size:14px}
-label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 6px}
-header{position:sticky;top:0;z-index:5;background:var(--hdr);backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line)}
-header .in{max-width:600px;margin:0 auto;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
-.logo{font-weight:800;font-size:22px;letter-spacing:-.03em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-nav{position:fixed;bottom:0;left:0;right:0;z-index:5;background:var(--hdr);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
-nav[hidden],header[hidden]{display:none}
-nav button{flex:1;border-radius:0;background:none;padding:10px 0 8px;color:var(--muted);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px}
-nav button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-nav button.on{color:var(--a1)}
-video{width:100%;border-radius:14px;background:#000;max-height:70vh;margin-top:12px;display:block}
-.bar{height:10px;background:var(--soft);border-radius:6px;overflow:hidden;margin-top:6px}
-.bar i{display:block;height:100%;background:var(--grad);border-radius:6px;transition:width .4s}
-.bar i.done{background:var(--ok)}
-.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none;text-transform:uppercase;font-size:16px}
-.avatar.lg{width:56px;height:56px;font-size:22px}
-.ring{padding:3px;border-radius:50%;background:var(--line)}
-.ring.ok{background:var(--ok)}
-.ring .avatar{border:2px solid var(--ring)}
-.chip{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--soft);font-size:12px;font-weight:600;white-space:nowrap}
+.muted{color:var(--muted);font-size:13px;font-weight:600}
+/* header block */
+.hdr{background:var(--teal);color:#fff;padding:16px 20px 20px;border-radius:0 0 30px 30px}
+.hdr .top{display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:800;font-size:20px;letter-spacing:-.02em}
+.hdr .date{font-size:13px;color:var(--teal2);font-weight:600}
+.hdr .theme{background:rgba(255,255,255,.14);color:#fff;padding:6px 9px;border-radius:999px;font-size:14px;line-height:1}
+.hdr .big{display:flex;align-items:baseline;gap:10px;margin-top:16px}
+.hdr .big b{font-size:72px;letter-spacing:-.05em;line-height:.9}
+.hdr .big div{font-weight:700;font-size:15px;line-height:1.3}
+.hdr .big div small{display:block;color:var(--teal2);font-weight:600;font-size:13px}
+.seg{margin-top:18px;background:rgba(255,255,255,.14);border-radius:999px;padding:4px;display:grid;grid-template-columns:1fr 1fr 1fr}
+.seg button{text-align:center;padding:9px 0;font-weight:700;font-size:13px;border-radius:999px;color:#cfe8ee;background:none}
+.seg button.on{background:#fff;color:var(--teal)}
+.seg button:active{transform:none}
+/* cards */
+.card{margin:14px 18px;border:1px solid var(--line);border-radius:18px;padding:16px;background:var(--card)}
+.card h2{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2 span{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+.q{margin-top:14px}
+.q .t{display:flex;justify-content:space-between;font-weight:700;font-size:14px}
+.q .t span{color:var(--muted)}
+.tr{height:10px;border-radius:6px;background:var(--soft);margin-top:6px;overflow:hidden}
+.tr i{display:block;height:100%;border-radius:6px;background:var(--acc);transition:width .4s}
+.tr i.done{background:var(--ok)}
+.ppl{display:flex;margin-top:14px;align-items:center}
+.ppl .av{border:2px solid var(--card);margin-left:-8px}
+.ppl .av:first-child{margin-left:0}
+.ppl span{margin-left:10px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:800;font-size:12px;flex:none;text-transform:uppercase}
+.av.todo{background:var(--todo);color:var(--text)}
+.av.lg{width:40px;height:40px;font-size:15px}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--soft);font-size:12px;font-weight:700;white-space:nowrap}
 .chip.ok{background:var(--okbg);color:var(--ok)}
-.chip.miss{background:var(--missbg);color:var(--miss)}
-.chip.grad{background:var(--grad);color:#fff}
-.people{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
-.people::-webkit-scrollbar{display:none}
-.person{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:600;min-width:64px;text-align:center}
+.chip.acc{background:var(--acc);color:#fff}
+.empty{text-align:center;padding:28px 16px}
+.empty b{display:block;font-size:16px;margin-bottom:4px}
+/* posts */
 .post{padding:0;overflow:hidden}
-.post .head{padding:12px 14px 0}
-.post .body{padding:0 14px 14px}
-.post video{border-radius:0;margin:12px 0 0}
-.post .foot{padding:12px 14px 14px}
-.empty{text-align:center;color:var(--muted);padding:32px 16px}
-.empty .big{font-size:40px;margin-bottom:8px}
-dialog{background:var(--card);color:var(--text);border:0;border-radius:24px 24px 0 0;width:100%;max-width:100%;margin:auto 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.15)}
-dialog::backdrop{background:rgba(20,24,32,.45);backdrop-filter:blur(2px)}
-dialog h2{margin-bottom:2px}
-@media(min-width:640px){
-  dialog{border-radius:24px;width:min(92vw,460px);margin:auto}
-  nav{position:sticky;top:57px;bottom:auto;border-top:0;border-bottom:1px solid var(--line);max-width:100%}
-  nav{justify-content:center}
-  nav button{flex:0 0 200px;flex-direction:row;gap:8px;font-size:14px;padding:12px 0}
-  main{padding-bottom:40px}
-}
+.reel{position:relative;aspect-ratio:4/5;background:#000;color:#fff}
+.reel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
+.reel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);pointer-events:none}
+.reel .ov{position:absolute;left:0;right:0;padding:14px;z-index:2;pointer-events:none}
+.reel .ov.top{top:0;display:flex;align-items:center;gap:10px;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent)}
+.reel .ov.bot{bottom:0;display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.reel .av{background:#fff;color:var(--teal);width:34px;height:34px;font-size:14px}
+.reel .who{font-weight:800;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.reel .when{font-size:12px;color:#d6e4e8}
+.reel .badge{margin-left:auto;background:var(--acc);color:#fff;font-family:Unbounded;font-weight:800;font-size:11px;padding:6px 10px;border-radius:8px;text-transform:uppercase}
+.reel .cap{font-size:15px;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.reel .play{position:absolute;inset:0;display:grid;place-items:center;z-index:1;pointer-events:none}
+.reel .play i{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.7);display:grid;place-items:center;backdrop-filter:blur(6px)}
+.reel .play i::after{content:"";border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+.reel.playing .play,.reel.playing .ov.bot,.reel.playing::after{display:none}
+.cmts{padding:10px 16px 14px}
+.c{display:flex;gap:8px;padding:7px 0;font-size:14px;align-items:flex-start}
+.c b{font-weight:800;flex:none}
+.c span{color:var(--muted);flex:1;font-weight:500}
+.c .x{background:none;padding:0 4px;color:var(--muted);font-weight:600;font-size:13px}
+.cin{display:flex;gap:8px;margin-top:6px}
+.cin input{padding:10px 12px;font-size:14px}
+.cin button{padding:0 14px}
+.postfoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+/* fab + sheets */
+.fab{position:fixed;right:max(18px,calc(50% - 300px + 18px));bottom:calc(18px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:30px;font-weight:800;box-shadow:0 10px 24px -8px rgba(255,138,61,.8);z-index:5;padding:0}
+dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24px 0 0;width:100%;max-width:100%;margin:auto 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
+dialog h2{font-size:20px;margin-bottom:2px}
+@media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
+/* auth */
+.auth{max-width:400px;margin:0 auto}
+.auth .hdr{border-radius:0 0 30px 30px;padding-bottom:28px}
+.auth .hdr .logo{font-size:36px}
+.auth .hdr p{color:var(--teal2);font-weight:600;margin-top:6px}
+.back{margin:12px 18px 0}
 </style>
 </head>
 <body>
-<header hidden><div class="in"><span class="logo">Quota</span><span id="who"></span></div></header>
-<nav hidden>
-<button data-tab="home"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today</button>
-<button data-tab="groups"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</button>
-<button data-tab="me"><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</button>
-</nav>
 <main id="app"></main>
 <dialog id="dlg"></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
-// ---- config: paste your Supabase project URL and anon (public) key here. The anon key is safe in the page; row level security does the guarding.
+// ---- config: Supabase project URL + anon (public) key. Safe in the page; row level security does the guarding.
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // ponytail: username-only login. Supabase Auth wants an email, so each account gets a synthetic one. Password reset needs real emails; add later.
 const emailFor = u => `${u}@users.quota.local`;
-
-const sb = SUPABASE_URL && supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-// every query goes through q(): unwraps {data,error}, alerts on error
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const q = async p => { const {data, error} = await p; if (error) { alert(error.message); throw error; } return data; };
 
 // ---- theme
-const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t; document.querySelector('meta[name=theme-color]').content = t === 'dark' ? '#181b22' : '#ffffff'; };
+const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t; };
 setTheme(localStorage.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 const toggleTheme = () => { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); render(); };
-const themeBtn = () => `<button class="theme" onclick="toggleTheme()" title="Toggle light/dark">${document.documentElement.dataset.theme === 'dark' ? '☀️' : '🌙'}</button>`;
+const themeBtn = () => `<button class="theme" onclick="toggleTheme()" title="Light / dark">${document.documentElement.dataset.theme === 'dark' ? '☀' : '☾'}</button>`;
 
-// ---- state
+// ---- state + helpers
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], invites: [], tab: 'home', open: null, busy: false};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'home', open: null, noComments: false};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
-const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in the phone's timezone
-const done = (g, uid, metric, day = today()) => S.posts.filter(p => p.groupId === g.id && p.userId === uid && p.metric === metric && p.day === day).reduce((a, p) => a + p.amount, 0);
-const hit = (g, uid) => g.quotas.every(q => done(g, uid, q.metric) >= q.target);
+const ymd = d => d.toLocaleDateString('en-CA');
+const today = () => ymd(new Date());
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
+const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day).reduce((a, t) => a + t.n, 0);
+const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
+// streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
+const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
+const streak = (g, uid) => { const days = hitDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
+const best = (g, uid) => { const days = [...hitDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
 const myGroups = () => S.groups.filter(g => g.members.includes(me().id));
-const hue = s => [...s].reduce((a, c) => a + c.charCodeAt(0), 0) * 47 % 360;
-const avatar = (u, cls = '') => `<div class="avatar ${cls}" style="background:linear-gradient(135deg,hsl(${hue(u.username)} 80% 58%),hsl(${hue(u.username) + 40} 80% 52%))">${esc(u.username[0] || '?')}</div>`;
-const quotaText = g => g.quotas.map(q => `${q.target} ${esc(q.metric)}`).join(' · ');
+const avatar = (u, cls = '') => `<div class="avatar av ${cls}">${esc(u.username[0] || '?')}</div>`;
+const quotaText = g => g.quotas.map(qq => `${qq.target} ${esc(qq.metric)}`).join(' · ');
 const time = ts => new Date(ts).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
-const dayLabel = d => d === today() ? 'Today' : new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+const dayLabel = d => d === today() ? 'Today' : d === daysAgo(1) ? 'Yesterday' : new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const names = ids => { const n = ids.map(id => id === me().id ? 'you' : user(id).username); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
 async function load() {
-  if (!sb) return render();
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return render(); }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
-    q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(300)),
+    q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
+    q(sb.from('posts').select('group_id,user_id,day,metric,amount')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
   ]);
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
   S.groups = groups.map(g => ({...g, members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
+  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount}));
   S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at)}));
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId)])];
+  const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
+  S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body}));
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('id,username').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
@@ -146,91 +180,96 @@ async function load() {
 }
 function render() {
   const m = me();
-  $('nav').hidden = $('header').hidden = !m;
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
-  if (!sb) return $('#app').innerHTML = `<div class="card" style="margin-top:10vh"><h2>Not connected yet</h2><p class="muted">Paste the Supabase URL and anon key into the top of index.html, then redeploy. See README.md.</p></div>`;
   if (!m) return $('#app').innerHTML = authView();
-  $('#who').innerHTML = `<span class="row">${themeBtn()}<span class="row" style="cursor:pointer" onclick="S.open=null;S.tab='me';render()"><span class="muted">@${esc(m.username)}</span>${avatar(m)}</span></span>`;
-  $('#app').innerHTML = S.open ? groupView(S.groups.find(g => g.id === S.open)) : {home: homeView, groups: groupsView, me: meView}[S.tab]();
+  const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
+  if (S.open && !g) S.open = null;
+  $('#app').innerHTML = header() + (g ? groupView(g) : {home: homeView, groups: groupsView, me: meView}[S.tab]()) + ((S.tab === 'home' && myGroups().length) || g ? `<button class="fab" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof">+</button>` : '');
 }
 
 // ---- views
-function authView() {
-  return `<div style="max-width:400px;margin:14vh auto 0;text-align:center"><div class="logo" style="font-size:44px">Quota</div><p class="muted" style="margin-bottom:20px">Daily goals with friends. Proof or it didn't happen.</p>
-    <div class="card" style="text-align:left"><form onsubmit="event.preventDefault();auth(this,event)">
-    <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
-    <label>Password</label><input name="password" type="password" required autocomplete="current-password" minlength="6" placeholder="••••••••">
-    <div class="row" style="margin-top:18px"><button class="primary grow" value="login">Log in</button><button class="grow" value="signup">Create account</button></div></form></div><div style="margin-top:14px">${themeBtn()}</div></div>`;
+function header() {
+  const m = me(), gs = myGroups();
+  const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
+  const metrics = gs.flatMap(g => g.quotas.map(qq => done(g, m.id, qq.metric) >= qq.target)), doneN = metrics.filter(Boolean).length;
+  return `<div class="hdr"><div class="top"><div class="logo">Quota</div><div class="row"><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>${themeBtn()}</div></div>
+    <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${metrics.length ? ` · ${doneN} of ${metrics.length} quota${metrics.length === 1 ? '' : 's'} done` : ''}</small></div></div>
+    <div class="seg">${[['home', 'Today'], ['groups', 'Groups'], ['me', 'Friends']].map(([t, l]) => `<button class="${S.tab === t && !S.open ? 'on' : ''}" onclick="go('${t}')">${l}</button>`).join('')}</div></div>`;
+}
+function groupCard(g, full) {
+  const m = me(), doneIds = g.members.filter(id => hit(g, id)), st = streak(g, m.id);
+  return `<div class="card" ${full ? '' : `onclick="openGroup(${g.id})" style="cursor:pointer"`}><h2>${esc(g.name)}<span>${doneIds.length} of ${g.members.length} done${st ? ` · ${st} day streak` : ''}</span></h2>
+    ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="width:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
+    <div class="ppl">${g.members.map(id => `<div class="av ${hit(g, id) ? '' : 'todo'}" title="${esc(user(id).username)}">${esc(user(id).username[0])}</div>`).join('')}<span class="muted">${doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
 }
 function homeView() {
-  const gs = myGroups(), m = me();
-  const head = `<h1>Today <span class="muted" style="font-weight:500;font-size:15px">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></h1>`;
-  if (!gs.length) return head + `<div class="card empty"><div class="big">🏁</div><b>No groups yet</b><p class="muted">Make one under Groups or accept an invite.</p></div>`;
-  return head + gs.map(g => `<div class="card"><div class="row between"><div><b style="font-size:17px">${esc(g.name)}</b><div class="muted">${g.members.filter(id => hit(g, id)).length}/${g.members.length} hit quota so far</div></div>${hit(g, m.id) ? `<span class="chip ok">✓ Done</span>` : `<button class="small" onclick="openGroup(${g.id})">Open</button>`}</div>
-    ${quotaBars(g, m.id)}<button class="primary" style="width:100%;margin-top:14px" onclick="submitDlg(${g.id})">＋ Submit proof</button></div>`).join('');
-}
-function quotaBars(g, uid) {
-  return g.quotas.map(q => { const d = done(g, uid, q.metric), ok = d >= q.target, pct = Math.min(100, d / q.target * 100);
-    return `<div style="margin-top:12px"><div class="row between"><span style="font-weight:600">${esc(q.metric)}</span><span class="muted"><b style="color:${ok ? 'var(--ok)' : 'var(--text)'}">${d}</b> / ${q.target}</span></div><div class="bar"><i class="${ok ? 'done' : ''}" style="width:${pct}%"></i></div></div>`; }).join('');
+  const gs = myGroups();
+  if (!gs.length) return `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite.</p></div>`;
+  return gs.map(g => groupCard(g)).join('') + `<h3>Proof</h3>` + feed(S.posts, true);
 }
 function groupsView() {
   const mine = myGroups(), invites = S.invites.filter(i => i.type === 'group' && i.to === me().id && S.groups.some(g => g.id === i.groupId));
-  return `<div class="row between"><h1>Groups</h1><button class="primary small" onclick="groupDlg()">＋ New group</button></div>`
-    + (invites.length ? `<h3>Invites</h3>` + invites.map(i => { const g = S.groups.find(x => x.id === i.groupId); return `<div class="card"><div class="row">${avatar(user(i.from))}<div class="grow"><b>${esc(g.name)}</b><div class="muted">@${esc(user(i.from).username)} invited you · ${quotaText(g)}</div></div></div>
-        <div class="row" style="margin-top:12px"><button class="small primary grow" onclick="accept(${i.id})">Accept</button><button class="small grow" onclick="decline(${i.id})">Decline</button></div></div>`; }).join('') : '')
-    + `<h3>My groups</h3>` + (mine.length ? mine.map(gCard).join('') : `<div class="card empty"><div class="big">👥</div><b>No groups yet</b><p class="muted">Start one and invite your friends.</p></div>`);
-}
-function gCard(g) {
-  const n = g.members.filter(id => hit(g, id)).length;
-  return `<div class="card row" onclick="openGroup(${g.id})" style="cursor:pointer"><div class="grow"><b style="font-size:17px">${esc(g.name)}</b><div class="muted">${quotaText(g)}</div></div><span class="chip ${n === g.members.length ? 'ok' : ''}">${n}/${g.members.length} today</span></div>`;
+  return (invites.length ? `<h3>Invites</h3>` + invites.map(i => { const g = S.groups.find(x => x.id === i.groupId); return `<div class="card"><div class="row">${avatar(user(i.from))}<div class="grow"><b>${esc(g.name)}</b><div class="muted">@${esc(user(i.from).username)} invited you · ${quotaText(g)}</div></div></div>
+      <div class="row" style="margin-top:12px"><button class="small primary grow" onclick="accept(${i.id})">Accept</button><button class="small grow" onclick="decline(${i.id})">Decline</button></div></div>`; }).join('') : '')
+    + `<div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">My groups</h3><button class="small teal" onclick="groupDlg()">＋ New group</button></div>`
+    + (mine.length ? mine.map(g => groupCard(g)).join('') : `<div class="card empty"><b>No groups yet</b><p class="muted">Start one and invite your friends.</p></div>`);
 }
 function groupView(g) {
-  if (!g || !g.members.includes(me().id)) { S.open = null; return groupsView(); }
-  const pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
-  return `<button class="ghost" onclick="S.open=null;render()">‹ Groups</button>
-  <div class="card" style="margin-top:8px"><h2>${esc(g.name)}</h2>${g.goal ? `<p>🎯 ${esc(g.goal)}</p>` : ''}
-    <div class="row wrap" style="margin-top:6px">${g.quotas.map(q => `<span class="chip">${q.target} ${esc(q.metric)} / day</span>`).join('')}</div>
-    <div class="row" style="margin-top:14px"><button class="primary grow" onclick="submitDlg(${g.id})">＋ Submit proof</button><button onclick="inviteDlg(${g.id})">Invite</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div></div>
+  const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
+  return `<button class="ghost back" onclick="S.open=null;render()">‹ Groups</button>
+  <div class="card"><h2>${esc(g.name)}<span>${plural(g.members.length, 'member')}</span></h2>${g.goal ? `<p style="margin-top:6px;font-weight:600">${esc(g.goal)}</p>` : ''}
+    <div class="row wrap" style="margin-top:10px">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}</div>
+    <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div></div>
   <h3>Today</h3>
-  <div class="people">${g.members.map(uid => { const u = user(uid), ok = hit(g, uid); return `<div class="person"><div class="ring ${ok ? 'ok' : ''}">${avatar(u, 'lg')}</div><span>${uid === me().id ? 'You' : esc(u.username)}</span>
-    <span class="muted" style="font-size:11px;font-weight:500">${g.quotas.map(q => `${done(g, uid, q.metric)}/${q.target}`).join(' · ')}</span></div>`; }).join('')}</div>
-  ${pending.length ? `<p class="muted">Invited: ${pending.map(i => '@' + esc(user(i.to).username)).join(', ')}</p>` : ''}
-  <h3>Proof</h3>${feed(g)}`;
+  <div class="card" style="padding:6px 16px">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id); return `<div class="row" style="padding:10px 0;border-top:1px solid var(--line)"><div class="av ${ok ? '' : 'todo'}">${esc(user(id).username[0])}</div><div class="grow"><b>@${esc(user(id).username)}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('').replace('border-top:1px solid var(--line)', '')}</div>
+  ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => '@' + esc(user(i.to).username)).join(', ')}</p>` : ''}
+  <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
-function feed(g) {
-  const ps = S.posts.filter(p => p.groupId === g.id);
-  if (!ps.length) return `<div class="card empty"><div class="big">🎥</div><b>No proof yet</b><p class="muted">Be the first to post today.</p></div>`;
+function feed(ps, showGroup) {
+  if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
   let day = '';
   return ps.map(p => {
-    const h = p.day !== day ? `<p class="muted" style="margin:14px 0 8px;font-weight:600">${dayLabel(p.day)}</p>` : ''; day = p.day;
-    const u = user(p.userId);
-    return h + `<div class="card post"><div class="row head">${avatar(u)}<div class="grow"><b>@${esc(u.username)}</b><div class="muted">${time(p.ts)}</div></div><span class="chip grad">${p.amount} ${esc(p.metric)}</span></div>
-      <video controls playsinline preload="metadata" src="${esc(p.url)}"></video>
-      <div class="foot row between"><span class="grow">${p.caption ? esc(p.caption) : '<span class="muted">No caption</span>'}</span>${p.userId === me().id ? `<button class="ghost small" onclick="delPost(${p.id})">Delete</button>` : ''}</div></div>`;
+    const h = p.day !== day ? `<p class="muted" style="margin:14px 18px 0">${dayLabel(p.day)}</p>` : ''; day = p.day;
+    const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
+    return h + `<div class="card post"><div class="reel" id="reel${p.id}">
+      <video playsinline preload="metadata" src="${esc(p.url)}" onclick="if(!this.controls){this.controls=true;this.play()}" onplay="this.parentNode.classList.add('playing')" onpause="this.controls=false;this.parentNode.classList.remove('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
+      <div class="ov top"><div class="av">${esc(u.username[0])}</div><div><div class="who">${esc(u.username)}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${p.amount} ${esc(p.metric)}</div></div>
+      <div class="play"><i></i></div>
+      <div class="ov bot"><div class="cap">${esc(p.caption)}</div></div></div>
+      <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(user(c.userId).username)}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
+      ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>` : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})"><input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off"><button class="primary">Send</button></form>`}
+      ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div></div>`;
   }).join('');
 }
 function meView() {
   const m = me(), incoming = S.invites.filter(i => i.type === 'friend' && i.to === m.id), outgoing = S.invites.filter(i => i.type === 'friend' && i.from === m.id);
-  const person = (id, extra = '') => `<div class="card row">${avatar(user(id))}<b class="grow">@${esc(user(id).username)}</b>${extra}</div>`;
-  return `<h1>Friends</h1>
-  <div class="card row">${avatar(m, 'lg')}<div class="grow"><b style="font-size:17px">@${esc(m.username)}</b><div class="muted">${S.friends.length} friend${S.friends.length !== 1 ? 's' : ''} · ${myGroups().length} group${myGroups().length !== 1 ? 's' : ''}</div></div><button class="small" onclick="logout()">Log out</button></div>
-  <div class="card"><b>Add a friend</b><form onsubmit="event.preventDefault();sendFriend(this)" class="row" style="margin-top:10px"><input name="username" placeholder="@username" autocapitalize="none" required><button class="primary">Invite</button></form></div>
+  const person = (id, extra = '') => `<div class="card row">${avatar(user(id), 'lg')}<b class="grow">@${esc(user(id).username)}</b>${extra}</div>`;
+  return `<div class="card row">${avatar(m, 'lg')}<div class="grow"><b style="font-size:16px">@${esc(m.username)}</b><div class="muted">${plural(S.friends.length, 'friend')} · ${plural(myGroups().length, 'group')}</div></div><button class="small" onclick="logout()">Log out</button></div>
+  <div class="card"><b>Add a friend</b><form onsubmit="event.preventDefault();sendFriend(this)" class="row" style="margin-top:10px"><input name="username" placeholder="@username" autocapitalize="none" autocomplete="off" required><button class="teal">Invite</button></form></div>
   ${incoming.length ? `<h3>Requests</h3>` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') : ''}
-  <h3>Your friends</h3>${S.friends.length ? S.friends.map(id => person(id)).join('') : `<div class="card empty"><div class="big">👋</div><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
+  <h3>Your friends</h3>${S.friends.length ? S.friends.map(id => person(id)).join('') : `<div class="card empty"><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3>` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') : ''}`;
+}
+function authView() {
+  return `<div class="auth"><div class="hdr"><div class="logo">Quota</div><p>Daily goals with friends. Proof or it didn't happen.</p></div>
+    <div class="card"><form onsubmit="event.preventDefault();auth(this,event)">
+    <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
+    <label>Password</label><input name="password" type="password" required autocomplete="current-password" minlength="6" placeholder="••••••••">
+    <div class="row" style="margin-top:18px"><button class="primary grow" value="login">Log in</button><button class="grow" value="signup">Create account</button></div></form></div>
+    <div style="text-align:center;margin-top:8px"><button class="ghost" onclick="toggleTheme()">${document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode'}</button></div></div>`;
 }
 
 // ---- dialogs
 function dlg(html) { const d = $('#dlg'); if (!html) return d.close(); d.innerHTML = html; d.showModal(); }
 function submitDlg(gid) {
-  const g = S.groups.find(x => x.id === gid);
-  dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${gid})">
-    <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(q => `<option>${esc(q.metric)}</option>`).join('')}</select></div>
-    <label>Video proof <span style="font-weight:400">(under 50 MB, keep it short)</span></label><input name="video" type="file" accept="video/*" required>
-    <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag">
+  const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
+  const pick = gs.length > 1 && !gid ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
+  dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
+    <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
+    <label>Video proof <span style="font-weight:500">(under 50 MB, keep it short)</span></label><input name="video" type="file" accept="video/*" required>
+    <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag" maxlength="200">
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
-const quotaRow = (q = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(q.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${q.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
+const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
 function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 100}]}) {
   dlg(`<h2>${g.id ? 'Edit' : 'New'} group</h2><form onsubmit="event.preventDefault();saveGroup(this,${g.id || 0})">
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
@@ -242,12 +281,14 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
 function inviteDlg(gid) {
   const g = S.groups.find(x => x.id === gid), pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
   const list = S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
-  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${avatar(user(id))}<b class="grow">@${esc(user(id).username)}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
-    : `<p class="muted">All your friends are in this group or already invited. Add more under Friends.</p>`}<button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
+  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${avatar(user(id), 'lg')}<b class="grow">@${esc(user(id).username)}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
+    : `<p class="muted" style="margin-top:10px">All your friends are in this group or already invited. Add more under Friends.</p>`}<button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
 }
 
-// ---- actions (each one runs the change, then reloads everything from the server)
-const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); f.querySelector('button.primary').textContent = label; };
+// ---- actions
+const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
+function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); }
+function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
 async function auth(f, e) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
   working(f, '…');
@@ -280,13 +321,12 @@ async function inviteToGroup(gid, uid) { await q(sb.from('invites').insert({type
 async function saveGroup(f, id) {
   const fd = new FormData(f), metrics = fd.getAll('metric'), targets = fd.getAll('target');
   const name = fd.get('name').trim(), goal = fd.get('goal').trim();
-  const quotas = metrics.map((m, i) => ({metric: m.trim(), target: +targets[i]})).filter(q => q.metric && q.target > 0);
+  const quotas = metrics.map((m, i) => ({metric: m.trim(), target: +targets[i]})).filter(qq => qq.metric && qq.target > 0);
   if (!quotas.length) return alert('Add at least one metric');
   working(f, 'Saving…');
   const gid = id ? (await q(sb.from('groups').update({name, goal, quotas}).eq('id', id)), id) : await q(sb.rpc('create_group', {p_name: name, p_goal: goal, p_quotas: quotas}));
   dlg(); await load(); openGroup(gid);
 }
-function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
 async function addPost(f, gid) {
   const fd = new FormData(f), video = fd.get('video');
   if (!video || !video.size) return alert('Attach a video');
@@ -297,7 +337,7 @@ async function addPost(f, gid) {
     await q(sb.storage.from('proof').upload(path, video, {contentType: video.type || 'video/mp4'}));
     await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'), caption: fd.get('caption').trim(), video_path: path, day: today()}));
   } catch (e) { return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
-  dlg(); await load(); openGroup(gid);
+  dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;
@@ -306,20 +346,27 @@ async function delPost(id) {
   await sb.storage.from('proof').remove([p.path]);
   load();
 }
+async function addComment(f, postId) {
+  const body = f.body.value.trim(); if (!body) return;
+  working(f, '…');
+  await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body}));
+  const y = scrollY; await load(); scrollTo(0, y);
+}
+async function delComment(id) { await q(sb.from('comments').delete().eq('id', id)); const y = scrollY; await load(); scrollTo(0, y); }
 
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; S.open = null; render(); scrollTo(0, 0); load(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && me()) load(); }); // refresh when you come back to the app
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me()) load(); });
 load();
 
 // ---- self-check: open index.html#test and look at the console
 if (location.hash === '#test') {
-  const g = {id: 1, quotas: [{metric: 'pushups', target: 50}]}, d = today();
-  S.posts = [{groupId: 1, userId: 'a', metric: 'pushups', amount: 20, day: d}, {groupId: 1, userId: 'a', metric: 'pushups', amount: 30, day: d},
-    {groupId: 1, userId: 'a', metric: 'pushups', amount: 99, day: '2024-01-01'}, {groupId: 1, userId: 'b', metric: 'pushups', amount: 5, day: d}, {groupId: 2, userId: 'a', metric: 'pushups', amount: 7, day: d}];
+  const g = {id: 1, quotas: [{metric: 'pushups', target: 50}]}, T = today(), Y = daysAgo(1);
+  S.totals = [{g: 1, u: 'a', d: T, m: 'pushups', n: 20}, {g: 1, u: 'a', d: T, m: 'pushups', n: 30}, {g: 1, u: 'a', d: Y, m: 'pushups', n: 50}, {g: 1, u: 'a', d: daysAgo(2), m: 'pushups', n: 50},
+    {g: 1, u: 'a', d: daysAgo(4), m: 'pushups', n: 50}, {g: 1, u: 'b', d: Y, m: 'pushups', n: 60}, {g: 2, u: 'a', d: T, m: 'pushups', n: 7}];
   console.assert(done(g, 'a', 'pushups') === 50, 'sums only today, this user, this group');
-  console.assert(done(g, 'a', 'situps') === 0, 'other metric is 0');
-  console.assert(hit(g, 'a') && !hit(g, 'b'), 'hit() compares against every quota');
-  console.assert(/^\d{4}-\d{2}-\d{2}$/.test(d), 'today() is YYYY-MM-DD');
+  console.assert(streak(g, 'a') === 3, 'streak counts today + 2 previous days, gap at day 3');
+  console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
+  console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
+  console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
   console.log('self-check ok');
 }
 </script>
