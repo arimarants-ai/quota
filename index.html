@@ -16,6 +16,7 @@
 html{background:var(--bg)}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Plus Jakarta Sans",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
 main{max-width:600px;margin:0 auto;padding:0 0 120px;position:relative;min-height:100vh}
+main.out{padding-bottom:0;min-height:0}
 .num{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-variant-numeric:tabular-nums}
 h2{margin:0;font-size:17px;font-weight:800}
 h3{margin:22px 18px 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
@@ -124,7 +125,7 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
 /* welcome + auth */
-.welcome{min-height:100vh;background:var(--teal);color:#fff;display:flex;flex-direction:column;padding:28px 24px calc(28px + env(safe-area-inset-bottom))}
+.welcome{min-height:100vh;min-height:100dvh;background:var(--teal);color:#fff;display:flex;flex-direction:column;padding:28px 24px calc(28px + env(safe-area-inset-bottom))}
 .welcome .mark svg{width:60px;height:60px}
 .welcome h1{margin:auto 0 0;font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1.05;text-wrap:balance}
 .welcome p{color:var(--teal2);font-weight:600;font-size:17px;line-height:1.45;margin:16px 0 26px;max-width:32ch}
@@ -216,7 +217,7 @@ async function load() {
 }
 function render() {
   const m = me();
-  $('#bar').hidden = !m;
+  $('#bar').hidden = !m; $('#app').classList.toggle('out', !m);
   if (!m) return $('#app').innerHTML = S.auth === 'welcome' ? welcomeView() : authView(S.auth);
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
