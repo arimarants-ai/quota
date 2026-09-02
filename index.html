@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f4c5c">
 <title>Quota</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 132 132%22%3E%3Crect width=%22132%22 height=%22132%22 rx=%2230%22 fill=%22%230F4C5C%22/%3E%3Ccircle cx=%2266%22 cy=%2266%22 r=%2246%22 fill=%22none%22 stroke=%22rgba(255,255,255,.16)%22 stroke-width=%2218%22/%3E%3Ccircle cx=%2266%22 cy=%2266%22 r=%2246%22 fill=%22none%22 stroke=%22%23F4813A%22 stroke-width=%2218%22 stroke-linecap=%22round%22 stroke-dasharray=%22216 289%22 transform=%22rotate(-90 66 66)%22/%3E%3Crect x=%2286%22 y=%2286%22 width=%2222%22 height=%2234%22 rx=%2211%22 fill=%22%23F4813A%22 transform=%22rotate(-45 97 103)%22/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="/icon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Unbounded:wght@800&display=swap">
 <style>
@@ -37,7 +39,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 /* header block */
 .hdr{background:var(--teal);color:#fff;padding:16px 20px 22px;border-radius:0 0 30px 30px}
 .hdr .top{display:flex;justify-content:space-between;align-items:center}
-.logo{font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--acc)}
+.logo{font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--acc);display:flex;align-items:center;gap:8px}
+.logo svg{width:26px;height:26px}
 .hdr .date{font-size:13px;color:var(--teal2);font-weight:600}
 .hdr h1{margin:14px 0 0;font-size:28px;font-weight:800;letter-spacing:-.02em}
 .hdr .big{display:flex;align-items:baseline;gap:10px;margin-top:14px}
@@ -120,11 +123,22 @@ dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24p
 dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
-/* auth */
-.auth{max-width:400px;margin:12vh auto 0;padding:0 18px;text-align:center}
-.auth .word{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:40px;letter-spacing:-.03em;color:var(--teal)}
-.auth p{color:var(--muted);font-weight:600;margin:6px 0 18px}
+/* welcome + auth */
+.welcome{min-height:100vh;background:var(--teal);color:#fff;display:flex;flex-direction:column;padding:28px 24px calc(28px + env(safe-area-inset-bottom))}
+.welcome .mark svg{width:60px;height:60px}
+.welcome h1{margin:auto 0 0;font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1.05;text-wrap:balance}
+.welcome p{color:var(--teal2);font-weight:600;font-size:17px;line-height:1.45;margin:16px 0 26px;max-width:32ch}
+.welcome .primary{width:100%;padding:16px;border-radius:999px;font-size:17px}
+.welcome .ghost{color:var(--teal2);align-self:center;margin-top:10px;font-weight:600}
+.auth{max-width:400px;margin:8vh auto 0;padding:0 18px;text-align:center}
+.auth .word{display:inline-flex;align-items:center;gap:10px;font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:34px;letter-spacing:-.03em;color:var(--teal)}
+.auth .word svg{width:44px;height:44px}
+.auth h2{font-size:22px;margin:18px 0 4px}
+.auth p{color:var(--muted);font-weight:600;margin:0 0 18px}
 .auth .card{margin:0;text-align:left}
+.auth .card .primary{width:100%;margin-top:18px;padding:13px}
+.auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
+.auth .switch button{padding:0 4px;background:none;color:var(--teal)}
 .back{margin:12px 18px 0}
 </style>
 </head>
@@ -150,8 +164,9 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 
 // ---- state + helpers
 const $ = s => document.querySelector(s);
+const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false, auth: 'welcome'};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -202,7 +217,7 @@ async function load() {
 function render() {
   const m = me();
   $('#bar').hidden = !m;
-  if (!m) return $('#app').innerHTML = authView();
+  if (!m) return $('#app').innerHTML = S.auth === 'welcome' ? welcomeView() : authView(S.auth);
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
   $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
@@ -212,13 +227,13 @@ function render() {
 }
 
 // ---- views
-const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
+const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
 function feedView() {
   const m = me(), gs = myGroups();
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
   const lines = gs.flatMap(g => g.quotas.map(qq => ({g, qq, d: done(g, m.id, qq.metric)})));
   const doneN = lines.filter(l => l.d >= l.qq.target).length;
-  return `<div class="hdr"><div class="top"><div class="logo">Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
+  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
     <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
     ${lines.length ? `<div class="mini">${lines.map(l => `<div>${esc(l.qq.metric)}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(l.g.name)}</span>` : ''}<br><b>${l.d}</b>/${l.qq.target}<i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i></div>`).join('')}</div>` : ''}</div>`
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
@@ -283,13 +298,23 @@ function profileView() {
   <div class="card row wrap" style="gap:6px">${S.friends.length ? S.friends.map(id => `<span class="chip row" style="gap:6px;padding:4px 10px 4px 4px">${av(user(id))}${esc(name(user(id)))}</span>`).join('') : `<span class="muted">No friends yet</span>`}</div>
   <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>`;
 }
-function authView() {
-  return `<div class="auth"><div class="word">Quota</div><p>Daily goals with friends. Proof or it didn't happen.</p>
-    <div class="card"><form onsubmit="event.preventDefault();auth(this,event)">
+function welcomeView() {
+  return `<div class="welcome"><div class="mark">${LOGO(false)}</div>
+    <h1>Your friends will know if you skip.</h1>
+    <p>Set a daily goal with a group. Post a video proof before midnight. Every day.</p>
+    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">Get started</button>
+    <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button></div>`;
+}
+function authView(mode) {
+  const signup = mode === 'signup';
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>${signup ? 'Create your account' : 'Welcome back'}</h2><p>${signup ? 'Pick a username your friends can find you by.' : 'Log in with your username.'}</p>
+    <div class="card"><form onsubmit="event.preventDefault();auth(this,'${mode}')">
     <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
-    <label>Password</label><input name="password" type="password" required autocomplete="current-password" minlength="6" placeholder="••••••••">
-    <div class="row" style="margin-top:18px"><button class="primary grow" value="login">Log in</button><button class="grow" value="signup">Create account</button></div></form></div>
-    <div style="margin-top:12px"><button class="ghost" onclick="toggleTheme()">${isDark() ? 'Light mode' : 'Dark mode'}</button></div></div>`;
+    <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
+    <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
+    <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
+    <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
 }
 
 // ---- dialogs
@@ -332,11 +357,11 @@ function profileDlg() {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); }
 function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
-async function auth(f, e) {
+async function auth(f, mode) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
   working(f, '…');
   try {
-    if (e.submitter.value === 'signup') {
+    if (mode === 'signup') {
       if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) return alert('That username is taken');
       const {data, error} = await sb.auth.signUp({email: emailFor(username), password, options: {data: {username}}});
       if (error) return alert(error.message);
@@ -348,7 +373,7 @@ async function auth(f, e) {
     S.tab = 'feed'; await load();
   } finally { render(); }
 }
-async function logout() { await sb.auth.signOut(); S.open = null; S.tab = 'feed'; load(); }
+async function logout() { await sb.auth.signOut(); S.open = null; S.tab = 'feed'; S.auth = 'welcome'; load(); }
 async function sendFriend(f) {
   const uname = f.username.value.trim().toLowerCase().replace(/^@/, ''), m = me();
   if (!uname) return alert('Type a username');
