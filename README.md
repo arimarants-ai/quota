@@ -26,6 +26,27 @@ The redesign adds comments. In Supabase → SQL Editor, paste and run the block 
 
 ## Limits worth knowing (free tiers)
 
-- Videos: 50 MB per file (set in `schema.sql`), 1 GB storage total on Supabase free. Keep clips short.
+**Video size: 50 MB per file.** This is Supabase's hard cap on the free plan, verified by
+testing (50 MB uploads, 51 MB is rejected). It is set in three places that must agree:
+`MAX_MB` in `index.html`, `file_size_limit` on the `proof` bucket in `schema.sql`, and the
+project's own global limit. Raising it means upgrading the Supabase project to Pro, which
+allows far larger files and 100 GB of storage.
+
+**Total storage: 1 GB.** This is the limit that will actually bite. At 50 MB a video that is
+only about 20 posts. Rough budget:
+
+| Average clip | Posts before full |
+|---|---|
+| 50 MB | ~20 |
+| 25 MB | ~40 |
+| 10 MB | ~100 |
+| 5 MB | ~200 |
+
+Two people posting once a day at 25 MB fills it in about three weeks. When it gets close,
+either upgrade, or delete old proof videos (the posts table keeps the numbers either way).
+
+To fit a longer clip under 50 MB, record at 720p instead of 4K
+(iPhone: Settings → Camera → Record Video).
+
 - No password reset yet. Accounts are username + password only.
 - "Today" is whatever the poster's phone says.

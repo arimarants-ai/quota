@@ -78,6 +78,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .chip.ok{background:var(--okbg);color:var(--ok)}
 .empty{text-align:center;padding:28px 16px}
 .empty b{display:block;font-size:16px;margin-bottom:4px}
+.warn{color:#e5484d;font-size:13px;font-weight:600}
 .list{padding:4px 16px}
 .list .row{padding:10px 0;border-top:1px solid var(--line)}
 .list .row:first-child{border-top:0}
@@ -153,6 +154,10 @@ dialog h2{font-size:20px;margin-bottom:2px}
 // ---- config: Supabase project URL + anon (public) key. Safe in the page; row level security does the guarding.
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
+// Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
+// To raise it: upgrade the Supabase project to Pro, bump MAX_MB here, and run
+//   update storage.buckets set file_size_limit = <bytes> where id = 'proof';
+const MAX_MB = 50;
 // ponytail: username-only login. Supabase Auth wants an email, so each account gets a synthetic one. Password reset needs real emails; add later.
 const emailFor = u => `${u}@users.quota.local`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -327,7 +332,8 @@ function submitDlg(gid) {
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
-    <label>Video proof <span style="font-weight:500">(under 50 MB, keep it short)</span></label><input name="video" type="file" accept="video/*" required>
+    <label>Video proof <span style="font-weight:500">(up to ${MAX_MB} MB)</span></label><input name="video" type="file" accept="video/*" required onchange="vidPick(this)">
+    <p class="muted" id="vsize" style="margin-top:6px"></p>
     <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag" maxlength="200">
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
@@ -356,6 +362,13 @@ function profileDlg() {
 }
 
 // ---- actions
+function vidPick(input) {
+  const f = input.files[0], el = $('#vsize');
+  if (!f) return el.textContent = '';
+  const mb = f.size / 1048576, over = mb > MAX_MB;
+  el.className = over ? 'warn' : 'muted';
+  el.textContent = over ? `${mb.toFixed(0)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).` : `${mb.toFixed(1)} MB`;
+}
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); }
 function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
@@ -418,8 +431,8 @@ async function saveProfile(f) {
 async function addPost(f, gid) {
   const fd = new FormData(f), video = fd.get('video');
   if (!video || !video.size) return alert('Attach a video');
-  if (video.size > 50 * 1024 * 1024) return alert('That video is over 50 MB. Record a shorter clip.');
-  working(f, 'Uploading…');
+  if (video.size > MAX_MB * 1048576) return alert(`That video is ${(video.size / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`);
+  working(f, video.size > 20 * 1048576 ? 'Uploading… this can take a minute' : 'Uploading…');
   const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
   try {
     await q(sb.storage.from('proof').upload(path, video, {contentType: video.type || 'video/mp4'}));
