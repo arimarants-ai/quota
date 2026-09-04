@@ -374,9 +374,16 @@ function resetView() {
 }
 
 // ---- recovery codes
-// functions.invoke collapses every non-2xx into a generic error, so dig out the real message.
+// Two things to know about functions.invoke here.
+// 1. supabase-js 2.49.4 builds its functions client from the headers fixed at
+//    createClient time, which carry the anon key, and never rewrites them when the
+//    user signs in. Without passing the token by hand, 'issue' always comes back
+//    "Sign in first." even for a signed-in user.
+// 2. It collapses every non-2xx into a generic error, so dig out the real message.
 async function callRecovery(action, body = {}) {
-  const {data, error} = await sb.functions.invoke('recovery', {body: {action, ...body}});
+  const {data: {session}} = await sb.auth.getSession();
+  const headers = session ? {Authorization: `Bearer ${session.access_token}`} : undefined;
+  const {data, error} = await sb.functions.invoke('recovery', {body: {action, ...body}, headers});
   if (!error) return data;
   let msg = 'Could not reach the server. Check your connection and try again.';
   try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {}
