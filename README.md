@@ -33,12 +33,21 @@ A one-time banner explains this to iOS Safari visitors automatically.
 PWA files: `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`.
 The icons are generated from `logo.svg`. To regenerate after changing the logo:
 
+The icon is the logo on a full-bleed `#0F4C5C` square, scaled 1.05 so the ring
+nearly fills the tile (iOS rounds the corners itself, so no padding is needed).
+`icon-src.svg` holds that composition. Render at 512 and downscale — `qlmanage`
+pads the canvas with white below about 256px, so never render small directly:
+
 ```bash
-qlmanage -t -s 1024 -o /tmp/ql logo.svg
-sips -z 512 512 /tmp/ql/logo.svg.png --out icon-512.png
-sips -z 192 192 /tmp/ql/logo.svg.png --out icon-192.png
-sips -z 180 180 /tmp/ql/logo.svg.png --out apple-touch-icon.png
+mkdir -p /tmp/ql && qlmanage -t -s 512 -o /tmp/ql "$PWD/icon-src.svg"   # needs an absolute path
+cp /tmp/ql/icon-src.svg.png icon-512.png
+sips -z 192 192 icon-512.png --out icon-192.png
+sips -z 180 180 icon-512.png --out apple-touch-icon.png
 ```
+
+After changing any of these, bump `VERSION` in `sw.js` or installed apps keep
+the old icons from cache. The icons are deliberately not declared `maskable`:
+at this crop Android's mask would clip the ring.
 
 The service worker caches only static assets. Everything from Supabase (sign-in,
 database, video upload, signed video URLs) always goes to the network, so the
