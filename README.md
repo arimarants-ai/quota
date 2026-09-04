@@ -82,10 +82,16 @@ To fit a longer clip under 50 MB, record at 720p instead of 4K
 
 ## Deploying
 
-The `quota-redesign` Vercel project is connected to this repo, so pushing a
-branch builds it on Vercel's side. `.vercelignore` keeps this README, the
-schema and the icon source out of the served site.
+Both Vercel projects build from this repo, so a push is the only deploy step.
+`.vercelignore` keeps this README, the schema and the icon sources out of the
+served sites.
 
-- `main` is production.
-- `redesign` builds as a preview at
-  https://quota-redesign-git-redesign-ari-d851.vercel.app
+| Push to    | Project          | URL                                              |
+| ---------- | ---------------- | ------------------------------------------------ |
+| `main`     | `quota`          | https://quota-jet.vercel.app (public)            |
+| `main`     | `quota-redesign` | https://quota-redesign-ari-d851.vercel.app       |
+| `redesign` | `quota-redesign` | https://quota-redesign-git-redesign-ari-d851.vercel.app |
+
+So `main` is the published version and `redesign` is the working one, same as
+before — the difference is that publishing now happens on push rather than by
+uploading files by hand.
