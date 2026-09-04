@@ -2,7 +2,7 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v5';
+const VERSION = 'quota-v6';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 const STATIC_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -72,7 +72,10 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = new URL(e.notification.data?.url || '/', self.location.origin).href;
+  // Keep only the path. The sender names one site, but the app can be installed from
+  // any of its origins, and sending iOS to a different one opens a signed-out browser view.
+  const sent = new URL(e.notification.data?.url || '/', self.location.origin);
+  const url = self.location.origin + sent.pathname + sent.search;
   e.waitUntil((async () => {
     // Focus whatever window is already open, whichever tab it happens to be showing.
     for (const c of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) {
