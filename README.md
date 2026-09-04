@@ -70,3 +70,9 @@ To fit a longer clip under 50 MB, record at 720p instead of 4K
 
 - No password reset yet. Accounts are username + password only.
 - "Today" is whatever the poster's phone says.
+
+## Deploying
+
+The `quota-redesign` Vercel project is connected to this repo, so pushing a
+branch builds it on Vercel's side. `.vercelignore` keeps this README, the
+schema and the icon source out of the served site.
