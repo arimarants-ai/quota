@@ -210,3 +210,30 @@ end $$;
 drop trigger if exists posts_notify on public.posts;
 create trigger posts_notify after insert on public.posts
   for each row execute function public.notify_group_of_post();
+
+-- ============================================================
+-- v5 (recovery codes): reset a forgotten password without email.
+-- Safe to run on an existing project.
+-- ============================================================
+
+-- One row per issued code. Only the recovery edge function, running as the service
+-- role, ever touches these tables. RLS is on with no policies at all, which means the
+-- anon and authenticated keys can read and write exactly nothing here.
+create table if not exists public.recovery_codes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users on delete cascade,
+  code_hash text not null,          -- sha-256 of the code; the code itself is shown once and never stored
+  used_at timestamptz,
+  created_at timestamptz default now()
+);
+create index if not exists recovery_codes_unused on public.recovery_codes (user_id, code_hash) where used_at is null;
+alter table public.recovery_codes enable row level security;
+
+-- Failed redeem attempts, so a known username can't be brute-forced against the code space.
+create table if not exists public.recovery_attempts (
+  id bigint generated always as identity primary key,
+  key text not null,                -- 'u:<username>' or 'ip:<address>'
+  at timestamptz not null default now()
+);
+create index if not exists recovery_attempts_key_at on public.recovery_attempts (key, at desc);
+alter table public.recovery_attempts enable row level security;

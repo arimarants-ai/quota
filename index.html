@@ -176,7 +176,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // To raise it: upgrade the Supabase project to Pro, bump MAX_MB here, and run
 //   update storage.buckets set file_size_limit = <bytes> where id = 'proof';
 const MAX_MB = 50;
-// ponytail: username-only login. Supabase Auth wants an email, so each account gets a synthetic one. Password reset needs real emails; add later.
+// Username-only login. Supabase Auth wants an email, so each account gets a synthetic one.
+// Those addresses go nowhere, so password reset runs on recovery codes instead: see
+// supabase/functions/recovery/ and the v5 block in schema.sql.
 const emailFor = u => `${u}@users.quota.local`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const q = async p => { const {data, error} = await p; if (error) { alert(error.message); throw error; } return data; };
@@ -242,7 +244,7 @@ async function load() {
 function render() {
   const m = me();
   $('#bar').hidden = !m; $('#app').classList.toggle('out', !m);
-  if (!m) return $('#app').innerHTML = S.auth === 'welcome' ? welcomeView() : authView(S.auth);
+  if (!m) return $('#app').innerHTML = S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
   $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
@@ -334,6 +336,9 @@ function profileView() {
   <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Friends</h3><button class="ghost small" onclick="go('friends')">Manage ›</button></div>
   <div class="card row wrap" style="gap:6px">${S.friends.length ? S.friends.map(id => `<span class="chip row" style="gap:6px;padding:4px 10px 4px 4px">${av(user(id))}${esc(name(user(id)))}</span>`).join('') : `<span class="muted">No friends yet</span>`}</div>
   <h3>Notifications</h3>${pushCard()}
+  <h3>Recovery codes</h3>
+  <div class="card"><p class="muted">The only way back in if you forget your password \u2014 there is no reset email, because accounts have no email address. Getting a new set replaces any unused codes you still have.</p>
+  <button class="small" style="margin-top:10px" onclick="newCodes()">Get new recovery codes</button></div>
   <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>`;
 }
 function welcomeView() {
@@ -352,7 +357,56 @@ function authView(mode) {
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
     <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
     <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
+    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='reset';render()">Use a recovery code</button></div>`}
     <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
+}
+
+function resetView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Reset your password</h2><p>Use one of the recovery codes you saved when you signed up. Each code works once.</p>
+    <div class="card"><form onsubmit="event.preventDefault();resetPassword(this)">
+    <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" placeholder="yourname">
+    <label>Recovery code</label><input name="code" required autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCDE-FGHJK">
+    <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
+    <button class="primary">Set new password</button></form></div>
+    <p class="muted" style="margin:14px 18px">No codes saved? They can't be recovered, and no one can reset an account without one \u2014 that is what stops someone taking a username that is already in use. Ask whoever runs the app to reset it for you.</p>
+    <div><button class="ghost" onclick="S.auth='login';render()">\u2039 Back to log in</button></div></div>`;
+}
+
+// ---- recovery codes
+// functions.invoke collapses every non-2xx into a generic error, so dig out the real message.
+async function callRecovery(action, body = {}) {
+  const {data, error} = await sb.functions.invoke('recovery', {body: {action, ...body}});
+  if (!error) return data;
+  let msg = 'Could not reach the server. Check your connection and try again.';
+  try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {}
+  throw new Error(msg);
+}
+// The one moment the codes exist in readable form. Nothing stores them after this.
+function codesDlg(codes, isNew) {
+  dlg(`<h2>${isNew ? 'Save your recovery codes' : 'Your new recovery codes'}</h2>
+    <p class="muted">These are the only way back into your account if you forget your password. Save them somewhere safe now \u2014 you will not be shown them again.</p>
+    <div class="card" style="margin-top:12px"><div class="row wrap" style="gap:8px;font-family:ui-monospace,monospace;font-size:15px">${codes.map(c => `<span class="chip">${esc(c)}</span>`).join('')}</div></div>
+    <div class="row" style="margin-top:18px"><button type="button" onclick="copyCodes(${JSON.stringify(JSON.stringify(codes)).replace(/"/g, '&quot;')},this)">Copy all</button><button type="button" class="primary grow" onclick="dlg()">I've saved them</button></div>`);
+}
+function copyCodes(json, btn) {
+  navigator.clipboard.writeText(JSON.parse(json).join('\n')).then(() => { btn.textContent = 'Copied'; }).catch(() => { btn.textContent = 'Copy failed'; });
+}
+async function newCodes() {
+  try { codesDlg(await callRecovery('issue').then(d => d.codes), false); }
+  catch (e) { alert(e.message); }
+}
+async function resetPassword(f) {
+  const username = f.username.value.trim().toLowerCase().replace(/^@/, '');
+  const code = f.code.value.trim(), password = f.password.value;
+  working(f, '\u2026');
+  try {
+    const {remaining} = await callRecovery('redeem', {username, code, password});
+    // Sign straight in rather than making them type the new password again.
+    const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
+    if (error) { S.auth = 'login'; alert('Password changed. Log in with your new password.'); }
+    else { S.tab = 'feed'; await load(); alert(`Password changed. ${remaining} recovery ${remaining === 1 ? 'code' : 'codes'} left.`); }
+  } catch (e) { alert(e.message); } finally { render(); }
 }
 
 // ---- dialogs
@@ -406,18 +460,26 @@ function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0)
 async function auth(f, mode) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
   working(f, '…');
+  let fresh = null;
   try {
     if (mode === 'signup') {
       if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) return alert('That username is taken');
       const {data, error} = await sb.auth.signUp({email: emailFor(username), password, options: {data: {username}}});
       if (error) return alert(error.message);
       if (!data.session) return alert('Account created but email confirmation is still on. In Supabase: Authentication → Providers → Email → turn off "Confirm email", then log in.');
+      // Issue recovery codes now: there is no reset email, so this is the only way back
+      // in later. A failure here is not fatal — the profile has a button for it.
+      try { fresh = (await callRecovery('issue')).codes; }
+      catch (e) { alert(`Account created, but recovery codes could not be issued: ${e.message} You can get a set from your profile.`); }
     } else {
       const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
-      if (error) return alert('Wrong username or password');
+      // Only a 400 means the credentials were genuinely wrong. Reporting every failure
+      // — offline, rate limited, project paused — as a bad password sends people hunting
+      // for the wrong problem.
+      if (error) return alert(error.status === 400 ? 'Wrong username or password' : `Could not log in: ${error.message}`);
     }
     S.tab = 'feed'; await load();
-  } finally { render(); }
+  } finally { render(); if (fresh) codesDlg(fresh, true); }
 }
 async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.open = null; S.tab = 'feed'; S.auth = 'welcome'; render(); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
 async function sendFriend(f) {
