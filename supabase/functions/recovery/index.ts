@@ -35,7 +35,10 @@ const rest = async (path: string, init: RequestInit = {}) => {
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', ...init.headers },
   });
   if (!res.ok) throw new Error(`${path} -> ${res.status} ${await res.text()}`);
-  return res.status === 204 ? null : res.json();
+  // PostgREST answers a write with 201/204 and an empty body unless asked for the row
+  // back, and res.json() on an empty body throws. Read text and only parse if there is any.
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 };
 
 const since = () => encodeURIComponent(new Date(Date.now() - WINDOW_MINUTES * 60_000).toISOString());
