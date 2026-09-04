@@ -293,8 +293,9 @@ function feed(ps, showGroup) {
   return ps.map(p => {
     const h = p.day !== day ? `<p class="muted" style="margin:14px 18px 0">${dayLabel(p.day)}</p>` : ''; day = p.day;
     const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
+    // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
     return h + `<div class="card post"><div class="reel">
-      <video playsinline preload="metadata" src="${esc(p.url)}" onclick="if(!this.controls){this.controls=true;this.play()}" onplay="this.parentNode.classList.add('playing')" onpause="this.controls=false;this.parentNode.classList.remove('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
+      <video playsinline preload="metadata" src="${esc(p.url)}" onclick="if(!this.controls){this.controls=true;this.play()}" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
       <div class="ov top">${av(u)}<div><div class="who">${esc(name(u))}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${p.amount} ${esc(p.metric)}</div></div>
       <div class="play"><i></i></div>
       <div class="ov bot"><div class="cap">${esc(p.caption)}</div></div></div>
