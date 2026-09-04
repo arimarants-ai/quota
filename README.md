@@ -80,6 +80,34 @@ To fit a longer clip under 50 MB, record at 720p instead of 4K
 - No password reset yet. Accounts are username + password only.
 - "Today" is whatever the poster's phone says.
 
+## Notifications
+
+When someone posts, everyone else in the group gets a push: "John did 30 pushups",
+or "Sydney completed the day's goal" on the post that finishes it.
+
+iOS only allows push for apps **added to the home screen** (iOS 16.4+), never in a
+Safari tab, so the Profile toggle shows "add to your home screen first" until then.
+
+The pieces:
+
+| Where | What |
+| ----- | ---- |
+| `schema.sql` v4 | `push_subscriptions` table + the `posts_notify` trigger |
+| `index.html` | the Profile toggle, `VAPID_PUBLIC_KEY`, subscribe/unsubscribe |
+| `sw.js` | `push` and `notificationclick` handlers |
+| `supabase/functions/notify/` | the sender: VAPID + aes128gcm, run on Supabase |
+
+Subscriptions are per device and per install. Deleting the home screen app orphans
+its row; the sender prunes anything the push service reports as `404`/`410`.
+
+To run the checks on the sender:
+
+```bash
+cd supabase/functions/notify
+node --experimental-strip-types push.test.ts      # encryption round-trip + VAPID JWT
+node --experimental-strip-types message.test.ts   # wording and goal-completion rules
+```
+
 ## Deploying
 
 Both Vercel projects build from this repo, so a push is the only deploy step.

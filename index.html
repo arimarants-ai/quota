@@ -191,7 +191,7 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 const $ = s => document.querySelector(s);
 const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false, auth: 'welcome'};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off'};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -312,6 +312,17 @@ function friendsView() {
   <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3><div class="card list">` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') + `</div>` : ''}`;
 }
+function pushCard() {
+  const t = {
+    on:          ['On for this device', '<button class="small" onclick="disablePush()">Turn off</button>'],
+    off:         ['Get a nudge when someone in your groups posts', '<button class="teal small" onclick="enablePush()">Turn on</button>'],
+    denied:      ['Blocked. Turn them back on in Settings \u2192 Quota \u2192 Notifications.', ''],
+    install:     ['Add Quota to your home screen first, then turn these on.', ''],
+    unsupported: ["This browser doesn't support notifications.", ''],
+  }[S.push] || ['', ''];
+  return `<div class="card row between"><div class="grow"><b>Group activity</b><div class="muted">${t[0]}</div></div>${t[1]}</div>`;
+}
+
 function profileView() {
   const m = me(), gs = myGroups();
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id))), postsN = S.totals.filter(t => t.u === m.id).length;
@@ -322,6 +333,7 @@ function profileView() {
   ${gs.length ? `<div class="card list">` + gs.map(g => `<div class="row"><div class="grow"><b>${esc(g.name)}</b><div class="muted">${plural(g.members.length, 'member')} · ${quotaText(g)}${streak(g, m.id) ? ` · ${streak(g, m.id)} day streak` : ''}</div></div><button class="small" onclick="openGroup(${g.id})">Open</button><button class="ghost small" onclick="leaveGroup(${g.id})">Leave</button></div>`).join('') + `</div>` : `<div class="card empty"><b>No groups yet</b></div>`}
   <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Friends</h3><button class="ghost small" onclick="go('friends')">Manage ›</button></div>
   <div class="card row wrap" style="gap:6px">${S.friends.length ? S.friends.map(id => `<span class="chip row" style="gap:6px;padding:4px 10px 4px 4px">${av(user(id))}${esc(name(user(id)))}</span>`).join('') : `<span class="muted">No friends yet</span>`}</div>
+  <h3>Notifications</h3>${pushCard()}
   <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>`;
 }
 function welcomeView() {
@@ -389,7 +401,7 @@ function vidPick(input) {
   el.textContent = over ? `${mb.toFixed(0)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).` : `${mb.toFixed(1)} MB`;
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
-function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); }
+function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); if (tab === 'profile') refreshPush().then(render); }
 function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
 async function auth(f, mode) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
@@ -480,14 +492,48 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && me
 if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(e => console.warn('Service worker did not register:', e)));
 function dismissA2HS() { $('#a2hs').hidden = true; try { localStorage.a2hs = '1'; } catch (e) {} }
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 function maybeShowA2HS() {
-  const ua = navigator.userAgent;
-  const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-  const safari = !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome/.test(ua); // only Safari can add to the home screen
+  const safari = !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome/.test(navigator.userAgent); // only Safari can add to the home screen
   let dismissed = false; try { dismissed = localStorage.a2hs === '1'; } catch (e) {}
-  if (ios && safari && !isStandalone() && !dismissed) $('#a2hs').hidden = false;
+  if (isIOS() && safari && !isStandalone() && !dismissed) $('#a2hs').hidden = false;
 }
 setTimeout(maybeShowA2HS, 1200); // let the app paint first
+
+// ---- push notifications
+// Public half of the VAPID pair; the private half lives in the notify edge function's secrets.
+const VAPID_PUBLIC_KEY = 'BPaw2UJU9VQ17Onx8bqve-CpoYzsoE1mTs8CaEZB34dvyT76nszZdXf-7hJS2EEUJVj_2sIO5cfDZ8Wki8Lsdv4';
+const urlB64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), c => c.charCodeAt(0));
+// iOS only exposes PushManager to home screen apps, so an iPhone in a Safari tab lands on 'install'.
+const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function refreshPush() {
+  if (!pushOK()) { S.push = isIOS() && !isStandalone() ? 'install' : 'unsupported'; return; }
+  if (Notification.permission === 'denied') { S.push = 'denied'; return; }
+  const reg = await navigator.serviceWorker.ready;
+  S.push = await reg.pushManager.getSubscription() ? 'on' : 'off';
+}
+
+async function enablePush() {
+  try {
+    const perm = await Notification.requestPermission(); // has to happen inside the tap
+    if (perm !== 'granted') { S.push = perm === 'denied' ? 'denied' : 'off'; return render(); }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: urlB64(VAPID_PUBLIC_KEY)});
+    const k = sub.toJSON().keys;
+    await q(sb.from('push_subscriptions').upsert({endpoint: sub.endpoint, user_id: me().id, p256dh: k.p256dh, auth: k.auth}));
+    S.push = 'on';
+  } catch (e) { alert('Could not turn on notifications: ' + e.message); await refreshPush(); }
+  render();
+}
+
+async function disablePush() {
+  try {
+    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (sub) { await q(sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)); await sub.unsubscribe(); }
+  } catch (e) { /* leaving the row behind is harmless: the sender prunes dead endpoints */ }
+  S.push = 'off'; render();
+}
 load();
 
 // ---- self-check: open index.html#test and look at the console

@@ -172,3 +172,41 @@ create policy "avatars are public" on storage.objects for select using (bucket_i
 create policy "upload own avatar" on storage.objects for insert with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "replace own avatar" on storage.objects for update using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "delete own avatar" on storage.objects for delete using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================
+-- v4 (push): notify a group when someone posts. Safe to run on an existing project.
+-- Replace <HOOK_SECRET> with the same value you set as the function's HOOK_SECRET.
+-- ============================================================
+
+-- one row per installed app; the endpoint is unique per device+install
+create table if not exists public.push_subscriptions (
+  endpoint text primary key,
+  user_id uuid not null references public.profiles on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz default now()
+);
+create index if not exists push_subscriptions_user on public.push_subscriptions (user_id);
+
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "own push subscriptions" on public.push_subscriptions;
+create policy "own push subscriptions" on public.push_subscriptions
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- pg_net lets a trigger call the edge function without blocking the insert
+create extension if not exists pg_net;
+
+create or replace function public.notify_group_of_post() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/notify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', '<HOOK_SECRET>'),
+    body    := jsonb_build_object('record', to_jsonb(new))
+  );
+  return new;
+end $$;
+
+drop trigger if exists posts_notify on public.posts;
+create trigger posts_notify after insert on public.posts
+  for each row execute function public.notify_group_of_post();

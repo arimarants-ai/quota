@@ -2,7 +2,7 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v3';
+const VERSION = 'quota-v4';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 const STATIC_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -54,4 +54,27 @@ self.addEventListener('fetch', e => {
       return res;
     }))
   );
+});
+
+// ---- push notifications
+self.addEventListener('push', e => {
+  // iOS requires every push to show something, so fall back rather than throw.
+  let d = { title: 'Quota', body: 'Someone posted proof.', url: '/' };
+  try { if (e.data) d = { ...d, ...e.data.json() }; } catch (err) { /* not JSON: keep the fallback */ }
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: d.body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: d.tag,            // same tag replaces the previous one instead of stacking
+    data: { url: d.url || '/' },
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || '/', self.location.origin).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) if (c.url === url && 'focus' in c) return c.focus();
+    return self.clients.openWindow(url);
+  }));
 });
