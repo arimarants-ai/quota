@@ -31,8 +31,6 @@ On iPhone: open the site in **Safari**, tap Share, then "Add to Home Screen".
 A one-time banner explains this to iOS Safari visitors automatically.
 
 PWA files: `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`.
-The icons are generated from `logo.svg`. To regenerate after changing the logo:
-
 The icon is the logo on a full-bleed `#0F4C5C` square, scaled 1.05 so the ring
 nearly fills the tile (iOS rounds the corners itself, so no padding is needed).
 `icon-src.svg` holds that composition. Render at 512 and downscale — `qlmanage`
@@ -110,15 +108,14 @@ node --experimental-strip-types message.test.ts   # wording and goal-completion 
 
 ## Deploying
 
-Both Vercel projects build from this repo, so a push is the only deploy step.
+The `quota` Vercel project builds from this repo, so a push is the only deploy step.
 `.vercelignore` keeps this README, the schema and the icon sources out of the
 served sites.
 
-| Push to    | Project          | URL                                              |
-| ---------- | ---------------- | ------------------------------------------------ |
-| `main`     | `quota`          | https://quota-jet.vercel.app (public)            |
-| `main`     | `quota-redesign` | https://quota-redesign-ari-d851.vercel.app       |
-| `redesign` | `quota-redesign` | https://quota-redesign-git-redesign-ari-d851.vercel.app |
+| Push to    | URL                                              |
+| ---------- | ------------------------------------------------ |
+| `main`     | https://quota-jet.vercel.app (the real app)      |
+| `redesign` | https://quota-git-redesign-ari-d851.vercel.app   |
 
 So `main` is the published version and `redesign` is the working one, same as
 before — the difference is that publishing now happens on push rather than by

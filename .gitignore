@@ -2,3 +2,4 @@
 .DS_Store
 .env.notify.local
 *.local.sql
+supabase/.temp/
