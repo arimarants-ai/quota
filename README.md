@@ -75,8 +75,46 @@ either upgrade, or delete old proof videos (the posts table keeps the numbers ei
 To fit a longer clip under 50 MB, record at 720p instead of 4K
 (iPhone: Settings → Camera → Record Video).
 
-- No password reset yet. Accounts are username + password only.
+- Accounts are username + password only. Reset uses recovery codes, not email — see below.
 - "Today" is whatever the poster's phone says.
+
+## Password recovery
+
+Accounts have no real email address (`emailFor` makes `you@users.quota.local`), so
+Supabase's own reset email can never arrive. Recovery codes take its place.
+
+At signup the app issues **8 single-use codes** and shows them once. To reset, the
+user gives their username, one unused code, and a new password. That's it — no email,
+no phone, no third-party service.
+
+The codes are bound to the account **when they are issued**. That is the security
+property: knowing a username gets you nothing, so nobody can take a name that is
+already in use by "resetting" it. It also means an account created before this shipped
+has no codes, and can only be reset by hand in the Supabase dashboard.
+
+Also in place: SHA-256 hashes stored rather than the codes themselves, a limit of 5
+failed tries per username and per IP every 15 minutes, the same wording whether the
+username or the code was wrong, and codes spent before the password changes so a
+partial failure can't leave one replayable.
+
+Sessions already signed in on other devices are **not** forcibly ended — GoTrue has no
+admin endpoint to revoke them, and "single session per user" is a Pro plan setting.
+
+| Where | What |
+| ----- | ---- |
+| `schema.sql` v5 | `recovery_codes` and `recovery_attempts`, both RLS-on with no policies |
+| `supabase/functions/recovery/` | issues and redeems codes, using the service role key |
+| `index.html` | the codes dialog, the reset screen, and the Profile button for a new set |
+
+Deploy the function and run the v5 block before this works:
+
+```bash
+supabase functions deploy recovery
+node --experimental-strip-types supabase/functions/recovery/codes.test.ts
+```
+
+It needs no new secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are already
+in every function's environment.
 
 ## Notifications
 
