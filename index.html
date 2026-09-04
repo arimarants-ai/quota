@@ -6,7 +6,12 @@
 <meta name="theme-color" content="#0f4c5c">
 <title>Quota</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 132 132%22%3E%3Crect width=%22132%22 height=%22132%22 rx=%2230%22 fill=%22%230F4C5C%22/%3E%3Ccircle cx=%2266%22 cy=%2266%22 r=%2246%22 fill=%22none%22 stroke=%22rgba(255,255,255,.16)%22 stroke-width=%2218%22/%3E%3Ccircle cx=%2266%22 cy=%2266%22 r=%2246%22 fill=%22none%22 stroke=%22%23F4813A%22 stroke-width=%2218%22 stroke-linecap=%22round%22 stroke-dasharray=%22216 289%22 transform=%22rotate(-90 66 66)%22/%3E%3Crect x=%2286%22 y=%2286%22 width=%2222%22 height=%2234%22 rx=%2211%22 fill=%22%23F4813A%22 transform=%22rotate(-45 97 103)%22/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quota">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Unbounded:wght@800&display=swap">
 <style>
@@ -38,7 +43,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .grow{flex:1;min-width:0}
 .muted{color:var(--muted);font-size:13px;font-weight:600}
 /* header block */
-.hdr{background:var(--teal);color:#fff;padding:16px 20px 22px;border-radius:0 0 30px 30px}
+.hdr{background:var(--teal);color:#fff;padding:calc(16px + env(safe-area-inset-top)) 20px 22px;border-radius:0 0 30px 30px}
 .hdr .top{display:flex;justify-content:space-between;align-items:center}
 .logo{font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--acc);display:flex;align-items:center;gap:8px}
 .logo svg{width:26px;height:26px}
@@ -127,13 +132,13 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
 /* welcome + auth */
-.welcome{min-height:100vh;min-height:100dvh;background:var(--teal);color:#fff;display:flex;flex-direction:column;padding:28px 24px calc(28px + env(safe-area-inset-bottom))}
+.welcome{min-height:100vh;min-height:100dvh;background:var(--teal);color:#fff;display:flex;flex-direction:column;padding:calc(28px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom))}
 .welcome .mark svg{width:60px;height:60px}
 .welcome h1{margin:auto 0 0;font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1.05;text-wrap:balance}
 .welcome p{color:var(--teal2);font-weight:600;font-size:17px;line-height:1.45;margin:16px 0 26px;max-width:32ch}
 .welcome .primary{width:100%;padding:16px;border-radius:999px;font-size:17px}
 .welcome .ghost{color:var(--teal2);align-self:center;margin-top:10px;font-weight:600}
-.auth{max-width:400px;margin:8vh auto 0;padding:0 18px;text-align:center}
+.auth{max-width:400px;margin:8vh auto 0;padding:env(safe-area-inset-top) 18px 0;text-align:center}
 .auth .word{display:inline-flex;align-items:center;gap:10px;font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:34px;letter-spacing:-.03em;color:var(--teal)}
 .auth .word svg{width:44px;height:44px}
 .auth h2{font-size:22px;margin:18px 0 4px}
@@ -143,12 +148,25 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
 .auth .switch button{padding:0 4px;background:none;color:var(--teal)}
 .back{margin:12px 18px 0}
+/* iOS Safari has no install prompt, so this explains Add to Home Screen once */
+#a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
+#a2hs[hidden]{display:none}
+#a2hs .share{width:26px;height:26px;flex:none;stroke:var(--acc);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#a2hs p{flex:1;min-width:0;font-size:13px;line-height:1.35}
+#a2hs b{display:block;font-size:14px}
+#a2hs span{color:var(--muted);font-weight:600}
+#a2hs button{background:none;color:var(--muted);padding:4px 6px;font-size:15px;flex:none}
 </style>
 </head>
 <body>
 <main id="app"></main>
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
+<div id="a2hs" hidden>
+  <svg class="share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M12 3l-4 4M12 3l4 4"/><path d="M6 12v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-7"/></svg>
+  <p><b>Add Quota to your home screen</b><span>Tap the Share button, then “Add to Home Screen”.</span></p>
+  <button onclick="dismissA2HS()" aria-label="Dismiss">✕</button>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 // ---- config: Supabase project URL + anon (public) key. Safe in the page; row level security does the guarding.
@@ -456,6 +474,19 @@ async function addComment(f, postId) {
 async function delComment(id) { await q(sb.from('comments').delete().eq('id', id)); const y = scrollY; await load(); scrollTo(0, y); }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden && me()) load(); });
+
+// ---- installable app
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(e => console.warn('Service worker did not register:', e)));
+function dismissA2HS() { $('#a2hs').hidden = true; try { localStorage.a2hs = '1'; } catch (e) {} }
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function maybeShowA2HS() {
+  const ua = navigator.userAgent;
+  const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const safari = !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome/.test(ua); // only Safari can add to the home screen
+  let dismissed = false; try { dismissed = localStorage.a2hs === '1'; } catch (e) {}
+  if (ios && safari && !isStandalone() && !dismissed) $('#a2hs').hidden = false;
+}
+setTimeout(maybeShowA2HS, 1200); // let the app paint first
 load();
 
 // ---- self-check: open index.html#test and look at the console

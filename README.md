@@ -24,6 +24,26 @@ The redesign adds comments. In Supabase → SQL Editor, paste and run the block 
 - `main` is the published app (what the live URL serves).
 - `redesign` is the unpublished work. Merge it into `main` and deploy to publish.
 
+## Installing it as an app
+
+The app is a PWA, so it installs to a phone home screen with no app store.
+On iPhone: open the site in **Safari**, tap Share, then "Add to Home Screen".
+A one-time banner explains this to iOS Safari visitors automatically.
+
+PWA files: `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`.
+The icons are generated from `logo.svg`. To regenerate after changing the logo:
+
+```bash
+qlmanage -t -s 1024 -o /tmp/ql logo.svg
+sips -z 512 512 /tmp/ql/logo.svg.png --out icon-512.png
+sips -z 192 192 /tmp/ql/logo.svg.png --out icon-192.png
+sips -z 180 180 /tmp/ql/logo.svg.png --out apple-touch-icon.png
+```
+
+The service worker caches only static assets. Everything from Supabase (sign-in,
+database, video upload, signed video URLs) always goes to the network, so the
+worker can never serve a stale feed or a stale video.
+
 ## Limits worth knowing (free tiers)
 
 **Video size: 50 MB per file.** This is Supabase's hard cap on the free plan, verified by
