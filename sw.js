@@ -2,7 +2,7 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v4';
+const VERSION = 'quota-v5';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 const STATIC_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -73,8 +73,16 @@ self.addEventListener('push', e => {
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const url = new URL(e.notification.data?.url || '/', self.location.origin).href;
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    for (const c of list) if (c.url === url && 'focus' in c) return c.focus();
-    return self.clients.openWindow(url);
-  }));
+  e.waitUntil((async () => {
+    // Focus whatever window is already open, whichever tab it happens to be showing.
+    for (const c of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) {
+      if (!('focus' in c)) continue;
+      await c.focus();
+      if ('navigate' in c && c.url !== url) await c.navigate(url).catch(() => {});
+      return;
+    }
+    // iOS opens the home screen app itself; calling openWindow there gets you an
+    // in-app browser view instead, signed out and wearing Safari's chrome.
+    if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) await self.clients.openWindow(url);
+  })());
 });
