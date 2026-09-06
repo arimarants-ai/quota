@@ -148,6 +148,16 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
 .auth .switch button{padding:0 4px;background:none;color:var(--teal)}
 .back{margin:12px 18px 0}
+/* the splash while the first load runs, and the banner when it fails */
+.splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
+.splash svg{width:64px;height:64px}
+.splash i{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.splash i{animation-duration:2.4s}}
+#err{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:576px;margin:0 auto;z-index:30;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);font-size:13px;font-weight:600;line-height:1.35}
+#err[hidden]{display:none}
+#err span{flex:1;min-width:0}
+#err button{flex:none;background:var(--soft);color:var(--teal);padding:7px 12px;font-size:13px}
 /* iOS Safari has no install prompt, so this explains Add to Home Screen once */
 #a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
 #a2hs[hidden]{display:none}
@@ -162,13 +172,22 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <main id="app"></main>
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
+<div id="err" hidden role="alert"><span></span><button onclick="load()">Retry</button></div>
 <div id="a2hs" hidden>
   <svg class="share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M12 3l-4 4M12 3l4 4"/><path d="M6 12v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-7"/></svg>
   <p><b>Add Quota to your home screen</b><span>Tap the Share button, then “Add to Home Screen”.</span></p>
   <button onclick="dismissA2HS()" aria-label="Dismiss">✕</button>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/vendor/supabase-js-2.49.4/supabase.js"></script>
 <script>
+// Everything below depends on that one file. Off a CDN it could fail to arrive — an
+// installed app often opens before the phone has a connection — and the page then sat
+// blank with nothing on it at all. It is served from this origin and precached now, so
+// this should not happen, but a white screen is the worst possible way to find out.
+if (typeof supabase === 'undefined') {
+  document.getElementById('app').innerHTML = '<div class="auth"><h2>Quota could not start</h2><p>Part of the app did not load.</p><button class="primary" onclick="location.reload()">Try again</button></div>';
+  throw new Error('supabase-js did not load');
+}
 // ---- config: Supabase project URL + anon (public) key. Safe in the page; row level security does the guarding.
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
@@ -181,7 +200,10 @@ const MAX_MB = 50;
 // supabase/functions/recovery/ and the v5 block in schema.sql.
 const emailFor = u => `${u}@users.quota.local`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const q = async p => { const {data, error} = await p; if (error) { alert(error.message); throw error; } return data; };
+// quiet is raised while load() is running. A failure there is handled by load() itself
+// and reported in the banner, so it must not also throw a modal alert in the way.
+let quiet = 0;
+const q = async p => { const {data, error} = await p; if (error) { if (!quiet) { alert(error.message); error.shown = true; } throw error; } return data; };
 
 // ---- theme (light unless you switch)
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t; };
@@ -193,7 +215,7 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 const $ = s => document.querySelector(s);
 const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off'};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -215,9 +237,9 @@ const dayLabel = d => d === today() ? 'Today' : d === daysAgo(1) ? 'Yesterday' :
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(user(id))); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
-async function load() {
+async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
-  if (!session) { S.me = null; return render(); }
+  if (!session) { S.me = null; return; }
   const uid = session.user.id;
   const [fr, inv, gm, groups, posts, totals] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
@@ -239,12 +261,44 @@ async function load() {
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
-  render();
+}
+
+// ---- loading, and what to do when it fails
+// render() used to run only at the end of a successful fetch, so anything that went
+// wrong left an empty page behind: an alert saying "JWT expired" and then nothing.
+// Now every path ends in a render, and the page paints before the first fetch even starts.
+const showErr = msg => { const e = $('#err'); e.querySelector('span').textContent = msg; e.hidden = false; };
+const hideErr = () => { $('#err').hidden = true; };
+// An access token that went stale while the app was closed is the ordinary case for an
+// installed app: it can sit suspended for days. Worth one forced refresh before giving up.
+const authErr = e => e && (e.status === 401 || e.code === 'PGRST301' || /jwt|token|not authenticated|unauthorized/i.test(e.message || ''));
+
+let inFlight = null, lastLoad = 0;
+function load() { return inFlight || (inFlight = runLoad().finally(() => { inFlight = null; lastLoad = Date.now(); })); }
+
+async function runLoad() {
+  quiet++;
+  try {
+    try { await fetchAll(); }
+    catch (e) {
+      if (!authErr(e)) throw e;
+      const {data, error} = await sb.auth.refreshSession();
+      if (error || !data.session) { S.me = null; S.open = null; S.auth = 'welcome'; hideErr(); return; } // signed out for real, not just stale
+      await fetchAll();
+    }
+    hideErr();
+  } catch (e) {
+    showErr(navigator.onLine ? `Could not load: ${e.message || 'something went wrong'}` : 'You are offline. Showing what was already here.');
+  } finally {
+    quiet--; S.booting = false; render();
+  }
 }
 function render() {
   const m = me();
   $('#bar').hidden = !m; $('#app').classList.toggle('out', !m);
-  if (!m) return $('#app').innerHTML = S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
+  // Until the first load lands we do not know whether there is a session, and guessing
+  // means flashing the sign-in screen at someone who is already signed in.
+  if (!m) return $('#app').innerHTML = S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
   $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
@@ -254,6 +308,7 @@ function render() {
 }
 
 // ---- views
+const splashView = () => `<div class="splash">${LOGO(true)}<i></i></div>`;
 const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
 function feedView() {
   const m = me(), gs = myGroups();
@@ -555,7 +610,12 @@ async function addComment(f, postId) {
 }
 async function delComment(id) { await q(sb.from('comments').delete().eq('id', id)); const y = scrollY; await load(); scrollTo(0, y); }
 
-document.addEventListener('visibilitychange', () => { if (!document.hidden && me()) load(); });
+// An installed app comes back to the foreground constantly, and this refetches every
+// table each time. Once every 15 seconds is plenty; load() itself collapses overlapping calls.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !me() || Date.now() - lastLoad < 15000) return;
+  load();
+});
 
 // ---- installable app
 if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(e => console.warn('Service worker did not register:', e)));
@@ -603,6 +663,25 @@ async function disablePush() {
   } catch (e) { /* leaving the row behind is harmless: the sender prunes dead endpoints */ }
   S.push = 'off'; render();
 }
+// ---- boot
+// The library keeps the session alive on its own timer and can end it without the app
+// asking — a refresh that finally fails after the phone has been offline, or a sign-out
+// in another tab. Without this the screen kept showing a signed-in app that no longer was.
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'INITIAL_SESSION') return;              // the first load() below covers this
+  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); render(); }
+  else if (!me()) load();                               // signed in, or a refresh recovered while we sat on the welcome screen
+});
+
+// Last resort, and it goes first so that it covers the boot below too. Whatever we
+// failed to anticipate, say so rather than leave a page that has stopped responding.
+addEventListener('unhandledrejection', e => {
+  if (e.reason?.shown || document.hidden) return;       // q() already put it in front of them
+  showErr(`Something went wrong: ${e.reason?.message || e.reason}`);
+});
+
+// Nothing here is allowed to leave the page blank. Paint first, then fill it in.
+render();
 load();
 
 // ---- self-check: open index.html#test and look at the console
