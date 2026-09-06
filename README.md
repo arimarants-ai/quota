@@ -51,6 +51,28 @@ The service worker caches only static assets. Everything from Supabase (sign-in,
 database, video upload, signed video URLs) always goes to the network, so the
 worker can never serve a stale feed or a stale video.
 
+The Supabase library is vendored under `vendor/` and precached rather than pulled
+from a CDN. An installed app is often opened before the phone has a connection, and
+every line of `index.html` depends on that file: when it did not arrive, the page
+came up blank with nothing on it. See `vendor/supabase-js-2.49.4/README.md` for how
+to move to a newer version.
+
+## When the app cannot load
+
+An installed app can sit closed for days, so its access token has almost always
+expired by the time it is opened again, and the first thing it does is talk to the
+network. All three of those go wrong far more often than they do in a browser tab,
+so nothing in the load path is allowed to leave an empty page behind:
+
+- The page paints a splash before the first request, so a slow or hung session read
+  shows something rather than nothing.
+- An expired token gets one forced `refreshSession()` and one retry. If that fails
+  the app falls back to the sign-in screen instead of dying half-loaded.
+- Anything else lands in the banner at the bottom of the screen with a Retry button.
+  Errors during load never use `alert()`: a modal you dismiss into a blank page is
+  what the old behaviour amounted to.
+- `onAuthStateChange` keeps the UI honest when the library ends the session on its own.
+
 ## Limits worth knowing (free tiers)
 
 **Video size: 50 MB per file.** This is Supabase's hard cap on the free plan, verified by

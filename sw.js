@@ -2,13 +2,18 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v6';
-const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
-const STATIC_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const VERSION = 'quota-v7';
+// supabase.js is in here on purpose: every line of the app depends on it, so if it is
+// missing on a cold launch the page cannot start at all. Precached, that cannot happen.
+const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
+  '/vendor/supabase-js-2.49.4/supabase.js', '/vendor/supabase-js-2.49.4/591.supabase.js'];
+const STATIC_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(PRECACHE)).catch(() => {}));
+  // addAll is all-or-nothing, so one bad entry used to leave the app with no cache at
+  // all and nothing to fall back on offline. Take whatever we can get instead.
+  e.waitUntil(caches.open(VERSION).then(c => Promise.all(PRECACHE.map(u => c.add(u).catch(() => {})))));
 });
 
 self.addEventListener('activate', e => {
@@ -39,7 +44,7 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Fonts, the Supabase library and icons: cache first, they are versioned or static.
+  // Fonts and icons: cache first, they are versioned or static.
   const sameOrigin = url.origin === self.location.origin;
   const isStatic = STATIC_HOSTS.includes(url.hostname) ||
     (sameOrigin && /\.(png|svg|ico|css|js|json|woff2?)$/i.test(url.pathname));
