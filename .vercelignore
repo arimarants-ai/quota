@@ -5,3 +5,8 @@ icon-src.svg
 .claude
 .DS_Store
 supabase
+package.json
+package-lock.json
+node_modules
+test
+.github

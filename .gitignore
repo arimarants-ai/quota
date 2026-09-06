@@ -3,3 +3,5 @@
 .env.notify.local
 *.local.sql
 supabase/.temp/
+node_modules/
+test/*.local.*
