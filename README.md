@@ -73,6 +73,34 @@ so nothing in the load path is allowed to leave an empty page behind:
   what the old behaviour amounted to.
 - `onAuthStateChange` keeps the UI honest when the library ends the session on its own.
 
+## Tests
+
+```bash
+npm install                      # once: playwright, for the boot tests
+npx playwright install chromium  # once
+npm test
+```
+
+`npm test` runs everything, including the recovery-code and notification tests
+documented further down. The two worth knowing about:
+
+`test/static.test.mjs` needs nothing installed and checks that `index.html` and
+`sw.js` still agree: nothing the page cannot start without may be loaded from
+another origin, everything the page asks for exists and is precached, and a
+changed precached file comes with a bumped `VERSION`. That last one is recorded
+in `test/precache.lock` — when you change a precached file, bump `VERSION` in
+`sw.js` and run `node test/static.test.mjs --update` to record it.
+
+`test/boot.test.mjs` loads the real page in a headless browser with a stubbed
+Supabase, so the load path can be put into states that are otherwise hard to
+reach: an expired token, a refresh that fails, a session read that never
+returns, the library failing to arrive. Every check is a way of breaking one
+rule — whatever goes wrong, the app must never end up showing an empty page.
+It is worth keeping honest, because a regression here is close to invisible:
+the site went on working in a browser tab while the installed app opened blank.
+
+CI runs all of it on every push and pull request.
+
 ## Limits worth knowing (free tiers)
 
 **Video size: 50 MB per file.** This is Supabase's hard cap on the free plan, verified by

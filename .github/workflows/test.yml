@@ -1,0 +1,31 @@
+# The app has no build step, so this is the only thing standing between a bad change and
+# everyone's home screen. It exists because a regression here is close to invisible:
+# the site kept working in a browser tab while the installed app opened to a blank page.
+name: test
+
+on:
+  push:
+    branches: [main, redesign, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The page and the service worker agreeing needs nothing installed, so run it first
+      # and get the cheap failures out of the way.
+      - run: node test/static.test.mjs
+
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node test/boot.test.mjs
+
+      - run: node --experimental-strip-types supabase/functions/recovery/codes.test.ts
+      - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
+      - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
