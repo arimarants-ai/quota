@@ -107,7 +107,12 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .play{position:absolute;inset:0;display:grid;place-items:center;z-index:1;pointer-events:none}
 .reel .play i{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.7);display:grid;place-items:center;backdrop-filter:blur(6px)}
 .reel .play i::after{content:"";border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
-.reel.playing .play,.reel.playing .ov.bot,.reel.playing::after{display:none}
+.reel.playing .play{display:none}
+/* The caption stays up while the video plays. The gradient behind it shrinks instead of
+   going away, so the text still has something to sit on, and the extra bottom padding
+   lifts it clear of the native controls rather than letting them sit on top of it. */
+.reel.playing::after{height:26%}
+.reel.playing .ov.bot{padding-bottom:54px}
 .cmts{padding:10px 16px 14px}
 .c{display:flex;gap:8px;padding:7px 0;font-size:14px;align-items:flex-start}
 .c b{font-weight:800;flex:none}
@@ -355,7 +360,7 @@ function feed(ps, showGroup) {
       <video playsinline preload="metadata" src="${esc(p.url)}" onclick="if(!this.controls){this.controls=true;this.play()}" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
       <div class="ov top">${av(u)}<div><div class="who">${esc(name(u))}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${p.amount} ${esc(p.metric)}</div></div>
       <div class="play"><i></i></div>
-      <div class="ov bot"><div class="cap">${esc(p.caption)}</div></div></div>
+      ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
       <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(name(user(c.userId)))}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
       ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>` : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})"><input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off"><button class="primary">Send</button></form>`}
       ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div></div>`;

@@ -5,7 +5,14 @@
   const M = () => (self.__MODE || {});
   self.__calls = { loads: 0 };
   const err = m => { const e = new Error(m); e.status = /jwt|expired/i.test(m) ? 401 : 500; return e; };
-  const rows = t => t === 'profiles' ? [{ id: 'u1', username: 'ari', display_name: 'Ari' }] : [];
+  // Enough of a feed to render a post: one group the user is in, and one post in it.
+  const POST = { id: 1, group_id: 1, user_id: 'u1', metric: 'pushups', amount: 50, caption: 'fifty in the bag', video_path: 'p.mp4', day: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString() };
+  const rows = t => ({
+    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }],
+    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }] }],
+    group_members: [{ group_id: 1, user_id: 'u1' }],
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST],
+  }[t] || []);
   const result = t => {
     const m = M();
     if (t === 'friendships') self.__calls.loads++;         // one per load(): the first query it runs
@@ -30,7 +37,11 @@
         signOut: async () => ({ error: null }),
       },
       from: t => chain(t),
-      storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }), createSignedUrls: async () => ({ data: [], error: null }) }) },
+      storage: { from: () => ({
+        getPublicUrl: () => ({ data: { publicUrl: '' } }),
+        // One signed URL per post, in order, the way the page consumes them.
+        createSignedUrls: async paths => ({ data: paths.map(() => ({ signedUrl: 'data:video/mp4;base64,' })), error: null }),
+      }) },
       functions: { invoke: async () => ({ data: null, error: null }) },
     }),
   };

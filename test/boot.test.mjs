@@ -121,6 +121,31 @@ await withPage(SIGNED_IN, async page => {
   check('resuming repeatedly does not refetch every time', after === before, `${before} -> ${after} loads`);
 });
 
+// The caption used to be hidden the moment playback started, along with the play button
+// and the gradient. It is the one thing on that overlay worth reading while watching.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const cap = page.locator('.reel .cap').first();
+  check('a post shows its caption', await cap.isVisible() && (await cap.innerText()).includes('fifty in the bag'));
+  await page.locator('.reel').first().evaluate(el => el.classList.add('playing'));
+  check('  and keeps it once the video is playing', await cap.isVisible());
+  // Native controls sit at the bottom of the video, so the caption has to move off them.
+  const [reel, box] = await Promise.all([
+    page.locator('.reel').first().boundingBox(),
+    cap.boundingBox(),                                     // null once it is hidden
+  ]);
+  const clearance = box && reel ? reel.y + reel.height - (box.y + box.height) : -1;
+  check('  clear of the native controls', clearance >= 40,
+    box ? `only ${Math.round(clearance)}px above the bottom` : 'the caption is not on screen at all');
+});
+
+// A post with no caption should not leave an empty overlay floating over the video.
+await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
+  await settle(page);
+  check('a post without a caption still renders', await page.locator('.reel').count() === 1);
+  check('  but with no empty caption overlay', await page.locator('.reel .ov.bot').count() === 0);
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
