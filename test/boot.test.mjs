@@ -24,17 +24,33 @@ const STUB = await readFile(join(HERE, 'stub-supabase.js'), 'utf8');
 const LIB = '**/vendor/**/supabase.js';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
+// Playwright's request interception suppresses xhr.upload.onprogress, so an upload
+// answered by route.fulfill() reports nothing and would prove nothing. Instead the page
+// is served with its SUPABASE_URL pointed back here, and this server answers the storage
+// endpoint for real, so the upload runs the whole way through a real XHR.
+let base = '';
+let uploadReply = { status: 200, body: '{}', hold: null };
 const server = createServer(async (req, res) => {
   let p = req.url.split(/[?#]/)[0];
+  if (req.method === 'POST' && p.startsWith('/storage/v1/object/')) {
+    req.on('data', () => {});
+    req.on('end', async () => {
+      if (uploadReply.hold) await uploadReply.hold;
+      res.writeHead(uploadReply.status, { 'content-type': 'application/json' });
+      res.end(uploadReply.body);
+    });
+    return;
+  }
   if (p === '/') p = '/index.html';
   try {
-    const body = await readFile(join(ROOT, p));
+    let body = await readFile(join(ROOT, p));
+    if (p === '/index.html' && req.url.includes('local')) body = String(body).replace(/const SUPABASE_URL = '[^']+'/, `const SUPABASE_URL = '${base}'`);
     res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream' });
     res.end(body);
   } catch { res.writeHead(404); res.end('not found'); }
 });
 await new Promise(r => server.listen(0, r));
-const base = `http://127.0.0.1:${server.address().port}`;
+base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch();
 
 let failed = 0;
@@ -51,11 +67,20 @@ async function withPage(mode, body) {
   const page = await ctx.newPage();
   const alerts = [];
   page.on('dialog', d => { alerts.push(d.message()); d.dismiss(); });
+  await page.addInitScript(() => {
+    self.__btn = [];
+    addEventListener('DOMContentLoaded', () => {
+      new MutationObserver(() => {
+        const b = document.querySelector('#dlg button.primary');
+        if (b && self.__btn.at(-1) !== b.textContent) self.__btn.push(b.textContent);
+      }).observe(document.body, { subtree: true, childList: true, characterData: true });
+    });
+  });
   await page.route('**fonts.googleapis.com**', r => r.abort());   // not reachable from CI either
   if (mode) {
     await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
     await page.addInitScript(m => { self.__MODE = m; }, mode);
-    await page.goto(base, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${base}/?local`, { waitUntil: 'domcontentloaded' });
   }
   try { await body(page, alerts); } finally { await ctx.close(); }
 }
@@ -145,6 +170,50 @@ await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
   check('a post without a caption still renders', await page.locator('.reel').count() === 1);
   check('  but with no empty caption overlay', await page.locator('.reel .ov.bot').count() === 0);
 });
+
+// Uploading a phone video is the longest thing the app does, and supabase-js sends it
+// through fetch, which reports nothing at all. A motionless "Uploading…" is how a slow
+// connection and a stuck one look identical.
+async function submitProof(page) {
+  await page.locator('.bar .add').click();
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg input[name=video]').setInputFiles({
+    name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4 * 1048576, 7),
+  });
+  await page.locator('#dlg button.primary').click();
+}
+const labels = page => page.evaluate(() => self.__btn);
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  let release;
+  uploadReply = { status: 200, body: '{}', hold: new Promise(r => { release = r; }) };
+  await submitProof(page);
+  await page.waitForFunction(() => self.__btn.some(t => /Uploading… \d+%/.test(t)), null, { timeout: 5000 }).catch(() => {});
+  const seen = await labels(page);
+  check('the upload button reports a percentage', seen.some(t => /Uploading… \d+%/.test(t)), seen.join(' -> '));
+  check('  and the progress bar fills', await page.locator('#uprog').evaluate(el => el.style.getPropertyValue('--w')) !== '');
+  check('  and the size line counts MB sent', /of 4\.0 MB/.test(await page.locator('#vsize').textContent()),
+    await page.locator('#vsize').textContent());
+  release();
+  await page.waitForTimeout(700);
+  // dlg() closes the dialog but leaves its markup in place, so ask whether it is open.
+  const open = await page.locator('#dlg').evaluate(d => d.open);
+  check('  then posts and closes the dialog', (await labels(page)).includes('Posting…') && !open,
+    `${(await labels(page)).join(' -> ')} | dialog open: ${open}`);
+});
+
+// A rejected upload has to repeat what the server said, not fail silently.
+await withPage(SIGNED_IN, async (page, alerts) => {
+  await settle(page);
+  uploadReply = { status: 413, body: JSON.stringify({ message: 'The object exceeded the maximum allowed size' }), hold: null };
+  await submitProof(page);
+  await page.waitForTimeout(900);
+  check('a rejected upload repeats the reason', alerts.some(a => a.includes('exceeded the maximum allowed size')), alerts.join(' | '));
+  check('  and the form can be used again', await page.locator('#dlg button.primary').isEnabled());
+  check('  and the progress bar is cleared away', await page.locator('#uprog').isHidden());
+});
+uploadReply = { status: 200, body: '{}', hold: null };
 
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {

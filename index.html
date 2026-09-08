@@ -84,6 +84,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .empty{text-align:center;padding:28px 16px}
 .empty b{display:block;font-size:16px;margin-bottom:4px}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
+.prog{display:block;height:5px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:10px}
+.prog::after{content:"";display:block;height:100%;background:var(--acc);width:var(--w,0%);transition:width .25s}
+.prog[hidden]{display:none}
 .list{padding:4px 16px}
 .list .row{padding:10px 0;border-top:1px solid var(--line)}
 .list .row:first-child{border-top:0}
@@ -486,6 +489,7 @@ function submitDlg(gid) {
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
     <label>Video proof <span style="font-weight:500">(up to ${MAX_MB} MB)</span></label><input name="video" type="file" accept="video/*" required onchange="vidPick(this)">
     <p class="muted" id="vsize" style="margin-top:6px"></p>
+    <i class="prog" id="uprog" hidden></i>
     <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag" maxlength="200">
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
@@ -588,16 +592,65 @@ async function saveProfile(f) {
   } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
   dlg(); load();
 }
+// supabase-js sends the file through fetch, which cannot report upload progress, so a
+// phone video sat on a motionless "Uploading…" for the whole transfer with no way to
+// tell a slow connection from a stuck one. This is the same request its storage client
+// builds — a multipart POST to the object endpoint — sent with XHR so it can be watched.
+async function upload(bucket, path, file, onProgress) {
+  const {data: {session}} = await sb.auth.getSession();
+  // A file with no type of its own is stored as octet-stream, which iOS then refuses to
+  // play. The camera always sets one; a file picked from somewhere else might not.
+  const part = file.type ? file : new File([file], file.name || 'video.mp4', {type: 'video/mp4'});
+  const body = new FormData();
+  body.append('cacheControl', '3600');
+  body.append('', part);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest(), t0 = Date.now();
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`);
+    xhr.setRequestHeader('apikey', SUPABASE_KEY);
+    if (session) xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.upload.onprogress = e => {
+      if (!e.lengthComputable) return;
+      const secs = (Date.now() - t0) / 1000;
+      onProgress(e.loaded, e.total, secs > 1 ? e.loaded / 1048576 / secs : 0);   // a rate before a second has passed is noise
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      let m = `The upload failed (${xhr.status}).`;
+      try { const j = JSON.parse(xhr.responseText); m = j.message || j.error || m; } catch (err) {}
+      reject(new Error(m));
+    };
+    xhr.onerror = () => reject(new Error('The upload was interrupted. Check your connection and try again.'));
+    xhr.onabort = () => reject(new Error('The upload was cancelled.'));
+    xhr.send(body);
+  });
+}
+
+const mb = n => (n / 1048576).toFixed(1);
+
 async function addPost(f, gid) {
   const fd = new FormData(f), video = fd.get('video');
   if (!video || !video.size) return alert('Attach a video');
   if (video.size > MAX_MB * 1048576) return alert(`That video is ${(video.size / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`);
-  working(f, video.size > 20 * 1048576 ? 'Uploading… this can take a minute' : 'Uploading…');
+  working(f, 'Uploading…');
   const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
+  const bar = $('#uprog'), size = $('#vsize');
+  if (bar) bar.hidden = false;
   try {
-    await q(sb.storage.from('proof').upload(path, video, {contentType: video.type || 'video/mp4'}));
+    await upload('proof', path, video, (sent, total, rate) => {
+      const pct = Math.round(sent / total * 100);
+      working(f, `Uploading… ${pct}%`);
+      if (bar) bar.style.setProperty('--w', `${pct}%`);
+      if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
+    });
+    working(f, 'Posting…');
     await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'), caption: fd.get('caption').trim(), video_path: path, day: today()}));
-  } catch (e) { return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
+  } catch (e) {
+    if (bar) bar.hidden = true;
+    if (!e.shown) alert(e.message);                        // q() already showed its own
+    return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false);
+  }
   dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
 }
 async function delPost(id) {
