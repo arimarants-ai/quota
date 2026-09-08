@@ -29,6 +29,14 @@ begin
   s := public.spin(1, current_date);
   if jsonb_array_length(s.results) <> 2 then raise exception 'both stages should be spun, got %', s.results; end if;
   if s.results->0->>'value' is null then raise exception 'the challenge landed on nothing'; end if;
+  -- the animation needs to know which slice, and needs the slices as they were
+  if (s.results->0->>'i')::int is null then raise exception 'the spin did not record which slice it landed on'; end if;
+  if s.results->0->'segs' <> '["100 burpees","5k run","plank 3 min","cold shower"]'::jsonb then
+    raise exception 'the spin did not snapshot the slices, got %', s.results->0->'segs';
+  end if;
+  if s.results->0->'segs'->((s.results->0->>'i')::int) <> s.results->0->'value' then
+    raise exception 'the recorded slice is not the one the value came from';
+  end if;
   -- a day wheel can never ask for more days than the cycle has
   if s.days_required <> 5 then raise exception 'days_required should clamp to 5, got %', s.days_required; end if;
 
@@ -82,6 +90,10 @@ end $$;
 insert into public.wheels (id, group_id, name, every_days, starts_on) overriding system value
   values (2, 1, 'Future', 7, current_date + 3);
 insert into public.wheel_stages (wheel_id, seq, kind, segments) values (2, 0, 'challenge', '["a","b"]');
+-- The fixtures above set ids by hand, which leaves the identity sequence behind. Nothing
+-- does that in the real app, so catch it up rather than letting it fail the next insert.
+select setval(pg_get_serial_sequence('public.wheels', 'id'), (select max(id) from public.wheels));
+select setval(pg_get_serial_sequence('public.groups', 'id'), (select max(id) from public.groups));
 do $$
 begin
   perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
@@ -145,4 +157,50 @@ begin
 end $$;
 
 reset role;
+
+-- ---- save_wheel: one call, or nothing
+do $$
+declare wid bigint; n int;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  wid := public.save_wheel(null, 1, 'Extra', 4, current_date, 8, false,
+    '[{"kind":"challenge","label":"What","segments":["a","b","c"]},{"kind":"days","label":"How long","segments":["1","2","3"]}]');
+  select count(*) into n from public.wheel_stages where wheel_id = wid;
+  if n <> 2 then raise exception 'expected 2 stages, got %', n; end if;
+
+  -- editing replaces the slices wholesale
+  perform public.save_wheel(wid, 1, 'Extra', 4, current_date, 9, true,
+    '[{"kind":"challenge","label":"What","segments":["x","y"]}]');
+  select count(*) into n from public.wheel_stages where wheel_id = wid;
+  if n <> 1 then raise exception 'stages were not replaced, got %', n; end if;
+  if not (select breaks_streak from public.wheels where id = wid) then raise exception 'breaks_streak did not save'; end if;
+
+  -- a day wheel cannot ask for days the cycle does not have
+  begin
+    perform public.save_wheel(null, 1, 'Bad', 3, current_date, 8, false,
+      '[{"kind":"challenge","segments":["a","b"]},{"kind":"days","segments":["1","9"]}]');
+    raise exception 'a day wheel asked for more days than the cycle has';
+  exception when others then
+    if sqlerrm like 'a day wheel asked for%' then raise; end if;
+  end;
+
+  -- and the schedule is frozen once anyone has spun, or cycles would renumber underneath them
+  begin
+    perform public.save_wheel(1, 1, 'Challenge', 6, current_date - 10, 8, false,
+      '[{"kind":"challenge","segments":["a","b"]}]');
+    raise exception 'the schedule changed after people had spun';
+  exception when others then
+    if sqlerrm like 'the schedule changed%' then raise; end if;
+  end;
+
+  -- someone outside the group cannot make one
+  perform set_config('test.uid', '33333333-3333-3333-3333-333333333333', true);
+  begin
+    perform public.save_wheel(null, 1, 'Sneaky', 5, current_date, 8, false, '[{"kind":"challenge","segments":["a","b"]}]');
+    raise exception 'an outsider made a wheel';
+  exception when others then
+    if sqlerrm like 'an outsider made%' then raise; end if;
+  end;
+end $$;
+
 \echo 'PASS: wheels schema'

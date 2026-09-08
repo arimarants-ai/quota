@@ -33,8 +33,10 @@ button.teal{background:var(--teal);color:#fff}
 button.small{padding:7px 12px;font-size:13px}
 button.ghost{background:none;color:var(--muted);padding:6px 4px;font-weight:600}
 button:disabled{opacity:.6}
-input,select{font:inherit;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
-input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,76,92,.15)}
+input,select,textarea{font:inherit;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,76,92,.15)}
+textarea{resize:vertical;line-height:1.5}
+.check input{width:19px}
 input[type=file]{padding:10px;font-size:14px}
 label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 6px}
 .row{display:flex;gap:10px;align-items:center}
@@ -83,6 +85,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .chip.ok{background:var(--okbg);color:var(--ok)}
 .empty{text-align:center;padding:28px 16px}
 .empty b{display:block;font-size:16px;margin-bottom:4px}
+.check{display:flex;align-items:center;gap:9px;margin-top:14px;font-weight:700;font-size:14px}
+.check input{width:19px;height:19px;margin:0;flex:none;accent-color:var(--acc)}
+.check span{font-weight:700}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
 .prog{display:block;height:5px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--acc);width:var(--w,0%);transition:width .25s}
@@ -158,6 +163,40 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
 .auth .switch button{padding:0 4px;background:none;color:var(--teal)}
 .back{margin:12px 18px 0}
+/* the wheel */
+.wheelbox{position:relative;width:min(260px,72vw);margin:14px auto 0;aspect-ratio:1}
+.wheel-face{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.22))}
+/* 4.2s, slowing right down at the end, so it reads as a wheel losing momentum */
+.wheel-spin{width:100%;height:100%;transition:transform 4.2s cubic-bezier(.15,.85,.15,1)}
+.pointer{position:absolute;top:-3px;left:50%;translate:-50% 0;z-index:2;width:0;height:0;
+  border-left:11px solid transparent;border-right:11px solid transparent;border-top:19px solid var(--text);
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.stage{transition:opacity .3s}
+.stage.later{opacity:0;height:0;overflow:hidden}
+.stagelabel{margin:18px 0 -4px;text-align:center;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.landed{text-align:center;font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:19px;
+  margin:14px 0 0;opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}
+.landed.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.wheel-spin{transition-duration:1.2s}}
+
+/* a wheel as it appears in the group */
+.wh{border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-top:10px}
+.wh:first-of-type{margin-top:0}
+.wh .top{display:flex;align-items:center;gap:8px}
+.wh b{font-size:15px}
+.wh .when{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+.wh .got{font-weight:800;font-size:15px;margin-top:8px}
+.wh .who{font-size:13px;font-weight:600;color:var(--muted);margin-top:2px}
+.due{border-color:var(--acc);background:linear-gradient(180deg,rgba(244,129,58,.10),transparent)}
+.spinday{border-color:var(--acc)}
+.spinday b{font-family:Unbounded,system-ui,sans-serif;font-size:15px}
+.spinday p{margin-top:4px}
+.ticks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tick{padding:6px 9px;border-radius:9px;border:1px solid var(--line);background:var(--card);
+  font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+.tick.on{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tick:disabled{opacity:.45;cursor:default}
+
 /* the splash while the first load runs, and the banner when it fails */
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
 .splash svg{width:64px;height:64px}
@@ -225,7 +264,7 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 const $ = s => document.querySelector(s);
 const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -238,6 +277,31 @@ const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metr
 const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
 const streak = (g, uid) => { const days = hitDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
 const best = (g, uid) => { const days = [...hitDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
+// ---- wheels
+// Cycles are counted in whole days from the anchor, so everyone in the group is always on
+// the same one. Date strings are parsed as UTC on both sides, so a clock change in the
+// middle of a cycle cannot shift the count by a day.
+const dayNo = d => Math.round(Date.parse(d) / 864e5);
+const fromDayNo = n => new Date(n * 864e5).toISOString().slice(0, 10);
+const cycleOf = (w, d = today()) => Math.floor((dayNo(d) - dayNo(w.starts_on)) / w.every_days);
+const cycleStart = (w, c = cycleOf(w)) => fromDayNo(dayNo(w.starts_on) + c * w.every_days);
+const cycleEnd = (w, c = cycleOf(w)) => fromDayNo(dayNo(w.starts_on) + (c + 1) * w.every_days - 1);
+const running = w => w.active && today() >= w.starts_on;
+const wheelsOf = g => S.wheels.filter(w => w.group_id === g.id && w.active).sort((a, b) => a.id - b.id);
+const spinOf = (w, uid, c = cycleOf(w)) => S.spins.find(sp => sp.wheel_id === w.id && sp.user_id === uid && sp.cycle === c);
+// What this person still owes in this group right now. The database enforces the same
+// thing on insert; this is so the app can put the wheel in front of them first.
+const dueIn = g => wheelsOf(g).filter(w => running(w) && !spinOf(w, me().id));
+const anyDue = () => myGroups().filter(g => dueIn(g).length);
+const ticksOf = sp => S.ticks.filter(t => t.spin_id === sp.id).map(t => t.day).sort();
+const challengeDone = sp => ticksOf(sp).length >= sp.days_required;
+// The days of a cycle, up to today: you can tick any of them, but not one that has not happened.
+const cycleDays = (w, c = cycleOf(w)) => {
+  const from = dayNo(cycleStart(w, c)), to = Math.min(dayNo(cycleEnd(w, c)), dayNo(today()));
+  return Array.from({length: Math.max(0, to - from + 1)}, (_, i) => fromDayNo(from + i));
+};
+const challengeText = sp => (sp.results.find(r => r.kind === 'challenge') || {}).value || '';
+
 // How often someone actually hits the whole quota, over the last 30 days or since the
 // group started if that is sooner. Today is left out: it is still in progress, and
 // counting it would drag everyone down every morning.
@@ -269,14 +333,20 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
     q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
     q(sb.from('posts').select('group_id,user_id,day,metric,amount')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
+    q(sb.from('wheels').select('*')),
+    q(sb.from('wheel_stages').select('*').order('seq')),
+    q(sb.from('spins').select('*')),
+    q(sb.from('wheel_days').select('*')),
   ]);
+  S.wheels = wheels.map(w => ({...w, stages: stages.filter(st => st.wheel_id === w.id)}));
+  S.spins = spins; S.ticks = ticks;
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
   S.groups = groups.map(g => ({...g, members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
@@ -337,6 +407,50 @@ function render() {
 
 // ---- views
 const splashView = () => `<div class="splash">${LOGO(true)}<i></i></div>`;
+// One wheel inside a group: what you owe or what you got, then what everyone else got.
+// Seeing each other's result is the whole point, so it is not tucked away anywhere.
+function wheelCard(g, w) {
+  const m = me(), c = cycleOf(w), mine = spinOf(w, m.id, c), soon = !running(w);
+  const others = g.members.filter(id => id !== m.id).map(id => ({id, sp: spinOf(w, id, c)}));
+  const head = `<div class="top"><b>${esc(w.name)}</b><span class="when">${soon ? `starts ${dayLabel(w.starts_on)}`
+    : `every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, c + 1))}`}</span></div>`;
+  const yours = soon ? '' : !mine
+    ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
+    : `<div class="got">${esc(challengeText(mine))}</div>${tickRow(w, mine)}`;
+  const rest = others.length ? `<div class="who">${others.map(o => `${esc(name(user(o.id)))}: ${o.sp
+    ? esc(challengeText(o.sp)) + (challengeDone(o.sp) ? ' ✓' : '') : 'not spun yet'}`).join('<br>')}</div>` : '';
+  return `<div class="wh${!soon && !mine ? ' due' : ''}">${head}${yours}${rest}</div>`;
+}
+
+// Tick off the days you did it. Any day inside the cycle counts, but not one that has not
+// arrived yet, so you cannot tick your way through a week in advance.
+function tickRow(w, sp) {
+  if (!sp.days_required) return `<div class="who">Nothing to do this time.</div>`;
+  const on = ticksOf(sp), days = cycleDays(w, sp.cycle);
+  const label = `${on.length} of ${plural(sp.days_required, 'day')} done`;
+  return `<div class="who">${challengeDone(sp) ? `Done — ${label}` : label}</div>
+    <div class="ticks">${days.map(d => `<button class="tick${on.includes(d) ? ' on' : ''}"
+      onclick="toggleTick(${sp.id},'${d}')">${d === today() ? 'Today' : dayLabel(d).replace(/,.*$/, '')}</button>`).join('')}</div>`;
+}
+
+async function toggleTick(spinId, day) {
+  const had = S.ticks.some(t => t.spin_id === spinId && t.day === day);
+  if (had) await q(sb.from('wheel_days').delete().eq('spin_id', spinId).eq('day', day));
+  else await q(sb.from('wheel_days').insert({spin_id: spinId, day}));
+  const y = scrollY; await load(); scrollTo(0, y);
+}
+
+function spinPrompt() {
+  const waiting = anyDue();
+  if (!waiting.length) return '';
+  return waiting.map(g => `<div class="card spinday">
+    <b>Today is wheel spin day</b>
+    <p class="muted">${esc(dueIn(g).map(w => w.name).join(' and '))} in ${esc(g.name)}. Spin before you post.</p>
+    <div class="row" style="margin-top:12px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>
+  </div>`).join('');
+}
+
+// What everyone owes and what they landed on, for the group page.
 function boardView(g) {
   return `<div class="card list">${standings(g).map((row, i) => {
     const u = user(row.id), you = row.id === me().id;
@@ -355,6 +469,7 @@ function feedView() {
   return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
     <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
     ${lines.length ? `<div class="mini">${lines.map(l => `<div>${esc(l.qq.metric)}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(l.g.name)}</span>` : ''}<br><b>${l.d}</b>/${l.qq.target}<i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i></div>`).join('')}</div>` : ''}</div>`
+    + spinPrompt()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
 function groupCard(g) {
@@ -375,10 +490,12 @@ function groupView(g) {
   return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="S.open=null;render()">‹ Groups</button>
   <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}</div>
-    <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div></div>
+    <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
+    <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div></div>
   <h3>Today</h3>
   <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
+  ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
   ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
   <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
@@ -466,6 +583,111 @@ function resetView() {
     <div><button class="ghost" onclick="S.auth='login';render()">\u2039 Back to log in</button></div></div>`;
 }
 
+// ---- the wheel
+// An ordinary spinning wheel, drawn as an SVG so the labels stay crisp and sit along the
+// slices. Four colours in rotation, all dark enough to take white text in either theme.
+const SLICE = ['#0F4C5C', '#F4813A', '#2E7D8A', '#B85C1E'];
+const sliceColour = (i, n) => SLICE[(i === n - 1 && (n % SLICE.length) === 1 ? i + 1 : i) % SLICE.length];
+
+function wheelSvg(segs) {
+  const n = segs.length, R = 104, C = 112, HUB = 17, mid = i => (i + 0.5) * 360 / n - 90;
+  const pt = (a, r) => [C + r * Math.cos(a * Math.PI / 180), C + r * Math.sin(a * Math.PI / 180)];
+  // A label runs along its slice, so the room it has is the radius minus the hub, not the
+  // width of the wheel. Sizing off that is what keeps long ones inside the rim.
+  const size = n > 12 ? 8 : n > 8 ? 9 : 11, room = R - HUB - 10;
+  const fits = Math.max(6, Math.floor(room / (size * 0.58)));
+  const slices = segs.map((seg, i) => {
+    const a0 = i * 360 / n - 90, a1 = (i + 1) * 360 / n - 90;
+    const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R);
+    const d = n === 1 ? `M ${C - R} ${C} a ${R} ${R} 0 1 1 ${R * 2} 0 a ${R} ${R} 0 1 1 ${-R * 2} 0`
+      : `M ${C} ${C} L ${x0} ${y0} A ${R} ${R} 0 ${360 / n > 180 ? 1 : 0} 1 ${x1} ${y1} Z`;
+    // Labels run along their slice, hub outwards, the way they do on a real wheel. There is
+    // no orientation that stays upright: the labels turn with the wheel, so anything picked
+    // to look right standing still is upside down once it has spun.
+    const a = mid(i), [tx, ty] = pt(a, (HUB + R) / 2);
+    const turn = a;
+    const text = String(seg);
+    const short = text.length > fits ? text.slice(0, fits - 1).trimEnd() + '…' : text;
+    return `<path d="${d}" fill="${sliceColour(i, n)}"/>
+      <text x="${tx}" y="${ty}" transform="rotate(${turn} ${tx} ${ty})" text-anchor="middle" dominant-baseline="central"
+        font-size="${size}" font-weight="800" fill="#fff">${esc(short)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 224 224" class="wheel-face" aria-hidden="true">${slices}
+    <circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="3"/>
+    <circle cx="${C}" cy="${C}" r="${HUB}" fill="#fff"/></svg>`;
+}
+
+// Where the wheel has to stop for slice i to sit under the pointer at the top, plus a few
+// whole turns so it looks like a spin rather than a jump.
+const restAngle = (i, n, turns = 5) => turns * 360 - ((i + 0.5) * 360 / n);
+
+function wheelBox(segs, id) {
+  return `<div class="wheelbox"><div class="pointer"></div>
+    <div class="wheel-spin" id="${id}">${wheelSvg(segs)}</div></div>`;
+}
+
+// ---- spinning
+// The result is decided and stored by the database before any of this runs. Everything
+// here is the reveal: the wheel is turned to an answer that already exists, so closing
+// the app mid-spin loses nothing and changes nothing.
+async function spinDlg(gid) {
+  const g = S.groups.find(x => x.id === gid), due = dueIn(g);
+  if (!due.length) return;
+  const w = due[0];
+  dlg(`<h2>${esc(w.name)}</h2><p class="muted">Everyone in ${esc(g.name)} spins this. Your result is up for the group to see.</p>
+    <div id="spinstage"></div>`);
+  const stage = $('#spinstage');
+  stage.innerHTML = `<div class="wheelbox"><div class="pointer"></div><div class="wheel-spin">${wheelSvg(w.stages[0] ? w.stages[0].segments : ['…', '…'])}</div></div>
+    <div class="row" style="margin-top:18px"><button class="primary grow" onclick="goSpin(${w.id},${gid})">Spin</button></div>`;
+}
+
+async function goSpin(wid, gid) {
+  const stage = $('#spinstage');
+  if (!stage) return;
+  stage.querySelector('button').disabled = true;
+  stage.querySelector('button').textContent = 'Spinning…';
+  let sp;
+  try { sp = await q(sb.rpc('spin', {p_wheel: wid, p_day: today()})); }
+  catch (e) { const b = stage.querySelector('button'); if (b) { b.disabled = false; b.textContent = 'Spin'; } return; }
+  S.spins = [...S.spins.filter(x => x.id !== sp.id), sp];
+  await reveal(sp, gid);
+}
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// Reveal the stages one after another: what the challenge is, then how long it runs for.
+async function reveal(sp, gid) {
+  const stage = $('#spinstage');
+  if (!stage) return;
+  const results = [...sp.results].sort((a, b) => a.seq - b.seq);
+  stage.innerHTML = results.map((r, i) => `<div class="stage${i ? ' later' : ''}" id="st${i}">
+    ${r.label ? `<p class="muted stagelabel">${esc(r.label)}</p>` : ''}
+    ${wheelBox(r.segs, `sw${i}`)}
+    <p class="landed" id="lt${i}"></p></div>`).join('');
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i], el = $(`#st${i}`), face = $(`#sw${i}`);
+    el.classList.remove('later');
+    await wait(60);
+    face.style.transform = `rotate(${restAngle(r.i, r.segs.length)}deg)`;
+    await wait(4200);
+    $(`#lt${i}`).textContent = r.kind === 'days' ? daysLine(+r.value) : String(r.value);
+    $(`#lt${i}`).classList.add('in');
+    await wait(700);
+  }
+  stage.insertAdjacentHTML('beforeend',
+    `<div class="row" style="margin-top:18px"><button class="primary grow" onclick="afterSpin(${gid})">Got it</button></div>`);
+}
+
+const daysLine = n => n === 0 ? 'No days — you got off' : n === 1 ? 'On 1 day' : `On ${n} days`;
+
+async function afterSpin(gid) {
+  dlg();
+  await load();
+  // More than one wheel can be due at once; keep going until the group is clear.
+  if (dueIn(S.groups.find(x => x.id === gid)).length) return spinDlg(gid);
+  openGroup(gid);
+}
+
 // ---- recovery codes
 // Two things to know about functions.invoke here.
 // 1. supabase-js 2.49.4 builds its functions client from the headers fixed at
@@ -511,9 +733,85 @@ async function resetPassword(f) {
 
 // ---- dialogs
 function dlg(html) { const d = $('#dlg'); if (!html) return d.close(); d.innerHTML = html; d.showModal(); }
+// Building a wheel. Two wheels chained by default — what the challenge is, then how many
+// days it runs for — because that is the shape people asked for; the second one is a
+// checkbox away from being dropped.
+function wheelDlg(gid, w) {
+  const spun = w && S.spins.some(sp => sp.wheel_id === w.id);
+  const ch = w && w.stages.find(st => st.kind === 'challenge');
+  const dw = w && w.stages.find(st => st.kind === 'days');
+  const hours = Array.from({length: 24}, (_, h) => `<option value="${h}" ${(w ? w.remind_hour : 8) === h ? 'selected' : ''}>${
+    h === 0 ? '12 am' : h < 12 ? `${h} am` : h === 12 ? '12 pm' : `${h - 12} pm`}</option>`).join('');
+  dlg(`<h2>${w ? 'Edit' : 'New'} wheel</h2>
+    <form onsubmit="event.preventDefault();saveWheel(this,${gid},${w ? w.id : 0})">
+    <label>Name</label><input name="name" maxlength="40" required value="${esc(w ? w.name : '')}" placeholder="Challenge">
+
+    <label>What is on the wheel</label>
+    <p class="muted" style="margin:0 0 6px">One per line. Between 2 and 24.</p>
+    <textarea name="segments" rows="6" required placeholder="100 burpees&#10;5k run&#10;3 minute plank&#10;Cold shower">${esc(ch ? ch.segments.join('\n') : '')}</textarea>
+
+    <label>Everyone spins it</label>
+    <div class="row"><span class="muted" style="font-weight:600">every</span>
+      <input name="every" type="number" min="1" max="60" required style="width:88px" value="${w ? w.every_days : 5}" ${spun ? 'disabled' : ''}>
+      <span class="muted" style="font-weight:600">days, starting</span></div>
+    <input name="starts" type="date" required value="${w ? w.starts_on : today()}" ${spun ? 'disabled' : ''}>
+    ${spun ? `<p class="muted" style="margin-top:6px">The schedule is fixed now that people have spun it — cycles are counted from the start date.</p>` : ''}
+
+    <label>Reminder</label>
+    <div class="row"><span class="muted" style="font-weight:600">on spin day at</span><select name="hour" style="width:auto">${hours}</select></div>
+
+    <label class="check"><input type="checkbox" name="usedays" ${!w || dw ? 'checked' : ''} onchange="this.closest('form').querySelector('.daysbox').hidden=!this.checked">
+      <span>Also spin for how many days it lasts</span></label>
+    <div class="daysbox" ${w && !dw ? 'hidden' : ''}>
+      <p class="muted" style="margin:8px 0 6px">Numbers, comma separated. None can be more than the days between spins.</p>
+      <input name="days" placeholder="1, 2, 3" value="${esc(dw ? dw.segments.join(', ') : '1, 2, 3')}">
+    </div>
+
+    <label class="check"><input type="checkbox" name="breaks" ${w && w.breaks_streak ? 'checked' : ''}>
+      <span>Not finishing the challenge breaks your streak</span></label>
+
+    <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button>
+      ${w ? `<button type="button" class="ghost" onclick="delWheel(${w.id})">Delete</button>` : ''}
+      <button class="primary grow">Save</button></div></form>`);
+}
+
+async function saveWheel(f, gid, id) {
+  const fd = new FormData(f), w = id && S.wheels.find(x => x.id === id);
+  const segments = fd.get('segments').split('\n').map(x => x.trim()).filter(Boolean);
+  if (segments.length < 2) return alert('Put at least two things on the wheel.');
+  if (segments.length > 24) return alert('That is more than 24 slices — the labels stop being readable.');
+  // A disabled input sends nothing, so a wheel that has been spun keeps what it had.
+  const every = w && !fd.get('every') ? w.every_days : +fd.get('every');
+  const starts = w && !fd.get('starts') ? w.starts_on : fd.get('starts');
+  const stages = [{kind: 'challenge', label: 'Your challenge', segments}];
+  if (fd.get('usedays')) {
+    const days = fd.get('days').split(',').map(x => x.trim()).filter(Boolean);
+    if (days.some(d => !/^\d+$/.test(d))) return alert('The day wheel takes whole numbers only.');
+    if (days.length < 2) return alert('Put at least two numbers on the day wheel.');
+    if (days.some(d => +d > every)) return alert(`A wheel spun every ${plural(every, 'day')} cannot ask for more than ${every}.`);
+    stages.push({kind: 'days', label: 'On how many days', segments: days});
+  }
+  working(f, 'Saving…');
+  try {
+    await q(sb.rpc('save_wheel', {p_id: id || null, p_group: gid, p_name: fd.get('name').trim(),
+      p_every: every, p_starts: starts, p_hour: +fd.get('hour'), p_breaks: !!fd.get('breaks'), p_stages: stages}));
+  } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
+  dlg(); await load(); openGroup(gid);
+}
+
+async function delWheel(id) {
+  const w = S.wheels.find(x => x.id === id);
+  if (!confirm(`Delete ${w.name}? Everyone's results for it go too, and that cannot be undone.`)) return;
+  await q(sb.from('wheels').delete().eq('id', id));
+  dlg(); await load();
+}
+
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
+  // The wheel comes first. The database enforces this too, so going around the page only
+  // gets you a rejected insert; this is so you meet the wheel rather than an error.
+  if (dueIn(g).length) return spinDlg(g.id);
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
@@ -764,6 +1062,7 @@ const tooBig = n => `That video is ${(n / 1048576).toFixed(0)} MB and the limit 
 async function addPost(f, gid) {
   const fd = new FormData(f), picked = fd.get('video');
   if (!picked || !picked.size) return alert('Attach a video');
+  if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
   const bar = $('#uprog'), size = $('#vsize');
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
 

@@ -328,6 +328,7 @@ declare
   st public.wheel_stages;
   picked jsonb := '[]'::jsonb;
   value jsonb;
+  idx int;
   req int := 1;
   out public.spins;
 begin
@@ -343,8 +344,13 @@ begin
   c := public.wheel_cycle(w, d);
 
   for st in select * from public.wheel_stages where wheel_id = w.id order by seq loop
-    value := st.segments -> floor(random() * jsonb_array_length(st.segments))::int;
-    picked := picked || jsonb_build_object('seq', st.seq, 'kind', st.kind, 'label', st.label, 'value', value);
+    idx := floor(random() * jsonb_array_length(st.segments))::int;
+    value := st.segments -> idx;
+    -- 'i' is which slice, so the wheel can be animated to the answer it already has.
+    -- 'segs' is the slices as they were, so editing the wheel later cannot rewrite the
+    -- picture of a spin somebody already did.
+    picked := picked || jsonb_build_object('seq', st.seq, 'kind', st.kind, 'label', st.label,
+                                           'value', value, 'i', idx, 'segs', st.segments);
     -- A day stage says how many days the challenge has to be done on. Never more days
     -- than the cycle is long, whatever someone typed onto the wheel.
     if st.kind = 'days' then req := least(greatest(coalesce((value #>> '{}')::int, 1), 0), w.every_days); end if;
@@ -356,6 +362,57 @@ begin
 
   select * into out from public.spins where wheel_id = w.id and user_id = auth.uid() and cycle = c;
   return out;
+end $$;
+
+-- ---- creating and editing
+-- Stages are replaced wholesale on an edit; spins keep their own snapshot, so history is
+-- not touched by it.
+create or replace function public.save_wheel(
+  p_id bigint, p_group bigint, p_name text, p_every int, p_starts date,
+  p_hour int, p_breaks boolean, p_stages jsonb
+) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare wid bigint; st jsonb; seg jsonb; n int; existing public.wheels;
+begin
+  if not public.is_member(p_group) then raise exception 'not a member of that group'; end if;
+  if p_every < 1 or p_every > 60 then raise exception 'a wheel has to be spun somewhere between every day and every 60 days'; end if;
+  if jsonb_array_length(p_stages) < 1 then raise exception 'a wheel needs something on it'; end if;
+
+  for st in select value from jsonb_array_elements(p_stages) loop
+    n := jsonb_array_length(st->'segments');
+    if n < 2 or n > 24 then raise exception 'each wheel needs between 2 and 24 slices, got %', n; end if;
+    -- A day wheel can only ask for days the cycle actually contains.
+    if st->>'kind' = 'days' then
+      for seg in select value from jsonb_array_elements(st->'segments') loop
+        if (seg #>> '{}') !~ '^[0-9]+$' or (seg #>> '{}')::int > p_every then
+          raise exception 'a day wheel spun every % days cannot ask for %', p_every, seg #>> '{}';
+        end if;
+      end loop;
+    end if;
+  end loop;
+
+  if p_id is null or p_id = 0 then
+    insert into public.wheels (group_id, name, every_days, starts_on, remind_hour, breaks_streak, created_by)
+      values (p_group, p_name, p_every, p_starts, p_hour, p_breaks, auth.uid()) returning id into wid;
+  else
+    select * into existing from public.wheels where id = p_id;
+    if not found or not public.is_member(existing.group_id) then raise exception 'no such wheel'; end if;
+    -- Cycles are counted from the anchor, so moving it once people have spun would
+    -- renumber history and strand results in cycles that no longer exist.
+    if exists (select 1 from public.spins where wheel_id = p_id)
+       and (existing.every_days <> p_every or existing.starts_on <> p_starts) then
+      raise exception 'the schedule cannot change once people have started spinning';
+    end if;
+    update public.wheels set name = p_name, every_days = p_every, starts_on = p_starts,
+      remind_hour = p_hour, breaks_streak = p_breaks where id = p_id;
+    wid := p_id;
+    delete from public.wheel_stages where wheel_id = wid;
+  end if;
+
+  insert into public.wheel_stages (wheel_id, seq, kind, label, segments)
+  select wid, (ord - 1)::int, t.st->>'kind', coalesce(t.st->>'label', ''), t.st->'segments'
+  from jsonb_array_elements(p_stages) with ordinality as t(st, ord);
+  return wid;
 end $$;
 
 -- ---- the barrier

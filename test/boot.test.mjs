@@ -104,6 +104,9 @@ async function withPage(mode, body) {
 }
 
 const SIGNED_IN = { session: { user: { id: 'u1' } } };
+// Posting is gated on having spun, so the cases that are about uploading use a group with
+// no wheel on it rather than spinning one first every time.
+const NO_WHEEL = { ...SIGNED_IN, wheel: false };
 const settle = p => p.waitForTimeout(700);
 
 // The session read never coming back is the one that showed nothing at all: no alert to
@@ -202,7 +205,7 @@ async function submitProof(page) {
 }
 const labels = page => page.evaluate(() => self.__btn);
 
-await withPage(SIGNED_IN, async page => {
+await withPage(NO_WHEEL, async page => {
   await settle(page);
   let release;
   uploadReply = { status: 200, body: '{}', hold: new Promise(r => { release = r; }) };
@@ -222,7 +225,7 @@ await withPage(SIGNED_IN, async page => {
 });
 
 // A rejected upload has to repeat what the server said, not fail silently.
-await withPage(SIGNED_IN, async (page, alerts) => {
+await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   uploadReply = { status: 413, body: JSON.stringify({ message: 'The object exceeded the maximum allowed size' }), hold: null };
   await submitProof(page);
@@ -268,7 +271,7 @@ async function record1080p(page) {
   });
 }
 
-await withPage(SIGNED_IN, async page => {
+await withPage(NO_WHEEL, async page => {
   await settle(page);
   const clip = Buffer.from(await record1080p(page));
   check('the fixture is a real 1080p clip over the compression threshold',
@@ -320,7 +323,7 @@ await withPage(SIGNED_IN, async page => {
 });
 
 // A file the browser cannot decode must not become a failed post: it goes up untouched.
-await withPage(SIGNED_IN, async page => {
+await withPage(NO_WHEEL, async page => {
   await settle(page);
   lastUpload = null;
   const junk = Buffer.alloc(7 * 1048576, 3);          // over the threshold, but not a video
@@ -344,6 +347,103 @@ await withPage(SIGNED_IN, async page => {
   check('  ranked by streak', /Sam/.test(rows[0] || '') && /Ari/.test(rows[1] || ''), rows.join(' // '));
   check('  with the completion rate beside it', /hit the quota \d+% of the last \d+ days/.test(rows[0] || ''), rows[0]);
   check('  and the streak in days', /3 days/.test(rows[0] || ''), rows[0]);
+});
+
+// ---- wheels
+// The wheel is a gate, so the first thing to prove is that it actually gates: you cannot
+// reach the post form with a spin outstanding, and you meet the wheel instead of an error.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('spin day is announced on the feed', (await page.innerText('#app')).includes('Today is wheel spin day'));
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  const dlgText = await page.locator('#dlg').innerText();
+  check('  trying to post opens the wheel, not the form', dlgText.includes('Challenge') && !dlgText.includes('Video proof'), dlgText.slice(0, 120));
+  check('  and the wheel is drawn with a slice per option', await page.locator('#dlg .wheel-face path').count() === 4);
+});
+
+// The result is the database's, and the wheel is turned to it. A second call must return
+// the same row rather than rolling again, which is what stops a force-quit re-spin.
+await withPage({ ...SIGNED_IN, pick: 2 }, async page => {
+  await settle(page);
+  await page.locator('#app button:has-text("Spin the wheel")').first().click();
+  await page.locator('#dlg button.primary').click();          // Spin
+  await page.waitForFunction(() => document.querySelector('#lt0')?.textContent, null, { timeout: 15000 });
+  check('the wheel lands on what the database picked', (await page.locator('#lt0').innerText()) === 'plank 3 min',
+    await page.locator('#lt0').innerText());
+
+  // The face is rotated so that slice sits under the pointer at the top.
+  const deg = await page.locator('#sw0').evaluate(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform);
+    return ((Math.atan2(m.b, m.a) * 180 / Math.PI) % 360 + 360) % 360;
+  });
+  const wanted = ((5 * 360 - (2 + 0.5) * 360 / 4) % 360 + 360) % 360;
+  check('  with the wheel actually turned to that slice', Math.abs(deg - wanted) < 2, `${deg.toFixed(1)}° vs ${wanted}°`);
+
+  // The chained day wheel follows on its own.
+  await page.waitForFunction(() => document.querySelector('#lt1')?.textContent, null, { timeout: 15000 });
+  check('  then the day wheel follows without being asked', /On \d+ days?|No days/.test(await page.locator('#lt1').innerText()),
+    await page.locator('#lt1').innerText());
+
+  const spins = await page.evaluate(() => self.__spins.length);
+  check('  and only one spin was recorded', spins === 1, `${spins} spins`);
+});
+
+// Once spun, the group shows what you got, everyone else's, and the days to tick off.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  await page.locator('#app button:has-text("Spin the wheel")').first().click();
+  await page.locator('#dlg button.primary').click();          // Spin
+  await page.waitForFunction(() => document.querySelector('#lt1')?.textContent, null, { timeout: 20000 });
+  await page.locator('#dlg button.primary').click();          // Got it
+  await page.waitForTimeout(500);
+  const text = await page.innerText('#app');
+  check('the group shows your result', text.includes('100 burpees'), text.slice(0, 300));
+  check('  and says who has not spun', text.includes('Sam: not spun yet'));
+  check('  and posting is no longer blocked', await page.evaluate(() => dueIn(S.groups[0]).length) === 0);
+
+  const ticks = page.locator('.tick');
+  check('  with a day to tick for each day of the cycle so far', await ticks.count() >= 1, `${await ticks.count()} ticks`);
+  await ticks.last().click();
+  await page.waitForTimeout(400);
+  check('  ticking a day records it', await page.locator('.tick.on').count() === 1);
+  await page.locator('.tick.on').click();
+  await page.waitForTimeout(400);
+  check('  and unticking takes it back off', await page.locator('.tick.on').count() === 0);
+});
+
+// The builder: what goes on the wheel, how often, and the day wheel it chains to.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.spins = [{ wheel_id: 7, user_id: 'u1', cycle: 2, id: 1, results: [], days_required: 0 }]; render(); openGroup(1); });
+  await page.waitForTimeout(200);
+  await page.locator('button:has-text("+ add a wheel")').click();
+  await page.locator('#dlg textarea[name=segments]').fill('cold plunge\nsauna\nrun');
+  await page.locator('#dlg input[name=name]').fill('Recovery');
+  await page.locator('#dlg input[name=every]').fill('4');
+  await page.locator('#dlg input[name=days]').fill('1, 2');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(400);
+  const saved = await page.evaluate(() => self.__saved);
+  check('the builder saves a chain of two wheels', saved && saved.p_stages.length === 2, JSON.stringify(saved));
+  check('  with the slices typed in', saved && saved.p_stages[0].segments.join('|') === 'cold plunge|sauna|run', JSON.stringify(saved && saved.p_stages[0]));
+  check('  and the cadence', saved && saved.p_every === 4, String(saved && saved.p_every));
+});
+
+// A day wheel cannot ask for more days than the cycle has. The database refuses it too;
+// this is so it is caught before anyone waits on a round trip.
+await withPage(SIGNED_IN, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => { S.spins = [{ wheel_id: 7, user_id: 'u1', cycle: 2, id: 1, results: [], days_required: 0 }]; render(); openGroup(1); });
+  await page.waitForTimeout(200);
+  await page.locator('button:has-text("+ add a wheel")').click();
+  await page.locator('#dlg input[name=name]').fill('Bad');
+  await page.locator('#dlg textarea[name=segments]').fill('a\nb');
+  await page.locator('#dlg input[name=every]').fill('3');
+  await page.locator('#dlg input[name=days]').fill('1, 9');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(300);
+  check('a day wheel longer than the cycle is refused', alerts.some(a => /cannot ask for more than 3/.test(a)), alerts.join(' | '));
 });
 
 // The library can end a session without the app asking. The screen has to follow.
