@@ -7,11 +7,19 @@
   const err = m => { const e = new Error(m); e.status = /jwt|expired/i.test(m) ? 401 : 500; return e; };
   // Enough of a feed to render a post: one group the user is in, and one post in it.
   const POST = { id: 1, group_id: 1, user_id: 'u1', metric: 'pushups', amount: 50, caption: 'fifty in the bag', video_path: 'p.mp4', day: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString() };
+  // Sam hit the quota on 3 of the last 4 days; Ari only today. Enough to order a board.
+  const ago = n => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
+  const HISTORY = [1, 2, 3].map((n, i) => ({
+    id: 100 + i, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 50, caption: '',
+    video_path: `s${i}.mp4`, day: ago(n), created_at: new Date(Date.now() - n * 864e5).toISOString(),
+  }));
+  // Two members so the leaderboard has something to rank, and a group old enough for the
+  // completion rate to have days to look at.
   const rows = t => ({
-    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }],
-    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }] }],
-    group_members: [{ group_id: 1, user_id: 'u1' }],
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST],
+    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' }],
+    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
+    group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY],
   }[t] || []);
   const result = t => {
     const m = M();

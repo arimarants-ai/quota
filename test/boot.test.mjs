@@ -185,7 +185,7 @@ await withPage(SIGNED_IN, async page => {
 // A post with no caption should not leave an empty overlay floating over the video.
 await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
   await settle(page);
-  check('a post without a caption still renders', await page.locator('.reel').count() === 1);
+  check('a post without a caption still renders', await page.locator('.reel').count() >= 1);
   check('  but with no empty caption overlay', await page.locator('.reel .ov.bot').count() === 0);
 });
 
@@ -331,6 +331,19 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
   check('an undecodable file falls back to the original', lastUpload && lastUpload.length === junk.length,
     `sent ${lastUpload ? lastUpload.length : 'nothing'} of ${junk.length} bytes`);
+});
+
+// The leaderboard: current streak first, with how typical that is beside it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(200);
+  const rows = await page.locator('#app .rank').evaluateAll(els => els.map(e => e.closest('.row').innerText.replace(/\n/g, ' | ')));
+  check('the group has a leaderboard', rows.length === 2, rows.join(' // '));
+  // Sam has three days running, Ari has today only, so Sam is first.
+  check('  ranked by streak', /Sam/.test(rows[0] || '') && /Ari/.test(rows[1] || ''), rows.join(' // '));
+  check('  with the completion rate beside it', /hit the quota \d+% of the last \d+ days/.test(rows[0] || ''), rows[0]);
+  check('  and the streak in days', /3 days/.test(rows[0] || ''), rows[0]);
 });
 
 // The library can end a session without the app asking. The screen has to follow.

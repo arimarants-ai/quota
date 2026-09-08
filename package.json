@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Tests only. The app itself is index.html and has no build step; this file is kept out of the deploy by .vercelignore.",
   "scripts": {
-    "test": "node test/static.test.mjs && node test/boot.test.mjs && node --experimental-strip-types supabase/functions/recovery/codes.test.ts && node --experimental-strip-types supabase/functions/notify/push.test.ts && node --experimental-strip-types supabase/functions/notify/message.test.ts"
+    "test": "node test/static.test.mjs && test/schema.test.sh && node test/boot.test.mjs && node --experimental-strip-types supabase/functions/recovery/codes.test.ts && node --experimental-strip-types supabase/functions/notify/push.test.ts && node --experimental-strip-types supabase/functions/notify/message.test.ts"
   },
   "devDependencies": {
     "playwright": "1.56.1"

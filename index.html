@@ -87,6 +87,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .prog{display:block;height:5px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--acc);width:var(--w,0%);transition:width .25s}
 .prog[hidden]{display:none}
+.rank{flex:none;width:20px;text-align:center;font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:13px;color:var(--muted)}
+.rank.top{color:var(--acc)}
 .list{padding:4px 16px}
 .list .row{padding:10px 0;border-top:1px solid var(--line)}
 .list .row:first-child{border-top:0}
@@ -236,6 +238,24 @@ const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metr
 const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
 const streak = (g, uid) => { const days = hitDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
 const best = (g, uid) => { const days = [...hitDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
+// How often someone actually hits the whole quota, over the last 30 days or since the
+// group started if that is sooner. Today is left out: it is still in progress, and
+// counting it would drag everyone down every morning.
+function rate(g, uid) {
+  const began = g.created_at ? Date.parse(g.created_at) : 0, days = [];
+  for (let i = 1; i <= 30; i++) {
+    const d = daysAgo(i);
+    if (Date.parse(`${d}T23:59`) < began) break;
+    days.push(d);
+  }
+  if (!days.length) return null;
+  const n = days.filter(d => hit(g, uid, d)).length;
+  return {n, of: days.length, pct: Math.round(n / days.length * 100)};
+}
+// Ranked by current streak, with the rate beside it: the streak says how someone is doing
+// right now, the rate says whether that is typical of them.
+const standings = g => g.members.map(id => ({id, st: streak(g, id), r: rate(g, id)}))
+  .sort((a, b) => b.st - a.st || (b.r ? b.r.pct : -1) - (a.r ? a.r.pct : -1) || name(user(a.id)).localeCompare(name(user(b.id))));
 const myGroups = () => S.groups.filter(g => g.members.includes(me().id));
 const avatarUrl = u => u.avatar_path ? sb.storage.from('avatars').getPublicUrl(u.avatar_path).data.publicUrl : '';
 const av = (u, cls = '') => `<div class="av ${cls}">${u.avatar_path ? `<img src="${esc(avatarUrl(u))}" alt="">` : esc(name(u)[0] || '?')}</div>`;
@@ -317,6 +337,15 @@ function render() {
 
 // ---- views
 const splashView = () => `<div class="splash">${LOGO(true)}<i></i></div>`;
+function boardView(g) {
+  return `<div class="card list">${standings(g).map((row, i) => {
+    const u = user(row.id), you = row.id === me().id;
+    return `<div class="row"><span class="rank${i === 0 && row.st ? ' top' : ''}">${i + 1}</span>${av(u)}
+      <div class="grow"><b>${esc(name(u))}${you ? ' <span class="muted">(you)</span>' : ''}</b>
+      <div class="muted">${row.r ? `hit the quota ${row.r.pct}% of the last ${plural(row.r.of, 'day')}` : 'just getting started'}</div></div>
+      <span class="chip${row.st ? ' ok' : ''}">${plural(row.st, 'day')}</span></div>`;
+  }).join('')}</div>`;
+}
 const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
 function feedView() {
   const m = me(), gs = myGroups();
@@ -350,6 +379,7 @@ function groupView(g) {
   <h3>Today</h3>
   <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
+  ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
   <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
 function feed(ps, showGroup) {
