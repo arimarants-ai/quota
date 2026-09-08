@@ -7,20 +7,56 @@
   const err = m => { const e = new Error(m); e.status = /jwt|expired/i.test(m) ? 401 : 500; return e; };
   // Enough of a feed to render a post: one group the user is in, and one post in it.
   const POST = { id: 1, group_id: 1, user_id: 'u1', metric: 'pushups', amount: 50, caption: 'fifty in the bag', video_path: 'p.mp4', day: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString() };
+  // Sam hit the quota on 3 of the last 4 days; Ari only today. Enough to order a board.
+  const ago = n => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
+  const HISTORY = [1, 2, 3].map((n, i) => ({
+    id: 100 + i, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 50, caption: '',
+    video_path: `s${i}.mp4`, day: ago(n), created_at: new Date(Date.now() - n * 864e5).toISOString(),
+  }));
+  // A chain of two wheels, anchored 10 days back on a 5-day cycle, so the group is on
+  // cycle 2 and nobody has spun it yet.
+  const WHEEL = { id: 7, group_id: 1, name: 'Challenge', every_days: 5, remind_hour: 8,
+    breaks_streak: false, active: true, starts_on: ago(10), created_by: 'u1' };
+  const STAGES = [
+    { id: 1, wheel_id: 7, seq: 0, kind: 'challenge', label: 'Your challenge', segments: ['100 burpees', '5k run', 'plank 3 min', 'cold shower'] },
+    { id: 2, wheel_id: 7, seq: 1, kind: 'days', label: 'On how many days', segments: ['1', '2', '3'] },
+  ];
+  self.__spins = []; self.__ticks = [];
+
+  // Two members so the leaderboard has something to rank, and a group old enough for the
+  // completion rate to have days to look at.
   const rows = t => ({
-    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }],
-    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }] }],
-    group_members: [{ group_id: 1, user_id: 'u1' }],
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST],
+    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' }],
+    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
+    group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY],
+    wheels: M().wheel === false ? [] : [WHEEL],
+    wheel_stages: M().wheel === false ? [] : STAGES,
+    spins: self.__spins,
+    wheel_days: self.__ticks,
   }[t] || []);
   const result = t => {
     const m = M();
     if (t === 'friendships') self.__calls.loads++;         // one per load(): the first query it runs
     return m.queryError ? { data: null, error: err(m.queryError) } : { data: rows(t), error: null };
   };
-  const chain = t => {
-    const p = { then: (res, rej) => Promise.resolve(result(t)).then(res, rej) };
-    for (const k of ['select', 'order', 'limit', 'in', 'eq', 'insert', 'delete', 'upsert', 'update']) p[k] = () => chain(t);
+  // Writes are only tracked where a test needs to see the effect; everything else just
+  // resolves the way PostgREST would.
+  const chain = (t, st = { filters: {} }) => {
+    const run = () => {
+      if (st.op === 'delete' && t === 'wheel_days') {
+        self.__ticks = self.__ticks.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
+      return st.op ? { data: null, error: null } : result(t);
+    };
+    const p = { then: (res, rej) => Promise.resolve(run()).then(res, rej) };
+    for (const k of ['select', 'order', 'limit', 'in', 'upsert', 'update']) p[k] = () => chain(t, st);
+    p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
+    p.insert = row => {
+      if (t === 'wheel_days') self.__ticks.push({ ...row });
+      return chain(t, { ...st, op: 'insert' });
+    };
+    p.delete = () => chain(t, { ...st, op: 'delete' });
     return p;
   };
   self.supabase = {
@@ -37,6 +73,26 @@
         signOut: async () => ({ error: null }),
       },
       from: t => chain(t),
+      // The database picks the slice and writes the row before anything is shown; calling
+      // it again returns what is already there rather than rolling again.
+      rpc: async (fn, args) => {
+        if (fn === 'spin') {
+          const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
+          const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
+          if (had) return { data: had, error: null };
+          const results = STAGES.map(st => {
+            const i = M().pick != null ? M().pick % st.segments.length : Math.floor(Math.random() * st.segments.length);
+            return { seq: st.seq, kind: st.kind, label: st.label, value: st.segments[i], i, segs: st.segments };
+          });
+          const days = results.find(r => r.kind === 'days');
+          const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
+            results, days_required: days ? Math.min(+days.value, WHEEL.every_days) : 1, created_at: new Date().toISOString() };
+          self.__spins.push(sp);
+          return { data: sp, error: null };
+        }
+        if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }
+        return { data: null, error: null };
+      },
       storage: { from: () => ({
         getPublicUrl: () => ({ data: { publicUrl: '' } }),
         // One signed URL per post, in order, the way the page consumes them.

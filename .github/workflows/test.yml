@@ -22,6 +22,10 @@ jobs:
       # and get the cheap failures out of the way.
       - run: node test/static.test.mjs
 
+      # The wheel rules live in the database, so they are checked against a real one.
+      - run: sudo apt-get install -y --no-install-recommends postgresql
+      - run: test/schema.test.sh
+
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: node test/boot.test.mjs
@@ -29,3 +33,4 @@ jobs:
       - run: node --experimental-strip-types supabase/functions/recovery/codes.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
+      - run: node --experimental-strip-types supabase/functions/wheelday/message.test.ts
