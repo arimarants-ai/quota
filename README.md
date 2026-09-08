@@ -99,6 +99,11 @@ rule — whatever goes wrong, the app must never end up showing an empty page.
 It is worth keeping honest, because a regression here is close to invisible:
 the site went on working in a browser tab while the installed app opened blank.
 
+It also records a real 1080p clip in the browser and posts it through the
+dialog, then checks the bytes that actually reached the wire: that they are
+smaller, that they decode at 720p with the full duration, and that the audio is
+still on them. That recording is why the file takes a minute or so to run.
+
 CI runs all of it on every push and pull request.
 
 ## Limits worth knowing (free tiers)
@@ -109,21 +114,44 @@ testing (50 MB uploads, 51 MB is rejected). It is set in three places that must 
 project's own global limit. Raising it means upgrading the Supabase project to Pro, which
 allows far larger files and 100 GB of storage.
 
-**Total storage: 1 GB.** This is the limit that will actually bite. At 50 MB a video that is
-only about 20 posts. Rough budget:
+**Total storage: 1 GB.** This is the limit that will actually bite. Rough budget:
 
 | Average clip | Posts before full |
 |---|---|
 | 50 MB | ~20 |
 | 25 MB | ~40 |
 | 10 MB | ~100 |
-| 5 MB | ~200 |
+| 3 MB | ~340 |
 
-Two people posting once a day at 25 MB fills it in about three weeks. When it gets close,
-either upgrade, or delete old proof videos (the posts table keeps the numbers either way).
+Compression (below) is what keeps this off the bottom row: clips arrive at a few MB
+rather than tens, so the same 1 GB holds hundreds of posts instead of dozens. When it
+does get close, either upgrade or delete old proof videos (the posts table keeps the
+numbers either way).
 
-To fit a longer clip under 50 MB, record at 720p instead of 4K
-(iPhone: Settings → Camera → Record Video).
+## Video is re-encoded before it is uploaded
+
+The camera writes far more than a 4:5 card on a phone screen needs. By Apple's own figures
+a minute of 1080p is about 65 MB and a minute of 4K about 170 MB, and all of it used to go
+up untouched — which is why posting took so long, and why 1 GB only held about twenty
+posts.
+
+Anything over 6 MB is now re-encoded to 720p at about 2.5 Mbps (`TARGET_H`, `VIDEO_BPS`,
+`COMPRESS_OVER` in `index.html`) before it is sent, using `MediaRecorder` against a canvas.
+Against a 1080p test clip that is a bit over 9x smaller. It costs a "Compressing…" step
+that runs at roughly the length of the clip, which is a clear win on a phone connection
+and roughly a wash on fast wifi.
+
+Two things it deliberately will not do:
+
+- **It only ever emits H.264 in MP4.** If the browser cannot record that, no compression
+  happens at all. A WebM recorded on an Android phone will not play on an iPhone, and
+  proof nobody can watch is worse than a slow upload.
+- **Every failure returns the original file** — unreadable input, an encoder that throws,
+  output that does not decode or is not meaningfully smaller, or a clip longer than
+  `LONGEST` seconds. The post still goes through, just bigger.
+
+Because it is the re-encoded file that has to fit under the cap, a clip the camera made
+too big for the bucket now usually gets through anyway rather than being turned away.
 
 - Accounts are username + password only. Reset uses recovery codes, not email — see below.
 - "Today" is whatever the poster's phone says.
