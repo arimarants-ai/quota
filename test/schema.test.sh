@@ -50,7 +50,10 @@ w = sys.argv[1]
 open(f'{w}/base.sql', 'w').write(
     s[s.index('create table public.profiles'):s.index('-- create a profile row')] +
     s[s.index('create function public.is_member'):s.index('create function public.create_group')])
-open(f'{w}/v6.sql', 'w').write(s[s.index('-- v6 (wheels)'):])
+# Everything from the wheels block on, minus the pg_cron scheduling at the very end:
+# that extension only exists on Supabase, and it is a call into the function above rather
+# than logic of its own. What it schedules — wheel_due_now() — is covered below.
+open(f'{w}/v6.sql', 'w').write(s[s.index('-- v6 (wheels)'):s.index('-- pg_cron runs it every hour')])
 EOF
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "set client_min_messages = warning" -f "$WORK/shim.sql" -f "$WORK/base.sql" -f "$WORK/v6.sql" >/dev/null

@@ -473,3 +473,69 @@ create policy "tick your own days" on public.wheel_days for insert
   with check (exists (select 1 from public.spins s where s.id = spin_id and s.user_id = auth.uid()));
 create policy "untick your own days" on public.wheel_days for delete
   using (exists (select 1 from public.spins s where s.id = spin_id and s.user_id = auth.uid()));
+
+-- ============================================================
+-- v7 (wheel reminders): tell everyone in the morning that today is spin day.
+-- Safe to run on an existing project. Replace <HOOK_SECRET> as in v4.
+-- ============================================================
+
+-- Everything before this happened in response to something. A reminder has to happen at a
+-- time instead, and "morning" is different for everyone, so the browser tells us where it
+-- is. Nothing depends on it being right: an unset or unknown zone falls back to UTC.
+alter table public.profiles add column if not exists tz text;
+
+-- One row per reminder actually sent, so a retry, an overlapping run or a cron that fires
+-- twice cannot wake someone twice for the same spin.
+create table if not exists public.wheel_reminders (
+  wheel_id bigint not null references public.wheels on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  cycle int not null,
+  sent_at timestamptz default now(),
+  primary key (wheel_id, user_id, cycle)
+);
+alter table public.wheel_reminders enable row level security;   -- service role only, no policies
+
+-- Who to wake right now, claimed as it goes: the insert is what decides, so two callers
+-- racing cannot both take the same person. Called once an hour; each person matches in
+-- exactly one of those runs, the one where their own clock says remind_hour.
+create or replace function public.wheel_due_now()
+returns table (user_id uuid, wheel_name text, group_name text)
+language sql security definer set search_path = public as $$
+  with due as (
+    select gm.user_id as uid, w.id as wid, w.name as wname, g.name as gname,
+           -- the cycle is worked out from the person's own date, so someone far enough
+           -- east that their morning is yesterday in UTC still gets the right one
+           public.wheel_cycle(w, (now() at time zone coalesce(p.tz, 'UTC'))::date) as cyc
+    from public.wheels w
+    join public.groups g on g.id = w.group_id
+    join public.group_members gm on gm.group_id = w.group_id
+    join public.profiles p on p.id = gm.user_id
+    where w.active
+      and extract(hour from (now() at time zone coalesce(p.tz, 'UTC')))::int = w.remind_hour
+      and (now() at time zone coalesce(p.tz, 'UTC'))::date >= w.starts_on
+      -- today is the first day of a cycle: spin day
+      and ((now() at time zone coalesce(p.tz, 'UTC'))::date - w.starts_on) % w.every_days = 0
+      and not exists (
+        select 1 from public.spins s
+        where s.wheel_id = w.id and s.user_id = gm.user_id
+          and s.cycle = public.wheel_cycle(w, (now() at time zone coalesce(p.tz, 'UTC'))::date))
+  ), claimed as (
+    insert into public.wheel_reminders (wheel_id, user_id, cycle)
+    select wid, uid, cyc from due
+    on conflict do nothing
+    returning wheel_id, user_id
+  )
+  select d.uid, d.wname, d.gname from due d
+  join claimed c on c.wheel_id = d.wid and c.user_id = d.uid;
+$$;
+
+-- pg_cron runs it every hour on the hour; the function itself works out whose morning it is.
+create extension if not exists pg_cron;
+select cron.unschedule('wheel-reminders') where exists (select 1 from cron.job where jobname = 'wheel-reminders');
+select cron.schedule('wheel-reminders', '0 * * * *', $cron$
+  select net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/wheelday',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', '<HOOK_SECRET>'),
+    body    := '{}'::jsonb
+  );
+$cron$);

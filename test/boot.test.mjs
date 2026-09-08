@@ -446,6 +446,39 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   check('a day wheel longer than the cycle is refused', alerts.some(a => /cannot ask for more than 3/.test(a)), alerts.join(' | '));
 });
 
+// breaks_streak: a cycle that closed with the challenge unfinished ends the streak on the
+// day it closed. Sam has hit the quota three days running, so the streak is only about the
+// challenge here.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const before = await page.evaluate(() => streak(S.groups[0], 'u2'));
+  check('a wheel that does not break the streak leaves it alone', before === 3, `streak ${before}`);
+
+  // Turn it on, with a cycle that closed yesterday and no spin against it.
+  const after = await page.evaluate(() => {
+    const w = S.wheels[0];
+    w.breaks_streak = true;
+    w.every_days = 1;                       // so every day is a cycle that closes
+    w.starts_on = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
+    return streak(S.groups[0], 'u2');
+  });
+  check('  and one that does breaks it', after === 0, `streak ${after}`);
+
+  // Finishing it keeps the streak: a spin for yesterday's cycle with its day ticked.
+  const kept = await page.evaluate(() => {
+    const w = S.wheels[0], y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    const c = cycleOf(w, y);
+    S.spins = [...S.spins, {id: 99, wheel_id: w.id, user_id: 'u2', cycle: c, results: [], days_required: 1}];
+    S.ticks = [{spin_id: 99, day: y}];
+    return streak(S.groups[0], 'u2');
+  });
+  check('  and finishing the challenge keeps it', kept >= 1, `streak ${kept}`);
+
+  // The quota chips and the completion rate stay about the quota alone.
+  const rate = await page.evaluate(() => window.rate(S.groups[0], 'u2').n);
+  check('  while the completion rate still counts quota days only', rate === 3, `${rate} days`);
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

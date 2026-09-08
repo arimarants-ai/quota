@@ -33,3 +33,4 @@ jobs:
       - run: node --experimental-strip-types supabase/functions/recovery/codes.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
+      - run: node --experimental-strip-types supabase/functions/wheelday/message.test.ts

@@ -106,6 +106,51 @@ still on them. That recording is why the file takes a minute or so to run.
 
 CI runs all of it on every push and pull request.
 
+## Wheels
+
+A group can make everyone spin a wheel on a schedule. It is optional; a group with no
+wheel behaves exactly as it did before.
+
+A wheel is a **chain** of stages spun together on one schedule — usually "what is the
+challenge" and then "for how many days" — because the chain is the thing that has a
+cadence and a reminder, and the stages are what you watch spin. A group can have several
+chains, each on its own schedule. Cycles are counted from an anchor date, so everyone in
+the group is always on the same one, and missed cycles are gone rather than owed.
+
+**The result is the database's, not the browser's.** `spin()` picks the slice and writes
+the row before anything is shown; the page then turns the wheel to an answer that already
+exists. Force-quitting mid-spin, a dropped connection and a second tap all land on the
+same result, and there is no policy that lets anyone insert, edit or delete a spin by
+hand. Each spin also stores the slices as they were, so editing a wheel later cannot
+redraw a result somebody already got.
+
+**Spinning is a rule, not a prompt.** A trigger on `posts` refuses to insert while a
+wheel in that group is unspun. The app checks first and opens the wheel — from the feed,
+or when you try to post — so the exception is only ever seen by someone going around the
+page. Only the group with the outstanding spin is blocked; the others are untouched.
+
+Tick off the days you did the challenge, any day in the cycle up to today. If the wheel
+was set to break the streak, a cycle that closes unfinished ends the streak on the day it
+closed. `hit()` stays about the quota alone, so the daily chips and the completion rate
+keep meaning what they say.
+
+### Spin-day reminders
+
+Everything else the app pushes happens because someone did something. This one happens at
+a time, so it needs two things the rest of the app does not: `pg_cron`, which calls the
+`wheelday` function once an hour, and `profiles.tz`, which the browser fills in, because
+the server has no other way to know when morning is for anyone. An unset or unrecognised
+zone falls back to UTC.
+
+`public.wheel_due_now()` works out whose local clock currently reads the wheel's reminder
+hour, on a day that starts a cycle, without a spin already recorded — and claims each
+reminder as it returns it, so a retry or an overlapping run cannot wake the same person
+twice. Several wheels coming due together are one notification, not one each.
+
+To set it up: run the v7 block (replacing `<HOOK_SECRET>` as in v4) and deploy the
+function — `supabase functions deploy wheelday`. It needs no new secrets; it uses the
+same VAPID pair and `HOOK_SECRET` as `notify`.
+
 ## Limits worth knowing (free tiers)
 
 **Video size: 50 MB per file.** This is Supabase's hard cap on the free plan, verified by

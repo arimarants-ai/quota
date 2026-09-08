@@ -275,8 +275,24 @@ const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.i
 const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
 const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
-const streak = (g, uid) => { const days = hitDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
-const best = (g, uid) => { const days = [...hitDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
+// A wheel set to break the streak does it on the day its cycle closes, not on the day it
+// was spun: you had the whole cycle to finish, so the day it runs out is the day it counts
+// against you. A cycle still running is never judged, and neither is one that ends today.
+function brokeStreak(g, uid, day) {
+  return wheelsOf(g).some(w => {
+    if (!w.breaks_streak || day >= today()) return false;
+    const c = cycleOf(w, day);
+    if (c < 0 || cycleEnd(w, c) !== day) return false;
+    const sp = spinOf(w, uid, c);
+    return !sp || !challengeDone(sp);
+  });
+}
+// The days that count towards a streak: quota hit, and no challenge left unfinished.
+// hit() itself stays about the quota alone, so the chips and the completion rate keep
+// meaning what they say.
+const goodDays = (g, uid) => { const d = hitDays(g, uid); for (const x of [...d]) if (brokeStreak(g, uid, x)) d.delete(x); return d; };
+const streak = (g, uid) => { const days = goodDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
+const best = (g, uid) => { const days = [...goodDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
 // ---- wheels
 // Cycles are counted in whole days from the anchor, so everyone in the group is always on
 // the same one. Date strings are parsed as UTC on both sides, so a clock change in the
@@ -359,6 +375,17 @@ async function fetchAll() {
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
+  else keepTz();
+}
+
+// The spin-day reminder has to go out in the morning, and the server has no idea when
+// that is for anyone. This is the only place that knows. Written once, and again if
+// someone travels; a failure here costs a reminder at the wrong hour, nothing more.
+async function keepTz() {
+  let tz = '';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+  if (!tz || tz === S.me.tz) return;
+  try { await sb.from('profiles').update({tz}).eq('id', S.me.id); S.me.tz = tz; } catch (e) {}
 }
 
 // ---- loading, and what to do when it fails
@@ -413,7 +440,8 @@ function wheelCard(g, w) {
   const m = me(), c = cycleOf(w), mine = spinOf(w, m.id, c), soon = !running(w);
   const others = g.members.filter(id => id !== m.id).map(id => ({id, sp: spinOf(w, id, c)}));
   const head = `<div class="top"><b>${esc(w.name)}</b><span class="when">${soon ? `starts ${dayLabel(w.starts_on)}`
-    : `every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, c + 1))}`}</span></div>`;
+    : `every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, c + 1))}`}</span></div>`
+    + (w.breaks_streak ? `<div class="who">Not finishing this breaks your streak.</div>` : '');
   const yours = soon ? '' : !mine
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
     : `<div class="got">${esc(challengeText(mine))}</div>${tickRow(w, mine)}`;

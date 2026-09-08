@@ -203,4 +203,61 @@ begin
   end;
 end $$;
 
+-- ---- v7: who gets told it is spin day, and when
+-- The hard part is that "morning" is a different moment for everyone, and that a cron
+-- firing twice must not wake anyone twice.
+do $$
+declare n int; today_utc date := current_date;
+begin
+  -- A wheel whose cycle starts today, for two people in very different places.
+  update public.profiles set tz = 'America/Los_Angeles' where username = 'ari';
+  update public.profiles set tz = 'Australia/Sydney' where username = 'sam';
+  delete from public.spins;
+  delete from public.wheel_reminders;
+  update public.wheels set starts_on = (now() at time zone 'America/Los_Angeles')::date, every_days = 5, remind_hour = 8 where id = 1;
+
+  -- Nobody is due unless it is their own 8am, so at most one of them can match right now.
+  select count(*) into n from public.wheel_due_now();
+  if n > 1 then raise exception 'two people in different zones were both due at once'; end if;
+
+  -- Pin the hour: make it 8am for Ari wherever the clock happens to be.
+  update public.wheels set remind_hour = extract(hour from (now() at time zone 'America/Los_Angeles'))::int where id = 1;
+  update public.profiles set tz = 'Australia/Sydney' where username = 'sam';
+  delete from public.wheel_reminders;
+  select count(*) into n from public.wheel_due_now() where user_id = '11111111-1111-1111-1111-111111111111';
+  if n <> 1 then raise exception 'the person whose local hour matched was not due, got %', n; end if;
+
+  -- ...and asking again returns nothing, because the reminder was already claimed.
+  select count(*) into n from public.wheel_due_now();
+  if n <> 0 then raise exception 'a second run would have sent the reminder twice, got %', n; end if;
+
+  -- Someone who has already spun is not chased.
+  delete from public.wheel_reminders;
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  perform public.spin(1, (now() at time zone 'America/Los_Angeles')::date);
+  select count(*) into n from public.wheel_due_now() where user_id = '11111111-1111-1111-1111-111111111111';
+  if n <> 0 then raise exception 'someone who had already spun was reminded'; end if;
+
+  -- A day that is not the start of a cycle is not spin day.
+  delete from public.spins; delete from public.wheel_reminders;
+  update public.wheels set starts_on = (now() at time zone 'America/Los_Angeles')::date - 2 where id = 1;
+  select count(*) into n from public.wheel_due_now();
+  if n <> 0 then raise exception 'a reminder went out two days into a five-day cycle'; end if;
+
+  -- A wheel switched off says nothing.
+  delete from public.wheel_reminders;
+  update public.wheels set starts_on = (now() at time zone 'America/Los_Angeles')::date, active = false where id = 1;
+  select count(*) into n from public.wheel_due_now();
+  if n <> 0 then raise exception 'an inactive wheel still sent a reminder'; end if;
+  update public.wheels set active = true where id = 1;
+
+  -- Someone with no timezone recorded still gets one, worked out in UTC.
+  delete from public.wheel_reminders;
+  update public.profiles set tz = null where username = 'ari';
+  update public.wheels set remind_hour = extract(hour from (now() at time zone 'UTC'))::int,
+                           starts_on = (now() at time zone 'UTC')::date where id = 1;
+  select count(*) into n from public.wheel_due_now() where user_id = '11111111-1111-1111-1111-111111111111';
+  if n <> 1 then raise exception 'someone with no timezone was skipped, got %', n; end if;
+end $$;
+
 \echo 'PASS: wheels schema'
