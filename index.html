@@ -521,9 +521,12 @@ function profileDlg() {
 function vidPick(input) {
   const f = input.files[0], el = $('#vsize');
   if (!f) return el.textContent = '';
-  const mb = f.size / 1048576, over = mb > MAX_MB;
-  el.className = over ? 'warn' : 'muted';
-  el.textContent = over ? `${mb.toFixed(0)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).` : `${mb.toFixed(1)} MB`;
+  // A clip over the cap is no longer necessarily a clip that gets turned away: anything
+  // big is re-encoded to 720p first, and it is the result that has to fit.
+  const shrinks = !!mp4Type() && f.size >= COMPRESS_OVER, over = f.size > MAX_MB * 1048576;
+  el.className = over && !shrinks ? 'warn' : 'muted';
+  el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`
+    : shrinks ? `${mb(f.size)} MB · shrunk to 720p before it uploads` : `${mb(f.size)} MB`;
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); if (tab === 'profile') refreshPush().then(render); }
@@ -592,6 +595,103 @@ async function saveProfile(f) {
   } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
   dlg(); load();
 }
+// ---- shrinking a clip before it goes over the wire
+// The camera writes far more than a 4:5 card on a phone screen needs: by Apple's own
+// figures a minute of 1080p is about 65 MB and a minute of 4K about 170 MB, and all of
+// it used to go up untouched. Re-encoding to 720p first turns a 20-second clip from tens
+// of megabytes into two or three, which is both a much shorter upload and about ten times
+// more videos inside the 1 GB the free plan gives us.
+// Every failure path here returns the original file. A slow post beats a broken one.
+const TARGET_H = 720, VIDEO_BPS = 2500000;
+const COMPRESS_OVER = 6 * 1048576;   // below this the upload is quick anyway
+const LONGEST = 150;                 // seconds: re-encoding runs at about real time
+
+// H.264 in MP4 only. A WebM recorded on an Android phone will not play on the iPhones
+// most of this group is using, and proof nobody can watch is worse than a slow upload.
+const mp4Type = () => (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) ? ''
+  : ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4']
+      .find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+// Does this blob actually decode, and is it the length we expect? A file that fails here
+// would be a post nobody can play, so it is thrown away in favour of the original.
+function playable(blob, seconds) {
+  return new Promise(res => {
+    const v = document.createElement('video'), url = URL.createObjectURL(blob);
+    const done = ok => { v.src = ''; URL.revokeObjectURL(url); res(ok); };
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => done(v.videoWidth > 0 && (!isFinite(v.duration) || Math.abs(v.duration - seconds) < Math.max(1, seconds * 0.25)));
+    v.onerror = () => done(false);
+    setTimeout(() => done(false), 10000);
+    v.src = url;
+  });
+}
+
+async function shrink(file, onProgress) {
+  const type = mp4Type();
+  if (!type || file.size < COMPRESS_OVER) return file;
+  const url = URL.createObjectURL(file), v = document.createElement('video');
+  let ac, stop = false, handle;
+  try {
+    v.playsInline = true; v.preload = 'auto'; v.src = url;
+    await new Promise((res, rej) => {
+      v.onloadedmetadata = res;
+      v.onerror = () => rej(new Error('unreadable'));
+      setTimeout(() => rej(new Error('timed out')), 20000);
+    });
+    const secs = v.duration;
+    if (!v.videoWidth || !isFinite(secs) || secs <= 0 || secs > LONGEST) return file;
+
+    const scale = Math.min(1, TARGET_H / v.videoHeight);
+    const c = document.createElement('canvas');
+    c.width = Math.round(v.videoWidth * scale / 2) * 2;      // encoders want even dimensions
+    c.height = Math.round(v.videoHeight * scale / 2) * 2;
+    const g = c.getContext('2d'), stream = c.captureStream();
+
+    // Pull the audio through WebAudio instead of the speakers, so re-encoding is silent.
+    try {
+      ac = new (self.AudioContext || self.webkitAudioContext)();
+      await ac.resume();
+      const dest = ac.createMediaStreamDestination();
+      ac.createMediaElementSource(v).connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch (e) { /* no audio route: the picture still gets through */ }
+
+    const rec = new MediaRecorder(stream, {mimeType: type, videoBitsPerSecond: VIDEO_BPS});
+    const chunks = [], stopped = new Promise(res => { rec.onstop = res; });
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.start();
+
+    const pump = () => {
+      if (stop) return;
+      g.drawImage(v, 0, 0, c.width, c.height);
+      onProgress(Math.min(1, v.currentTime / secs));
+      handle = v.requestVideoFrameCallback ? v.requestVideoFrameCallback(pump) : requestAnimationFrame(pump);
+    };
+    await v.play();
+    pump();
+    await Promise.race([
+      new Promise(res => { v.onended = res; }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('stalled')), (secs + 20) * 2500)),
+    ]);
+    stop = true;
+    rec.stop();
+    await stopped;
+
+    const out = new Blob(chunks, {type: type.split(';')[0]});
+    if (out.size < 1024 || out.size > file.size * 0.9) return file;   // no real gain: not worth the risk
+    if (!await playable(out, secs)) return file;
+    return new File([out], file.name.replace(/\.[^.]*$/, '') + '.mp4', {type: out.type});
+  } catch (e) {
+    return file;
+  } finally {
+    stop = true;
+    if (handle && !v.requestVideoFrameCallback) cancelAnimationFrame(handle);
+    try { v.pause(); } catch (e) {}
+    v.src = ''; URL.revokeObjectURL(url);
+    if (ac) ac.close().catch(() => {});
+  }
+}
+
 // supabase-js sends the file through fetch, which cannot report upload progress, so a
 // phone video sat on a motionless "Uploading…" for the whole transfer with no way to
 // tell a slow connection from a stuck one. This is the same request its storage client
@@ -629,14 +729,29 @@ async function upload(bucket, path, file, onProgress) {
 
 const mb = n => (n / 1048576).toFixed(1);
 
+const tooBig = n => `That video is ${(n / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`;
+
 async function addPost(f, gid) {
-  const fd = new FormData(f), video = fd.get('video');
-  if (!video || !video.size) return alert('Attach a video');
-  if (video.size > MAX_MB * 1048576) return alert(`That video is ${(video.size / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`);
-  working(f, 'Uploading…');
-  const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
+  const fd = new FormData(f), picked = fd.get('video');
+  if (!picked || !picked.size) return alert('Attach a video');
   const bar = $('#uprog'), size = $('#vsize');
-  if (bar) bar.hidden = false;
+  if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
+
+  // Shrink first, then check the size. A clip the camera recorded too big for the bucket
+  // usually fits comfortably once it is 720p, so this is checked against what will
+  // actually be sent rather than what came off the camera.
+  working(f, 'Compressing…');
+  const video = await shrink(picked, p => {
+    const pct = Math.round(p * 100);
+    working(f, `Compressing… ${pct}%`);
+    if (bar) bar.style.setProperty('--w', `${pct}%`);
+  });
+  if (video.size > MAX_MB * 1048576) { if (bar) bar.hidden = true; return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false), alert(tooBig(video.size)); }
+  if (size) { size.className = 'muted'; size.textContent = video === picked ? `${mb(video.size)} MB` : `${mb(picked.size)} MB → ${mb(video.size)} MB`; }
+
+  working(f, 'Uploading…');
+  if (bar) bar.style.setProperty('--w', '0%');
+  const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
   try {
     await upload('proof', path, video, (sent, total, rate) => {
       const pct = Math.round(sent / total * 100);

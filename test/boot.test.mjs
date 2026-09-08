@@ -30,11 +30,29 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
 // endpoint for real, so the upload runs the whole way through a real XHR.
 let base = '';
 let uploadReply = { status: 200, body: '{}', hold: null };
+let lastUpload = null;                  // the file bytes as they actually went over the wire
+// The body is multipart; the file is the part between the blank line after its own
+// headers and the boundary that follows.
+function filePart(buf, contentType) {
+  const b = /boundary=(?:"([^"]+)"|([^;]+))/.exec(contentType || '');
+  if (!b) return null;
+  const mark = Buffer.from(`--${b[1] || b[2]}`);
+  const start = buf.indexOf(Buffer.from('\r\n\r\n'), buf.indexOf(Buffer.from('Content-Type: video')));
+  if (start < 0) return null;
+  const end = buf.indexOf(mark, start);
+  return buf.subarray(start + 4, end < 0 ? buf.length : end - 2);
+}
 const server = createServer(async (req, res) => {
   let p = req.url.split(/[?#]/)[0];
+  if (p === '/last-upload.mp4') {       // served back so the bytes can be decoded and checked
+    res.writeHead(lastUpload ? 200 : 404, { 'content-type': 'video/mp4' });
+    return res.end(lastUpload || '');
+  }
   if (req.method === 'POST' && p.startsWith('/storage/v1/object/')) {
-    req.on('data', () => {});
+    const parts = [];
+    req.on('data', c => parts.push(c));
     req.on('end', async () => {
+      lastUpload = filePart(Buffer.concat(parts), req.headers['content-type']);
       if (uploadReply.hold) await uploadReply.hold;
       res.writeHead(uploadReply.status, { 'content-type': 'application/json' });
       res.end(uploadReply.body);
@@ -214,6 +232,106 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   check('  and the progress bar is cleared away', await page.locator('#uprog').isHidden());
 });
 uploadReply = { status: 200, body: '{}', hold: null };
+
+// The real reason posting felt slow: the camera's own file went up untouched. A minute of
+// 1080p is about 65 MB by Apple's figures, so the app now re-encodes to 720p first. This
+// records an actual 1080p clip, posts it through the dialog, and checks the bytes that
+// reached the wire — not just that a function returned something.
+async function record1080p(page) {
+  return page.evaluate(async () => {
+    const c = Object.assign(document.createElement('canvas'), { width: 1920, height: 1080 });
+    const g = c.getContext('2d');
+    const stream = c.captureStream(30);
+    const ac = new AudioContext(), dest = ac.createMediaStreamDestination();
+    const osc = ac.createOscillator(); osc.frequency.value = 440; osc.connect(dest); osc.start();
+    dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    const rec = new MediaRecorder(stream, { mimeType: 'video/mp4', videoBitsPerSecond: 16e6 });
+    const chunks = [];
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.start();
+    // Noise, so the encoder actually has to spend the bits a real camera would.
+    const iv = setInterval(() => {
+      const img = g.createImageData(1920, 1080);
+      for (let i = 0; i < img.data.length; i += 4) {
+        img.data[i] = Math.random() * 255; img.data[i + 1] = Math.random() * 255;
+        img.data[i + 2] = Math.random() * 255; img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+    }, 100);
+    await new Promise(r => setTimeout(r, 7000));
+    clearInterval(iv);
+    rec.stop();
+    await new Promise(r => { rec.onstop = r; });
+    osc.stop(); ac.close();
+    const blob = new Blob(chunks, { type: 'video/mp4' });
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+}
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const clip = Buffer.from(await record1080p(page));
+  check('the fixture is a real 1080p clip over the compression threshold',
+    clip.length > 6 * 1048576 && clip.subarray(4, 8).toString() === 'ftyp', `${(clip.length / 1048576).toFixed(1)} MB`);
+
+  lastUpload = null;
+  uploadReply = { status: 200, body: '{}', hold: null };
+  await page.locator('.bar .add').click();
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
+
+  const seen = await labels(page);
+  check('  it says it is compressing, with a percentage', seen.some(t => /Compressing… \d+%/.test(t)), seen.join(' -> '));
+  check('  the upload carried the re-encoded file, not the original', lastUpload && lastUpload.length < clip.length / 2,
+    `sent ${lastUpload ? (lastUpload.length / 1048576).toFixed(2) : 'nothing'} MB of ${(clip.length / 1048576).toFixed(1)} MB`);
+  if (lastUpload) console.log(`        ${(clip.length / 1048576).toFixed(1)} MB in, ${(lastUpload.length / 1048576).toFixed(2)} MB out (${(clip.length / lastUpload.length).toFixed(1)}x smaller)`);
+});
+
+// What was sent has to be a video people can actually watch, at the size we intended.
+await withPage(SIGNED_IN, async page => {
+  const meta = await page.evaluate(async src => {
+    const v = document.createElement('video');
+    v.preload = 'metadata'; v.src = src;
+    return await new Promise(res => {
+      v.onloadedmetadata = () => res({ w: v.videoWidth, h: v.videoHeight, d: v.duration });
+      v.onerror = () => res(null);
+      setTimeout(() => res(null), 10000);
+    });
+  }, `${base}/last-upload.mp4`);
+  check('the uploaded file decodes', !!meta, 'it did not load at all');
+  check('  at 720p', meta && meta.h === 720 && meta.w === 1280, JSON.stringify(meta));
+  check('  and keeps the full length', meta && Math.abs(meta.d - 7) < 2.5, JSON.stringify(meta));
+
+  // Re-encoding routes the audio through WebAudio so nothing plays aloud. That is exactly
+  // the sort of plumbing that silently drops the sound, so check for actual signal.
+  const audio = await page.evaluate(async src => {
+    try {
+      const buf = await (await fetch(src)).arrayBuffer();
+      const decoded = await new AudioContext().decodeAudioData(buf);
+      const d = decoded.getChannelData(0);
+      let peak = 0;
+      for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+      return { channels: decoded.numberOfChannels, seconds: decoded.duration, peak };
+    } catch (e) { return { error: String(e) }; }
+  }, `${base}/last-upload.mp4`);
+  check('  with the audio still on it', audio.peak > 0.01, JSON.stringify(audio));
+});
+
+// A file the browser cannot decode must not become a failed post: it goes up untouched.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  lastUpload = null;
+  const junk = Buffer.alloc(7 * 1048576, 3);          // over the threshold, but not a video
+  await page.locator('.bar .add').click();
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: junk });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
+  check('an undecodable file falls back to the original', lastUpload && lastUpload.length === junk.length,
+    `sent ${lastUpload ? lastUpload.length : 'nothing'} of ${junk.length} bytes`);
+});
 
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
