@@ -1040,11 +1040,12 @@ function vidPick(input) {
   recorded = null;                         // a chosen file replaces anything just recorded
   if (!f) return el.textContent = '';
   // A clip over the cap is no longer necessarily a clip that gets turned away: anything
-  // big is re-encoded to 720p first, and it is the result that has to fit.
+  // big can be re-encoded to 720p first, and it is the result that has to fit. Whether it
+  // is worth doing depends on how long the clip runs, which is not known until it is read.
   const shrinks = !!mp4Type() && f.size >= COMPRESS_OVER, over = f.size > MAX_MB * 1048576;
   el.className = over && !shrinks ? 'warn' : 'muted';
   el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`
-    : shrinks ? `${mb(f.size)} MB · shrunk to 720p before it uploads` : `${mb(f.size)} MB`;
+    : shrinks ? `${mb(f.size)} MB · shrunk to 720p first if that is quicker than sending it` : `${mb(f.size)} MB`;
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); if (tab === 'profile') refreshPush().then(render); }
@@ -1286,6 +1287,13 @@ async function shrink(file, onProgress) {
     // Already at or under the size we would re-encode to, and not enormous: whatever is
     // left to save is not worth making somebody wait the length of their own clip for.
     if (v.videoHeight <= TARGET_H && file.size <= secs * VIDEO_BPS / 8 * 1.6) return file;
+    // Re-encoding runs at about real time, so a 40-second clip costs 40 seconds before a
+    // byte moves. That only pays for itself if the bytes it saves would have taken longer
+    // than that to send. On a fast connection they would not, and the whole wait is the
+    // app's own doing. Judged on what this phone's uploads have actually managed, and
+    // only when the original is small enough to send at all.
+    const rate = upRate();
+    if (rate && file.size <= MAX_MB * 1048576 && (file.size - secs * VIDEO_BPS / 8) / rate < secs) return file;
 
     const scale = Math.min(1, TARGET_H / v.videoHeight);
     const c = document.createElement('canvas');
@@ -1338,6 +1346,17 @@ async function shrink(file, onProgress) {
   }
 }
 
+// How fast this phone actually gets a video out, in bytes a second, blended over the
+// uploads it has done. Whether re-encoding is worth the wait depends entirely on this,
+// and nothing else in the browser will tell us: navigator.connection is Chrome-only and
+// describes the link, not what Supabase gives us on it.
+const upRate = () => { const n = +localStorage.getItem('quota.uprate'); return n > 0 ? n : 0; };
+function noteRate(bytes, secs) {
+  if (!(secs > 1) || !(bytes > 1048576)) return;         // too small or too quick to learn from
+  const cur = bytes / secs, was = upRate();
+  try { localStorage.setItem('quota.uprate', String(was ? was * 0.5 + cur * 0.5 : cur)); } catch (e) {}
+}
+
 // supabase-js sends the file through fetch, which cannot report upload progress, so a
 // phone video sat on a motionless "Uploading…" for the whole transfer with no way to
 // tell a slow connection from a stuck one. This is the same request its storage client
@@ -1362,7 +1381,7 @@ async function upload(bucket, path, file, onProgress) {
       onProgress(e.loaded, e.total, secs > 1 ? e.loaded / 1048576 / secs : 0);   // a rate before a second has passed is noise
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      if (xhr.status >= 200 && xhr.status < 300) { noteRate(part.size, (Date.now() - t0) / 1000); return resolve(); }
       let m = `The upload failed (${xhr.status}).`;
       try { const j = JSON.parse(xhr.responseText); m = j.message || j.error || m; } catch (err) {}
       reject(new Error(m));

@@ -296,6 +296,51 @@ await withPage(NO_WHEEL, async page => {
   if (lastUpload) console.log(`        ${(clip.length / 1048576).toFixed(1)} MB in, ${(lastUpload.length / 1048576).toFixed(2)} MB out (${(clip.length / lastUpload.length).toFixed(1)}x smaller)`);
 });
 
+// Re-encoding costs about the length of the clip before a byte moves. On a connection
+// fast enough to have sent the original in less time than that, the whole wait is the
+// app's own doing, so it does not happen. The rate is what this phone's uploads managed.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const clip = Buffer.from(await record1080p(page));
+  await page.evaluate(() => localStorage.setItem('quota.uprate', String(40 * 1048576)));  // 40 MB/s
+  lastUpload = null;
+  uploadReply = { status: 200, body: '{}', hold: null };
+  await page.locator('.bar .add').click();
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
+  const seen = await labels(page);
+  check('a connection quick enough makes re-encoding a waste, so it is skipped',
+    !seen.some(t => /Compressing/.test(t)), seen.join(' -> '));
+  check('  and the original goes up untouched', lastUpload && lastUpload.length === clip.length,
+    `sent ${lastUpload && lastUpload.length} of ${clip.length}`);
+
+  // The same clip on a connection that would take minutes is worth the wait.
+  await page.evaluate(() => localStorage.setItem('quota.uprate', String(0.05 * 1048576)));  // 50 KB/s
+  lastUpload = null;
+  await page.locator('.bar .add').click();
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
+  check('  a slow one still gets the smaller file', lastUpload && lastUpload.length < clip.length / 2,
+    `sent ${lastUpload && lastUpload.length} of ${clip.length}`);
+});
+
+// An upload that worked is the only honest measure of the connection, so that is where
+// the rate comes from.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const before = await page.evaluate(() => localStorage.getItem('quota.uprate'));
+  await page.evaluate(() => noteRate(20 * 1048576, 4));       // 20 MB in 4s
+  await page.evaluate(() => noteRate(1000, 4));               // too small to learn from
+  await page.evaluate(() => noteRate(20 * 1048576, 0.2));     // too quick to learn from
+  const after = await page.evaluate(() => upRate());
+  check('the upload rate is remembered from uploads that finished', before === null && Math.round(after / 1048576) === 5,
+    `${before} -> ${after}`);
+});
+
 // What was sent has to be a video people can actually watch, at the size we intended.
 await withPage(SIGNED_IN, async page => {
   const meta = await page.evaluate(async src => {
