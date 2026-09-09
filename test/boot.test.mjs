@@ -513,6 +513,60 @@ await withPage({ ...SIGNED_IN, theirWheel: true }, async page => {
   check('  and the editor cannot be opened around it', await page.locator('#dlg textarea[name=segments]').count() === 0);
 });
 
+// Sitting a cycle out: you can post without spinning, nothing is held against you, and
+// the wheel is back next time.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  page.on('dialog', () => {});                      // the confirm is auto-dismissed by withPage
+  await page.locator('#app button:has-text("Spin the wheel")').first().click();
+  await page.waitForTimeout(300);
+  check('the wheel offers a way out', await page.locator('#dlg button:has-text("Sit this one out")').count() === 1);
+  check('  and says when it comes back', /It comes back/.test(await page.locator('#dlg').innerText()));
+});
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  // Take the choice directly: the confirm() in front of it is dismissed by the harness.
+  await page.evaluate(async () => { await sb.rpc('sit_out', {p_wheel: 7, p_day: today()}); await load(); });
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(300);
+  const text = await page.innerText('#app');
+  check('sitting out shows on your own wheel', /Sitting this one out/.test(text), text.slice(0, 400));
+  check('  with no days to tick off', await page.locator('.tick').count() === 0);
+  check('  and posting is no longer blocked', await page.evaluate(() => dueIn(S.groups[0]).length) === 0);
+
+  // The obligation goes with it. Checked both ways round on the same closed cycle, or
+  // "does not break the streak" would pass just as well if nothing ever broke it.
+  const res = await page.evaluate(() => {
+    const w = S.wheels[0];
+    w.breaks_streak = true;
+    w.every_days = 1;                     // so yesterday is a cycle that has closed
+    w.starts_on = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
+    const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), c = cycleOf(w, y);
+    const row = extra => [{id: 900, wheel_id: w.id, user_id: 'u1', cycle: c, results: [], days_required: 1, ...extra}];
+    S.spins = row({sat_out: false});
+    const unfinished = brokeStreak(S.groups[0], 'u1', y);
+    S.spins = row({sat_out: true});
+    return {unfinished, sat: brokeStreak(S.groups[0], 'u1', y)};
+  });
+  check('  an unfinished challenge still breaks the streak', res.unfinished === true, JSON.stringify(res));
+  check('  and a cycle sat out does not', res.sat === false, JSON.stringify(res));
+});
+
+// A result already seen cannot be walked away from: the app does not offer it, and the
+// database refuses it. The schema tests cover the refusal; this is that the UI agrees.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); openGroup(1); });
+  await page.waitForTimeout(300);
+  check('once spun, there is nothing left to sit out', await page.locator('#dlg button:has-text("Sit this one out")').count() === 0);
+  const after = await page.evaluate(async () => {
+    const {data} = await sb.rpc('sit_out', {p_wheel: 7, p_day: today()});
+    return data.sat_out;
+  });
+  check('  and asking anyway leaves the result standing', after === false, String(after));
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

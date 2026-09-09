@@ -325,4 +325,56 @@ begin
 end $$;
 reset role;
 
+-- ---- v9: sitting a cycle out
+do $$
+declare wid bigint; sp public.spins; n int; rolled jsonb;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  wid := public.save_wheel(null, 1, 'Sittable', 5, current_date, 8, false,
+    '[{"kind":"challenge","segments":["a","b","c"]},{"kind":"days","segments":["1","2"]}]');
+
+  -- Sam sits this one out.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  sp := public.sit_out(wid, current_date);
+  if not sp.sat_out then raise exception 'sitting out did not take'; end if;
+  if sp.days_required <> 0 then raise exception 'a sat-out cycle should ask for no days, got %', sp.days_required; end if;
+
+  -- ...which lifts the posting barrier for it, without a spin.
+  -- Scoped to this wheel: earlier blocks left other wheels in the group unspun.
+  select count(*) into n from public.unspun(1, '22222222-2222-2222-2222-222222222222', current_date) where id = wid;
+  if n <> 0 then raise exception 'sitting out did not clear the barrier for this wheel'; end if;
+
+  -- ...and stops the reminder chasing them.
+  delete from public.wheel_reminders;
+  update public.wheels set remind_hour = extract(hour from (now() at time zone 'UTC'))::int,
+                           starts_on = (now() at time zone 'UTC')::date where id = wid;
+  update public.profiles set tz = null;
+  -- Ari, who has done nothing about it, is due; Sam, who sat out, is not. Checking both
+  -- ways round, or "not reminded" would pass just as well if nobody were ever reminded.
+  create temp table due_now on commit drop as select * from public.wheel_due_now();
+  select count(*) into n from due_now where wheel_name = 'Sittable' and user_id = '11111111-1111-1111-1111-111111111111';
+  if n <> 1 then raise exception 'the person who has not dealt with it was not reminded, got %', n; end if;
+  select count(*) into n from due_now where wheel_name = 'Sittable' and user_id = '22222222-2222-2222-2222-222222222222';
+  if n <> 0 then raise exception 'someone sitting out was still reminded'; end if;
+  update public.wheels set starts_on = current_date where id = wid;
+
+  -- Changing your mind the other way round is allowed: a spin overwrites a sit-out.
+  sp := public.spin(wid, current_date);
+  if sp.sat_out then raise exception 'spinning after sitting out left it sat out'; end if;
+  if jsonb_array_length(sp.results) <> 2 then raise exception 'the spin did not actually roll'; end if;
+  select count(*) into n from public.spins where wheel_id = wid and user_id = '22222222-2222-2222-2222-222222222222';
+  if n <> 1 then raise exception 'expected one row per person per cycle, found %', n; end if;
+
+  -- But not back again. Sitting out after seeing a result would be a way to walk away
+  -- from an answer you did not like, which is the whole thing this design prevents.
+  rolled := sp.results;
+  sp := public.sit_out(wid, current_date);
+  if sp.sat_out then raise exception 'a result was escaped by sitting out afterwards'; end if;
+  if sp.results <> rolled then raise exception 'sitting out changed an existing result'; end if;
+
+  -- And spinning again still cannot re-roll.
+  sp := public.spin(wid, current_date);
+  if sp.results <> rolled then raise exception 'a second spin rolled again'; end if;
+end $$;
+
 \echo 'PASS: wheels schema'

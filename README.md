@@ -135,6 +135,18 @@ the schedule or delete it, and that is enforced by policy rather than by hiding 
 A wheel left behind by someone whose account has gone is claimable by any member, so it
 cannot end up frozen with nobody able to touch it.
 
+**Anyone can sit out a cycle.** The choice is offered on the wheel itself, next to Spin:
+you post without spinning it, nothing counts against you, and it comes back as normal at
+the next cycle. It is stored on the same row a spin would use — one decision per person
+per cycle — which is why the posting barrier lifts and the reminder stops chasing you
+without either of them needing to know the feature exists. Everyone in the group sees
+"sitting out" where they would otherwise see your result.
+
+The choice is made **before** the wheel turns, never after: sitting out once a result
+exists would be a way to walk away from an answer you did not like, so the database
+refuses it and leaves the result standing. Going the other way is fine — change your mind
+and you can still spin it before the cycle is up.
+
 Tick off the days you did the challenge, any day in the cycle up to today. If the wheel
 was set to break the streak, a cycle that closes unfinished ends the streak on the day it
 closed. `hit()` stays about the quota alone, so the daily chips and the completion rate
