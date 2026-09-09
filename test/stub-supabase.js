@@ -16,7 +16,8 @@
   // A chain of two wheels, anchored 10 days back on a 5-day cycle, so the group is on
   // cycle 2 and nobody has spun it yet.
   const WHEEL = { id: 7, group_id: 1, name: 'Challenge', every_days: 5, remind_hour: 8,
-    breaks_streak: false, active: true, starts_on: ago(10), created_by: 'u1' };
+    breaks_streak: false, active: true, starts_on: ago(10),
+    created_by: M().theirWheel ? 'u2' : 'u1' };
   const STAGES = [
     { id: 1, wheel_id: 7, seq: 0, kind: 'challenge', label: 'Your challenge', segments: ['100 burpees', '5k run', 'plank 3 min', 'cold shower'] },
     { id: 2, wheel_id: 7, seq: 1, kind: 'days', label: 'On how many days', segments: ['1', '2', '3'] },

@@ -539,3 +539,88 @@ select cron.schedule('wheel-reminders', '0 * * * *', $cron$
     body    := '{}'::jsonb
   );
 $cron$);
+
+-- ============================================================
+-- v8 (wheel ownership): only whoever made a wheel can change it. Everyone else in
+-- the group can look at it. Safe to run on an existing project.
+-- ============================================================
+
+-- v6 let any member edit or delete any wheel, which was too loose once a wheel is
+-- something the whole group is made to spin: one person could quietly rewrite the
+-- challenges, or delete the wheel and everyone's results with it.
+--
+-- A wheel whose creator has left the group entirely (created_by went null when their
+-- account went) is claimable by any member, so it cannot end up frozen with nobody
+-- able to touch it.
+drop policy if exists "members edit wheels" on public.wheels;
+drop policy if exists "members delete wheels" on public.wheels;
+drop policy if exists "members write stages" on public.wheel_stages;
+
+create policy "the maker edits the wheel" on public.wheels for update
+  using (public.is_member(group_id) and (created_by = auth.uid() or created_by is null))
+  with check (public.is_member(group_id) and (created_by = auth.uid() or created_by is null));
+create policy "the maker deletes the wheel" on public.wheels for delete
+  using (public.is_member(group_id) and (created_by = auth.uid() or created_by is null));
+
+-- Reading stays open to the group: "members see stages" from v6 is untouched, so
+-- everyone can still see what is on a wheel they have to spin.
+create policy "the maker writes stages" on public.wheel_stages for all
+  using (exists (select 1 from public.wheels w where w.id = wheel_id and public.is_member(w.group_id)
+                 and (w.created_by = auth.uid() or w.created_by is null)))
+  with check (exists (select 1 from public.wheels w where w.id = wheel_id and public.is_member(w.group_id)
+                      and (w.created_by = auth.uid() or w.created_by is null)));
+
+-- save_wheel runs as the definer and so goes around all of the above; it has to make
+-- the same check itself. Otherwise editing through the app would still be open to
+-- anyone in the group.
+create or replace function public.save_wheel(
+  p_id bigint, p_group bigint, p_name text, p_every int, p_starts date,
+  p_hour int, p_breaks boolean, p_stages jsonb
+) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare wid bigint; st jsonb; seg jsonb; n int; existing public.wheels;
+begin
+  if not public.is_member(p_group) then raise exception 'not a member of that group'; end if;
+  if p_every < 1 or p_every > 60 then raise exception 'a wheel has to be spun somewhere between every day and every 60 days'; end if;
+  if jsonb_array_length(p_stages) < 1 then raise exception 'a wheel needs something on it'; end if;
+
+  for st in select value from jsonb_array_elements(p_stages) loop
+    n := jsonb_array_length(st->'segments');
+    if n < 2 or n > 24 then raise exception 'each wheel needs between 2 and 24 slices, got %', n; end if;
+    -- A day wheel can only ask for days the cycle actually contains.
+    if st->>'kind' = 'days' then
+      for seg in select value from jsonb_array_elements(st->'segments') loop
+        if (seg #>> '{}') !~ '^[0-9]+$' or (seg #>> '{}')::int > p_every then
+          raise exception 'a day wheel spun every % days cannot ask for %', p_every, seg #>> '{}';
+        end if;
+      end loop;
+    end if;
+  end loop;
+
+  if p_id is null or p_id = 0 then
+    insert into public.wheels (group_id, name, every_days, starts_on, remind_hour, breaks_streak, created_by)
+      values (p_group, p_name, p_every, p_starts, p_hour, p_breaks, auth.uid()) returning id into wid;
+  else
+    select * into existing from public.wheels where id = p_id;
+    if not found or not public.is_member(existing.group_id) then raise exception 'no such wheel'; end if;
+    if existing.created_by is not null and existing.created_by <> auth.uid() then
+      raise exception 'only whoever made this wheel can change it';
+    end if;
+    -- Cycles are counted from the anchor, so moving it once people have spun would
+    -- renumber history and strand results in cycles that no longer exist.
+    if exists (select 1 from public.spins where wheel_id = p_id)
+       and (existing.every_days <> p_every or existing.starts_on <> p_starts) then
+      raise exception 'the schedule cannot change once people have started spinning';
+    end if;
+    update public.wheels set name = p_name, every_days = p_every, starts_on = p_starts,
+      remind_hour = p_hour, breaks_streak = p_breaks, created_by = coalesce(existing.created_by, auth.uid())
+      where id = p_id;
+    wid := p_id;
+    delete from public.wheel_stages where wheel_id = wid;
+  end if;
+
+  insert into public.wheel_stages (wheel_id, seq, kind, label, segments)
+  select wid, (ord - 1)::int, t.st->>'kind', coalesce(t.st->>'label', ''), t.st->'segments'
+  from jsonb_array_elements(p_stages) with ordinality as t(st, ord);
+  return wid;
+end $$;

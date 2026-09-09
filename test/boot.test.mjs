@@ -479,6 +479,40 @@ await withPage(SIGNED_IN, async page => {
   check('  while the completion rate still counts quota days only', rate === 3, `${rate} days`);
 });
 
+// A wheel belongs to whoever made it. Everyone else has to spin it, so everyone else can
+// look at it — they just cannot change it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(200);
+  await page.locator('.wh .top').first().click();
+  await page.waitForTimeout(300);
+  const text = await page.locator('#dlg').innerText();
+  check('opening a wheel shows what is on it', /100 burpees/.test(text) && /5k run/.test(text), text.slice(0, 200));
+  check('  and how often it is spun', /every 5 days/.test(text), text.slice(0, 200));
+  check('  drawn as the wheel itself', await page.locator('#dlg .wheel-face').count() === 2);
+  check('  and the maker gets an Edit button', await page.locator('#dlg button:has-text("Edit")').count() === 1);
+  await page.locator('#dlg button:has-text("Edit")').click();
+  await page.waitForTimeout(200);
+  check('  which opens the editor', await page.locator('#dlg textarea[name=segments]').count() === 1);
+});
+
+await withPage({ ...SIGNED_IN, theirWheel: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(200);
+  await page.locator('.wh .top').first().click();
+  await page.waitForTimeout(300);
+  const text = await page.locator('#dlg').innerText();
+  check('someone else\'s wheel still shows its options', /100 burpees/.test(text), text.slice(0, 200));
+  check('  but offers no Edit', await page.locator('#dlg button:has-text("Edit")').count() === 0, text.slice(0, 200));
+  check('  and says who to ask', /Only Sam can change this/.test(text), text.slice(0, 200));
+  // Even reached directly, the editor refuses and falls back to the read-only view.
+  await page.evaluate(() => wheelDlg(1, S.wheels[0]));
+  await page.waitForTimeout(200);
+  check('  and the editor cannot be opened around it', await page.locator('#dlg textarea[name=segments]').count() === 0);
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
