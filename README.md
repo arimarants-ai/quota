@@ -129,6 +129,12 @@ wheel in that group is unspun. The app checks first and opens the wheel — from
 or when you try to post — so the exception is only ever seen by someone going around the
 page. Only the group with the outstanding spin is blocked; the others are untouched.
 
+**A wheel belongs to whoever made it.** Anyone in the group can tap it to see what is on
+it — they have to spin it, so they get to look — but only the maker can change the slices,
+the schedule or delete it, and that is enforced by policy rather than by hiding a button.
+A wheel left behind by someone whose account has gone is claimable by any member, so it
+cannot end up frozen with nobody able to touch it.
+
 Tick off the days you did the challenge, any day in the cycle up to today. If the wheel
 was set to break the streak, a cycle that closes unfinished ends the streak on the day it
 closed. `hit()` stays about the quota alone, so the daily chips and the completion rate

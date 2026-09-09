@@ -260,4 +260,69 @@ begin
   if n <> 1 then raise exception 'someone with no timezone was skipped, got %', n; end if;
 end $$;
 
+-- ---- v8: a wheel belongs to whoever made it
+do $$
+declare wid bigint; n int;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  wid := public.save_wheel(null, 1, 'Ari''s wheel', 5, current_date, 8, false,
+    '[{"kind":"challenge","segments":["a","b","c"]}]');
+
+  -- Someone else in the group cannot rewrite it through the app...
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  begin
+    perform public.save_wheel(wid, 1, 'Sam''s wheel now', 5, current_date, 8, false,
+      '[{"kind":"challenge","segments":["easy","easier"]}]');
+    raise exception 'someone else edited the wheel';
+  exception when others then
+    if sqlerrm = 'someone else edited the wheel' then raise; end if;
+    if sqlerrm not like 'only whoever made this wheel%' then raise exception 'wrong refusal: %', sqlerrm; end if;
+  end;
+
+  -- ...but can still read what is on it, because they have to spin it.
+  select count(*) into n from public.wheel_stages where wheel_id = wid;
+  if n <> 1 then raise exception 'a member cannot see the slices they have to spin'; end if;
+
+  -- The maker still can.
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  perform public.save_wheel(wid, 1, 'Renamed', 5, current_date, 8, false,
+    '[{"kind":"challenge","segments":["a","b","c","d"]}]');
+  if (select name from public.wheels where id = wid) <> 'Renamed' then raise exception 'the maker could not edit their own wheel'; end if;
+end $$;
+
+-- And the same from a normal seat, where row level security is what stops it.
+set role app;
+do $$
+declare wid bigint; before text;
+begin
+  -- set_config(..., true) is transaction-local and each DO block is its own transaction,
+  -- so the seat has to be taken before anything is read, or RLS hides the row and the
+  -- checks below pass against nothing.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  select id, name into wid, before from public.wheels where name = 'Renamed';
+  if wid is null then raise exception 'the wheel to test against was not visible'; end if;
+
+  update public.wheels set name = 'taken over' where id = wid;
+  if (select name from public.wheels where id = wid) <> before then raise exception 'a non-maker renamed the wheel directly'; end if;
+
+  delete from public.wheels where id = wid;
+  if not exists (select 1 from public.wheels where id = wid) then raise exception 'a non-maker deleted the wheel'; end if;
+
+  update public.wheel_stages set segments = '["easy","easy"]' where wheel_id = wid;
+  if exists (select 1 from public.wheel_stages where wheel_id = wid and segments = '["easy","easy"]'::jsonb) then
+    raise exception 'a non-maker rewrote the slices directly';
+  end if;
+
+  -- Reading is still open to the group.
+  if not exists (select 1 from public.wheel_stages where wheel_id = wid) then
+    raise exception 'a member can no longer see the slices';
+  end if;
+
+  -- The maker can still delete their own.
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  delete from public.wheels where id = wid;
+  if exists (select 1 from public.wheels where id = wid) then raise exception 'the maker could not delete their own wheel'; end if;
+end $$;
+reset role;
+
 \echo 'PASS: wheels schema'

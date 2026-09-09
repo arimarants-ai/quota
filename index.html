@@ -182,7 +182,10 @@ dialog h2{font-size:20px;margin-bottom:2px}
 /* a wheel as it appears in the group */
 .wh{border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-top:10px}
 .wh:first-of-type{margin-top:0}
-.wh .top{display:flex;align-items:center;gap:8px}
+.wh .top{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.wh .top:active{transform:none;opacity:.6}
+.wh .chev{width:16px;height:16px;flex:none;margin-left:-2px;stroke:var(--muted);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 .wh b{font-size:15px}
 .wh .when{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
 .wh .got{font-weight:800;font-size:15px;margin-top:8px}
@@ -317,6 +320,10 @@ const cycleDays = (w, c = cycleOf(w)) => {
   return Array.from({length: Math.max(0, to - from + 1)}, (_, i) => fromDayNo(from + i));
 };
 const challengeText = sp => (sp.results.find(r => r.kind === 'challenge') || {}).value || '';
+// A wheel belongs to whoever made it: everyone in the group has to spin it, so it should
+// not be rewritten under them by anybody who feels like it. One left behind by someone who
+// has gone (created_by went null with their account) is claimable, rather than stuck.
+const myWheel = w => !w.created_by || w.created_by === me().id;
 
 // How often someone actually hits the whole quota, over the last 30 days or since the
 // group started if that is sooner. Today is left out: it is still in progress, and
@@ -439,8 +446,10 @@ const splashView = () => `<div class="splash">${LOGO(true)}<i></i></div>`;
 function wheelCard(g, w) {
   const m = me(), c = cycleOf(w), mine = spinOf(w, m.id, c), soon = !running(w);
   const others = g.members.filter(id => id !== m.id).map(id => ({id, sp: spinOf(w, id, c)}));
-  const head = `<div class="top"><b>${esc(w.name)}</b><span class="when">${soon ? `starts ${dayLabel(w.starts_on)}`
-    : `every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, c + 1))}`}</span></div>`
+  const head = `<button class="top" onclick="wheelInfoDlg(${w.id})" title="See what is on this wheel">
+      <b>${esc(w.name)}</b><span class="when">${soon ? `starts ${dayLabel(w.starts_on)}`
+    : `every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, c + 1))}`}</span>
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`
     + (w.breaks_streak ? `<div class="who">Not finishing this breaks your streak.</div>` : '');
   const yours = soon ? '' : !mine
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
@@ -761,10 +770,31 @@ async function resetPassword(f) {
 
 // ---- dialogs
 function dlg(html) { const d = $('#dlg'); if (!html) return d.close(); d.innerHTML = html; d.showModal(); }
+// What is on a wheel, for anyone in the group. You have to spin it, so you get to see it
+// — but only whoever made it gets the Edit button, and the database enforces that whether
+// the button is there or not.
+function wheelInfoDlg(id) {
+  const w = S.wheels.find(x => x.id === id);
+  if (!w) return;
+  const maker = w.created_by ? user(w.created_by) : null;
+  const stages = w.stages.map(st => `<p class="muted stagelabel">${esc(st.label || (st.kind === 'days' ? 'On how many days' : 'The wheel'))}</p>
+    ${wheelBox(st.segments, `iw${st.seq}`)}
+    <div class="row wrap" style="gap:6px;margin-top:14px;justify-content:center">${st.segments.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>`).join('');
+  dlg(`<h2>${esc(w.name)}</h2>
+    <p class="muted">${running(w) ? `Everyone spins it every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, cycleOf(w) + 1))}`
+      : `Starts ${dayLabel(w.starts_on)}, then every ${plural(w.every_days, 'day')}`}${maker ? ` · made by ${esc(name(maker))}` : ''}</p>
+    ${w.breaks_streak ? `<p class="warn" style="margin-top:8px">Not finishing the challenge breaks your streak.</p>` : ''}
+    ${stages}
+    <div class="row" style="margin-top:20px"><button type="button" onclick="dlg()" class="grow">Close</button>
+    ${myWheel(w) ? `<button class="primary grow" onclick="wheelDlg(${w.group_id},S.wheels.find(x=>x.id===${w.id}))">Edit</button>`
+      : `<span class="muted" style="font-size:13px;font-weight:600;text-align:right">Only ${maker ? esc(name(maker)) : 'whoever made it'} can change this</span>`}</div>`);
+}
+
 // Building a wheel. Two wheels chained by default — what the challenge is, then how many
 // days it runs for — because that is the shape people asked for; the second one is a
 // checkbox away from being dropped.
 function wheelDlg(gid, w) {
+  if (w && !myWheel(w)) return wheelInfoDlg(w.id);
   const spun = w && S.spins.some(sp => sp.wheel_id === w.id);
   const ch = w && w.stages.find(st => st.kind === 'challenge');
   const dw = w && w.stages.find(st => st.kind === 'days');
@@ -799,7 +829,7 @@ function wheelDlg(gid, w) {
       <span>Not finishing the challenge breaks your streak</span></label>
 
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button>
-      ${w ? `<button type="button" class="ghost" onclick="delWheel(${w.id})">Delete</button>` : ''}
+      ${w && myWheel(w) ? `<button type="button" class="ghost" onclick="delWheel(${w.id})">Delete</button>` : ''}
       <button class="primary grow">Save</button></div></form>`);
 }
 
