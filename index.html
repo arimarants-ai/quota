@@ -593,9 +593,16 @@ function feedView() {
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
   const lines = gs.flatMap(g => g.quotas.map(qq => ({g, qq, d: done(g, m.id, qq.metric)})));
   const doneN = lines.filter(l => l.d >= l.qq.target).length;
+  // The challenge sits beside the quota it is being done with: today's reps say whether
+  // today is in hand, the days say how the cycle is going, and both belong in one glance.
+  const chals = gs.flatMap(g => myChallenges(g).map(sp => {
+    const w = S.wheels.find(x => x.id === sp.wheel_id);
+    return {g, sp, w, need: requiredDays(w, sp), d: challengeDays(g, sp).length};
+  })).filter(c => c.need);
   return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
     <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
-    ${lines.length ? `<div class="mini">${lines.map(l => `<div>${esc(l.qq.metric)}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(l.g.name)}</span>` : ''}<br><b>${l.d}</b>/${l.qq.target}<i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i></div>`).join('')}</div>` : ''}</div>`
+    ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div>${esc(l.qq.metric)}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(l.g.name)}</span>` : ''}<br><b>${l.d}</b>/${l.qq.target}<i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i></div>`).join('')
+      }${chals.map(c => `<div>${esc(effChallenge(c.sp))}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(c.g.name)}</span>` : ''}<br><b>${c.d}</b>/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}<i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i></div>`).join('')}</div>` : ''}</div>`
     + spinPrompt()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }

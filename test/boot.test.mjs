@@ -610,6 +610,33 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   check('  and the post carries no challenge', sent && sent.challenge === null, JSON.stringify(sent));
 });
 
+// Today's reps say whether today is in hand; the challenge days say how the cycle is
+// going. Both belong on the feed, together, or the days are somewhere nobody looks.
+await withPage({ ...SIGNED_IN, pick: 0, noDayWheel: true }, async page => {
+  await settle(page);
+  const need = await page.evaluate(async () => {
+    await sb.rpc('spin', {p_wheel: 7, p_day: today()});
+    await load();
+    const sp = S.spins.find(x => x.user_id === 'u1'), g = S.groups[0];
+    S.totals.push({g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id, ch: effChallenge(sp)});
+    render();
+    return requiredDays(S.wheels[0], sp);
+  });
+  const head = await page.innerText('.hdr');
+  check('the feed counts the quota and the challenge days side by side',
+    /\/50\b/.test(head) && need > 1 && new RegExp(`1/${need} challenge days`).test(head), head);
+  check('  naming the challenge, not just calling it one',
+    head.includes(await page.evaluate(() => effChallenge(S.spins.find(x => x.user_id === 'u1')))), head);
+});
+
+// Sitting the cycle out leaves nothing to count, so nothing is claimed on the feed either.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  await page.evaluate(async () => { await sb.rpc('sit_out', {p_wheel: 7, p_day: today()}); await load(); });
+  check('  and sitting out shows no challenge tile at all',
+    !/challenge day/.test(await page.innerText('.hdr')), await page.innerText('.hdr'));
+});
+
 // The feed and the tracker read off the same thing.
 await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await settle(page);
