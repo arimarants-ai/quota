@@ -45,10 +45,13 @@
     spins: self.__spins,
     wheel_days: self.__ticks,
   }[t] || []);
+  // What a real database hands back is not always the shape the page hopes for: a jsonb
+  // column can be null, and a row can be missing what a newer column would have had.
+  const mangle = r => M().badRows ? {...r, ...('quotas' in r ? {quotas: null} : {}), ...('results' in r ? {results: null} : {})} : r;
   const result = t => {
     const m = M();
     if (t === 'friendships') self.__calls.loads++;         // one per load(): the first query it runs
-    return m.queryError ? { data: null, error: err(m.queryError) } : { data: rows(t), error: null };
+    return m.queryError ? { data: null, error: err(m.queryError) } : { data: rows(t).map(mangle), error: null };
   };
   // Writes are only tracked where a test needs to see the effect; everything else just
   // resolves the way PostgREST would.

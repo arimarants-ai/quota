@@ -867,6 +867,36 @@ await withPage(NO_WHEEL, async page => {
     `sent ${lastUpload && lastUpload.length} of ${size}`);
 });
 
+// ---- one bad row must not take the app down
+// render() runs in runLoad's finally, so a view that throws escapes the whole load: the
+// splash stays up, and Retry does exactly the same thing again. Nothing that comes out of
+// the database is allowed to get that far.
+await withPage({ ...SIGNED_IN, badRows: true }, async page => {
+  await settle(page);
+  const app = await page.innerHTML('#app');
+  check('a null jsonb column still loads the app', !app.includes('splash') && !app.includes('not right'),
+    app.slice(0, 200));
+  check('  and the feed is the real one, not a fallback', await page.isVisible('.hdr') && await page.isVisible('#bar'));
+  check('  with no error bar', await page.isHidden('#err'));
+});
+
+// And if a screen still manages to throw, it says so and leaves the rest usable.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  // If the guard is not there this throw comes straight back out, so it is caught here
+  // rather than taking the whole run with it: the checks below are what should report it.
+  await page.evaluate(() => { self.feedView = () => { throw new Error('boom'); }; go('feed'); }).catch(() => {});
+  await page.waitForTimeout(300);
+  check('a screen that cannot be drawn says so instead of freezing',
+    (await page.innerText('#app')).includes('not right') && (await page.innerText('#err')).includes('boom'),
+    await page.innerText('#app'));
+  check('  and the other tabs still work', await page.isVisible('#bar'));
+  await page.evaluate(() => go('groups'));
+  await page.waitForTimeout(300);
+  check('  going to one of them gets there', /my groups/i.test(await page.innerText('#app')),
+    (await page.innerText('#app')).slice(0, 200));
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
