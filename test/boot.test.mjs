@@ -402,14 +402,11 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   check('  and says who has not spun', text.includes('Sam: not spun yet'));
   check('  and posting is no longer blocked', await page.evaluate(() => dueIn(S.groups[0]).length) === 0);
 
-  const ticks = page.locator('.tick');
-  check('  with a day to tick for each day of the cycle so far', await ticks.count() >= 1, `${await ticks.count()} ticks`);
-  await ticks.last().click();
-  await page.waitForTimeout(400);
-  check('  ticking a day records it', await page.locator('.tick.on').count() === 1);
-  await page.locator('.tick.on').click();
-  await page.waitForTimeout(400);
-  check('  and unticking takes it back off', await page.locator('.tick.on').count() === 0);
+  // The days are no longer ticked by hand: each one shows, and fills when that day's
+  // quota has been met with the challenge. Nothing has been posted here yet, so none are.
+  check('  with a day shown for each day of the cycle so far', await page.locator('.tick').count() >= 1,
+    `${await page.locator('.tick').count()} days`);
+  check('  none of them filled in yet', await page.locator('.tick.on').count() === 0);
 });
 
 // The builder: what goes on the wheel, how often, and the day wheel it chains to.
@@ -464,12 +461,13 @@ await withPage(SIGNED_IN, async page => {
   });
   check('  and one that does breaks it', after === 0, `streak ${after}`);
 
-  // Finishing it keeps the streak: a spin for yesterday's cycle with its day ticked.
+  // Finishing it keeps the streak. A day is finished by posting the day's quota with the
+  // challenge, so that is what this puts there.
   const kept = await page.evaluate(() => {
     const w = S.wheels[0], y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     const c = cycleOf(w, y);
     S.spins = [...S.spins, {id: 99, wheel_id: w.id, user_id: 'u2', cycle: c, results: [], days_required: 1}];
-    S.ticks = [{spin_id: 99, day: y}];
+    S.totals.push({g: 1, u: 'u2', d: y, m: 'pushups', n: 50, sp: 99});
     return streak(S.groups[0], 'u2');
   });
   check('  and finishing the challenge keeps it', kept >= 1, `streak ${kept}`);
@@ -565,6 +563,78 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
     return data.sat_out;
   });
   check('  and asking anyway leaves the result standing', after === false, String(after));
+});
+
+// ---- the challenge on a post
+// The wheel gives you a modifier; the post says you did the group's exercise with it, and
+// the day fills itself from that rather than from a tick.
+await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
+  await settle(page);
+  await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  check('posting offers the challenge', await page.locator('#dlg input[name=usechal]').isChecked());
+  const opts = await page.locator('#dlg select[name=chal] option').allInnerTexts();
+  check('  defaulting to your own', /100 burpees \(yours\)/.test(opts[0] || ''), opts.join(' | '));
+  check('  and offering what others got', opts.length > 1, opts.join(' | '));
+
+  await page.locator('#dlg input[name=amount]').fill('50');
+  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(900);
+
+  const sent = await page.evaluate(() => self.__posts.at(-1));
+  check('  and the post records the challenge', sent && sent.challenge === '100 burpees', JSON.stringify(sent));
+  const mySpin = await page.evaluate(() => S.spins.find(sp => sp.user_id === 'u1').id);
+  check('  pinned to your own spin, not the one it was borrowed from',
+    sent && sent.spin_id === mySpin, `post ${JSON.stringify(sent)} vs own spin ${mySpin}`);
+});
+
+// Unticking the box posts without a challenge, the way it always did.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=usechal]').uncheck();
+  check('unticking hides the picker', await page.locator('#dlg .chalpick').isHidden());
+  await page.locator('#dlg input[name=amount]').fill('50');
+  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(900);
+  const sent = await page.evaluate(() => self.__posts.at(-1));
+  check('  and the post carries no challenge', sent && sent.challenge === null, JSON.stringify(sent));
+});
+
+// The feed and the tracker read off the same thing.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  const view = await page.evaluate(async () => {
+    await sb.rpc('spin', {p_wheel: 7, p_day: today()});
+    await load();
+    const sp = S.spins[0], g = S.groups[0];
+    // a full day's quota, all of it with the challenge
+    S.totals.push({g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id});
+    S.posts.unshift({id: 999, groupId: g.id, userId: 'u1', metric: 'pushups', amount: 50,
+      caption: '', path: 'x', day: today(), ts: Date.now(), challenge: 'decline', spinId: sp.id});
+    openGroup(1);
+    return {days: challengeDays(g, sp).length, required: sp.days_required, done: challengeDone(g, sp)};
+  });
+  check('a full day with the challenge fills a day', view.days === 1, JSON.stringify(view));
+  await page.waitForTimeout(200);
+  const text = await page.innerText('#app');
+  check('  the tracker counts it', new RegExp(`1 of ${view.required} day`).test(text), text.slice(0, 600));
+  // The badge is uppercased by CSS, and innerText reports it that way, so match loosely.
+  const badges = await page.locator('#app .badge').allInnerTexts();
+  check('  and the feed says what was done', badges.some(b => /^\+50 DECLINE PUSHUPS$/i.test(b)), badges.join(' | '));
+
+  // A day of the exercise done without the challenge does not fill it.
+  const without = await page.evaluate(() => {
+    const g = S.groups[0], sp = S.spins[0], d = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    S.totals.push({g: g.id, u: 'u1', d, m: 'pushups', n: 50, sp: null});
+    return challengeDays(g, sp).length;
+  });
+  check('  but the same work without it does not', without === 1, String(without));
 });
 
 // The library can end a session without the app asking. The screen has to follow.

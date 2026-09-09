@@ -33,4 +33,18 @@ eq(messageFor('Ari', 'pushups', 200, push100, [{ metric: 'pushups', amount: 200 
 eq(messageFor('Ari', 'pushups', 5, [], [{ metric: 'pushups', amount: 5 }]),
    'Ari did 5 pushups', 'a group with no quotas never announces a goal');
 
+// A post done with the wheel's challenge says what was actually done, rather than the
+// group's plain metric.
+eq(messageFor('Bob', 'pushups', 25, [{ metric: 'pushups', target: 100 }], [{ metric: 'pushups', amount: 25 }], 'decline'),
+   'Bob did 25 decline pushups', 'a challenge shows up in the notification');
+
+eq(messageFor('Bob', 'pushups', 25, [{ metric: 'pushups', target: 100 }], [{ metric: 'pushups', amount: 25 }]),
+   'Bob did 25 pushups', 'without one, nothing changes');
+
+eq(messageFor('Bob', 'pushups', 25, [{ metric: 'pushups', target: 100 }], [{ metric: 'pushups', amount: 25 }], null),
+   'Bob did 25 pushups', 'and a null challenge is the same as none');
+
+eq(messageFor('Bob', 'pushups', 100, [{ metric: 'pushups', target: 100 }], [{ metric: 'pushups', amount: 100 }], 'decline'),
+   "Bob completed the day's goal", 'finishing the day still announces the goal');
+
 console.log(`\nall ${n} message checks passed`);

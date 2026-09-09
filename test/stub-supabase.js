@@ -22,7 +22,14 @@
     { id: 1, wheel_id: 7, seq: 0, kind: 'challenge', label: 'Your challenge', segments: ['100 burpees', '5k run', 'plank 3 min', 'cold shower'] },
     { id: 2, wheel_id: 7, seq: 1, kind: 'days', label: 'On how many days', segments: ['1', '2', '3'] },
   ];
-  self.__spins = []; self.__ticks = [];
+  // Sam's own spin for the current cycle, when a test needs somebody else's challenge to
+  // exist. Off by default: most cases want "Sam: not spun yet".
+  const cycleNow = Math.floor((Math.round(Date.now() / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
+  self.__spins = M().samSpun ? [{
+    id: 90, wheel_id: 7, user_id: 'u2', cycle: cycleNow, sat_out: false, days_required: 2,
+    results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
+  }] : [];
+  self.__ticks = []; self.__posts = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -30,7 +37,7 @@
     profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY],
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY, ...self.__posts],
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,
@@ -55,6 +62,7 @@
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
     p.insert = row => {
       if (t === 'wheel_days') self.__ticks.push({ ...row });
+      if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
       return chain(t, { ...st, op: 'insert' });
     };
     p.delete = () => chain(t, { ...st, op: 'delete' });

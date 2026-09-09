@@ -377,4 +377,50 @@ begin
   if sp.results <> rolled then raise exception 'a second spin rolled again'; end if;
 end $$;
 
+-- ---- v10: a post carries the challenge it was done with
+do $$
+declare wid bigint; sp public.spins; other public.spins;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  -- Earlier blocks left several wheels running in this group, and the barrier quite
+  -- rightly blocks on all of them. Only the new one matters here.
+  update public.wheels set active = false where group_id = 1;
+  wid := public.save_wheel(null, 1, 'Modifier', 5, current_date, 8, false,
+    '[{"kind":"challenge","segments":["decline","diamond"]}]');
+  sp := public.spin(wid, current_date);
+
+  -- Ari pins a post to his own spin: fine.
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day, challenge, spin_id)
+    values (1, '11111111-1111-1111-1111-111111111111', 'pushups', 25, 'a.mp4', current_date, 'decline', sp.id);
+  if not exists (select 1 from public.posts where spin_id = sp.id and challenge = 'decline') then
+    raise exception 'the challenge did not save onto the post';
+  end if;
+
+  -- A post with no challenge at all is still fine.
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (1, '11111111-1111-1111-1111-111111111111', 'pushups', 25, 'b.mp4', current_date);
+end $$;
+
+-- Pinning a post to someone else's spin would fill their days, so row level security stops it.
+set role app;
+do $$
+declare mine bigint;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  select id into mine from public.spins where user_id = '11111111-1111-1111-1111-111111111111' order by id desc limit 1;
+
+  -- Sam sits the wheel out so the posting barrier is satisfied, leaving the spin_id rule
+  -- as the only thing that can refuse this.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  perform public.sit_out((select wheel_id from public.spins where id = mine), current_date);
+  begin
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day, challenge, spin_id)
+      values (1, '22222222-2222-2222-2222-222222222222', 'pushups', 25, 'c.mp4', current_date, 'decline', mine);
+    raise exception 'a post was pinned to someone else''s spin';
+  exception when others then
+    if sqlerrm = 'a post was pinned to someone else''s spin' then raise; end if;
+  end;
+end $$;
+reset role;
+
 \echo 'PASS: wheels schema'

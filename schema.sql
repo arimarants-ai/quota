@@ -712,3 +712,30 @@ begin
   select * into out from public.spins where wheel_id = w.id and user_id = auth.uid() and cycle = c;
   return out;
 end $$;
+
+-- ============================================================
+-- v10 (challenge on a post): tick your challenge as you post, and let the days
+-- fill themselves. Safe to run on an existing project.
+-- ============================================================
+
+-- The challenge text is copied onto the post rather than looked up through the spin,
+-- because you are allowed to do somebody else's instead of your own — and because a
+-- wheel edited later must never rewrite what a post says it was.
+alter table public.posts add column if not exists challenge text;
+
+-- Which spin this counts towards: always your own for the cycle, even when the challenge
+-- itself came from someone else.
+alter table public.posts add column if not exists spin_id bigint references public.spins on delete set null;
+create index if not exists posts_spin on public.posts (spin_id) where spin_id is not null;
+
+-- A post may only be pinned to a spin that belongs to the person posting, or the days
+-- could be filled against somebody else's obligation.
+drop policy if exists "members post" on public.posts;
+create policy "members post" on public.posts for insert with check (
+  user_id = auth.uid() and public.is_member(group_id)
+  and (spin_id is null or exists (select 1 from public.spins s where s.id = spin_id and s.user_id = auth.uid()))
+);
+
+-- public.wheel_days is left in place but no longer written to: a day now counts when the
+-- posts marked with the challenge meet that day's quota on their own, rather than being
+-- ticked by hand. The old rows are harmless history.
