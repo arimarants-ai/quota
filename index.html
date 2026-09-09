@@ -246,7 +246,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <main id="app"></main>
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
-<div id="err" hidden role="alert"><span></span><button onclick="load()">Retry</button></div>
+<div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" onclick="load()">Retry</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
   <div class="camtop"><button type="button" onclick="closeCam()" aria-label="Close">✕</button><span id="camtime"></span></div>
@@ -269,6 +269,10 @@ if (typeof supabase === 'undefined') {
   throw new Error('supabase-js did not load');
 }
 // ---- config: Supabase project URL + anon (public) key. Safe in the page; row level security does the guarding.
+// Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
+// answers "which build is this phone actually running", which is the first thing worth
+// knowing about a fault that only happens on somebody's own device.
+const BUILD = 'quota-v23';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -474,8 +478,23 @@ async function keepTz() {
 // render() used to run only at the end of a successful fetch, so anything that went
 // wrong left an empty page behind: an alert saying "JWT expired" and then nothing.
 // Now every path ends in a render, and the page paints before the first fetch even starts.
-const showErr = msg => { const e = $('#err'); e.querySelector('span').textContent = msg; e.hidden = false; };
+// What went wrong is worth keeping whole. The bar has room for a sentence, but the thing
+// that makes a fault like this findable is the stack and the build it happened on, and a
+// phone has no console to read them off. So the full text is kept and can be copied out.
+let lastErr = '';
+const showErr = (msg, detail) => {
+  const e = $('#err');
+  lastErr = `${msg}\n\n${detail || ''}\n${BUILD} · ${navigator.userAgent}`.trim();
+  e.querySelector('span').textContent = msg;
+  e.hidden = false;
+};
 const hideErr = () => { $('#err').hidden = true; };
+async function copyErr(btn) {
+  const was = btn.textContent;
+  try { await navigator.clipboard.writeText(lastErr); btn.textContent = 'Copied'; }
+  catch (e) { alert(lastErr); return; }                  // no clipboard: at least show it
+  setTimeout(() => { btn.textContent = was; }, 1500);
+}
 // An access token that went stale while the app was closed is the ordinary case for an
 // installed app: it can sit suspended for days. Worth one forced refresh before giving up.
 const authErr = e => e && (e.status === 401 || e.code === 'PGRST301' || /jwt|token|not authenticated|unauthorized/i.test(e.message || ''));
@@ -495,7 +514,7 @@ async function runLoad() {
     }
     hideErr();
   } catch (e) {
-    showErr(navigator.onLine ? `Could not load: ${e.message || 'something went wrong'}` : 'You are offline. Showing what was already here.');
+    showErr(navigator.onLine ? `Could not load: ${e.message || 'something went wrong'}` : 'You are offline. Showing what was already here.', e && e.stack);
   } finally {
     quiet--; S.booting = false; render();
   }
@@ -515,7 +534,7 @@ function render() {
     $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
   } catch (e) {
     console.error(e);
-    showErr(`This screen could not be drawn: ${e.message}`);
+    showErr(`This screen could not be drawn: ${e.message}`, e.stack);
     $('#app').innerHTML = `<div class="card empty"><b>Something here is not right</b><p class="muted">${esc(e.message)}</p>
       <p class="muted">The other tabs still work.</p></div>`;
   }
@@ -701,7 +720,8 @@ function profileView() {
   <h3>Recovery codes</h3>
   <div class="card"><p class="muted">The only way back in if you forget your password \u2014 there is no reset email, because accounts have no email address. Getting a new set replaces any unused codes you still have.</p>
   <button class="small" style="margin-top:10px" onclick="newCodes()">Get new recovery codes</button></div>
-  <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>`;
+  <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>
+  <p class="muted" style="text-align:center;margin:14px 0 0;font-size:12px">${BUILD}</p>`;
 }
 function welcomeView() {
   return `<div class="welcome"><div class="mark">${LOGO(false)}</div>
@@ -1549,7 +1569,7 @@ sb.auth.onAuthStateChange((event, session) => {
 // failed to anticipate, say so rather than leave a page that has stopped responding.
 addEventListener('unhandledrejection', e => {
   if (e.reason?.shown || document.hidden) return;       // q() already put it in front of them
-  showErr(`Something went wrong: ${e.reason?.message || e.reason}`);
+  showErr(`Something went wrong: ${e.reason?.message || e.reason}`, e.reason?.stack);
 });
 
 // Nothing here is allowed to leave the page blank. Paint first, then fill it in.

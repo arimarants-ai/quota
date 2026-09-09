@@ -897,6 +897,23 @@ await withPage(SIGNED_IN, async page => {
     (await page.innerText('#app')).slice(0, 200));
 });
 
+// A fault on somebody's own phone is only fixable if they can hand over what it said.
+await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await settle(page);
+  check('a failed load says so', (await page.innerText('#err')).includes('boom'), await page.innerText('#err'));
+  await page.locator('#err button:has-text("Copy")').click();
+  await page.waitForTimeout(200);
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  check('  and the whole thing can be copied out', /boom/.test(copied) && /quota-v/.test(copied) && /Mozilla/.test(copied),
+    JSON.stringify(copied));
+  check('  including where it happened', copied.split('\n').length > 3, JSON.stringify(copied));
+  check('  and the build is on the profile too', await page.evaluate(() => {
+    S.me = S.me || {username: 'ari'}; go('profile');
+    return $('#app').innerText.includes(BUILD);
+  }));
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

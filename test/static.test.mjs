@@ -37,6 +37,13 @@ for (const p of PRECACHE) {
   assert.ok(existsSync(join(ROOT, p)), `sw.js precaches ${p}, which is not in the repo. It would fail to cache and the app would have nothing to fall back on offline.`);
 }
 
+// 2b. The page has to know which build it is. A fault that only happens on somebody's
+// phone is unfixable without knowing what they are running, and the only way to be sure
+// the two never drift is to check them against each other here.
+const BUILD = (html.match(/const BUILD = '([^']+)'/) || [])[1];
+assert.equal(BUILD, VERSION,
+  `index.html says BUILD '${BUILD}' but sw.js says VERSION '${VERSION}'. They name the same build, and the page reports BUILD when something goes wrong, so a mismatch sends people chasing the wrong version.`);
+
 // 3. Changing a precached file without bumping VERSION leaves installed apps on the old
 // copy indefinitely, which is how a fix can look deployed and still not reach anyone.
 const digest = createHash('sha256')
