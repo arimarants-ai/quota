@@ -165,6 +165,26 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
 .auth .switch button{padding:0 4px;background:none;color:var(--teal)}
 .back{margin:12px 18px 0}
+/* recording in the app */
+#cam{position:fixed;inset:0;width:100%;max-width:100%;height:100%;max-height:100%;margin:0;padding:0;
+  border:0;border-radius:0;background:#000;box-shadow:none;display:flex;flex-direction:column;overflow:hidden}
+#cam:not([open]){display:none}
+#cam::backdrop{background:#000}
+#campre{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.camtop{position:relative;z-index:2;display:flex;align-items:center;gap:12px;
+  padding:calc(12px + env(safe-area-inset-top)) 16px 0}
+.camtop button{background:rgba(0,0,0,.45);color:#fff;border-radius:999px;width:38px;height:38px;padding:0;font-size:17px}
+.camtop span{color:#fff;font-weight:800;font-family:Unbounded,system-ui,sans-serif;font-size:15px;
+  text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.cambot{position:relative;z-index:2;margin-top:auto;display:grid;place-items:center;
+  padding:0 0 calc(28px + env(safe-area-inset-bottom))}
+.shutter{width:74px;height:74px;border-radius:50%;padding:0;background:rgba(255,255,255,.25);
+  border:4px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.shutter.on{background:var(--acc);border-radius:18px;width:58px;height:58px}
+.shutter[disabled]{opacity:.45}
+.camwhy{position:relative;z-index:2;margin:auto 22px;color:#fff;font-weight:700;text-align:center;line-height:1.4}
+.camwhy[hidden]{display:none}
+
 /* the wheel */
 .wheelbox{position:relative;width:min(260px,72vw);margin:14px auto 0;aspect-ratio:1}
 .wheel-face{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.22))}
@@ -227,6 +247,12 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
 <div id="err" hidden role="alert"><span></span><button onclick="load()">Retry</button></div>
+<dialog id="cam">
+  <video id="campre" playsinline muted autoplay></video>
+  <div class="camtop"><button type="button" onclick="closeCam()" aria-label="Close">✕</button><span id="camtime"></span></div>
+  <div class="cambot"><button type="button" id="camgo" class="shutter" onclick="toggleRec()" aria-label="Record" disabled></button></div>
+  <p id="camwhy" class="camwhy" hidden></p>
+</dialog>
 <div id="a2hs" hidden>
   <svg class="share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M12 3l-4 4M12 3l4 4"/><path d="M6 12v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-7"/></svg>
   <p><b>Add Quota to your home screen</b><span>Tap the Share button, then “Add to Home Screen”.</span></p>
@@ -960,13 +986,17 @@ const myChallenges = g => wheelsOf(g).filter(running)
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
+  recorded = null;
   // The wheel comes first. The database enforces this too, so going around the page only
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
-    <label>Video proof <span style="font-weight:500">(up to ${MAX_MB} MB)</span></label><input name="video" type="file" accept="video/*" required onchange="vidPick(this)">
+    <label>Video proof <span style="font-weight:500">(up to ${MAX_MB} MB)</span></label>
+    <div class="row"><button type="button" class="teal grow" onclick="openCam()">Record</button>
+      <button type="button" class="grow" onclick="this.closest('form').video.click()">Choose a file</button></div>
+    <input name="video" type="file" accept="video/*" hidden onchange="vidPick(this)">
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     ${challengeBlock(g)}
@@ -1000,6 +1030,7 @@ function profileDlg() {
 // ---- actions
 function vidPick(input) {
   const f = input.files[0], el = $('#vsize');
+  recorded = null;                         // a chosen file replaces anything just recorded
   if (!f) return el.textContent = '';
   // A clip over the cap is no longer necessarily a clip that gets turned away: anything
   // big is re-encoded to 720p first, and it is the result that has to fit.
@@ -1075,6 +1106,128 @@ async function saveProfile(f) {
   } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
   dlg(); load();
 }
+// ---- recording in the app
+// Handing off to the phone's own camera (a plain file input) is what made this unreliable:
+// iOS puts its camera sheet over the app and is free to throw the app out of memory while
+// it is up, which is the recording that vanishes and the screen that goes dark. Recording
+// inside the page keeps the app alive and in charge, and lets us ask for 720p in the first
+// place — so there is nothing to re-encode afterwards, which is the other half of the wait.
+const REC_MAX = 120;                       // seconds; 50 MB at this bitrate is about 160
+let camStream = null, camRec = null, camChunks = [], camTimer = null, camWake = null, camStart = 0;
+let recorded = null;                       // what the camera produced, used in place of a picked file
+
+const camSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined');
+
+async function openCam() {
+  if (!camSupported()) return alert('This browser cannot record video. Use "Choose a file" instead.');
+  const box = $('#cam'), why = $('#camwhy');
+  why.hidden = true;
+  if (!box.open) box.showModal();          // the top layer, above the submit sheet
+  // Asking for the camera takes a moment, and on a phone it can wait on a permission
+  // prompt. A shutter that looks ready but does nothing is what "you press record and it
+  // just doesn't record" was: it stays dead and dimmed until there is a stream behind it.
+  $('#camgo').disabled = true;
+  $('#camgo').classList.remove('on');
+  $('#camtime').textContent = 'Starting…';
+  try {
+    // Ask for the back camera at 720p. Every part of this is a preference, not a demand:
+    // a phone that cannot manage it gives what it has rather than refusing outright.
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30}},
+      audio: true,
+    });
+  } catch (e) {
+    why.textContent = e && e.name === 'NotAllowedError'
+      ? 'Camera access was refused. Allow it in your browser settings, or use "Choose a file".'
+      : `The camera could not be opened: ${e.message || e}`;
+    why.hidden = false;
+    $('#camtime').textContent = '';
+    return;
+  }
+  // Closed again while the camera was still opening: let go of it rather than leaving the
+  // light on behind a dialog nobody can see.
+  if (!box.open) return stopCam();
+  const v = $('#campre');
+  v.srcObject = camStream;
+  v.muted = true;                          // or the preview howls through the mic
+  await v.play().catch(() => {});
+  $('#camtime').textContent = '';
+  $('#camgo').disabled = false;
+}
+
+function closeCam() {
+  // Mid-recording: stop the recorder and leave the rest to finishRec, which closes up once
+  // the last chunk is in. Cutting the camera off here would drop the end of the clip.
+  if (camRec && camRec.state === 'recording') { try { return camRec.stop(); } catch (e) {} }
+  stopCam();
+  $('#cam').close();
+}
+
+function stopCam() {
+  clearInterval(camTimer); camTimer = null;
+  if (camStream) camStream.getTracks().forEach(t => t.stop());   // or the camera light stays on
+  camStream = null;
+  const v = $('#campre');
+  if (v) v.srcObject = null;
+  const go = $('#camgo');
+  if (go) { go.disabled = true; go.classList.remove('on'); }
+  releaseWake();
+}
+
+// The screen going to sleep mid-recording is the other thing people saw. Not every browser
+// has this, and it is not worth failing over.
+async function holdWake() {
+  try { camWake = await navigator.wakeLock.request('screen'); } catch (e) { camWake = null; }
+}
+function releaseWake() { try { if (camWake) camWake.release(); } catch (e) {} camWake = null; }
+
+async function toggleRec() {
+  if (!camStream) return;
+  if (camRec && camRec.state === 'recording') return camRec.stop();
+
+  const type = mp4Type() || (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '');
+  try {
+    camRec = type ? new MediaRecorder(camStream, {mimeType: type, videoBitsPerSecond: VIDEO_BPS})
+                  : new MediaRecorder(camStream);
+  } catch (e) { return alert(`Could not start recording: ${e.message || e}`); }
+
+  camChunks = [];
+  camRec.ondataavailable = e => e.data && e.data.size && camChunks.push(e.data);
+  camRec.onstop = finishRec;
+  camRec.start(1000);                      // a chunk a second, so a long clip is not one lump
+  camStart = Date.now();
+  holdWake();
+  $('#camgo').classList.add('on');
+  camTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - camStart) / 1000);
+    $('#camtime').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    if (secs >= REC_MAX && camRec.state === 'recording') camRec.stop();
+  }, 250);
+}
+
+// iOS can put the app away mid-recording. Stopping on the way out keeps what was filmed
+// as a usable clip, instead of losing the lot with the page.
+addEventListener('pagehide', () => {
+  if (camRec && camRec.state === 'recording') { try { camRec.stop(); } catch (e) {} }
+});
+
+function finishRec() {
+  clearInterval(camTimer); camTimer = null;
+  releaseWake();
+  $('#camgo').classList.remove('on');
+  const type = (camRec && camRec.mimeType || 'video/mp4').split(';')[0];
+  const blob = new Blob(camChunks, {type});
+  camChunks = [];
+  stopCam();
+  $('#cam').close();
+  if (blob.size < 1024) return alert('That recording came out empty. Try again, or use "Choose a file".');
+  // Recorded here, so it is already 720p at the bitrate we asked for: nothing to re-encode.
+  recorded = new File([blob], `clip.${type.includes('webm') ? 'webm' : 'mp4'}`, {type});
+  recorded.fromCamera = true;
+  const el = $('#vsize');
+  if (el) { el.className = 'muted'; el.textContent = `Recorded · ${mb(recorded.size)} MB`; }
+}
+
 // ---- shrinking a clip before it goes over the wire
 // The camera writes far more than a 4:5 card on a phone screen needs: by Apple's own
 // figures a minute of 1080p is about 65 MB and a minute of 4K about 170 MB, and all of
@@ -1109,6 +1262,9 @@ function playable(blob, seconds) {
 async function shrink(file, onProgress) {
   const type = mp4Type();
   if (!type || file.size < COMPRESS_OVER) return file;
+  // Recorded in the app, so it is already 720p at the bitrate we asked for. Re-encoding it
+  // would cost the length of the clip and give back almost nothing.
+  if (file.fromCamera) return file;
   const url = URL.createObjectURL(file), v = document.createElement('video');
   let ac, stop = false, handle;
   try {
@@ -1120,6 +1276,9 @@ async function shrink(file, onProgress) {
     });
     const secs = v.duration;
     if (!v.videoWidth || !isFinite(secs) || secs <= 0 || secs > LONGEST) return file;
+    // Already at or under the size we would re-encode to, and not enormous: whatever is
+    // left to save is not worth making somebody wait the length of their own clip for.
+    if (v.videoHeight <= TARGET_H && file.size <= secs * VIDEO_BPS / 8 * 1.6) return file;
 
     const scale = Math.min(1, TARGET_H / v.videoHeight);
     const c = document.createElement('canvas');
@@ -1222,8 +1381,8 @@ function challengeBlock(g) {
 }
 
 async function addPost(f, gid) {
-  const fd = new FormData(f), picked = fd.get('video');
-  if (!picked || !picked.size) return alert('Attach a video');
+  const fd = new FormData(f), picked = recorded || fd.get('video');
+  if (!picked || !picked.size) return alert('Record a video, or choose one.');
   if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
   const bar = $('#uprog'), size = $('#vsize');
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
@@ -1231,7 +1390,9 @@ async function addPost(f, gid) {
   // Shrink first, then check the size. A clip the camera recorded too big for the bucket
   // usually fits comfortably once it is 720p, so this is checked against what will
   // actually be sent rather than what came off the camera.
-  working(f, 'Compressing…');
+  // Only shrink() knows whether there is anything to re-encode, and it says so by
+  // reporting progress. Until it does, this is just reading the file.
+  working(f, 'Preparing…');
   const video = await shrink(picked, p => {
     const pct = Math.round(p * 100);
     working(f, `Compressing… ${pct}%`);

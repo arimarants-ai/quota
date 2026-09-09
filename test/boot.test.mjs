@@ -69,7 +69,11 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(r => server.listen(0, r));
 base = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch();
+// A fake camera and microphone, so the in-app recorder can be driven for real: chromium
+// synthesises a moving picture and a tone rather than needing hardware.
+const browser = await chromium.launch({
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+});
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -81,7 +85,7 @@ const check = (name, ok, detail = '') => {
 // With a mode, the stub is installed and the page is loaded ready to inspect. With null,
 // the real library is used and the case navigates itself, so it can add routes first.
 async function withPage(mode, body) {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ permissions: ['camera', 'microphone'] });
   const page = await ctx.newPage();
   const alerts = [];
   page.on('dialog', d => { alerts.push(d.message()); d.dismiss(); });
@@ -709,6 +713,86 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
     return {stored: sp.days_required, need: requiredDays(w, sp), cycle: w.every_days};
   });
   check('with a day wheel, the wheel still decides', r.need === r.stored && r.need !== r.cycle, JSON.stringify(r));
+});
+
+// ---- recording in the app
+// Handing off to the phone's own camera is what lost recordings and cut them short: iOS
+// is free to evict the app while its camera sheet is up. This records in the page instead.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  check('posting offers to record', await page.locator('#dlg button:has-text("Record")').count() === 1);
+  check('  and to choose a file instead', await page.locator('#dlg button:has-text("Choose a file")').count() === 1);
+
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForSelector('#cam[open]', { timeout: 5000 });
+  check('  the camera opens in the app, not a separate sheet', await page.locator('#cam').isVisible());
+  // Opening the camera is not instant. A shutter that can be pressed before there is a
+  // stream behind it is exactly the tap that did nothing, so it has to be dead until then.
+  check('  the shutter cannot be pressed before the camera is up',
+    await page.evaluate(() => $('#camgo').disabled && !camStream));
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  const live = await page.evaluate(() => !!(camStream && camStream.getVideoTracks().length));
+  check('  and once it can, there is a live stream behind it', live);
+
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(2500);
+  check('  the shutter shows it is running', await page.locator('#camgo.on').count() === 1);
+  check('  and counts the seconds', /0:0\d/.test(await page.locator('#camtime').innerText()),
+    await page.locator('#camtime').innerText());
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(800);
+
+  const rec = await page.evaluate(() => recorded && {size: recorded.size, type: recorded.type, cam: !!recorded.fromCamera});
+  check('  stopping keeps the recording', rec && rec.size > 1024, JSON.stringify(rec));
+  check('  marked as ours, so it is never re-encoded', rec && rec.cam === true, JSON.stringify(rec));
+  check('  and the camera closes', await page.locator('#cam').isHidden());
+  check('  releasing the camera afterwards', await page.evaluate(() => camStream === null));
+  check('  and the form says what it has', /Recorded/.test(await page.locator('#vsize').innerText()),
+    await page.locator('#vsize').innerText());
+});
+
+// Closing on a recording in progress is a stop, not a discard: what was filmed up to
+// that point is still worth keeping, and tearing the camera down first would lose the end.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(2000);
+  await page.locator('#cam .camtop button').click();
+  await page.waitForTimeout(900);
+  const rec = await page.evaluate(() => recorded && recorded.size);
+  check('closing mid-recording keeps what was filmed', rec > 1024, `recorded: ${rec}`);
+  check('  and still lets the camera go', await page.evaluate(() => camStream === null));
+  check('  and closes', await page.locator('#cam').isHidden());
+});
+
+// What was recorded is what gets uploaded: no compression step, nothing re-encoded.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  lastUpload = null;
+  uploadReply = { status: 200, body: '{}', hold: null };
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(2500);
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(800);
+  const size = await page.evaluate(() => recorded.size);
+
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(2500);
+  const seen = await labels(page);
+  check('a recording posts without a compressing step', !seen.some(t => /Compressing/.test(t)), seen.join(' -> '));
+  check('  and the bytes that went up are the ones recorded', lastUpload && lastUpload.length === size,
+    `sent ${lastUpload && lastUpload.length} of ${size}`);
 });
 
 // The library can end a session without the app asking. The screen has to follow.
