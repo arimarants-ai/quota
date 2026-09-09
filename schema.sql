@@ -624,3 +624,91 @@ begin
   from jsonb_array_elements(p_stages) with ordinality as t(st, ord);
   return wid;
 end $$;
+
+-- ============================================================
+-- v9 (sitting out): skip one cycle of a wheel without leaving it.
+-- Safe to run on an existing project.
+-- ============================================================
+
+-- Sitting out is the same shape as spinning — one decision per person per cycle — so it
+-- lives on the same row rather than in a table of its own. That is what makes the rest
+-- of this free: unspun() only asks whether a row exists, so the posting barrier lifts,
+-- and wheel_due_now() stops chasing them, with neither needing to know about it.
+alter table public.spins add column if not exists sat_out boolean not null default false;
+
+-- You choose before you see the wheel, never after. Sitting out once a result exists
+-- would be a way to spin, dislike the answer, and walk away from it — exactly what the
+-- rest of this design is built to stop. So this is a no-op on a cycle already spun, and
+-- returns whatever is already there.
+create or replace function public.sit_out(p_wheel bigint, p_day date default null)
+returns public.spins
+language plpgsql security definer set search_path = public as $$
+declare w public.wheels; d date; c int; out public.spins;
+begin
+  select * into w from public.wheels where id = p_wheel;
+  if not found or not w.active then raise exception 'no such wheel'; end if;
+  if not public.is_member(w.group_id) then raise exception 'not a member of that group'; end if;
+
+  d := coalesce(p_day, current_date);
+  if d > current_date + 1 or d < current_date - 1 then d := current_date; end if;
+  if d < w.starts_on then raise exception 'that wheel has not started yet'; end if;
+  c := public.wheel_cycle(w, d);
+
+  insert into public.spins (wheel_id, user_id, cycle, results, days_required, sat_out)
+  values (w.id, auth.uid(), c, '[]'::jsonb, 0, true)
+  on conflict (wheel_id, user_id, cycle) do nothing;
+
+  select * into out from public.spins where wheel_id = w.id and user_id = auth.uid() and cycle = c;
+  return out;
+end $$;
+
+-- Changing your mind the other way is fine: taking on an obligation you had skipped costs
+-- nobody anything. So a spin may overwrite a sit-out, and only a sit-out — the `where`
+-- keeps a real result from ever being rolled a second time.
+create or replace function public.spin(p_wheel bigint, p_day date default null)
+returns public.spins
+language plpgsql security definer set search_path = public as $$
+declare
+  w public.wheels;
+  d date;
+  c int;
+  st public.wheel_stages;
+  picked jsonb := '[]'::jsonb;
+  value jsonb;
+  idx int;
+  req int := 1;
+  out public.spins;
+begin
+  select * into w from public.wheels where id = p_wheel;
+  if not found or not w.active then raise exception 'no such wheel'; end if;
+  if not public.is_member(w.group_id) then raise exception 'not a member of that group'; end if;
+
+  -- The caller's own calendar day, the way posts already work, but never more than a day
+  -- away from the server's, so a wrong clock cannot spin a cycle that has not arrived.
+  d := coalesce(p_day, current_date);
+  if d > current_date + 1 or d < current_date - 1 then d := current_date; end if;
+  if d < w.starts_on then raise exception 'that wheel has not started yet'; end if;
+  c := public.wheel_cycle(w, d);
+
+  for st in select * from public.wheel_stages where wheel_id = w.id order by seq loop
+    idx := floor(random() * jsonb_array_length(st.segments))::int;
+    value := st.segments -> idx;
+    -- 'i' is which slice, so the wheel can be animated to the answer it already has.
+    -- 'segs' is the slices as they were, so editing the wheel later cannot rewrite the
+    -- picture of a spin somebody already did.
+    picked := picked || jsonb_build_object('seq', st.seq, 'kind', st.kind, 'label', st.label,
+                                           'value', value, 'i', idx, 'segs', st.segments);
+    -- A day stage says how many days the challenge has to be done on. Never more days
+    -- than the cycle is long, whatever someone typed onto the wheel.
+    if st.kind = 'days' then req := least(greatest(coalesce((value #>> '{}')::int, 1), 0), w.every_days); end if;
+  end loop;
+
+  insert into public.spins (wheel_id, user_id, cycle, results, days_required, sat_out)
+  values (w.id, auth.uid(), c, picked, req, false)
+  on conflict (wheel_id, user_id, cycle) do update
+    set results = excluded.results, days_required = excluded.days_required, sat_out = false
+    where spins.sat_out;
+
+  select * into out from public.spins where wheel_id = w.id and user_id = auth.uid() and cycle = c;
+  return out;
+end $$;

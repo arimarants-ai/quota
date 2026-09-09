@@ -80,14 +80,25 @@
         if (fn === 'spin') {
           const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
           const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
-          if (had) return { data: had, error: null };
+          if (had && !had.sat_out) return { data: had, error: null };
+          if (had) self.__spins = self.__spins.filter(sp => sp !== had);
           const results = STAGES.map(st => {
             const i = M().pick != null ? M().pick % st.segments.length : Math.floor(Math.random() * st.segments.length);
             return { seq: st.seq, kind: st.kind, label: st.label, value: st.segments[i], i, segs: st.segments };
           });
           const days = results.find(r => r.kind === 'days');
           const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
-            results, days_required: days ? Math.min(+days.value, WHEEL.every_days) : 1, created_at: new Date().toISOString() };
+            results, days_required: days ? Math.min(+days.value, WHEEL.every_days) : 1, sat_out: false,
+            created_at: new Date().toISOString() };
+          self.__spins.push(sp);
+          return { data: sp, error: null };
+        }
+        if (fn === 'sit_out') {
+          const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
+          const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
+          if (had) return { data: had, error: null };      // never overwrites a result
+          const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
+            results: [], days_required: 0, sat_out: true, created_at: new Date().toISOString() };
           self.__spins.push(sp);
           return { data: sp, error: null };
         }

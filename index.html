@@ -189,6 +189,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .wh b{font-size:15px}
 .wh .when{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
 .wh .got{font-weight:800;font-size:15px;margin-top:8px}
+.wh .got.out{color:var(--muted);font-weight:700}
 .wh .who{font-size:13px;font-weight:600;color:var(--muted);margin-top:2px}
 .due{border-color:var(--acc);background:linear-gradient(180deg,rgba(244,129,58,.10),transparent)}
 .spinday{border-color:var(--acc)}
@@ -287,7 +288,7 @@ function brokeStreak(g, uid, day) {
     const c = cycleOf(w, day);
     if (c < 0 || cycleEnd(w, c) !== day) return false;
     const sp = spinOf(w, uid, c);
-    return !sp || !challengeDone(sp);
+    return !sp || (!satOut(sp) && !challengeDone(sp));
   });
 }
 // The days that count towards a streak: quota hit, and no challenge left unfinished.
@@ -313,7 +314,10 @@ const spinOf = (w, uid, c = cycleOf(w)) => S.spins.find(sp => sp.wheel_id === w.
 const dueIn = g => wheelsOf(g).filter(w => running(w) && !spinOf(w, me().id));
 const anyDue = () => myGroups().filter(g => dueIn(g).length);
 const ticksOf = sp => S.ticks.filter(t => t.spin_id === sp.id).map(t => t.day).sort();
-const challengeDone = sp => ticksOf(sp).length >= sp.days_required;
+// Sitting a cycle out is a decision about it, so it counts as dealt with: no challenge to
+// finish, nothing to tick, and nothing held against you when the cycle closes.
+const satOut = sp => !!sp && sp.sat_out;
+const challengeDone = sp => satOut(sp) || ticksOf(sp).length >= sp.days_required;
 // The days of a cycle, up to today: you can tick any of them, but not one that has not happened.
 const cycleDays = (w, c = cycleOf(w)) => {
   const from = dayNo(cycleStart(w, c)), to = Math.min(dayNo(cycleEnd(w, c)), dayNo(today()));
@@ -453,9 +457,11 @@ function wheelCard(g, w) {
     + (w.breaks_streak ? `<div class="who">Not finishing this breaks your streak.</div>` : '');
   const yours = soon ? '' : !mine
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
+    : satOut(mine)
+    ? `<div class="got out">Sitting this one out</div><div class="who">Back on ${dayLabel(cycleStart(w, c + 1))}.</div>`
     : `<div class="got">${esc(challengeText(mine))}</div>${tickRow(w, mine)}`;
-  const rest = others.length ? `<div class="who">${others.map(o => `${esc(name(user(o.id)))}: ${o.sp
-    ? esc(challengeText(o.sp)) + (challengeDone(o.sp) ? ' ✓' : '') : 'not spun yet'}`).join('<br>')}</div>` : '';
+  const rest = others.length ? `<div class="who">${others.map(o => `${esc(name(user(o.id)))}: ${!o.sp ? 'not spun yet'
+    : satOut(o.sp) ? 'sitting out' : esc(challengeText(o.sp)) + (challengeDone(o.sp) ? ' ✓' : '')}`).join('<br>')}</div>` : '';
   return `<div class="wh${!soon && !mine ? ' due' : ''}">${head}${yours}${rest}</div>`;
 }
 
@@ -675,7 +681,9 @@ async function spinDlg(gid) {
     <div id="spinstage"></div>`);
   const stage = $('#spinstage');
   stage.innerHTML = `<div class="wheelbox"><div class="pointer"></div><div class="wheel-spin">${wheelSvg(w.stages[0] ? w.stages[0].segments : ['…', '…'])}</div></div>
-    <div class="row" style="margin-top:18px"><button class="primary grow" onclick="goSpin(${w.id},${gid})">Spin</button></div>`;
+    <div class="row" style="margin-top:18px"><button class="primary grow" onclick="goSpin(${w.id},${gid})">Spin</button></div>
+    <div class="row" style="margin-top:6px"><button class="ghost grow" onclick="sitOut(${w.id},${gid})">Sit this one out</button></div>
+    <p class="muted" style="text-align:center;margin-top:2px;font-size:12px">You can post without it this time. It comes back ${dayLabel(cycleStart(w, cycleOf(w) + 1))}.</p>`;
 }
 
 async function goSpin(wid, gid) {
@@ -688,6 +696,21 @@ async function goSpin(wid, gid) {
   catch (e) { const b = stage.querySelector('button'); if (b) { b.disabled = false; b.textContent = 'Spin'; } return; }
   S.spins = [...S.spins.filter(x => x.id !== sp.id), sp];
   await reveal(sp, gid);
+}
+
+// Deciding before the wheel turns is the point: sitting out afterwards would be a way to
+// walk away from a result you did not like, and the database refuses it anyway.
+async function sitOut(wid, gid) {
+  const w = S.wheels.find(x => x.id === wid);
+  if (!confirm(`Sit out ${w.name} until ${dayLabel(cycleStart(w, cycleOf(w) + 1))}?\n\nYou can post without spinning it, and nothing counts against you this time. Change your mind and you can still spin it before the cycle is up.`)) return;
+  const stage = $('#spinstage');
+  if (stage) stage.querySelectorAll('button').forEach(b => b.disabled = true);
+  try { await q(sb.rpc('sit_out', {p_wheel: wid, p_day: today()})); }
+  catch (e) { if (stage) stage.querySelectorAll('button').forEach(b => b.disabled = false); return; }
+  dlg(); await load();
+  const g = S.groups.find(x => x.id === gid);
+  if (g && dueIn(g).length) return spinDlg(gid);
+  openGroup(gid);
 }
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
