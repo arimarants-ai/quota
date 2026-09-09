@@ -147,7 +147,16 @@ exists would be a way to walk away from an answer you did not like, so the datab
 refuses it and leaves the result standing. Going the other way is fine — change your mind
 and you can still spin it before the cycle is up.
 
-Tick off the days you did the challenge, any day in the cycle up to today. If the wheel
+**The challenge rides on the post.** When you post, a checkbox says you did it with your
+challenge, and the feed and the notification then say what was actually done — "Bob did 25
+decline pushups" rather than "25 pushups". You may pick a challenge somebody else got
+instead of your own; it still counts towards your days, and the post records which
+challenge it was, not a pointer to a wheel that can change later.
+
+Days fill themselves. A day counts when the posts marked with the challenge meet that
+day's whole quota on their own — posts done without it neither help nor spoil it, so a day
+is either a full day of the challenge or it is not. `public.wheel_days`, the old
+tick-it-yourself table, is left in place but no longer written to. If the wheel
 was set to break the streak, a cycle that closes unfinished ends the streak on the day it
 closed. `hit()` stays about the quota alone, so the daily chips and the completion rate
 keep meaning what they say.

@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
   const { record } = await req.json();
   if (!record?.group_id) return new Response('ignored', { status: 200 });
-  const { group_id, user_id, metric, amount, day } = record;
+  const { group_id, user_id, metric, amount, day, challenge } = record;
 
   const [[group], [poster], members, dayPosts] = await Promise.all([
     rest(`groups?id=eq.${group_id}&select=name,quotas`),
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });
 
   // dayPosts already includes the row that fired this trigger.
-  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts);
+  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge);
 
   const payload = JSON.stringify({ title: group.name, body, url: `${SITE_URL}/`, tag: `group-${group_id}` });
 

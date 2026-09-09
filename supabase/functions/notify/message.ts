@@ -4,9 +4,11 @@ export type Post = { metric: string; amount: number };
 
 /**
  * Text for a new post. `dayPosts` is everything the poster has logged in this
- * group today, including the post that just landed.
+ * group today, including the post that just landed. `challenge` is what the wheel
+ * gave them, when the post was marked as done with it: "did 25 decline pushups"
+ * rather than "did 25 pushups".
  */
-export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[]): string {
+export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null): string {
   const totals = new Map<string, number>();
   for (const p of dayPosts) totals.set(p.metric, (totals.get(p.metric) ?? 0) + p.amount);
 
@@ -16,5 +18,6 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
     && quotas.every(q => hit(q))
     && !quotas.every(q => hit(q, q.metric === metric ? amount : 0));
 
-  return justFinished ? `${name} completed the day's goal` : `${name} did ${amount} ${metric}`;
+  const what = challenge ? `${amount} ${challenge} ${metric}` : `${amount} ${metric}`;
+  return justFinished ? `${name} completed the day's goal` : `${name} did ${what}`;
 }

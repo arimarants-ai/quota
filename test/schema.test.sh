@@ -47,9 +47,14 @@ python3 - "$WORK" <<'EOF'
 import sys
 s = open('schema.sql').read()
 w = sys.argv[1]
+# The tables, the helper every policy leans on, and the base row level security. Without
+# that last part the base tables come up with RLS switched off, and a policy on posts
+# would sit there doing nothing while the tests passed. The storage.objects policies are
+# left out: that schema only exists inside Supabase.
 open(f'{w}/base.sql', 'w').write(
     s[s.index('create table public.profiles'):s.index('-- create a profile row')] +
-    s[s.index('create function public.is_member'):s.index('create function public.create_group')])
+    s[s.index('create function public.is_member'):s.index('create function public.create_group')] +
+    s[s.index('-- row level security'):s.index('-- video storage')])
 # Everything from the wheels block on, with the pg_cron scheduling cut out of the middle:
 # that extension only exists on Supabase, and it is a call into the function above rather
 # than logic of its own. What it schedules — wheel_due_now() — is covered below. Anything

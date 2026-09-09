@@ -88,6 +88,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .check{display:flex;align-items:center;gap:9px;margin-top:14px;font-weight:700;font-size:14px}
 .check input{width:19px;height:19px;margin:0;flex:none;accent-color:var(--acc)}
 .check span{font-weight:700}
+.chalpick{margin-top:8px}
+.chalpick[hidden]{display:none}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
 .prog{display:block;height:5px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--acc);width:var(--w,0%);transition:width .25s}
@@ -196,10 +198,9 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .spinday b{font-family:Unbounded,system-ui,sans-serif;font-size:15px}
 .spinday p{margin-top:4px}
 .ticks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.tick{padding:6px 9px;border-radius:9px;border:1px solid var(--line);background:var(--card);
-  font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+.tick{display:inline-block;padding:6px 9px;border-radius:9px;border:1px solid var(--line);background:var(--card);
+  font-size:12px;font-weight:700;color:var(--muted)}
 .tick.on{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
-.tick:disabled{opacity:.45;cursor:default}
 
 /* the splash while the first load runs, and the banner when it fails */
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
@@ -276,6 +277,9 @@ const ymd = d => d.toLocaleDateString('en-CA');
 const today = () => ymd(new Date());
 const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
 const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day).reduce((a, t) => a + t.n, 0);
+// The same, but only counting what was done with a given challenge.
+const doneWith = (g, uid, metric, spinId, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day && t.sp === spinId).reduce((a, t) => a + t.n, 0);
+const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
 const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
 const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
@@ -288,7 +292,7 @@ function brokeStreak(g, uid, day) {
     const c = cycleOf(w, day);
     if (c < 0 || cycleEnd(w, c) !== day) return false;
     const sp = spinOf(w, uid, c);
-    return !sp || (!satOut(sp) && !challengeDone(sp));
+    return !sp || (!satOut(sp) && !challengeDone(g, sp));
   });
 }
 // The days that count towards a streak: quota hit, and no challenge left unfinished.
@@ -315,9 +319,17 @@ const dueIn = g => wheelsOf(g).filter(w => running(w) && !spinOf(w, me().id));
 const anyDue = () => myGroups().filter(g => dueIn(g).length);
 const ticksOf = sp => S.ticks.filter(t => t.spin_id === sp.id).map(t => t.day).sort();
 // Sitting a cycle out is a decision about it, so it counts as dealt with: no challenge to
-// finish, nothing to tick, and nothing held against you when the cycle closes.
+// finish, nothing to fill in, and nothing held against you when the cycle closes.
 const satOut = sp => !!sp && sp.sat_out;
-const challengeDone = sp => satOut(sp) || ticksOf(sp).length >= sp.days_required;
+// A day counts when the posts marked with the challenge meet that whole day's quota on
+// their own. Posts done without it neither help nor spoil the day — a day is either a
+// full day of the challenge or it is not.
+function challengeDays(g, sp) {
+  const w = S.wheels.find(x => x.id === sp.wheel_id);
+  if (!w || !g.quotas.length) return [];
+  return cycleDays(w, sp.cycle).filter(d => g.quotas.every(qq => doneWith(g, sp.user_id, qq.metric, sp.id, d) >= qq.target));
+}
+const challengeDone = (g, sp) => satOut(sp) || challengeDays(g, sp).length >= sp.days_required;
 // The days of a cycle, up to today: you can tick any of them, but not one that has not happened.
 const cycleDays = (w, c = cycleOf(w)) => {
   const from = dayNo(cycleStart(w, c)), to = Math.min(dayNo(cycleEnd(w, c)), dayNo(today()));
@@ -366,7 +378,7 @@ async function fetchAll() {
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
     q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
-    q(sb.from('posts').select('group_id,user_id,day,metric,amount')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
+    q(sb.from('posts').select('group_id,user_id,day,metric,amount,spin_id')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
     q(sb.from('wheels').select('*')),
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
@@ -377,8 +389,8 @@ async function fetchAll() {
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
   S.groups = groups.map(g => ({...g, members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
-  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount}));
-  S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at)}));
+  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id}));
+  S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id}));
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body}));
@@ -459,28 +471,21 @@ function wheelCard(g, w) {
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
     : satOut(mine)
     ? `<div class="got out">Sitting this one out</div><div class="who">Back on ${dayLabel(cycleStart(w, c + 1))}.</div>`
-    : `<div class="got">${esc(challengeText(mine))}</div>${tickRow(w, mine)}`;
+    : `<div class="got">${esc(challengeText(mine))}</div>${trackRow(g, w, mine)}`;
   const rest = others.length ? `<div class="who">${others.map(o => `${esc(name(user(o.id)))}: ${!o.sp ? 'not spun yet'
-    : satOut(o.sp) ? 'sitting out' : esc(challengeText(o.sp)) + (challengeDone(o.sp) ? ' ✓' : '')}`).join('<br>')}</div>` : '';
+    : satOut(o.sp) ? 'sitting out' : esc(challengeText(o.sp)) + (challengeDone(g, o.sp) ? ' ✓' : '')}`).join('<br>')}</div>` : '';
   return `<div class="wh${!soon && !mine ? ' due' : ''}">${head}${yours}${rest}</div>`;
 }
 
-// Tick off the days you did it. Any day inside the cycle counts, but not one that has not
-// arrived yet, so you cannot tick your way through a week in advance.
-function tickRow(w, sp) {
+// How the cycle is going. Nothing to tick any more: a day fills when that day's quota has
+// been met with the challenge, which is what posting with the box ticked records.
+function trackRow(g, w, sp) {
   if (!sp.days_required) return `<div class="who">Nothing to do this time.</div>`;
-  const on = ticksOf(sp), days = cycleDays(w, sp.cycle);
-  const label = `${on.length} of ${plural(sp.days_required, 'day')} done`;
-  return `<div class="who">${challengeDone(sp) ? `Done — ${label}` : label}</div>
-    <div class="ticks">${days.map(d => `<button class="tick${on.includes(d) ? ' on' : ''}"
-      onclick="toggleTick(${sp.id},'${d}')">${d === today() ? 'Today' : dayLabel(d).replace(/,.*$/, '')}</button>`).join('')}</div>`;
-}
-
-async function toggleTick(spinId, day) {
-  const had = S.ticks.some(t => t.spin_id === spinId && t.day === day);
-  if (had) await q(sb.from('wheel_days').delete().eq('spin_id', spinId).eq('day', day));
-  else await q(sb.from('wheel_days').insert({spin_id: spinId, day}));
-  const y = scrollY; await load(); scrollTo(0, y);
+  const filled = challengeDays(g, sp), days = cycleDays(w, sp.cycle);
+  const label = `${filled.length} of ${plural(sp.days_required, 'day')} done`;
+  return `<div class="who">${challengeDone(g, sp) ? `Done — ${label}` : label}</div>
+    <div class="ticks">${days.map(d => `<span class="tick${filled.includes(d) ? ' on' : ''}">${
+      d === today() ? 'Today' : dayLabel(d).replace(/,.*$/, '')}</span>`).join('')}</div>`;
 }
 
 function spinPrompt() {
@@ -551,7 +556,7 @@ function feed(ps, showGroup) {
     // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
     return h + `<div class="card post"><div class="reel">
       <video playsinline preload="metadata" src="${esc(p.url)}" onclick="if(!this.controls){this.controls=true;this.play()}" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
-      <div class="ov top">${av(u)}<div><div class="who">${esc(name(u))}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${p.amount} ${esc(p.metric)}</div></div>
+      <div class="ov top">${av(u)}<div><div class="who">${esc(name(u))}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
       <div class="play"><i></i></div>
       ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
       <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(name(user(c.userId)))}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
@@ -887,6 +892,27 @@ async function delWheel(id) {
   dlg(); await load();
 }
 
+// Your live challenges this cycle, plus what everyone else got. Doing someone else's
+// instead of your own still counts towards your own days: you did a challenge either way.
+function challengeChoices(g) {
+  const m = me(), out = [];
+  for (const w of wheelsOf(g).filter(running)) {
+    const mine = spinOf(w, m.id);
+    if (!mine || satOut(mine) || !mine.days_required) continue;
+    out.push({spin: mine.id, text: challengeText(mine), whose: 'yours'});
+    for (const id of g.members) {
+      if (id === m.id) continue;
+      const sp = spinOf(w, id);
+      if (!sp || satOut(sp)) continue;
+      const text = challengeText(sp);
+      if (text && !out.some(o => o.spin === mine.id && o.text === text)) {
+        out.push({spin: mine.id, text, whose: `${name(user(id))}'s`});
+      }
+    }
+  }
+  return out;
+}
+
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
@@ -899,6 +925,7 @@ function submitDlg(gid) {
     <label>Video proof <span style="font-weight:500">(up to ${MAX_MB} MB)</span></label><input name="video" type="file" accept="video/*" required onchange="vidPick(this)">
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
+    ${challengeBlock(g)}
     <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag" maxlength="200">
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
@@ -1140,6 +1167,19 @@ const mb = n => (n / 1048576).toFixed(1);
 
 const tooBig = n => `That video is ${(n / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`;
 
+function challengeBlock(g) {
+  const opts = challengeChoices(g);
+  if (!opts.length) return '';
+  const own = opts[0];
+  return `<label class="check"><input type="checkbox" name="usechal" checked
+      onchange="this.closest('form').querySelector('.chalpick').hidden=!this.checked">
+    <span>I did this with my challenge</span></label>
+  <div class="chalpick">
+    <select name="chal">${opts.map((o, i) => `<option value="${o.spin}|${esc(o.text)}" ${i ? '' : 'selected'}>${esc(o.text)} (${esc(o.whose)})</option>`).join('')}</select>
+    ${opts.length > 1 ? `<p class="muted" style="margin-top:6px;font-size:12px">Doing one of theirs instead of ${esc(own.text)} still counts towards your days.</p>` : ''}
+  </div>`;
+}
+
 async function addPost(f, gid) {
   const fd = new FormData(f), picked = fd.get('video');
   if (!picked || !picked.size) return alert('Attach a video');
@@ -1170,7 +1210,10 @@ async function addPost(f, gid) {
       if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
     });
     working(f, 'Posting…');
-    await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'), caption: fd.get('caption').trim(), video_path: path, day: today()}));
+    const [spinId, chalText] = fd.get('usechal') && fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
+    await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
+      caption: fd.get('caption').trim(), video_path: path, day: today(),
+      challenge: chalText || null, spin_id: spinId ? +spinId : null}));
   } catch (e) {
     if (bar) bar.hidden = true;
     if (!e.shown) alert(e.message);                        // q() already showed its own
