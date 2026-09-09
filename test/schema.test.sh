@@ -47,14 +47,16 @@ python3 - "$WORK" <<'EOF'
 import sys
 s = open('schema.sql').read()
 w = sys.argv[1]
-# The tables, the helper every policy leans on, and the base row level security. Without
-# that last part the base tables come up with RLS switched off, and a policy on posts
-# would sit there doing nothing while the tests passed. The storage.objects policies are
-# left out: that schema only exists inside Supabase.
+# The tables, the helper every policy leans on, and every block of row level security up
+# to the wheels. Without the RLS statements the base tables come up with it switched off,
+# and a policy would sit there doing nothing while its test passed. Anything touching
+# storage.objects or storage.buckets is cut: that schema only exists inside Supabase.
 open(f'{w}/base.sql', 'w').write(
     s[s.index('create table public.profiles'):s.index('-- create a profile row')] +
     s[s.index('create function public.is_member'):s.index('create function public.create_group')] +
-    s[s.index('-- row level security'):s.index('-- video storage')])
+    s[s.index('-- row level security'):s.index('-- video storage')] +
+    s[s.index('-- v2 (redesign)'):s.index('-- v3 (profile)')] +
+    s[s.index('-- v3 (profile)'):s.index("insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)\n  values ('avatars'")])
 # Everything from the wheels block on, with the pg_cron scheduling cut out of the middle:
 # that extension only exists on Supabase, and it is a call into the function above rather
 # than logic of its own. What it schedules — wheel_due_now() — is covered below. Anything
@@ -67,4 +69,5 @@ open(f'{w}/v6.sql', 'w').write(body)
 EOF
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "set client_min_messages = warning" -f "$WORK/shim.sql" -f "$WORK/base.sql" -f "$WORK/v6.sql" >/dev/null
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f test/policies.test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f test/schema.test.sql

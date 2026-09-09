@@ -423,4 +423,81 @@ begin
 end $$;
 reset role;
 
+-- ---- v11: only your own challenge counts, and swapping is a decision about the cycle
+do $$
+declare wid bigint; mine public.spins; theirs public.spins; got text;
+begin
+  update public.wheels set active = false where group_id = 1;
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  wid := public.save_wheel(null, 1, 'Whose', 5, current_date, 8, false,
+    '[{"kind":"challenge","segments":["decline","knuckle"]}]');
+  mine := public.spin(wid, current_date);
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  theirs := public.spin(wid, current_date);
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+
+  -- Ari spun a real challenge, so he may not take anyone else's: that is only for
+  -- whoever lands on the borrow slice.
+  got := (select r->>'value' from jsonb_array_elements(theirs.results) r where r->>'kind' = 'challenge' limit 1);
+  begin
+    perform public.use_challenge(mine.id, got);
+    raise exception 'a challenge was swapped without landing on the borrow slice';
+  exception when others then
+    if sqlerrm like 'a challenge was swapped%' then raise; end if;
+    if sqlerrm not like 'the wheel did not give you%' then raise exception 'wrong refusal: %', sqlerrm; end if;
+  end;
+end $$;
+
+-- ---- v12: landing on the borrow slice, and only then
+do $$
+declare wid bigint; mine public.spins; theirs public.spins; got text;
+begin
+  update public.wheels set active = false where group_id = 1;
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  -- Every slice is the borrow slice, so Ari is certain to land on it.
+  wid := public.save_wheel(null, 1, 'Borrow', 5, current_date, 8, false,
+    format('[{"kind":"challenge","segments":[%s,%s]}]', to_json(public.borrow_slice()), to_json(public.borrow_slice()))::jsonb);
+  mine := public.spin(wid, current_date);
+
+  -- Sam needs a real challenge to lend, so his own wheel gives him one.
+  update public.wheel_stages set segments = '["decline","decline"]' where wheel_id = wid;
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  theirs := public.spin(wid, current_date);
+  got := (select r->>'value' from jsonb_array_elements(theirs.results) r where r->>'kind' = 'challenge' limit 1);
+  if got <> 'decline' then raise exception 'the lender did not get a real challenge, got %', got; end if;
+
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+
+  -- Taking something nobody got is refused, or you could hand yourself anything.
+  begin
+    perform public.use_challenge(mine.id, 'one finger');
+    raise exception 'a made-up challenge was accepted';
+  exception when others then
+    if sqlerrm like 'a made-up challenge was accepted' then raise; end if;
+    if sqlerrm not like 'nobody else on this wheel got%' then raise exception 'wrong refusal: %', sqlerrm; end if;
+  end;
+
+  -- Nor the borrow slice itself: landing on it is an instruction, not a challenge.
+  begin
+    perform public.use_challenge(mine.id, public.borrow_slice());
+    raise exception 'the borrow slice was taken as a challenge';
+  exception when others then
+    if sqlerrm like 'the borrow slice was taken%' then raise; end if;
+  end;
+
+  -- Taking what somebody else actually got is what it is for.
+  mine := public.use_challenge(mine.id, got);
+  if mine.challenge_override <> got then raise exception 'the swap did not take'; end if;
+
+  -- Somebody else cannot swap it for you.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  begin
+    perform public.use_challenge(mine.id, got);
+    raise exception 'someone else changed my challenge';
+  exception when others then
+    if sqlerrm like 'someone else changed%' then raise; end if;
+    if sqlerrm not like 'that is not your spin%' then raise exception 'wrong refusal: %', sqlerrm; end if;
+  end;
+end $$;
+
 \echo 'PASS: wheels schema'

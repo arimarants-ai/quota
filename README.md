@@ -149,9 +149,15 @@ and you can still spin it before the cycle is up.
 
 **The challenge rides on the post.** When you post, a checkbox says you did it with your
 challenge, and the feed and the notification then say what was actually done — "Bob did 25
-decline pushups" rather than "25 pushups". You may pick a challenge somebody else got
-instead of your own; it still counts towards your days, and the post records which
-challenge it was, not a pointer to a wheel that can change later.
+decline pushups" rather than "25 pushups". The post records the challenge text, not a
+pointer to a wheel that can change later.
+
+**Only the challenge that is yours counts.** Posting 30 knuckle pushups does nothing for a
+decline quota: the day only fills for work labelled with the one challenge you are on.
+A wheel may carry a "Someone else's challenge" slice — an instruction rather than a
+challenge — and landing on it, and only then, lets you take one of the others' for the
+rest of the cycle. That is what stops a wheel being optional; otherwise everyone could
+simply help themselves to the easiest thing anybody got.
 
 Days fill themselves. A day counts when the posts marked with the challenge meet that
 day's whole quota on their own — posts done without it neither help nor spoil it, so a day

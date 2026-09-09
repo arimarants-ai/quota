@@ -466,8 +466,9 @@ await withPage(SIGNED_IN, async page => {
   const kept = await page.evaluate(() => {
     const w = S.wheels[0], y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     const c = cycleOf(w, y);
-    S.spins = [...S.spins, {id: 99, wheel_id: w.id, user_id: 'u2', cycle: c, results: [], days_required: 1}];
-    S.totals.push({g: 1, u: 'u2', d: y, m: 'pushups', n: 50, sp: 99});
+    S.spins = [...S.spins, {id: 99, wheel_id: w.id, user_id: 'u2', cycle: c, days_required: 1,
+      results: [{seq: 0, kind: 'challenge', value: 'decline', i: 0, segs: ['decline']}]}];
+    S.totals.push({g: 1, u: 'u2', d: y, m: 'pushups', n: 50, sp: 99, ch: 'decline'});
     return streak(S.groups[0], 'u2');
   });
   check('  and finishing the challenge keeps it', kept >= 1, `streak ${kept}`);
@@ -573,10 +574,10 @@ await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
-  check('posting offers the challenge', await page.locator('#dlg input[name=usechal]').isChecked());
-  const opts = await page.locator('#dlg select[name=chal] option').allInnerTexts();
-  check('  defaulting to your own', /100 burpees \(yours\)/.test(opts[0] || ''), opts.join(' | '));
-  check('  and offering what others got', opts.length > 1, opts.join(' | '));
+  check('posting offers the challenge', await page.locator('#dlg input[name=chal]').isChecked());
+  const label = await page.locator('#dlg .check:has(input[name=chal])').innerText();
+  check('  naming the one that is yours', /100 burpees/.test(label), label);
+  check('  with nothing to choose between', await page.locator('#dlg select[name=chal]').count() === 0);
 
   await page.locator('#dlg input[name=amount]').fill('50');
   await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
@@ -596,8 +597,7 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
-  await page.locator('#dlg input[name=usechal]').uncheck();
-  check('unticking hides the picker', await page.locator('#dlg .chalpick').isHidden());
+  await page.locator('#dlg input[name=chal]').uncheck();
   await page.locator('#dlg input[name=amount]').fill('50');
   await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
   await page.locator('#dlg button.primary').click();
@@ -613,8 +613,8 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
     await sb.rpc('spin', {p_wheel: 7, p_day: today()});
     await load();
     const sp = S.spins[0], g = S.groups[0];
-    // a full day's quota, all of it with the challenge
-    S.totals.push({g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id});
+    // a full day's quota, all of it with the challenge that is actually theirs
+    S.totals.push({g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id, ch: effChallenge(sp)});
     S.posts.unshift({id: 999, groupId: g.id, userId: 'u1', metric: 'pushups', amount: 50,
       caption: '', path: 'x', day: today(), ts: Date.now(), challenge: 'decline', spinId: sp.id});
     openGroup(1);
@@ -628,13 +628,55 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   const badges = await page.locator('#app .badge').allInnerTexts();
   check('  and the feed says what was done', badges.some(b => /^\+50 DECLINE PUSHUPS$/i.test(b)), badges.join(' | '));
 
-  // A day of the exercise done without the challenge does not fill it.
+  // The same amount of the same exercise, done without the challenge, adds nothing.
   const without = await page.evaluate(() => {
     const g = S.groups[0], sp = S.spins[0], d = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-    S.totals.push({g: g.id, u: 'u1', d, m: 'pushups', n: 50, sp: null});
+    S.totals.push({g: g.id, u: 'u1', d, m: 'pushups', n: 50, sp: null, ch: null});
     return challengeDays(g, sp).length;
   });
   check('  but the same work without it does not', without === 1, String(without));
+
+});
+
+// Only your own challenge counts. Posting something labelled as a different one — one
+// somebody else got, or one you swapped away from — does nothing for your days.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    await sb.rpc('spin', {p_wheel: 7, p_day: today()});
+    await load();
+    const g = S.groups[0], sp = S.spins.find(x => x.user_id === 'u1');
+    const mine = effChallenge(sp);
+    // a full day's quota, but labelled with somebody else's challenge
+    S.totals.push({g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id, ch: 'knuckle'});
+    const wrong = challengeDays(g, sp).length;
+    // the same work, labelled with the one that is actually theirs
+    S.totals.push({g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id, ch: mine});
+    return {mine, wrong, right: challengeDays(g, sp).length};
+  });
+  check('a day labelled with the wrong challenge does not count', r.wrong === 0, JSON.stringify(r));
+  check('  and the same work with your own does', r.right === 1, JSON.stringify(r));
+});
+
+// You can only take somebody else's when the wheel sent you there.
+await withPage({ ...SIGNED_IN, borrowWheel: true, samSpun: true }, async page => {
+  await settle(page);
+  await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); openGroup(1); });
+  await page.waitForTimeout(300);
+  check('landing on the borrow slice asks whose', /Pick whose you are doing/.test(await page.innerText('#app')),
+    (await page.innerText('#app')).slice(0, 400));
+  check('  and nothing can count until then', await page.evaluate(() => effChallenge(S.spins.find(x => x.user_id === 'u1'))) === '');
+
+  await page.locator('#app button:has-text("Choose whose")').click();
+  await page.waitForTimeout(300);
+  const offered = await page.locator('#dlg .list b').allInnerTexts();
+  check('  offering what the others got', offered.includes('5k run'), offered.join(' | '));
+  check('  and never the borrow slice itself', !offered.some(t => /Someone else/.test(t)), offered.join(' | '));
+
+  await page.locator('#dlg button:has-text("Take it")').first().click();
+  await page.waitForTimeout(400);
+  check('  taking one makes it yours', await page.evaluate(() => effChallenge(S.spins.find(x => x.user_id === 'u1'))) === '5k run');
+  check('  and the group says it was borrowed', /borrowed/.test(await page.innerText('#app')));
 });
 
 // The library can end a session without the app asking. The screen has to follow.

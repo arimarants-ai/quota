@@ -18,8 +18,10 @@
   const WHEEL = { id: 7, group_id: 1, name: 'Challenge', every_days: 5, remind_hour: 8,
     breaks_streak: false, active: true, starts_on: ago(10),
     created_by: M().theirWheel ? 'u2' : 'u1' };
+  const BORROW_TEXT = "Someone else's challenge";
   const STAGES = [
-    { id: 1, wheel_id: 7, seq: 0, kind: 'challenge', label: 'Your challenge', segments: ['100 burpees', '5k run', 'plank 3 min', 'cold shower'] },
+    { id: 1, wheel_id: 7, seq: 0, kind: 'challenge', label: 'Your challenge',
+      segments: M().borrowWheel ? [BORROW_TEXT, BORROW_TEXT] : ['100 burpees', '5k run', 'plank 3 min', 'cold shower'] },
     { id: 2, wheel_id: 7, seq: 1, kind: 'days', label: 'On how many days', segments: ['1', '2', '3'] },
   ];
   // Sam's own spin for the current cycle, when a test needs somebody else's challenge to
@@ -108,6 +110,11 @@
           const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
             results: [], days_required: 0, sat_out: true, created_at: new Date().toISOString() };
           self.__spins.push(sp);
+          return { data: sp, error: null };
+        }
+        if (fn === 'use_challenge') {
+          const sp = self.__spins.find(x => x.id === args.p_spin);
+          if (sp) sp.challenge_override = args.p_text;
           return { data: sp, error: null };
         }
         if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }

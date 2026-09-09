@@ -277,8 +277,11 @@ const ymd = d => d.toLocaleDateString('en-CA');
 const today = () => ymd(new Date());
 const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
 const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day).reduce((a, t) => a + t.n, 0);
-// The same, but only counting what was done with a given challenge.
-const doneWith = (g, uid, metric, spinId, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day && t.sp === spinId).reduce((a, t) => a + t.n, 0);
+// The same, but only what was done with one particular challenge. Matching the text as
+// well as the spin is the point: a post naming a different challenge — one somebody else
+// got, or one you have since swapped away from — does nothing for these days.
+const doneWith = (g, uid, metric, sp, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day
+  && t.sp === sp.id && t.ch === effChallenge(sp)).reduce((a, t) => a + t.n, 0);
 const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
 const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
@@ -327,7 +330,7 @@ const satOut = sp => !!sp && sp.sat_out;
 function challengeDays(g, sp) {
   const w = S.wheels.find(x => x.id === sp.wheel_id);
   if (!w || !g.quotas.length) return [];
-  return cycleDays(w, sp.cycle).filter(d => g.quotas.every(qq => doneWith(g, sp.user_id, qq.metric, sp.id, d) >= qq.target));
+  return cycleDays(w, sp.cycle).filter(d => g.quotas.every(qq => doneWith(g, sp.user_id, qq.metric, sp, d) >= qq.target));
 }
 const challengeDone = (g, sp) => satOut(sp) || challengeDays(g, sp).length >= sp.days_required;
 // The days of a cycle, up to today: you can tick any of them, but not one that has not happened.
@@ -336,6 +339,19 @@ const cycleDays = (w, c = cycleOf(w)) => {
   return Array.from({length: Math.max(0, to - from + 1)}, (_, i) => fromDayNo(from + i));
 };
 const challengeText = sp => (sp.results.find(r => r.kind === 'challenge') || {}).value || '';
+// One slice on a wheel is an instruction rather than a challenge: land on it and you do
+// somebody else's instead. It is the only way to end up on someone else's, which is what
+// stops a wheel being optional — otherwise you could always take the easiest thing anyone
+// got. Kept in step with public.borrow_slice().
+const BORROW = "Someone else's challenge";
+const mustBorrow = sp => challengeText(sp) === BORROW;
+// The one challenge that is yours this cycle. Somebody who landed on the borrow slice and
+// has not chosen yet has none, so nothing of theirs can count until they do.
+const effChallenge = sp => sp.challenge_override || (mustBorrow(sp) ? '' : challengeText(sp));
+// What there is to borrow: what everyone else on the wheel got this cycle.
+const borrowable = (g, w, sp) => [...new Set(g.members.filter(id => id !== sp.user_id)
+  .map(id => spinOf(w, id, sp.cycle)).filter(x => x && !satOut(x)).map(challengeText)
+  .filter(t => t && t !== BORROW))];
 // A wheel belongs to whoever made it: everyone in the group has to spin it, so it should
 // not be rewritten under them by anybody who feels like it. One left behind by someone who
 // has gone (created_by went null with their account) is claimable, rather than stuck.
@@ -378,7 +394,7 @@ async function fetchAll() {
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
     q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
-    q(sb.from('posts').select('group_id,user_id,day,metric,amount,spin_id')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
+    q(sb.from('posts').select('group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
     q(sb.from('wheels').select('*')),
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
@@ -389,7 +405,7 @@ async function fetchAll() {
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
   S.groups = groups.map(g => ({...g, members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
-  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id}));
+  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
   S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id}));
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
@@ -471,9 +487,14 @@ function wheelCard(g, w) {
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
     : satOut(mine)
     ? `<div class="got out">Sitting this one out</div><div class="who">Back on ${dayLabel(cycleStart(w, c + 1))}.</div>`
-    : `<div class="got">${esc(challengeText(mine))}</div>${trackRow(g, w, mine)}`;
+    : mustBorrow(mine) && !mine.challenge_override
+    ? `<div class="got">${esc(BORROW)}</div><div class="who">Pick whose you are doing before it can count.</div>
+       <div class="row" style="margin-top:10px"><button class="primary grow" onclick="borrowDlg(${mine.id})">Choose whose</button></div>`
+    : `<div class="got">${esc(effChallenge(mine))}${mine.challenge_override ? ` <span class="muted" style="font-weight:600">(borrowed)</span>` : ''}</div>${trackRow(g, w, mine)}`;
   const rest = others.length ? `<div class="who">${others.map(o => `${esc(name(user(o.id)))}: ${!o.sp ? 'not spun yet'
-    : satOut(o.sp) ? 'sitting out' : esc(challengeText(o.sp)) + (challengeDone(g, o.sp) ? ' ✓' : '')}`).join('<br>')}</div>` : '';
+    : satOut(o.sp) ? 'sitting out'
+    : mustBorrow(o.sp) && !o.sp.challenge_override ? 'picking whose to do'
+    : esc(effChallenge(o.sp)) + (challengeDone(g, o.sp) ? ' ✓' : '')}`).join('<br>')}</div>` : '';
   return `<div class="wh${!soon && !mine ? ' due' : ''}">${head}${yours}${rest}</div>`;
 }
 
@@ -499,6 +520,28 @@ function spinPrompt() {
 }
 
 // What everyone owes and what they landed on, for the group page.
+// Landing on the borrow slice means choosing whose challenge to take. Only what somebody
+// else actually got is on offer, and the database checks the same thing.
+function borrowDlg(spinId) {
+  const sp = S.spins.find(x => x.id === spinId);
+  const w = sp && S.wheels.find(x => x.id === sp.wheel_id);
+  if (!w) return;
+  const g = S.groups.find(x => x.id === w.group_id);
+  const opts = borrowable(g, w, sp);
+  dlg(`<h2>Whose are you doing?</h2>
+    <p class="muted">The wheel sent you to somebody else's. Pick one, and it is yours until ${dayLabel(cycleStart(w, sp.cycle + 1))}.</p>
+    ${opts.length ? `<div class="list card" style="margin:14px 0 0">${opts.map(t => `<div class="row"><b class="grow">${esc(t)}</b>
+      <button class="primary small" onclick="takeChallenge(${sp.id},${JSON.stringify(JSON.stringify(t)).replace(/"/g, '&quot;')})">Take it</button></div>`).join('')}</div>`
+      : `<p class="warn" style="margin-top:12px">Nobody else has spun yet. Come back once they have.</p>`}
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Close</button></div>`);
+}
+
+async function takeChallenge(spinId, json) {
+  try { await q(sb.rpc('use_challenge', {p_spin: spinId, p_text: JSON.parse(json)})); }
+  catch (e) { return; }
+  dlg(); await load();
+}
+
 function boardView(g) {
   return `<div class="card list">${standings(g).map((row, i) => {
     const u = user(row.id), you = row.id === me().id;
@@ -834,7 +877,7 @@ function wheelDlg(gid, w) {
 
     <label>What is on the wheel</label>
     <p class="muted" style="margin:0 0 6px">One per line. Between 2 and 24.</p>
-    <textarea name="segments" rows="6" required placeholder="100 burpees&#10;5k run&#10;3 minute plank&#10;Cold shower">${esc(ch ? ch.segments.join('\n') : '')}</textarea>
+    <textarea name="segments" rows="6" required placeholder="100 burpees&#10;5k run&#10;3 minute plank&#10;Cold shower">${esc(ch ? ch.segments.filter(x => x !== BORROW).join('\n') : '')}</textarea>
 
     <label>Everyone spins it</label>
     <div class="row"><span class="muted" style="font-weight:600">every</span>
@@ -845,6 +888,10 @@ function wheelDlg(gid, w) {
 
     <label>Reminder</label>
     <div class="row"><span class="muted" style="font-weight:600">on spin day at</span><select name="hour" style="width:auto">${hours}</select></div>
+
+    <label class="check"><input type="checkbox" name="borrow" ${ch && ch.segments.includes(BORROW) ? 'checked' : ''}>
+      <span>Add a "${esc(BORROW)}" slice</span></label>
+    <p class="muted" style="margin:4px 0 0;font-size:12px">Landing on it means doing one of the others' challenges instead.</p>
 
     <label class="check"><input type="checkbox" name="usedays" ${!w || dw ? 'checked' : ''} onchange="this.closest('form').querySelector('.daysbox').hidden=!this.checked">
       <span>Also spin for how many days it lasts</span></label>
@@ -863,7 +910,8 @@ function wheelDlg(gid, w) {
 
 async function saveWheel(f, gid, id) {
   const fd = new FormData(f), w = id && S.wheels.find(x => x.id === id);
-  const segments = fd.get('segments').split('\n').map(x => x.trim()).filter(Boolean);
+  const segments = fd.get('segments').split('\n').map(x => x.trim()).filter(Boolean).filter(x => x !== BORROW);
+  if (fd.get('borrow')) segments.push(BORROW);
   if (segments.length < 2) return alert('Put at least two things on the wheel.');
   if (segments.length > 24) return alert('That is more than 24 slices — the labels stop being readable.');
   // A disabled input sends nothing, so a wheel that has been spun keeps what it had.
@@ -892,26 +940,11 @@ async function delWheel(id) {
   dlg(); await load();
 }
 
-// Your live challenges this cycle, plus what everyone else got. Doing someone else's
-// instead of your own still counts towards your own days: you did a challenge either way.
-function challengeChoices(g) {
-  const m = me(), out = [];
-  for (const w of wheelsOf(g).filter(running)) {
-    const mine = spinOf(w, m.id);
-    if (!mine || satOut(mine) || !mine.days_required) continue;
-    out.push({spin: mine.id, text: challengeText(mine), whose: 'yours'});
-    for (const id of g.members) {
-      if (id === m.id) continue;
-      const sp = spinOf(w, id);
-      if (!sp || satOut(sp)) continue;
-      const text = challengeText(sp);
-      if (text && !out.some(o => o.spin === mine.id && o.text === text)) {
-        out.push({spin: mine.id, text, whose: `${name(user(id))}'s`});
-      }
-    }
-  }
-  return out;
-}
+// The challenges you are actually on this cycle: one per running wheel, and only ever
+// the one that is yours.
+const myChallenges = g => wheelsOf(g).filter(running)
+  .map(w => spinOf(w, me().id))
+  .filter(sp => sp && !satOut(sp) && sp.days_required && effChallenge(sp));
 
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
@@ -1167,17 +1200,14 @@ const mb = n => (n / 1048576).toFixed(1);
 
 const tooBig = n => `That video is ${(n / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`;
 
+// One tick per challenge you are on. There is nothing to choose between here: whichever
+// challenge is yours is the only one that fills your days, so a post either was done with
+// it or was not. Swapping to somebody else's is done on the wheel, for the whole cycle.
 function challengeBlock(g) {
-  const opts = challengeChoices(g);
-  if (!opts.length) return '';
-  const own = opts[0];
-  return `<label class="check"><input type="checkbox" name="usechal" checked
-      onchange="this.closest('form').querySelector('.chalpick').hidden=!this.checked">
-    <span>I did this with my challenge</span></label>
-  <div class="chalpick">
-    <select name="chal">${opts.map((o, i) => `<option value="${o.spin}|${esc(o.text)}" ${i ? '' : 'selected'}>${esc(o.text)} (${esc(o.whose)})</option>`).join('')}</select>
-    ${opts.length > 1 ? `<p class="muted" style="margin-top:6px;font-size:12px">Doing one of theirs instead of ${esc(own.text)} still counts towards your days.</p>` : ''}
-  </div>`;
+  const mine = myChallenges(g);
+  if (!mine.length) return '';
+  return mine.map(sp => `<label class="check"><input type="checkbox" name="chal" value="${sp.id}|${esc(effChallenge(sp))}" checked>
+    <span>I did this with my challenge: <b>${esc(effChallenge(sp))}</b></span></label>`).join('');
 }
 
 async function addPost(f, gid) {
@@ -1210,7 +1240,7 @@ async function addPost(f, gid) {
       if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
     });
     working(f, 'Posting…');
-    const [spinId, chalText] = fd.get('usechal') && fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
+    const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
     await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
       caption: fd.get('caption').trim(), video_path: path, day: today(),
       challenge: chalText || null, spin_id: spinId ? +spinId : null}));

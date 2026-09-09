@@ -739,3 +739,87 @@ create policy "members post" on public.posts for insert with check (
 -- public.wheel_days is left in place but no longer written to: a day now counts when the
 -- posts marked with the challenge meet that day's quota on their own, rather than being
 -- ticked by hand. The old rows are harmless history.
+
+-- ============================================================
+-- v11 (whose challenge): only your own counts, and swapping to someone else's is a
+-- decision about the cycle rather than about one post. Safe to run on an existing project.
+-- ============================================================
+
+-- v10 let a post name any challenge in the group and still fill your days, so posting
+-- knuckle pushups filled a decline quota. Only one challenge is yours at a time: whatever
+-- you spun, or the one you took from someone else instead.
+alter table public.spins add column if not exists challenge_override text;
+
+-- Taking someone else's for the cycle. It must be one somebody on this wheel actually got
+-- this cycle, or you could hand yourself anything you liked. Passing null goes back to
+-- your own.
+create or replace function public.use_challenge(p_spin bigint, p_text text)
+returns public.spins
+language plpgsql security definer set search_path = public as $$
+declare sp public.spins; w public.wheels; out public.spins;
+begin
+  select * into sp from public.spins where id = p_spin;
+  if not found then raise exception 'no such spin'; end if;
+  if sp.user_id <> auth.uid() then raise exception 'that is not your spin'; end if;
+  if sp.sat_out then raise exception 'you are sitting this one out'; end if;
+
+  select * into w from public.wheels where id = sp.wheel_id;
+  if not public.is_member(w.group_id) then raise exception 'not a member of that group'; end if;
+
+  if p_text is not null and not exists (
+    select 1 from public.spins s, jsonb_array_elements(s.results) r
+    where s.wheel_id = sp.wheel_id and s.cycle = sp.cycle and not s.sat_out
+      and r->>'kind' = 'challenge' and r->>'value' = p_text
+  ) then
+    raise exception 'nobody on this wheel got that challenge';
+  end if;
+
+  update public.spins set challenge_override = p_text where id = p_spin;
+  select * into out from public.spins where id = p_spin;
+  return out;
+end $$;
+
+-- ============================================================
+-- v12 (the borrow slice): you can only take somebody else's challenge if that is what
+-- the wheel gave you. Safe to run on an existing project.
+-- ============================================================
+
+-- A wheel can carry one slice that is not a challenge but an instruction: land on it and
+-- you do somebody else's instead. v11 let anyone swap at will, which made every wheel
+-- optional — you could always take the easiest thing anyone got.
+create or replace function public.borrow_slice() returns text
+language sql immutable as $$ select 'Someone else''s challenge' $$;
+
+create or replace function public.use_challenge(p_spin bigint, p_text text)
+returns public.spins
+language plpgsql security definer set search_path = public as $$
+declare sp public.spins; w public.wheels; own text; out public.spins;
+begin
+  select * into sp from public.spins where id = p_spin;
+  if not found then raise exception 'no such spin'; end if;
+  if sp.user_id <> auth.uid() then raise exception 'that is not your spin'; end if;
+  if sp.sat_out then raise exception 'you are sitting this one out'; end if;
+
+  select * into w from public.wheels where id = sp.wheel_id;
+  if not public.is_member(w.group_id) then raise exception 'not a member of that group'; end if;
+
+  -- Only the slice that says so lets you take someone else's.
+  own := (select r->>'value' from jsonb_array_elements(sp.results) r where r->>'kind' = 'challenge' limit 1);
+  if own is distinct from public.borrow_slice() then
+    raise exception 'the wheel did not give you somebody else''s to do';
+  end if;
+
+  -- ...and only one that somebody on this wheel actually got this cycle, which is never
+  -- the borrow slice itself: landing on it is an instruction, not a challenge.
+  if p_text is not null and (p_text = public.borrow_slice() or not exists (
+    select 1 from public.spins s, jsonb_array_elements(s.results) r
+    where s.wheel_id = sp.wheel_id and s.cycle = sp.cycle and not s.sat_out and s.user_id <> auth.uid()
+      and r->>'kind' = 'challenge' and r->>'value' = p_text
+  )) then
+    raise exception 'nobody else on this wheel got that challenge';
+  end if;
+
+  update public.spins set challenge_override = p_text where id = p_spin;
+  select * into out from public.spins where id = p_spin;
+  return out;
+end $$;
