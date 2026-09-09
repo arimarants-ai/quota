@@ -679,6 +679,38 @@ await withPage({ ...SIGNED_IN, borrowWheel: true, samSpun: true }, async page =>
   check('  and the group says it was borrowed', /borrowed/.test(await page.innerText('#app')));
 });
 
+// A wheel with no day wheel on it means every day it is running, not one day. Read off
+// the wheel rather than the spin, so it is right for spins taken before the rule existed.
+await withPage({ ...SIGNED_IN, pick: 0, noDayWheel: true }, async page => {
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    await sb.rpc('spin', {p_wheel: 7, p_day: today()});
+    await load();
+    const w = S.wheels[0], sp = S.spins.find(x => x.user_id === 'u1');
+    // the spin still says 1, because that is what a wheel with no day stage stores
+    return {stored: sp.days_required, need: requiredDays(w, sp), cycle: w.every_days};
+  });
+  check('with no day wheel, the whole cycle is the target', r.need === r.cycle, JSON.stringify(r));
+  check('  not the 1 the spin recorded', r.stored === 1 && r.need !== r.stored, JSON.stringify(r));
+
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(200);
+  const text = await page.innerText('#app');
+  check('  and the tracker says so', new RegExp(`0 of ${r.cycle} days done`).test(text), text.slice(0, 500));
+});
+
+// With a day wheel, what it landed on still governs.
+await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    await sb.rpc('spin', {p_wheel: 7, p_day: today()});
+    await load();
+    const w = S.wheels[0], sp = S.spins.find(x => x.user_id === 'u1');
+    return {stored: sp.days_required, need: requiredDays(w, sp), cycle: w.every_days};
+  });
+  check('with a day wheel, the wheel still decides', r.need === r.stored && r.need !== r.cycle, JSON.stringify(r));
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

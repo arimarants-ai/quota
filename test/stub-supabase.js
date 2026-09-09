@@ -23,7 +23,7 @@
     { id: 1, wheel_id: 7, seq: 0, kind: 'challenge', label: 'Your challenge',
       segments: M().borrowWheel ? [BORROW_TEXT, BORROW_TEXT] : ['100 burpees', '5k run', 'plank 3 min', 'cold shower'] },
     { id: 2, wheel_id: 7, seq: 1, kind: 'days', label: 'On how many days', segments: ['1', '2', '3'] },
-  ];
+  ].filter(st => !(M().noDayWheel && st.kind === 'days'));
   // Sam's own spin for the current cycle, when a test needs somebody else's challenge to
   // exist. Off by default: most cases want "Sam: not spun yet".
   const cycleNow = Math.floor((Math.round(Date.now() / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);

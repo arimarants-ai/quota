@@ -159,6 +159,11 @@ challenge — and landing on it, and only then, lets you take one of the others'
 rest of the cycle. That is what stops a wheel being optional; otherwise everyone could
 simply help themselves to the easiest thing anybody got.
 
+**A wheel with no day wheel on it means every day.** The day wheel says how many days the
+challenge runs for; without one, it is the whole stretch until the next spin. That is
+worked out from the wheel rather than read off the spin, so it is right for spins taken
+before the rule existed.
+
 Days fill themselves. A day counts when the posts marked with the challenge meet that
 day's whole quota on their own — posts done without it neither help nor spoil it, so a day
 is either a full day of the challenge or it is not. `public.wheel_days`, the old

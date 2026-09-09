@@ -332,7 +332,16 @@ function challengeDays(g, sp) {
   if (!w || !g.quotas.length) return [];
   return cycleDays(w, sp.cycle).filter(d => g.quotas.every(qq => doneWith(g, sp.user_id, qq.metric, sp, d) >= qq.target));
 }
-const challengeDone = (g, sp) => satOut(sp) || challengeDays(g, sp).length >= sp.days_required;
+// How many days the challenge has to be done on. A wheel with a day wheel on it says so.
+// A wheel without one means every day it is running: the whole stretch until the next
+// spin. Worked out from the wheel rather than read off the spin, so it is right for spins
+// taken before this rule existed too.
+const requiredDays = (w, sp) => w.stages.some(st => st.kind === 'days') ? sp.days_required : w.every_days;
+const challengeDone = (g, sp) => {
+  if (satOut(sp)) return true;
+  const w = S.wheels.find(x => x.id === sp.wheel_id);
+  return !!w && challengeDays(g, sp).length >= requiredDays(w, sp);
+};
 // The days of a cycle, up to today: you can tick any of them, but not one that has not happened.
 const cycleDays = (w, c = cycleOf(w)) => {
   const from = dayNo(cycleStart(w, c)), to = Math.min(dayNo(cycleEnd(w, c)), dayNo(today()));
@@ -501,9 +510,10 @@ function wheelCard(g, w) {
 // How the cycle is going. Nothing to tick any more: a day fills when that day's quota has
 // been met with the challenge, which is what posting with the box ticked records.
 function trackRow(g, w, sp) {
-  if (!sp.days_required) return `<div class="who">Nothing to do this time.</div>`;
+  const need = requiredDays(w, sp);
+  if (!need) return `<div class="who">Nothing to do this time.</div>`;
   const filled = challengeDays(g, sp), days = cycleDays(w, sp.cycle);
-  const label = `${filled.length} of ${plural(sp.days_required, 'day')} done`;
+  const label = `${filled.length} of ${plural(need, 'day')} done`;
   return `<div class="who">${challengeDone(g, sp) ? `Done — ${label}` : label}</div>
     <div class="ticks">${days.map(d => `<span class="tick${filled.includes(d) ? ' on' : ''}">${
       d === today() ? 'Today' : dayLabel(d).replace(/,.*$/, '')}</span>`).join('')}</div>`;
@@ -944,7 +954,8 @@ async function delWheel(id) {
 // the one that is yours.
 const myChallenges = g => wheelsOf(g).filter(running)
   .map(w => spinOf(w, me().id))
-  .filter(sp => sp && !satOut(sp) && sp.days_required && effChallenge(sp));
+  .filter(sp => sp && !satOut(sp) && effChallenge(sp)
+    && requiredDays(S.wheels.find(x => x.id === sp.wheel_id), sp));
 
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
