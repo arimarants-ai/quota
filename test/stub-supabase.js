@@ -9,6 +9,13 @@
   const POST = { id: 1, group_id: 1, user_id: 'u1', metric: 'pushups', amount: 50, caption: 'fifty in the bag', video_path: 'p.mp4', day: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString() };
   // Sam hit the quota on 3 of the last 4 days; Ari only today. Enough to order a board.
   const ago = n => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
+  // Long enough to have clips well off the screen, for the cases about what a feed does
+  // with the ones nobody is looking at.
+  const EXTRA = Array.from({length: M().manyPosts || 0}, (_, i) => ({
+    id: 200 + i, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 50, caption: '',
+    video_path: `e${i}.mp4`, day: new Date(Date.now() - (i + 5) * 864e5).toLocaleDateString('en-CA'),
+    created_at: new Date(Date.now() - (i + 5) * 864e5).toISOString(),
+  }));
   const HISTORY = [1, 2, 3].map((n, i) => ({
     id: 100 + i, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 50, caption: '',
     video_path: `s${i}.mp4`, day: ago(n), created_at: new Date(Date.now() - n * 864e5).toISOString(),
@@ -39,7 +46,7 @@
     profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY, ...self.__posts],
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY, ...EXTRA, ...self.__posts],
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,
@@ -125,8 +132,13 @@
       },
       storage: { from: () => ({
         getPublicUrl: () => ({ data: { publicUrl: '' } }),
-        // One signed URL per post, in order, the way the page consumes them.
-        createSignedUrls: async paths => ({ data: paths.map(() => ({ signedUrl: 'data:video/mp4;base64,' })), error: null }),
+        // One signed URL per post, in order, the way the page consumes them. A real
+        // bucket refuses a path whose file is gone, and hands back a row with no URL on it.
+        createSignedUrls: async paths => ({ data: paths.map(() => M().noSign ? { signedUrl: null, error: 'not found' } : { signedUrl: 'data:video/mp4;base64,' }), error: null }),
+        // The one-at-a-time version, used to replace a URL that has expired or failed.
+        createSignedUrl: async () => { self.__resigned = (self.__resigned || 0) + 1;
+          return M().resignFails ? { data: null, error: new Error('nope') }
+                                 : { data: { signedUrl: 'data:video/mp4;base64,' }, error: null }; },
       }) },
       functions: { invoke: async () => ({ data: null, error: null }) },
     }),

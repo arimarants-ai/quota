@@ -244,6 +244,25 @@ uploadReply = { status: 200, body: '{}', hold: null };
 // 1080p is about 65 MB by Apple's figures, so the app now re-encodes to 720p first. This
 // records an actual 1080p clip, posts it through the dialog, and checks the bytes that
 // reached the wire — not just that a function returned something.
+// A clip the browser can actually decode, so a case about what the feed does with its
+// videos is not really a case about a URL that was never a video.
+async function realClip(page) {
+  return page.evaluate(async () => {
+    const c = Object.assign(document.createElement('canvas'), { width: 160, height: 200 });
+    const g = c.getContext('2d');
+    const rec = new MediaRecorder(c.captureStream(15), { mimeType: mp4Type() || 'video/webm' });
+    const chunks = [];
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.start();
+    const iv = setInterval(() => { g.fillStyle = `hsl(${Date.now() % 360},70%,50%)`; g.fillRect(0, 0, 160, 200); }, 60);
+    await new Promise(r => setTimeout(r, 900));
+    clearInterval(iv);
+    rec.stop();
+    await new Promise(r => { rec.onstop = r; });
+    return URL.createObjectURL(new Blob(chunks, { type: rec.mimeType.split(';')[0] }));
+  });
+}
+
 async function record1080p(page) {
   return page.evaluate(async () => {
     const c = Object.assign(document.createElement('canvas'), { width: 1920, height: 1080 });
@@ -912,6 +931,86 @@ await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
     S.me = S.me || {username: 'ari'}; go('profile');
     return $('#app').innerText.includes(BUILD);
   }));
+});
+
+// A phone keeps only a handful of <video> elements loaded at once. A feed that hands a
+// source to every post at once spends that budget on clips nobody is looking at, and the
+// ones further down come up black — "sometimes someone else's video doesn't work".
+await withPage({ ...SIGNED_IN, manyPosts: 12 }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  // Every post gets a clip the browser can really play, so what is being watched here is
+  // the feed's decision about which ones to load, not a URL that was never a video.
+  const clip = await realClip(page);
+  await page.evaluate(u => {
+    document.querySelectorAll('.reel video').forEach(v => { v.removeAttribute('src'); v.dataset.src = u; v.load(); });
+    document.querySelectorAll('.reel').forEach(r => r.classList.remove('bust'));
+    watchClips();
+  }, clip);
+  await page.waitForTimeout(600);
+  const n = await page.locator('.reel video').count();
+  const loaded = () => page.locator('.reel video[src]').count();
+  check('the feed has more clips than fit on a screen', n >= 12, `${n} clips`);
+  check('  but only the ones near it are given a source', await loaded() < n, `${await loaded()} of ${n} loaded`);
+  check('  and the first one is', await page.locator('.reel video').first().getAttribute('src') !== null);
+
+  await page.locator('.reel').last().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(600);
+  check('  scrolling down loads the one you reach',
+    await page.locator('.reel video').last().getAttribute('src') !== null);
+  check('  and lets go of the one you left',
+    await page.locator('.reel video').first().getAttribute('src') === null,
+    `${await loaded()} of ${n} still loaded`);
+});
+
+// ---- clips that will not play
+// A signed URL lasts an hour, and a post whose file is gone never gets one at all. Both
+// used to render as a black rectangle with a play button that did nothing, which is
+// exactly what a slow clip looks like: "sometimes someone else's video doesn't work".
+await withPage({ ...SIGNED_IN, noSign: true }, async page => {
+  await settle(page);
+  const v = page.locator('.post video').first();
+  check('a clip with no signed URL is not given a broken source',
+    await v.getAttribute('src') === null, JSON.stringify(await v.getAttribute('src')));
+  await v.click();
+  await page.waitForTimeout(400);
+  check('  tapping it asks for a fresh URL rather than doing nothing',
+    await page.evaluate(() => self.__resigned) >= 1);
+  check('  and plays what comes back', (await v.getAttribute('src') || '').startsWith('data:video/mp4'),
+    JSON.stringify(await v.getAttribute('src')));
+  // The stub's URL cannot actually decode, so this ends at the honest message. What
+  // matters is that it asked once and stopped: a player that re-signs on every error
+  // would sit in a loop hammering storage instead.
+  await page.waitForTimeout(600);
+  check('  and asks only once, however many times it fails',
+    await page.evaluate(() => self.__resigned) === 1, `${await page.evaluate(() => self.__resigned)} times`);
+});
+
+// When the fresh URL does not help either, it says so instead of staying black.
+await withPage({ ...SIGNED_IN, noSign: true, resignFails: true }, async page => {
+  await settle(page);
+  await page.locator('.post video').first().click();
+  await page.waitForTimeout(400);
+  check('a clip that cannot be loaded says so', await page.locator('.reel.bust').count() >= 1);
+  check('  in words, not a black rectangle', /could not be loaded/.test(await page.locator('.reel .bust p').first().innerText()),
+    await page.locator('.reel .bust p').first().innerText());
+  check('  and offers to try again', await page.locator('.reel .bust button').first().isVisible());
+});
+
+// A codec this device has no decoder for is not something a new URL can fix, and saying
+// "could not be loaded" would send people re-tapping forever.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    const v = document.querySelector('.post video');
+    Object.defineProperty(v, 'error', {value: {code: 4}, configurable: true});
+    clipBust(v, S.posts[0].id, true);
+  });
+  await page.waitForTimeout(300);
+  check('an unplayable format says that, and does not re-sign',
+    /format this device cannot play/.test(await page.locator('.reel .bust p').first().innerText())
+    && !(await page.evaluate(() => self.__resigned)),
+    await page.locator('.reel .bust p').first().innerText());
 });
 
 // The library can end a session without the app asking. The screen has to follow.
