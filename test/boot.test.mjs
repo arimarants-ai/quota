@@ -1144,6 +1144,99 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.reel .bust p').first().innerText());
 });
 
+// ---- an app, not a page in a browser
+// Tapping a field used to zoom the whole screen in and never zoom back out. It was never
+// a gesture: iOS zooms into any focused field under 16px, and the comment box was 14.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const small = await page.evaluate(() => {
+    document.querySelectorAll('form').forEach(f => {});
+    return [...document.querySelectorAll('input,select,textarea')]
+      .filter(el => el.type !== 'hidden' && parseFloat(getComputedStyle(el).fontSize) < 16)
+      .map(el => `${el.tagName.toLowerCase()}[name=${el.name || '?'}] ${getComputedStyle(el).fontSize}`);
+  });
+  check('no field is small enough to make iOS zoom into it', small.length === 0, small.join(', '));
+
+  // And the ones that only exist inside the post sheet.
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  const dlgSmall = await page.evaluate(() => [...document.querySelectorAll('#dlg input,#dlg select,#dlg textarea')]
+    .filter(el => el.type !== 'hidden' && parseFloat(getComputedStyle(el).fontSize) < 16)
+    .map(el => `${el.name || el.type} ${getComputedStyle(el).fontSize}`));
+  check('  including the ones inside the post sheet', dlgSmall.length === 0, dlgSmall.join(', '));
+});
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const vp = await page.getAttribute('meta[name=viewport]', 'content');
+  check('the page asks not to be scaled', /user-scalable=no/.test(vp) && /maximum-scale=1/.test(vp), vp);
+  check('  and double tap does not zoom either',
+    await page.evaluate(() => getComputedStyle(document.body).touchAction) === 'manipulation');
+  check('  with no rubber band to pull on',
+    await page.evaluate(() => getComputedStyle(document.body).overscrollBehaviorY) === 'none');
+  check('  and no long-press callout', await page.evaluate(() => {
+    const c = getComputedStyle(document.body);
+    return (c.webkitUserSelect || c.userSelect) === 'none';
+  }));
+  check('  but a field can still be selected in', await page.evaluate(() => {
+    const i = document.createElement('input'); document.body.append(i);
+    const c = getComputedStyle(i), ok = (c.webkitUserSelect || c.userSelect) === 'text';
+    i.remove(); return ok;
+  }));
+  // Safari's own pinch arrives as a gesture event, and a second finger as a touchmove.
+  check('  a pinch is turned down', await page.evaluate(() => {
+    const e = new Event('gesturestart', {cancelable: true, bubbles: true});
+    dispatchEvent(e);
+    return e.defaultPrevented;
+  }));
+  check('  and so is a two-finger drag', await page.evaluate(() => {
+    const t = {clientX: 0, clientY: 0};
+    const ev = new Event('touchmove', {cancelable: true, bubbles: true});
+    Object.defineProperty(ev, 'touches', {value: [t, t]});
+    dispatchEvent(ev);
+    return ev.defaultPrevented;
+  }));
+  check('  while one finger scrolls as normal', await page.evaluate(() => {
+    const ev = new Event('touchmove', {cancelable: true, bubbles: true});
+    Object.defineProperty(ev, 'touches', {value: [{}]});
+    dispatchEvent(ev);
+    return !ev.defaultPrevented;
+  }));
+});
+
+// The tab bar is fixed to the layout viewport, which during a URL-bar collapse or with a
+// keyboard up is not what is on screen. That difference is the bar wandering off.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const set = (height, offsetTop) => page.evaluate(([h, o]) => {
+    Object.defineProperty(self, 'visualViewport', {configurable: true, value: {height: h, offsetTop: o, addEventListener() {}}});
+    fitBar();
+    const root = document.documentElement;
+    return {vvb: root.style.getPropertyValue('--vvb'), keys: root.classList.contains('keys'), inner: innerHeight};
+  }, [height, offsetTop]);
+
+  const full = await page.evaluate(() => innerHeight);
+  let r = await set(full, 0);
+  check('with nothing in the way the bar sits where it always did', r.vvb === '0px' && !r.keys, JSON.stringify(r));
+
+  const barBottom = () => page.evaluate(() => parseFloat(getComputedStyle($('#bar')).bottom));
+  const at0 = await barBottom();
+  r = await set(full - 60, 0);             // a collapsing URL bar: a sliver
+  check('  a shrinking toolbar moves it by exactly that much', r.vvb === '60px' && !r.keys, JSON.stringify(r));
+  const at60 = await barBottom();
+  check('    and the bar is what moves, not just the number',
+    Math.round(at60 - at0) === 60, `${at0} -> ${at60}`);
+
+  r = await set(full - Math.round(full * 0.45), 0);   // a keyboard: a large bite
+  check('  and a keyboard puts it away rather than parking it on top', r.keys, JSON.stringify(r));
+  check('    which is what actually hides it',
+    await page.evaluate(() => getComputedStyle($('#bar')).display) === 'none');
+
+  r = await set(full, 0);
+  check('  and it comes back when the keyboard goes', !r.keys && r.vvb === '0px', JSON.stringify(r));
+  check('    visible again', await page.evaluate(() => getComputedStyle($('#bar')).display) !== 'none');
+});
+
 // The library can end a session without the app asking. The screen has to follow.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

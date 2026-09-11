@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0f4c5c">
 <title>Quota</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 132 132%22%3E%3Crect width=%22132%22 height=%22132%22 rx=%2230%22 fill=%22%230F4C5C%22/%3E%3Ccircle cx=%2266%22 cy=%2266%22 r=%2246%22 fill=%22none%22 stroke=%22rgba(255,255,255,.16)%22 stroke-width=%2218%22/%3E%3Ccircle cx=%2266%22 cy=%2266%22 r=%2246%22 fill=%22none%22 stroke=%22%23F4813A%22 stroke-width=%2218%22 stroke-linecap=%22round%22 stroke-dasharray=%22216 289%22 transform=%22rotate(-90 66 66)%22/%3E%3Crect x=%2286%22 y=%2286%22 width=%2222%22 height=%2234%22 rx=%2211%22 fill=%22%23F4813A%22 transform=%22rotate(-45 97 103)%22/%3E%3C/svg%3E">
@@ -19,7 +19,13 @@
 :root[data-theme=dark]{--bg:#0b0b0d;--card:#16161b;--line:#26262d;--text:#f2f2f5;--muted:#9a9aa6;--soft:#1f1f25;--okbg:#0f2a31;--todo:#2c2c34;--sheet:#16161b;--barbg:rgba(22,22,27,.92)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Plus Jakarta Sans",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+/* An installed app, not a page in a browser. touch-action kills the double-tap zoom,
+   overscroll-behavior kills the rubber band and pull-to-refresh, and the callout and
+   selection are what make a long press feel like a web page rather than an app. */
+html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Plus Jakarta Sans",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;
+  touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
 main{max-width:600px;margin:0 auto;padding:0 0 120px;position:relative;min-height:100vh}
 main.out{padding-bottom:0;min-height:0}
 .num{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-variant-numeric:tabular-nums}
@@ -33,7 +39,9 @@ button.teal{background:var(--teal);color:#fff}
 button.small{padding:7px 12px;font-size:13px}
 button.ghost{background:none;color:var(--muted);padding:6px 4px;font-weight:600}
 button:disabled{opacity:.6}
-input,select,textarea{font:inherit;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
+/* 16px is not a taste: iOS zooms the whole page into any field smaller than that when
+   it is focused, and will not zoom back out. Every field in the app is at least 16. */
+input,select,textarea{font:inherit;font-size:16px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,76,92,.15)}
 textarea{resize:vertical;line-height:1.5}
 .check input{width:19px}
@@ -139,11 +147,15 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .c span{color:var(--muted);flex:1;font-weight:500}
 .c .x{background:none;padding:0 4px;color:var(--muted);font-weight:600;font-size:13px}
 .cin{display:flex;gap:8px;margin-top:6px}
-.cin input{padding:10px 12px;font-size:14px}
+.cin input{padding:10px 12px}          /* 16px, like every field: smaller and iOS zooms in */
 .cin button{padding:0 14px}
 .postfoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
 /* bubble bar */
-.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
+/* iOS keeps a fixed element pinned to the layout viewport, which is not what is on
+   screen: while the URL bar collapses or a keyboard comes up the two differ, and the bar
+   slides around on its own. --vvb is the gap between them, kept up to date from
+   visualViewport, so the bar stays put against the bottom edge people can actually see. */
+.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb, 0px));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
 .bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:999px}
 .bar button.on{color:var(--teal);background:var(--soft)}
 :root[data-theme=dark] .bar button.on{color:#fff}
@@ -152,6 +164,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .bar .add svg{width:26px;height:26px;stroke:#fff;stroke-width:2.5}
 .bar .add:disabled{opacity:.4}
 .bar[hidden]{display:none}
+/* A keyboard is up. No app puts its tab bar on top of one, and here it would sit over
+   the box being typed into. */
+:root.keys .bar{display:none}
 dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24px 0 0;width:100%;max-width:100%;margin:auto 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
@@ -341,7 +356,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v25';
+const BUILD = 'quota-v26';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1898,6 +1913,33 @@ addEventListener('unhandledrejection', e => {
   if (e.reason?.shown || document.hidden) return;       // q() already put it in front of them
   showErr(`Something went wrong: ${e.reason?.message || e.reason}`, e.reason?.stack);
 });
+
+// ---- behaving like an application rather than a page
+// Safari honours user-scalable=no in an installed app and ignores it in a tab, and
+// pinching is its own gesture either way. These are the two that are left.
+addEventListener('gesturestart', e => e.preventDefault());
+addEventListener('gesturechange', e => e.preventDefault());
+addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, {passive: false});
+
+// Where the bottom of the screen really is. A fixed element is pinned to the layout
+// viewport, which during a URL-bar collapse or with a keyboard up is not what anyone is
+// looking at — which is the tab bar wandering off on its own.
+function fitBar() {
+  const vv = self.visualViewport, root = document.documentElement;
+  if (!vv) return;
+  const gap = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  root.style.setProperty('--vvb', `${gap > 4 ? gap : 0}px`);
+  // A keyboard takes a large bite out of the viewport; a toolbar takes a sliver. Only the
+  // first is a reason to put the bar away.
+  root.classList.toggle('keys', gap > innerHeight * 0.2);
+}
+if (self.visualViewport) {
+  visualViewport.addEventListener('resize', fitBar);
+  visualViewport.addEventListener('scroll', fitBar);
+}
+addEventListener('resize', fitBar);
+addEventListener('orientationchange', fitBar);
+fitBar();
 
 // Nothing here is allowed to leave the page blank. Paint first, then fill it in.
 render();
