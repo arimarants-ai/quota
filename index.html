@@ -179,17 +179,51 @@ dialog h2{font-size:20px;margin-bottom:2px}
 #cam:not([open]){display:none}
 #cam::backdrop{background:#000}
 #campre{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
-.camtop{position:relative;z-index:2;display:flex;align-items:center;gap:12px;
+/* The front camera is shown mirrored, the way every phone camera shows it — you are
+   looking at yourself, not at a picture of yourself. What is recorded is not mirrored. */
+#campre.mirror{transform:scaleX(-1)}
+.camtop{position:relative;z-index:2;display:flex;align-items:center;gap:10px;
   padding:calc(12px + env(safe-area-inset-top)) 16px 0}
-.camtop button{background:rgba(0,0,0,.45);color:#fff;border-radius:999px;width:38px;height:38px;padding:0;font-size:17px}
-.camtop span{color:#fff;font-weight:800;font-family:Unbounded,system-ui,sans-serif;font-size:15px;
+.camtop button{background:rgba(0,0,0,.45);color:#fff;border-radius:999px;width:38px;height:38px;padding:0;font-size:17px;
+  display:grid;place-items:center;flex:none}
+.camtop button svg{width:19px;height:19px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.camtop button.on{background:var(--acc)}
+/* display:grid above, and display on an SVG path, both beat the plain hidden attribute,
+   so a control meant to be absent sits there looking live. Said outright instead. */
+.camtop button[hidden],#micoff[hidden]{display:none}
+.camtop .rec{flex:1;text-align:center;color:#fff;font-weight:800;font-family:Unbounded,system-ui,sans-serif;font-size:15px;
   text-shadow:0 1px 6px rgba(0,0,0,.6)}
-.cambot{position:relative;z-index:2;margin-top:auto;display:grid;place-items:center;
-  padding:0 0 calc(28px + env(safe-area-inset-bottom))}
+.camtop .rec b{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff3b30;margin-right:7px;
+  vertical-align:middle;animation:blink 1.1s steps(2,end) infinite}
+@keyframes blink{50%{opacity:0}}
+.camtop .rec small{font-weight:700;opacity:.65;font-size:13px}
+/* Timer, shutter, flip — the shutter dead centre whatever sits beside it. */
+.cambot{position:relative;z-index:2;margin-top:auto;display:grid;grid-template-columns:1fr auto 1fr;
+  align-items:center;justify-items:center;gap:10px;padding:0 20px calc(28px + env(safe-area-inset-bottom))}
 .shutter{width:74px;height:74px;border-radius:50%;padding:0;background:rgba(255,255,255,.25);
   border:4px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.4)}
 .shutter.on{background:var(--acc);border-radius:18px;width:58px;height:58px}
 .shutter[disabled]{opacity:.45}
+.camaux{width:54px;height:54px;border-radius:50%;padding:0;background:rgba(0,0,0,.45);color:#fff;
+  display:grid;place-items:center;font-weight:800;font-size:13px;border:1px solid rgba(255,255,255,.25)}
+.camaux svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.camaux.on{background:var(--acc);border-color:transparent}
+.camaux[hidden]{display:none}
+.camaux[disabled]{opacity:.35}
+.camzoom{position:absolute;left:0;right:0;bottom:calc(128px + env(safe-area-inset-bottom));z-index:2;padding:0 28px}
+.camzoom[hidden]{display:none}
+.camzoom input{width:100%}
+/* The count-in, for filming yourself: put the phone down and get into position. */
+.camcount{position:absolute;inset:0;z-index:3;display:grid;place-items:center;pointer-events:none;
+  color:#fff;font-family:Unbounded,system-ui,sans-serif;font-size:104px;font-weight:800;text-shadow:0 4px 30px rgba(0,0,0,.7)}
+.camcount[hidden]{display:none}
+/* Watch it back before it goes anywhere, the way you would on a camera roll. */
+.camrev{position:absolute;inset:0;z-index:4;background:#000;display:flex;flex-direction:column}
+.camrev[hidden]{display:none}
+.camrev video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
+.camrevw{color:#fff;opacity:.75;font-size:13px;font-weight:700;text-align:center;padding:12px 16px 0}
+.camrev .row{padding:12px 16px calc(22px + env(safe-area-inset-bottom));gap:12px}
+.camrev .row button{flex:1}
 .camwhy{position:relative;z-index:2;margin:auto 22px;color:#fff;font-weight:700;text-align:center;line-height:1.4}
 .camwhy[hidden]{display:none}
 
@@ -257,8 +291,35 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" onclick="load()">Retry</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
-  <div class="camtop"><button type="button" onclick="closeCam()" aria-label="Close">✕</button><span id="camtime"></span></div>
-  <div class="cambot"><button type="button" id="camgo" class="shutter" onclick="toggleRec()" aria-label="Record" disabled></button></div>
+  <div class="camtop">
+    <button type="button" id="camx" onclick="closeCam()" aria-label="Close">✕</button>
+    <span class="rec" id="camtime"></span>
+    <button type="button" id="cammic" onclick="toggleMic()" aria-label="Sound" title="Sound">
+      <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path id="micoff" d="M4 3l16 18" hidden/></svg>
+    </button>
+    <button type="button" id="camtorch" onclick="toggleTorch()" aria-label="Light" title="Light" hidden>
+      <svg viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 8-11h-6z"/></svg>
+    </button>
+  </div>
+  <div class="camzoom" id="camzoom" hidden>
+    <input type="range" id="camzoomr" aria-label="Zoom" oninput="setZoom(this.value)">
+  </div>
+  <p class="camcount" id="camcount" hidden></p>
+  <div class="cambot">
+    <button type="button" id="camtimer" class="camaux" onclick="cycleTimer()" aria-label="Self timer">Off</button>
+    <button type="button" id="camgo" class="shutter" onclick="shutter()" aria-label="Record" disabled></button>
+    <button type="button" id="camflip" class="camaux" onclick="flipCam()" aria-label="Switch camera" hidden>
+      <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-14.5 7"/><path d="M3 12a9 9 0 0 1 14.5-7"/><path d="M17 2v4h4M7 22v-4H3"/></svg>
+    </button>
+  </div>
+  <div class="camrev" id="camrev" hidden>
+    <video id="camplay" playsinline controls loop></video>
+    <p class="camrevw" id="camrevw"></p>
+    <div class="row">
+      <button type="button" onclick="retake()">Retake</button>
+      <button type="button" class="primary" onclick="useTake()">Use this</button>
+    </div>
+  </div>
   <p id="camwhy" class="camwhy" hidden></p>
 </dialog>
 <div id="a2hs" hidden>
@@ -280,7 +341,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v24';
+const BUILD = 'quota-v25';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1252,27 +1313,48 @@ async function saveProfile(f) {
 // inside the page keeps the app alive and in charge, and lets us ask for 720p in the first
 // place — so there is nothing to re-encode afterwards, which is the other half of the wait.
 const REC_MAX = 120;                       // seconds; 50 MB at this bitrate is about 160
+const TIMERS = [0, 3, 10];                 // the count-in options, in the order the button cycles
 let camStream = null, camRec = null, camChunks = [], camTimer = null, camWake = null, camStart = 0;
+let camCount = null;                       // the count-in, so closing can cancel it
+let camTimerIdx = 0, camMuted = false;
+let camTake = null;                        // the clip being reviewed, and its object URL
 let recorded = null;                       // what the camera produced, used in place of a picked file
 
 const camSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined');
+const camTrack = () => camStream && camStream.getVideoTracks()[0];
+const recording = () => !!camRec && camRec.state === 'recording';
+// Which way the camera points, remembered: somebody filming themselves doing pushups wants
+// the front one every time, and picking it again on every post is the sort of small
+// stupidity that makes a camera feel like not a camera.
+const facing = () => { try { return localStorage.getItem('quota.facing') === 'user' ? 'user' : 'environment'; } catch (e) { return 'environment'; } };
+const setFacing = f => { try { localStorage.setItem('quota.facing', f); } catch (e) {} };
 
 async function openCam() {
   if (!camSupported()) return alert('This browser cannot record video. Use "Choose a file" instead.');
   const box = $('#cam'), why = $('#camwhy');
   why.hidden = true;
+  showRev(false);
   if (!box.open) box.showModal();          // the top layer, above the submit sheet
+  await startCam(facing());
+}
+
+// Opening the camera, and re-opening it pointing the other way, are the same job.
+async function startCam(want) {
+  const box = $('#cam'), why = $('#camwhy');
   // Asking for the camera takes a moment, and on a phone it can wait on a permission
   // prompt. A shutter that looks ready but does nothing is what "you press record and it
   // just doesn't record" was: it stays dead and dimmed until there is a stream behind it.
   $('#camgo').disabled = true;
   $('#camgo').classList.remove('on');
+  $('#camflip').disabled = true;
   $('#camtime').textContent = 'Starting…';
+  if (camStream) stopTracks();             // flipping: let the old one go before asking for the other
   try {
-    // Ask for the back camera at 720p. Every part of this is a preference, not a demand:
-    // a phone that cannot manage it gives what it has rather than refusing outright.
+    // 720p from the camera we want. Every part of this is a preference, not a demand: a
+    // phone that cannot manage it gives what it has rather than refusing outright — and
+    // facingMode in particular is ignored outright by desktop browsers.
     camStream = await navigator.mediaDevices.getUserMedia({
-      video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30}},
+      video: {facingMode: {ideal: want}, width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30}},
       audio: true,
     });
   } catch (e) {
@@ -1286,28 +1368,108 @@ async function openCam() {
   // Closed again while the camera was still opening: let go of it rather than leaving the
   // light on behind a dialog nobody can see.
   if (!box.open) return stopCam();
+  setFacing(want);
+  camStream.getAudioTracks().forEach(t => t.enabled = !camMuted);
   const v = $('#campre');
   v.srcObject = camStream;
   v.muted = true;                          // or the preview howls through the mic
+  v.classList.toggle('mirror', want === 'user');
   await v.play().catch(() => {});
   $('#camtime').textContent = '';
   $('#camgo').disabled = false;
+  paintCam();
+  await camOptions();
+}
+
+// What this particular camera can do. Zoom and a light are real on some Android phones and
+// simply absent on iOS, so they are offered where they exist and not mentioned where they
+// do not, rather than shown as buttons that do nothing.
+async function camOptions() {
+  const t = camTrack(), caps = t && t.getCapabilities ? (t.getCapabilities() || {}) : {};
+  const zoom = $('#camzoom'), zr = $('#camzoomr');
+  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+    zr.min = caps.zoom.min; zr.max = caps.zoom.max; zr.step = caps.zoom.step || 0.1;
+    zr.value = (t.getSettings() || {}).zoom || caps.zoom.min;
+    zoom.hidden = false;
+  } else zoom.hidden = true;
+  $('#camtorch').hidden = !caps.torch;
+  $('#camtorch').classList.remove('on');
+  // A laptop with one camera has nothing to flip to, and a button that swaps a camera for
+  // itself is worse than no button.
+  let many = false;
+  try {
+    const ds = await navigator.mediaDevices.enumerateDevices();
+    many = ds.filter(d => d.kind === 'videoinput').length > 1;
+  } catch (e) { many = true; }             // cannot tell: offer it rather than hide it
+  $('#camflip').hidden = !many;
+  $('#camflip').disabled = recording();
+}
+
+async function flipCam() {
+  if (recording() || camCount) return;     // mid-take the recorder is bound to this stream
+  await startCam(facing() === 'user' ? 'environment' : 'user');
+}
+
+function toggleMic() {
+  camMuted = !camMuted;
+  if (camStream) camStream.getAudioTracks().forEach(t => t.enabled = !camMuted);
+  paintCam();
+}
+
+function cycleTimer() {
+  if (recording() || camCount) return;
+  camTimerIdx = (camTimerIdx + 1) % TIMERS.length;
+  paintCam();
+}
+
+async function setZoom(v) {
+  const t = camTrack();
+  if (t && t.applyConstraints) await t.applyConstraints({advanced: [{zoom: +v}]}).catch(() => {});
+}
+
+async function toggleTorch() {
+  const t = camTrack();
+  if (!t || !t.applyConstraints) return;
+  const on = !((t.getSettings() || {}).torch);
+  try { await t.applyConstraints({advanced: [{torch: on}]}); $('#camtorch').classList.toggle('on', on); }
+  catch (e) { $('#camtorch').hidden = true; }
+}
+
+// One place that decides what every control looks like, so a flip or a stop cannot leave
+// one of them saying something that is no longer true.
+function paintCam() {
+  const rec = recording(), busy = rec || !!camCount;
+  $('#cammic').classList.toggle('on', camMuted);
+  // An SVG path is not an HTMLElement, so it has no .hidden — assigning one silently
+  // makes up a property and leaves the attribute exactly where it was.
+  $('#micoff').toggleAttribute('hidden', !camMuted);
+  $('#camtimer').textContent = TIMERS[camTimerIdx] ? `${TIMERS[camTimerIdx]}s` : 'Off';
+  $('#camtimer').classList.toggle('on', !!TIMERS[camTimerIdx]);
+  $('#camtimer').disabled = busy;
+  $('#camflip').disabled = busy;
+  $('#camgo').classList.toggle('on', rec);
+  $('#camx').hidden = false;
 }
 
 function closeCam() {
-  // Mid-recording: stop the recorder and leave the rest to finishRec, which closes up once
-  // the last chunk is in. Cutting the camera off here would drop the end of the clip.
-  if (camRec && camRec.state === 'recording') { try { return camRec.stop(); } catch (e) {} }
+  cancelCount();
+  // Mid-recording: stop the recorder and leave the rest to finishRec, which takes it from
+  // there. Cutting the camera off here would drop the end of the clip.
+  if (recording()) { try { return camRec.stop(); } catch (e) {} }
   stopCam();
   $('#cam').close();
 }
 
-function stopCam() {
-  clearInterval(camTimer); camTimer = null;
+function stopTracks() {
   if (camStream) camStream.getTracks().forEach(t => t.stop());   // or the camera light stays on
   camStream = null;
   const v = $('#campre');
   if (v) v.srcObject = null;
+}
+
+function stopCam() {
+  clearInterval(camTimer); camTimer = null;
+  stopTracks();
   const go = $('#camgo');
   if (go) { go.disabled = true; go.classList.remove('on'); }
   releaseWake();
@@ -1320,10 +1482,32 @@ async function holdWake() {
 }
 function releaseWake() { try { if (camWake) camWake.release(); } catch (e) {} camWake = null; }
 
-async function toggleRec() {
-  if (!camStream) return;
-  if (camRec && camRec.state === 'recording') return camRec.stop();
+function cancelCount() {
+  if (camCount) clearInterval(camCount);
+  camCount = null;
+  $('#camcount').hidden = true;
+}
 
+// The shutter: stop if running, count in if a timer is set, otherwise start now.
+function shutter() {
+  if (!camStream) return;
+  if (recording()) return camRec.stop();
+  if (camCount) return cancelCount(), paintCam();     // a second tap during the count-in calls it off
+  const secs = TIMERS[camTimerIdx];
+  if (!secs) return startRec();
+  let left = secs;
+  const tick = () => { $('#camcount').textContent = left; $('#camcount').hidden = false; };
+  tick();
+  camCount = setInterval(() => {
+    if (--left > 0) return tick();
+    cancelCount();
+    startRec();
+  }, 1000);
+  paintCam();                              // only once camCount is set, or nothing reads as busy
+}
+
+function startRec() {
+  if (!camStream) return;
   const type = mp4Type() || (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '');
   try {
     camRec = type ? new MediaRecorder(camStream, {mimeType: type, videoBitsPerSecond: VIDEO_BPS})
@@ -1336,31 +1520,45 @@ async function toggleRec() {
   camRec.start(1000);                      // a chunk a second, so a long clip is not one lump
   camStart = Date.now();
   holdWake();
-  $('#camgo').classList.add('on');
+  paintCam();
   camTimer = setInterval(() => {
     const secs = Math.round((Date.now() - camStart) / 1000);
-    $('#camtime').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-    if (secs >= REC_MAX && camRec.state === 'recording') camRec.stop();
+    // A red dot and how long is left, because a clip that stops on its own at two minutes
+    // with no warning is the same surprise as one that never recorded.
+    $('#camtime').innerHTML = `<b></b>${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` +
+      ` <small>/ ${Math.floor(REC_MAX / 60)}:${String(REC_MAX % 60).padStart(2, '0')}</small>`;
+    if (secs >= REC_MAX && recording()) camRec.stop();
   }, 250);
 }
 
 // iOS can put the app away mid-recording. Stopping on the way out keeps what was filmed
 // as a usable clip, instead of losing the lot with the page.
 addEventListener('pagehide', () => {
-  if (camRec && camRec.state === 'recording') { try { camRec.stop(); } catch (e) {} }
+  if (recording()) { try { camRec.stop(); } catch (e) {} }
 });
+
+function showRev(on) {
+  $('#camrev').hidden = !on;
+  $('#camx').hidden = on;                  // in review there are two clear answers, and ✕ is neither
+  if (on) return;
+  const pl = $('#camplay');
+  if (pl) { try { pl.pause(); } catch (e) {} pl.removeAttribute('src'); pl.load(); }
+  if (camTake) { URL.revokeObjectURL(camTake); camTake = null; }
+}
 
 function finishRec() {
   clearInterval(camTimer); camTimer = null;
   releaseWake();
-  $('#camgo').classList.remove('on');
+  $('#camtime').textContent = '';
   const type = (camRec && camRec.mimeType || 'video/mp4').split(';')[0];
   const blob = new Blob(camChunks, {type});
   camChunks = [];
-  stopCam();
-  $('#cam').close();
-  if (blob.size < 1024) return alert('That recording came out empty. Try again, or use "Choose a file".');
+  stopCam();                               // reviewing does not need the camera on
+  paintCam();
+  if (blob.size < 1024) { $('#cam').close(); return alert('That recording came out empty. Try again, or use "Choose a file".'); }
   // Recorded here, so it is already 720p at the bitrate we asked for: nothing to re-encode.
+  // Committed straight away rather than on the way out of the review, so a phone that
+  // takes the app away mid-review does not take the clip with it.
   recorded = new File([blob], `clip.${type.includes('webm') ? 'webm' : 'mp4'}`, {type});
   recorded.fromCamera = true;
   const el = $('#vsize');
@@ -1372,6 +1570,35 @@ function finishRec() {
     el.className = ok ? 'muted' : 'warn';
     el.textContent = `Recorded · ${mb(recorded.size)} MB${ok ? '' : ' · this device records WebM, which iPhones cannot play. Choose a file instead if the group is on iPhones.'}`;
   }
+  // Watch it back before it goes anywhere. Posting something you never saw is how a clip
+  // of the ceiling ends up in the feed.
+  camTake = URL.createObjectURL(blob);
+  const pl = $('#camplay');
+  pl.src = camTake;
+  pl.load();
+  // How long it runs and how big it is, so "use this" is not a guess. The length only
+  // arrives with the metadata, which is why it is filled in rather than written out here.
+  const w = $('#camrevw');
+  w.textContent = `${mb(blob.size)} MB`;
+  pl.onloadedmetadata = () => {
+    const d = Math.round(pl.duration);
+    if (isFinite(d) && d > 0) w.textContent = `${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')} · ${mb(blob.size)} MB`;
+  };
+  showRev(true);
+  pl.play().catch(() => {});
+}
+
+function useTake() {
+  showRev(false);
+  $('#cam').close();
+}
+
+async function retake() {
+  recorded = null;
+  const el = $('#vsize');
+  if (el) { el.className = 'muted'; el.textContent = ''; }
+  showRev(false);
+  await startCam(facing());
 }
 
 // ---- shrinking a clip before it goes over the wire

@@ -838,10 +838,139 @@ await withPage(NO_WHEEL, async page => {
   const rec = await page.evaluate(() => recorded && {size: recorded.size, type: recorded.type, cam: !!recorded.fromCamera});
   check('  stopping keeps the recording', rec && rec.size > 1024, JSON.stringify(rec));
   check('  marked as ours, so it is never re-encoded', rec && rec.cam === true, JSON.stringify(rec));
-  check('  and the camera closes', await page.locator('#cam').isHidden());
-  check('  releasing the camera afterwards', await page.evaluate(() => camStream === null));
+  check('  and it is offered back to watch before it goes anywhere', await page.locator('#camrev').isVisible());
+  check('  with the camera let go of while you watch', await page.evaluate(() => camStream === null));
   check('  and the form says what it has', /Recorded/.test(await page.locator('#vsize').innerText()),
     await page.locator('#vsize').innerText());
+  await page.locator('#camrev button:has-text("Use this")').click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  check('  keeping it closes the camera', await page.locator('#cam').isHidden());
+});
+
+// A camera people already know how to use: point it the other way, count yourself in,
+// cut the sound, watch it back. Chromium's fake device reports one camera and ignores
+// facingMode, so the device list is stood in for where the count is what is being read.
+const twoCameras = page => page.evaluate(() => {
+  const real = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+  navigator.mediaDevices.enumerateDevices = async () => {
+    const ds = await real();
+    return [...ds, {kind: 'videoinput', deviceId: 'front', label: 'front', groupId: 'g'}];
+  };
+});
+
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await twoCameras(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+
+  check('the camera offers to point the other way', await page.locator('#camflip').isVisible());
+  check('  starting on the back one', await page.evaluate(() => facing()) === 'environment');
+  check('  which is not mirrored', !(await page.locator('#campre').evaluate(v => v.classList.contains('mirror'))));
+
+  await page.locator('#camflip').click();
+  await page.waitForFunction(() => facing() === 'user' && !$('#camgo').disabled, null, { timeout: 10000 }).catch(() => {});
+  check('  flipping turns it round', await page.evaluate(() => facing()) === 'user');
+  check('  and shows you mirrored, the way every phone does',
+    await page.locator('#campre').evaluate(v => v.classList.contains('mirror')));
+  check('  with a live stream still behind it',
+    await page.evaluate(() => !!(camStream && camStream.getVideoTracks().length)));
+
+  // The sound
+  check('the microphone is on to start with', await page.evaluate(() => camStream.getAudioTracks()[0].enabled));
+  check('  and does not claim otherwise', await page.locator('#micoff').isHidden());
+  await page.locator('#cammic').click();
+  check('  and can be cut', await page.evaluate(() => !camStream.getAudioTracks()[0].enabled)
+    && await page.locator('#cammic').evaluate(b => b.classList.contains('on')));
+  check('  which the icon says', await page.locator('#micoff').isVisible());
+  // A light this camera does not have is not offered. The fake device reports no torch,
+  // and neither does any iPhone: Safari has never exposed one.
+  check('a camera with no light is not given a light button', await page.locator('#camtorch').isHidden());
+
+  // The count-in
+  check('the self timer starts off', (await page.locator('#camtimer').innerText()).trim() === 'Off');
+  await page.locator('#camtimer').click();
+  check('  and cycles', (await page.locator('#camtimer').innerText()).trim() === '3s');
+  await page.locator('#camtimer').click();
+  check('  through the usual two', (await page.locator('#camtimer').innerText()).trim() === '10s');
+  await page.locator('#camtimer').click();
+  check('  and back off', (await page.locator('#camtimer').innerText()).trim() === 'Off');
+});
+
+// With a timer set, the shutter counts you in rather than recording the walk back.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  await page.locator('#camtimer').click();                 // 3s
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(400);
+  check('a self timer counts you in before it records', await page.locator('#camcount').isVisible());
+  check('  and has not started yet', await page.evaluate(() => !recording()));
+  check('  with the timer and the flip out of reach while it counts',
+    await page.locator('#camtimer').isDisabled() && await page.locator('#camflip').isDisabled());
+  await page.waitForFunction(() => recording(), null, { timeout: 6000 }).catch(() => {});
+  check('  then starts on its own', await page.evaluate(() => recording()));
+  check('  and the count goes away', await page.locator('#camcount').isHidden());
+  check('  with the flip still held while it runs', await page.locator('#camflip').isDisabled());
+});
+
+// Which way it was pointing last time is worth remembering: somebody filming themselves
+// wants the front camera every time, and choosing it again on every post is the kind of
+// small stupidity that makes a camera feel like not a camera.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await twoCameras(page);
+  // Closing the camera puts you back on the submit sheet, which is still open, so the
+  // second time round there is nothing to open — just Record again.
+  const open = async () => {
+    if (!await page.locator('#dlg').evaluate(d => d.open)) {
+      await page.locator('.bar .add').click();
+      await page.waitForTimeout(300);
+    }
+    await page.locator('#dlg button:has-text("Record")').click();
+    await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  };
+  await open();
+  check('nothing remembered means the back camera', await page.evaluate(() => facing()) === 'environment');
+  await page.locator('#camflip').click();
+  await page.waitForFunction(() => facing() === 'user' && !$('#camgo').disabled, null, { timeout: 10000 }).catch(() => {});
+  await page.locator('#camx').click().catch(() => {});
+  await page.waitForTimeout(300);
+
+  await open();
+  check('  and it opens the way you left it next time', await page.evaluate(() => facing()) === 'user'
+    && await page.locator('#campre').evaluate(v => v.classList.contains('mirror')));
+  check('  across a reload, not just a reopen',
+    await page.evaluate(() => localStorage.getItem('quota.facing')) === 'user');
+});
+
+// Watching it back is only worth having if you can say no.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(2000);
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(800);
+  check('the take is there to watch', await page.locator('#camrev').isVisible()
+    && (await page.locator('#camplay').getAttribute('src') || '').startsWith('blob:'));
+  check('  saying how long it runs and how big it is',
+    /\d:\d\d · [\d.]+ MB/.test(await page.locator('#camrevw').innerText()),
+    await page.locator('#camrevw').innerText());
+  await page.locator('#camrev button:has-text("Retake")').click({ timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 }).catch(() => {});
+  check('  turning it down throws it away', await page.evaluate(() => recorded === null));
+  check('  and brings the camera back', await page.locator('#camrev').isHidden()
+    && await page.evaluate(() => !!(camStream && camStream.getVideoTracks().length)));
+  check('  leaving nothing behind on the form', (await page.locator('#vsize').innerText()).trim() === '');
 });
 
 // Closing on a recording in progress is a stop, not a discard: what was filmed up to
@@ -854,12 +983,12 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
   await page.locator('#camgo').click();
   await page.waitForTimeout(2000);
-  await page.locator('#cam .camtop button').click();
+  await page.locator('#camx').click();
   await page.waitForTimeout(900);
   const rec = await page.evaluate(() => recorded && recorded.size);
   check('closing mid-recording keeps what was filmed', rec > 1024, `recorded: ${rec}`);
   check('  and still lets the camera go', await page.evaluate(() => camStream === null));
-  check('  and closes', await page.locator('#cam').isHidden());
+  check('  and hands it back to watch rather than binning it', await page.locator('#camrev').isVisible());
 });
 
 // What was recorded is what gets uploaded: no compression step, nothing re-encoded.
@@ -876,6 +1005,8 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(2500);
   await page.locator('#camgo').click();
   await page.waitForTimeout(800);
+  await page.locator('#camrev button:has-text("Use this")').click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
   const size = await page.evaluate(() => recorded.size);
 
   await page.locator('#dlg button.primary').click();

@@ -2,7 +2,7 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v24';
+const VERSION = 'quota-v25';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
