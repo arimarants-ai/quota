@@ -2,7 +2,7 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v27';
+const VERSION = 'quota-v28';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
@@ -16,12 +16,28 @@ self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => Promise.all(PRECACHE.map(u => c.add(u).catch(() => {})))));
 });
 
+// Everything this version needs is actually in its cache.
+const stocked = async cache => {
+  for (const u of PRECACHE) if (!await cache.match(u)) return false;
+  return true;
+};
+
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    // install takes whatever it can get rather than failing outright, so a bad moment on
+    // the network leaves this version short. Try the gaps once more here.
+    await Promise.all(PRECACHE.map(u => cache.match(u).then(hit => hit || cache.add(u).catch(() => {}))));
+    // And only let go of the previous version once this one can stand on its own.
+    // Deleting it while this one is incomplete is how an installed app ends up with no
+    // copy of the library at all and nothing to fall back on: the page loads, the import
+    // it cannot start without is not there, and all anyone sees is "Load failed".
+    if (await stocked(cache)) {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)));
+    }
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', e => {

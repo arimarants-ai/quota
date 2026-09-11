@@ -22,6 +22,10 @@ jobs:
       # and get the cheap failures out of the way.
       - run: node test/static.test.mjs
 
+      # The worker runs where nothing else does, and the way it fails is invisible until
+      # somebody's installed app will not start. Needs nothing installed either.
+      - run: node test/sw.test.mjs
+
       # The wheel rules live in the database, so they are checked against a real one.
       - run: sudo apt-get install -y --no-install-recommends postgresql
       - run: test/schema.test.sh

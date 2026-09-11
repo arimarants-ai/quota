@@ -356,7 +356,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v27';
+const BUILD = 'quota-v28';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -569,6 +569,13 @@ async function keepTz() {
 // that makes a fault like this findable is the stack and the build it happened on, and a
 // phone has no console to read them off. So the full text is kept and can be copied out.
 let lastErr = '';
+// Safari says "Load failed" and Chrome says "Failed to fetch" when a request never
+// reached anything. Neither means a thing to somebody holding a phone, and both look
+// like a fault in the app rather than in the way there.
+const plainly = m => !m ? 'something went wrong'
+  : /load failed|failed to fetch|networkerror|network request failed/i.test(m)
+    ? 'could not reach the server. Check your connection and try again.' : m;
+
 const showErr = (msg, detail) => {
   const e = $('#err');
   lastErr = `${msg}\n\n${detail || ''}\n${BUILD} · ${navigator.userAgent}`.trim();
@@ -601,7 +608,7 @@ async function runLoad() {
     }
     hideErr();
   } catch (e) {
-    showErr(navigator.onLine ? `Could not load: ${e.message || 'something went wrong'}` : 'You are offline. Showing what was already here.', e && e.stack);
+    showErr(navigator.onLine ? `Could not load: ${plainly(e.message)}` : 'You are offline. Showing what was already here.', e && e.stack);
   } finally {
     quiet--; S.booting = false; render();
   }
