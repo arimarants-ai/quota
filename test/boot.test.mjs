@@ -1235,6 +1235,39 @@ await withPage(SIGNED_IN, async page => {
   r = await set(full, 0);
   check('  and it comes back when the keyboard goes', !r.keys && r.vvb === '0px', JSON.stringify(r));
   check('    visible again', await page.evaluate(() => getComputedStyle($('#bar')).display) !== 'none');
+
+  // Halfway through the keyboard sliding in, the gap is a plausible toolbar. Following it
+  // there is the bar riding up the screen before it disappears.
+  r = await set(full - 140, 0);
+  check('  a gap caught mid-animation never lifts it', r.vvb === '0px' && r.keys, JSON.stringify(r));
+});
+
+// The keyboard is known the moment a field is tapped, which is before the viewport has
+// moved at all. That is what stops the bar travelling on the way out.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const shown = () => page.evaluate(() => getComputedStyle($('#bar')).display !== 'none');
+  check('the bar is there to begin with', await shown());
+
+  await page.locator('.cin input').first().focus();
+  await page.waitForTimeout(150);
+  check('  tapping a comment box puts it away at once', !await shown());
+  check('    with no viewport change needed', await page.evaluate(() => innerHeight === visualViewport.height));
+  check('    and without lifting it first',
+    await page.evaluate(() => document.documentElement.style.getPropertyValue('--vvb')) === '0px');
+
+  await page.locator('.cin input').first().blur();
+  await page.waitForTimeout(200);
+  check('  and gives it back when you are done', await shown());
+
+  // A range or a button is not a keyboard.
+  await page.evaluate(() => {
+    const r = document.createElement('input'); r.type = 'range'; r.id = 'probe';
+    document.body.append(r); r.focus();
+  });
+  await page.waitForTimeout(150);
+  check('  a control that summons no keyboard leaves it alone', await shown());
+  await page.evaluate(() => $('#probe').remove());
 });
 
 // The library can end a session without the app asking. The screen has to follow.

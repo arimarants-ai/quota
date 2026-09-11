@@ -356,7 +356,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v26';
+const BUILD = 'quota-v27';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1924,14 +1924,27 @@ addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(
 // Where the bottom of the screen really is. A fixed element is pinned to the layout
 // viewport, which during a URL-bar collapse or with a keyboard up is not what anyone is
 // looking at — which is the tab bar wandering off on its own.
+// Something is being typed into. Worth knowing separately from the viewport, because it
+// is true the instant the field is tapped, while the viewport only catches up as the
+// keyboard slides in — and reading it mid-animation is the bar visibly riding up the
+// screen before it goes away.
+const typing = () => {
+  const el = document.activeElement;
+  if (!el) return false;
+  if (el.tagName === 'TEXTAREA') return true;
+  return el.tagName === 'INPUT' && !/^(button|submit|reset|checkbox|radio|range|file|color|image)$/.test(el.type);
+};
 function fitBar() {
   const vv = self.visualViewport, root = document.documentElement;
-  if (!vv) return;
-  const gap = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
-  root.style.setProperty('--vvb', `${gap > 4 ? gap : 0}px`);
-  // A keyboard takes a large bite out of the viewport; a toolbar takes a sliver. Only the
-  // first is a reason to put the bar away.
-  root.classList.toggle('keys', gap > innerHeight * 0.2);
+  const keys = typing();
+  const gap = vv ? Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) : 0;
+  // One number, deliberately: a toolbar sliding away is tens of pixels and a keyboard is
+  // hundreds, so above this the bar is put away and below it the bar follows. Two
+  // thresholds would leave a band in between — exactly where a keyboard's opening frames
+  // land — in which the bar rides a long way up the screen before vanishing.
+  const KEYBOARD = 120;
+  root.style.setProperty('--vvb', `${keys || gap > KEYBOARD || gap <= 4 ? 0 : gap}px`);
+  root.classList.toggle('keys', keys || gap > KEYBOARD);
 }
 if (self.visualViewport) {
   visualViewport.addEventListener('resize', fitBar);
@@ -1939,6 +1952,10 @@ if (self.visualViewport) {
 }
 addEventListener('resize', fitBar);
 addEventListener('orientationchange', fitBar);
+addEventListener('focusin', fitBar);
+// focusout lands before the focusin that follows it, so moving between two fields would
+// flash the bar back for a frame. Let the focus settle first.
+addEventListener('focusout', () => setTimeout(fitBar, 0));
 fitBar();
 
 // Nothing here is allowed to leave the page blank. Paint first, then fill it in.
