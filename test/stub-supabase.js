@@ -43,7 +43,8 @@
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
   const rows = t => ({
-    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' }],
+    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
+      { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
     posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY, ...EXTRA, ...self.__posts],
@@ -62,17 +63,29 @@
   };
   // Writes are only tracked where a test needs to see the effect; everything else just
   // resolves the way PostgREST would.
+  // Searching for somebody is a filter the page builds as an or() string; the stub reads
+  // it back rather than pretending, so a broken one shows up as no matches.
+  const matches = (rows, or) => {
+    const m = /username\.ilike\.([^,]*)%,display_name\.ilike\.%([^,]*)%/.exec(or || '');
+    if (!m) return [];
+    const a = m[1], b = m[2];
+    return rows.filter(r => (r.username || '').toLowerCase().startsWith(a)
+      || (r.display_name || '').toLowerCase().includes(b));
+  };
   const chain = (t, st = { filters: {} }) => {
     const run = () => {
       if (st.op === 'delete' && t === 'wheel_days') {
         self.__ticks = self.__ticks.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
+      if (st.or != null) return { data: matches(rows(t), st.or), error: null };
       return st.op ? { data: null, error: null } : result(t);
     };
     const p = { then: (res, rej) => Promise.resolve(run()).then(res, rej) };
     for (const k of ['select', 'order', 'limit', 'in', 'upsert', 'update']) p[k] = () => chain(t, st);
+    p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
     p.insert = row => {
+      if (t === 'invites') self.__invited = { ...row };
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
       return chain(t, { ...st, op: 'insert' });

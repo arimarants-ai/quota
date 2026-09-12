@@ -1144,6 +1144,61 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.reel .bust p').first().innerText());
 });
 
+// ---- finding somebody to add
+// Typing a username blind meant a letter out of place looked exactly like an account that
+// was not there, which with more than a handful of people is most of the time.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => go('friends'));
+  await page.waitForTimeout(200);
+  check('the friends tab searches rather than asking you to spell it',
+    await page.locator('#fq').count() === 1 && await page.locator('#fq').getAttribute('placeholder') !== null);
+
+  await page.locator('#fq').fill('s');
+  await page.waitForTimeout(500);
+  check('  one letter is not a search', (await page.locator('#fsr').innerText()).trim() === '',
+    await page.locator('#fsr').innerText());
+
+  await page.locator('#fq').fill('sam');
+  await page.waitForTimeout(700);
+  const txt = await page.locator('#fsr').innerText();
+  check('  a name people actually have brings them up', /Sam Gamgee/.test(txt) && /@samwise/.test(txt), txt);
+  check('    by display name as well as username', /Sam\b/.test(txt) && /@sam\b/.test(txt), txt);
+  check('    with both names shown, not one', /@/.test(txt) && /Sam/.test(txt), txt);
+
+  await page.locator('#fq').fill('zzzznobody');
+  await page.waitForTimeout(700);
+  check('  and a name nobody has says so instead of letting you invite it',
+    /Nobody goes by that/.test(await page.locator('#fsr').innerText())
+    && await page.locator('#fsr button').count() === 0,
+    await page.locator('#fsr').innerText());
+
+  await page.locator('#fq').fill('rosie');
+  await page.waitForTimeout(700);
+  check('  somebody new can be added', await page.locator('#fsr button:has-text("Add")').count() === 1);
+  await page.locator('#fsr button:has-text("Add")').click();
+  await page.waitForTimeout(600);
+  const sent = await page.evaluate(() => self.__invited);
+  check('    and the request goes to them by id, not by a typed name', sent && sent.to_user === 'u4', JSON.stringify(sent));
+});
+
+// The list says where you already stand with somebody, so nothing is asked twice.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => go('friends'));
+  await page.locator('#fq').fill('ari');
+  await page.waitForTimeout(700);
+  check('you cannot add yourself', /You/.test(await page.locator('#fsr').innerText())
+    && await page.locator('#fsr button').count() === 0, await page.locator('#fsr').innerText());
+});
+
+// A post says who by both names, the way every app that has usernames does.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const top = await page.locator('.post .ov.top').first().innerText();
+  check('a post carries the name and the username', /Ari/.test(top) && /@ari/.test(top), top);
+});
+
 // ---- an app, not a page in a browser
 // Tapping a field used to zoom the whole screen in and never zoom back out. It was never
 // a gesture: iOS zooms into any focused field under 16px, and the comment box was 14.

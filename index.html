@@ -356,7 +356,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v28';
+const BUILD = 'quota-v29';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -383,7 +383,7 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 const $ = s => document.querySelector(s);
 const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -774,7 +774,7 @@ function feed(ps, showGroup) {
     // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
     return h + `<div class="card post"><div class="reel">
       <video playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
-      <div class="ov top">${av(u)}<div><div class="who">${esc(name(u))}</div><div class="when">${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
+      <div class="ov top">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
       <div class="play"><i></i></div>
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
       ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
@@ -866,9 +866,14 @@ function retryClip(btn, postId) {
 function friendsView() {
   const m = me(), incoming = S.invites.filter(i => i.type === 'friend' && i.to === m.id), outgoing = S.invites.filter(i => i.type === 'friend' && i.from === m.id);
   const person = (id, extra = '') => { const u = user(id); return `<div class="row">${av(u, 'lg')}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div>${extra}</div>`; };
-  return smallHdr('Friends') + `<div class="card"><b>Add a friend</b><form onsubmit="event.preventDefault();sendFriend(this)" class="row" style="margin-top:10px"><input name="username" value="@" oninput="if(!this.value.startsWith('@'))this.value='@'+this.value.replace(/@/g,'')" autocapitalize="none" autocomplete="off" spellcheck="false" required><button class="teal">Invite</button></form><p class="muted" style="margin-top:8px">They'll see your request under Friends and can accept it.</p></div>
+  return smallHdr('Friends') + `<div class="card"><b>Add a friend</b>
+  <form class="row" style="margin-top:10px" onsubmit="event.preventDefault()"><input id="fq" name="q" value="${esc(S.fq || '')}"
+    placeholder="Search by name or @username" autocapitalize="none" autocomplete="off" spellcheck="false"
+    oninput="findPeople(this.value)"></form>
+  <div id="fsr">${peopleList()}</div>
+  <p class="muted" style="margin-top:8px">They'll see your request under Friends and can accept it.</p></div>
   ${incoming.length ? `<h3>Requests</h3><div class="card list">` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') + `</div>` : ''}
-  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Invite someone by their username.</p></div>`}
+  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Search for someone above by their name or username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3><div class="card list">` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') + `</div>` : ''}`;
 }
 function pushCard() {
@@ -1289,15 +1294,82 @@ async function auth(f, mode) {
   } finally { render(); if (fresh) codesDlg(fresh, true); }
 }
 async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.open = null; S.tab = 'feed'; S.auth = 'welcome'; render(); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
-async function sendFriend(f) {
-  const uname = f.username.value.trim().toLowerCase().replace(/^@/, ''), m = me();
-  if (!uname) return alert('Type a username');
-  const u = await q(sb.from('profiles').select('id,username').eq('username', uname).maybeSingle());
-  if (!u) return alert('No user with that username');
-  if (u.id === m.id) return alert("That's you");
-  if (S.friends.includes(u.id)) return alert('Already friends');
-  if (S.invites.some(i => i.type === 'friend' && ((i.from === m.id && i.to === u.id) || (i.from === u.id && i.to === m.id)))) return alert('A request is already pending');
-  await q(sb.from('invites').insert({type: 'friend', from_user: m.id, to_user: u.id})); load();
+// ---- finding somebody to add
+// Typing a username into a box and pressing Invite meant guessing: a name with a letter
+// out of place looked exactly like a name that was not there, and with more than a
+// handful of people nobody can be expected to spell them from memory. So the box searches
+// and the invite goes to somebody the search actually found.
+let fTimer = null, fSeq = 0;
+function findPeople(v) {
+  S.fq = v;
+  clearTimeout(fTimer);
+  const term = v.trim().replace(/^@/, '');
+  if (term.length < 2) { S.frows = []; S.fbusy = false; S.ferr = ''; return paintPeople(); }
+  S.fbusy = true; S.ferr = '';
+  paintPeople();
+  fTimer = setTimeout(() => runSearch(term), 250);   // a request per keystroke is nobody's friend
+}
+
+async function runSearch(term) {
+  const seq = ++fSeq;
+  // Only what PostgREST's or() can carry: a comma or a bracket in the box would otherwise
+  // be read as more filters rather than as part of the name.
+  const safe = term.toLowerCase().replace(/[^a-z0-9_. -]/g, '');
+  if (!safe) { S.frows = []; S.fbusy = false; return paintPeople(); }
+  let rows = [];
+  try {
+    const {data, error} = await sb.from('profiles').select('id,username,display_name,avatar_path')
+      .or(`username.ilike.${safe}%,display_name.ilike.%${safe}%`).limit(10);
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) {
+    if (seq !== fSeq) return;
+    S.fbusy = false; S.ferr = plainly(e.message);
+    return paintPeople();
+  }
+  if (seq !== fSeq) return;              // a later keystroke has already gone out
+  // Remembered, so the list can show a name and a picture for somebody not otherwise known.
+  rows.forEach(r => { S.profiles[r.id] = {...(S.profiles[r.id] || {}), ...r}; });
+  S.frows = rows; S.fbusy = false; S.ferr = '';
+  paintPeople();
+}
+
+// Where somebody already stands, so the button says the true thing.
+function standing(id) {
+  const m = me();
+  if (id === m.id) return 'you';
+  if (S.friends.includes(id)) return 'friends';
+  if (S.invites.some(i => i.type === 'friend' && i.from === m.id && i.to === id)) return 'sent';
+  if (S.invites.some(i => i.type === 'friend' && i.from === id && i.to === m.id)) return 'asked';
+  return 'none';
+}
+
+function peopleList() {
+  const term = (S.fq || '').trim().replace(/^@/, '');
+  if (term.length < 2) return '';
+  if (S.ferr) return `<p class="warn" style="margin-top:12px">${esc(S.ferr)}</p>`;
+  if (S.fbusy) return `<p class="muted" style="margin-top:12px">Searching…</p>`;
+  if (!(S.frows || []).length) return `<p class="muted" style="margin-top:12px">Nobody goes by that.</p>`;
+  return `<div class="list" style="margin-top:10px">` + S.frows.map(u => {
+    const st = standing(u.id);
+    const right = st === 'you' ? `<span class="muted">You</span>`
+      : st === 'friends' ? `<span class="muted">Friends</span>`
+      : st === 'sent' ? `<span class="muted">Requested</span>`
+      : st === 'asked' ? `<span class="muted">Asked you</span>`
+      : `<button class="small primary" onclick="inviteFriend('${u.id}')">Add</button>`;
+    return `<div class="row">${av(u, 'lg')}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div>${right}</div>`;
+  }).join('') + `</div>`;
+}
+
+// Painted on its own rather than through render(), which replaces the whole screen and
+// would take the caret out of the box being typed into.
+function paintPeople() { const el = $('#fsr'); if (el) el.innerHTML = peopleList(); }
+
+async function inviteFriend(id) {
+  if (standing(id) !== 'none') return;
+  await q(sb.from('invites').insert({type: 'friend', from_user: me().id, to_user: id}));
+  await load();
+  paintPeople();
 }
 async function accept(id) { await q(sb.rpc('accept_invite', {invite_id: id})); load(); }
 async function decline(id) { await q(sb.from('invites').delete().eq('id', id)); load(); }
