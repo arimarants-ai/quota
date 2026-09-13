@@ -32,12 +32,15 @@ let base = '';
 let uploadReply = { status: 200, body: '{}', hold: null };
 let lastUpload = null;                  // the file bytes as they actually went over the wire
 // The body is multipart; the file is the part between the blank line after its own
-// headers and the boundary that follows.
+// headers and the boundary that follows. Anchored on the filename rather than on a
+// content type, since proof is a clip or a picture and both come through here.
 function filePart(buf, contentType) {
   const b = /boundary=(?:"([^"]+)"|([^;]+))/.exec(contentType || '');
   if (!b) return null;
   const mark = Buffer.from(`--${b[1] || b[2]}`);
-  const start = buf.indexOf(Buffer.from('\r\n\r\n'), buf.indexOf(Buffer.from('Content-Type: video')));
+  const named = buf.indexOf(Buffer.from('filename="'));
+  if (named < 0) return null;
+  const start = buf.indexOf(Buffer.from('\r\n\r\n'), named);
   if (start < 0) return null;
   const end = buf.indexOf(mark, start);
   return buf.subarray(start + 4, end < 0 ? buf.length : end - 2);
@@ -1142,6 +1145,170 @@ await withPage(SIGNED_IN, async page => {
     /format this device cannot play/.test(await page.locator('.reel .bust p').first().innerText())
     && !(await page.evaluate(() => self.__resigned)),
     await page.locator('.reel .bust p').first().innerText());
+});
+
+// ---- proof can be a picture
+// Nothing new is stored for it: which one a post is, is read off the file, so every post
+// that already exists is still a clip.
+await withPage({ ...SIGNED_IN, photos: true }, async page => {
+  await settle(page);
+  const kinds = await page.evaluate(() => S.posts.slice(0, 2).map(p => `${p.path}:${isPhoto(p) ? 'photo' : 'clip'}`));
+  check('a jpg is a picture and an mp4 is not', kinds.join(' ') === 'p.mp4:clip p.jpg:photo', kinds.join(' '));
+
+  const reels = page.locator('.post .reel');
+  check('  the picture is drawn as one, not put in a player',
+    await reels.nth(1).locator('img').count() === 1 && await reels.nth(1).locator('video').count() === 0);
+  check('    with no play button over it', await reels.nth(1).locator('.play').count() === 0);
+  check('  and the clip is still a clip', await reels.nth(0).locator('video').count() === 1);
+  check('  a picture waits to be near the screen like everything else',
+    await reels.nth(1).locator('img').getAttribute('data-src') !== null);
+});
+
+// A picture that will not load says so in its own words.
+await withPage({ ...SIGNED_IN, photos: true, noSign: true, resignFails: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    const im = document.querySelectorAll('.post .reel img')[0];
+    clipBust(im, S.posts.find(p => isPhoto(p)).id, false);
+  });
+  await page.waitForTimeout(500);
+  check('a picture that will not load is called a picture',
+    /picture could not be loaded/.test(await page.locator('.reel.bust p').first().innerText()),
+    await page.locator('.reel.bust p').first().innerText());
+});
+
+// The camera takes either, and says which it is about to take.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  check('the camera starts on video', await page.locator('#modevid').evaluate(b => b.classList.contains('on')));
+  check('  with a microphone to cut', await page.locator('#cammic').isVisible());
+
+  await page.locator('#modepic').click();
+  await page.waitForTimeout(150);
+  check('  and can be switched to photo', await page.locator('#modepic').evaluate(b => b.classList.contains('on')));
+  check('    where there is no sound to cut', await page.locator('#cammic').isHidden());
+
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(700);
+  const shot = await page.evaluate(() => recorded && {size: recorded.size, type: recorded.type, name: recorded.name, cam: !!recorded.fromCamera});
+  check('  the shutter takes a picture', shot && shot.type === 'image/jpeg' && shot.size > 1024, JSON.stringify(shot));
+  check('    named so the feed can tell what it is', shot && /\.jpg$/.test(shot.name), JSON.stringify(shot));
+  check('    and never re-encoded', shot && shot.cam === true, JSON.stringify(shot));
+  check('  offered back as a picture, not in a player',
+    await page.locator('#camrev').isVisible() && await page.locator('#camshot').isVisible()
+    && await page.locator('#camplay').isHidden());
+  check('    and the form says it has one', /Photo/.test(await page.locator('#vsize').innerText()),
+    await page.locator('#vsize').innerText());
+  check('  with the camera let go of', await page.evaluate(() => camStream === null));
+});
+
+// A picture posts with nothing to compress and nothing to wait for.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  lastUpload = null;
+  uploadReply = { status: 200, body: '{}', hold: null };
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=amount]').fill('20');
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  await page.locator('#modepic').click();
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(700);
+  await page.locator('#camrev button:has-text("Use this")').click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const size = await page.evaluate(() => recorded.size);
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(2500);
+  check('a picture posts without a compressing step',
+    !(await labels(page)).some(t => /Compressing/.test(t)), (await labels(page)).join(' -> '));
+  check('  and what went up is the picture that was taken',
+    lastUpload && lastUpload.length === size, `sent ${lastUpload && lastUpload.length} of ${size}`);
+  const sent = await page.evaluate(() => self.__posts.at(-1));
+  check('  stored under a name that says it is one', sent && /\.jpg$/.test(sent.video_path), JSON.stringify(sent));
+});
+
+// A file picked from the phone can be a picture too.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  check('choosing a file offers pictures as well as clips',
+    /image/.test(await page.locator('#dlg input[name=video]').getAttribute('accept')),
+    await page.locator('#dlg input[name=video]').getAttribute('accept'));
+});
+
+// ---- the days a group actually expects anything
+// A group that only runs on certain days should not treat the other days as missed. The
+// streak steps over them; it neither counts them nor breaks on them.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const r = await page.evaluate(() => {
+    const g = S.groups[0], u = 'u1';
+    const day = n => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
+    const dow = n => new Date(`${day(n)}T00:00`).getDay();
+    // Hit the quota today and four days back, and miss the three days in between.
+    S.totals = [0, 4].map(n => ({g: g.id, u, d: day(n), m: 'pushups', n: 50}));
+    S.posts = [];
+    const everyday = streak(g, u);
+    // Now say the group only expects those two days of the week.
+    g.active_days = [dow(0), dow(4)];
+    return {everyday, rest: streak(g, u), days: g.active_days,
+      onToday: onDay(g, day(0)), onGap: onDay(g, day(1))};
+  });
+  check('missing days in between breaks a streak when every day counts', r.everyday === 1, JSON.stringify(r));
+  check('  but not when those days were never expected', r.rest === 2, JSON.stringify(r));
+  check('  and a day the group does not run on is known to be one', r.onToday && !r.onGap, JSON.stringify(r));
+});
+
+// The completion rate is out of the days there was something to do, not out of thirty.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const r = await page.evaluate(() => {
+    const g = S.groups[0], u = 'u1';
+    const day = n => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
+    S.totals = [{g: g.id, u, d: day(1), m: 'pushups', n: 50}];
+    const all = rate(g, u);
+    g.active_days = [new Date(`${day(1)}T00:00`).getDay()];
+    return {all, one: rate(g, u)};
+  });
+  check('a rate is out of every day when every day counts', r.all && r.all.of === 30, JSON.stringify(r));
+  // One weekday comes round four or five times in thirty days, and only those were ever
+  // a chance to hit the quota.
+  check('  and out of the days that counted when only some do',
+    r.one && r.one.of >= 4 && r.one.of <= 5 && r.one.pct > r.all.pct, JSON.stringify(r));
+});
+
+// And the group says so rather than showing everyone as behind.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  // Set after the load, not before: go() reloads, and the stub has no such column.
+  await page.evaluate(() => { S.tab = 'groups'; S.open = null;
+    S.groups[0].active_days = [(new Date().getDay() + 3) % 7];   // never today
+    render();
+  });
+  await page.waitForTimeout(200);
+  const txt = await page.innerText('#app');
+  check('a group not running today says it is a rest day', /rest day/i.test(txt), txt.slice(0, 300));
+});
+
+// Picking the days is a row of taps, and leaving it alone means every day.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => groupDlg());
+  await page.waitForTimeout(200);
+  check('a new group does not ask about days unless you want it to',
+    await page.locator('#gdays').isHidden() && await page.locator('#dlg input[name=somedays]').isChecked() === false);
+  await page.locator('#dlg input[name=somedays]').check();
+  await page.waitForTimeout(150);
+  check('  asking brings up all seven', await page.locator('#gdays').isVisible()
+    && await page.locator('#gdays input[name=day]').count() === 7);
+  check('  with all of them on to begin with',
+    await page.locator('#gdays input[name=day]:checked').count() === 7);
 });
 
 // ---- finding somebody to add

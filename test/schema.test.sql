@@ -501,3 +501,41 @@ begin
 end $$;
 
 \echo 'PASS: wheels schema'
+
+-- v13: a group's rest days. All seven by default, and never nonsense.
+do $$
+declare gid bigint;
+begin
+  insert into auth.users (id) values ('00000000-0000-0000-0000-0000000000d1') on conflict do nothing;
+  insert into public.profiles (id, username) values ('00000000-0000-0000-0000-0000000000d1', 'restdays') on conflict do nothing;
+  insert into public.groups (name, quotas, created_by)
+    values ('every day', '[{"metric":"pushups","target":10}]', '00000000-0000-0000-0000-0000000000d1')
+    returning id into gid;
+  if (select active_days from public.groups where id = gid) <> array[0,1,2,3,4,5,6]::smallint[] then
+    raise exception 'a group with nothing said about days should expect all seven';
+  end if;
+
+  update public.groups set active_days = array[1,3,5]::smallint[] where id = gid;
+  if (select array_length(active_days, 1) from public.groups where id = gid) <> 3 then
+    raise exception 'picking days did not stick';
+  end if;
+
+  begin
+    update public.groups set active_days = array[]::smallint[] where id = gid;
+    raise exception 'a group expecting nothing on any day should not be allowed';
+  exception when check_violation then null; end;
+
+  begin
+    update public.groups set active_days = array[0,9]::smallint[] where id = gid;
+    raise exception 'there is no ninth day of the week';
+  exception when check_violation then null; end;
+end $$;
+
+-- v13: proof can be a picture as well as a clip.
+do $$
+begin
+  if not (select allowed_mime_types @> array['image/*'] and allowed_mime_types @> array['video/*']
+          from storage.buckets where id = 'proof') then
+    raise exception 'the proof bucket should take both';
+  end if;
+end $$;

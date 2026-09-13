@@ -7,6 +7,8 @@
   const err = m => { const e = new Error(m); e.status = /jwt|expired/i.test(m) ? 401 : 500; return e; };
   // Enough of a feed to render a post: one group the user is in, and one post in it.
   const POST = { id: 1, group_id: 1, user_id: 'u1', metric: 'pushups', amount: 50, caption: 'fifty in the bag', video_path: 'p.mp4', day: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString() };
+  // Proof is a clip or a picture, and the feed has to tell them apart off the file alone.
+  const SHOT = { ...POST, id: 2, caption: 'and a picture', video_path: 'p.jpg' };
   // Sam hit the quota on 3 of the last 4 days; Ari only today. Enough to order a board.
   const ago = n => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
   // Long enough to have clips well off the screen, for the cases about what a feed does
@@ -47,7 +49,7 @@
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...HISTORY, ...EXTRA, ...self.__posts],
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts],
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,

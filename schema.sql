@@ -823,3 +823,24 @@ begin
   select * into out from public.spins where id = p_spin;
   return out;
 end $$;
+
+-- ============================================================
+-- v13 (rest days and pictures): safe to run on an existing project.
+-- ============================================================
+
+-- The days of the week a group's quota is actually expected on: 0 is Sunday, 6 is
+-- Saturday. Every group that already exists gets all seven, which is what it has always
+-- meant. A day not in here is a rest day: nothing is owed on it, and skipping it leaves a
+-- streak where it was rather than ending it.
+alter table public.groups add column if not exists active_days smallint[] not null default '{0,1,2,3,4,5,6}';
+alter table public.groups drop constraint if exists groups_active_days_sane;
+-- coalesce, because array_length of an empty array is null rather than 0, and a check
+-- that evaluates to null passes: a group expecting nothing on any day would slip through.
+alter table public.groups add constraint groups_active_days_sane check (
+  coalesce(array_length(active_days, 1), 0) between 1 and 7
+  and active_days <@ array[0,1,2,3,4,5,6]::smallint[]
+);
+
+-- Proof can be a picture as well as a clip. Which one a post is, is read off the file
+-- name, so nothing new is stored and every post already in here is still a clip.
+update storage.buckets set allowed_mime_types = array['video/*', 'image/*'] where id = 'proof';

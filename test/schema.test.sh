@@ -39,6 +39,12 @@ create schema if not exists auth;
 create table auth.users (id uuid primary key);
 create function auth.uid() returns uuid language sql stable as
   $fn$ select nullif(current_setting('test.uid', true), '')::uuid $fn$;
+-- Enough of Supabase's storage schema for the bucket statements to run rather than be
+-- cut out of the file. Only the columns schema.sql actually touches.
+create schema if not exists storage;
+create table storage.buckets (id text primary key, name text, public boolean,
+  file_size_limit bigint, allowed_mime_types text[]);
+insert into storage.buckets (id, name) values ('proof', 'proof'), ('avatars', 'avatars');
 EOF
 
 # The tables and helper the wheels block builds on, plus the block itself, taken straight

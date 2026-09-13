@@ -114,7 +114,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 /* posts */
 .post{padding:0;overflow:hidden}
 .reel{position:relative;aspect-ratio:4/5;background:#000;color:#fff}
-.reel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
+.reel video,.reel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:block} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
 .reel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);pointer-events:none}
 .reel .ov{position:absolute;left:0;right:0;padding:14px;z-index:2;pointer-events:none}
 .reel .ov.top{top:0;display:flex;align-items:center;gap:10px;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent)}
@@ -133,7 +133,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .bust{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;gap:12px;
   align-items:center;justify-content:center;padding:24px;text-align:center;background:rgba(0,0,0,.72)}
 .reel.bust .bust{display:flex}
-.reel.bust .play,.reel.bust video{display:none}
+.reel.bust .play,.reel.bust video,.reel.bust img{display:none}
 .reel .bust p{font-size:14px;font-weight:700;line-height:1.4}
 .reel .bust button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.5);padding:8px 16px}
 /* The caption stays up while the video plays. The gradient behind it shrinks instead of
@@ -225,6 +225,23 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .camaux.on{background:var(--acc);border-color:transparent}
 .camaux[hidden]{display:none}
 .camaux[disabled]{opacity:.35}
+/* Pick the days. Seven of anything on a phone wants to be a row of taps, not a menu. */
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.days label{display:block;position:relative}
+.days input{position:absolute;opacity:0;width:100%;height:100%;margin:0;left:0;top:0}
+.days span{display:grid;place-items:center;height:40px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);font-weight:800;font-size:13px;color:var(--muted)}
+.days input:checked + span{background:var(--teal);border-color:var(--teal);color:#fff}
+#gdays[hidden]{display:none}
+/* Which of the two the shutter takes. Sits where a phone camera puts it: just above it. */
+.cammode{position:absolute;left:0;right:0;bottom:calc(112px + env(safe-area-inset-bottom));z-index:2;
+  display:flex;justify-content:center;gap:6px}
+.cammode button{background:rgba(0,0,0,.45);color:rgba(255,255,255,.7);border-radius:999px;padding:7px 16px;font-size:13px;font-weight:800}
+.cammode button.on{background:#fff;color:#111}
+.cammode[hidden]{display:none}
+.camrev img{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
+.camrev img[hidden],.camrev video[hidden]{display:none}
+.shutter.pic{background:#fff}
 .camzoom{position:absolute;left:0;right:0;bottom:calc(128px + env(safe-area-inset-bottom));z-index:2;padding:0 28px}
 .camzoom[hidden]{display:none}
 .camzoom input{width:100%}
@@ -320,6 +337,10 @@ dialog h2{font-size:20px;margin-bottom:2px}
     <input type="range" id="camzoomr" aria-label="Zoom" oninput="setZoom(this.value)">
   </div>
   <p class="camcount" id="camcount" hidden></p>
+  <div class="cammode" id="cammode">
+    <button type="button" id="modevid" class="on" onclick="setMode('video')">Video</button>
+    <button type="button" id="modepic" onclick="setMode('photo')">Photo</button>
+  </div>
   <div class="cambot">
     <button type="button" id="camtimer" class="camaux" onclick="cycleTimer()" aria-label="Self timer">Off</button>
     <button type="button" id="camgo" class="shutter" onclick="shutter()" aria-label="Record" disabled></button>
@@ -329,6 +350,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
   </div>
   <div class="camrev" id="camrev" hidden>
     <video id="camplay" playsinline controls loop></video>
+    <img id="camshot" alt="" hidden>
     <p class="camrevw" id="camrevw"></p>
     <div class="row">
       <button type="button" onclick="retake()">Retake</button>
@@ -356,7 +378,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v29';
+const BUILD = 'quota-v30';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -397,7 +419,19 @@ const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.i
 const doneWith = (g, uid, metric, sp, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day
   && t.sp === sp.id && t.ch === effChallenge(sp)).reduce((a, t) => a + t.n, 0);
 const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
+// Proof is a clip or a picture. Which one is read off the file, so nothing new had to be
+// stored and every post that already exists is a clip, as it was.
+const IMAGE = /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i;
+const isPhoto = p => IMAGE.test(p.path || '');
 const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
+// Which days of the week the quota is actually expected on. Nothing set, or all seven,
+// means every day — which is what every group had before this existed.
+const ALLDAYS = [0, 1, 2, 3, 4, 5, 6];
+const DAYNAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const activeDays = g => Array.isArray(g.active_days) && g.active_days.length ? g.active_days : ALLDAYS;
+const everyDay = g => activeDays(g).length >= 7;
+const onDay = (g, d = today()) => activeDays(g).includes(new Date(`${d}T00:00`).getDay());
+const restText = g => everyDay(g) ? '' : activeDays(g).slice().sort().map(n => DAYNAMES[n]).join(', ');
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
 const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
 // A wheel set to break the streak does it on the day its cycle closes, not on the day it
@@ -416,8 +450,33 @@ function brokeStreak(g, uid, day) {
 // hit() itself stays about the quota alone, so the chips and the completion rate keep
 // meaning what they say.
 const goodDays = (g, uid) => { const d = hitDays(g, uid); for (const x of [...d]) if (brokeStreak(g, uid, x)) d.delete(x); return d; };
-const streak = (g, uid) => { const days = goodDays(g, uid); let n = 0, i = days.has(today()) ? 0 : 1; while (days.has(daysAgo(i))) { n++; i++; } return n; };
-const best = (g, uid) => { const days = [...goodDays(g, uid)].sort(); let b = 0, n = 0, prev = null; for (const d of days) { n = prev && (Date.parse(d) - Date.parse(prev)) === 864e5 ? n + 1 : 1; b = Math.max(b, n); prev = d; } return b; };
+// A day the group does not expect anything on is stepped over rather than counted or held
+// against anyone: skipping a rest day is not a missed day, it is a rest day.
+const streak = (g, uid) => {
+  const days = goodDays(g, uid);
+  let n = 0, i = days.has(today()) ? 0 : 1;
+  for (let guard = 0; guard < 400; guard++) {
+    const d = daysAgo(i);
+    if (!onDay(g, d)) { i++; continue; }
+    if (!days.has(d)) break;
+    n++; i++;
+  }
+  return n;
+};
+// Between two days that both counted, a run survives if everything in between was a rest
+// day. A gap longer than a couple of months is not a streak by any reading.
+const allRest = (g, from, to) => {
+  const a = dayNo(from), b = dayNo(to);
+  if (b <= a || b - a > 60) return false;
+  for (let x = a + 1; x < b; x++) if (onDay(g, fromDayNo(x))) return false;
+  return true;
+};
+const best = (g, uid) => {
+  const days = [...goodDays(g, uid)].sort();
+  let b = 0, n = 0, prev = null;
+  for (const d of days) { n = prev && allRest(g, prev, d) ? n + 1 : 1; b = Math.max(b, n); prev = d; }
+  return b;
+};
 // ---- wheels
 // Cycles are counted in whole days from the anchor, so everyone in the group is always on
 // the same one. Date strings are parsed as UTC on both sides, so a clock change in the
@@ -488,7 +547,7 @@ function rate(g, uid) {
   for (let i = 1; i <= 30; i++) {
     const d = daysAgo(i);
     if (Date.parse(`${d}T23:59`) < began) break;
-    days.push(d);
+    if (onDay(g, d)) days.push(d);         // a rest day was never a chance to hit the quota
   }
   if (!days.length) return null;
   const n = days.filter(d => hit(g, uid, d)).length;
@@ -740,9 +799,12 @@ function feedView() {
 }
 function groupCard(g) {
   const m = me(), doneIds = g.members.filter(id => hit(g, id)), st = streak(g, m.id);
-  return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><h2>${esc(g.name)}<span>${doneIds.length} of ${g.members.length} done${st ? ` · ${st} day streak` : ''}</span></h2>
+  return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><h2>${esc(g.name)}<span>${
+    onDay(g) ? `${doneIds.length} of ${g.members.length} done` : 'rest day'}${st ? ` · ${st} day streak` : ''}</span></h2>
     ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="width:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
-    <div class="ppl">${g.members.map(id => av(user(id), hit(g, id) ? '' : 'todo')).join('')}<span class="muted">${doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
+    <div class="ppl">${g.members.map(id => av(user(id), hit(g, id) ? '' : 'todo')).join('')}<span class="muted">${
+      !onDay(g) ? `rest day · ${esc(restText(g))}`
+      : doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
 }
 function groupsView() {
   const mine = myGroups(), invites = S.invites.filter(i => i.type === 'group' && i.to === me().id && S.groups.some(g => g.id === i.groupId));
@@ -755,7 +817,8 @@ function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
   return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="S.open=null;render()">‹ Groups</button>
   <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
-    <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}</div>
+    <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
+      everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div></div>
   <h3>Today</h3>
@@ -773,9 +836,11 @@ function feed(ps, showGroup) {
     const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
     // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
     return h + `<div class="card post"><div class="reel">
-      <video playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>
+      ${isPhoto(p)
+        ? `<img alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
+        : `<video playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>`}
       <div class="ov top">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
-      <div class="play"><i></i></div>
+      ${isPhoto(p) ? '' : `<div class="play"><i></i></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
       ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
       <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(name(user(c.userId)))}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
@@ -795,14 +860,14 @@ function feed(ps, showGroup) {
 let clipObs = null;
 const attachClip = v => { delete v.dataset.idle; if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src; };
 function releaseClip(v) {
-  if (!v.getAttribute('src') || !v.paused) return;
+  if (!v.getAttribute('src') || (v.tagName === 'VIDEO' && !v.paused)) return;
   v.dataset.idle = '1';                    // so letting go is not mistaken for a failure
   v.removeAttribute('src');
   v.load();
 }
 function watchClips() {
   if (clipObs) clipObs.disconnect();
-  const vs = [...document.querySelectorAll('.reel video')];
+  const vs = [...document.querySelectorAll('.reel video,.reel img')];
   // Without an observer there is no way to tell what is on screen, so load them all and
   // accept the old behaviour rather than showing nothing.
   if (!self.IntersectionObserver) return vs.forEach(attachClip);
@@ -837,14 +902,14 @@ async function clipBust(v, postId, play) {
   // Code 4 is the browser saying it cannot decode this at all. A newer URL will not help
   // — the clip was recorded in something this device has no decoder for.
   if (v.error && v.error.code === 4) return bustMsg(v, 'This clip is in a format this device cannot play.');
-  if (v.dataset.retried) return bustMsg(v, 'This clip could not be loaded.');
+  const what = v.tagName === 'IMG' ? 'picture' : 'clip';
+  if (v.dataset.retried) return bustMsg(v, `This ${what} could not be loaded.`);
   v.dataset.retried = '1';
   const url = await freshUrl(postId);
-  if (!url) return bustMsg(v, 'This clip could not be loaded.');
+  if (!url) return bustMsg(v, `This ${what} could not be loaded.`);
   v.dataset.src = url;
   v.src = url;
-  v.load();
-  if (play) v.play().catch(() => {});
+  if (v.tagName === 'VIDEO') { v.load(); if (play) v.play().catch(() => {}); }
 }
 function playClip(v, postId) {
   attachClip(v);                           // tapped before it came into view: give it back its source
@@ -857,7 +922,7 @@ function playClip(v, postId) {
   if (go && go.catch) go.catch(() => clipBust(v, postId, true));
 }
 function retryClip(btn, postId) {
-  const reel = btn.closest('.reel'), v = reel.querySelector('video');
+  const reel = btn.closest('.reel'), v = reel.querySelector('video,img');
   reel.classList.remove('bust');
   delete v.dataset.retried;
   clipBust(v, postId, true);
@@ -1219,10 +1284,10 @@ function submitDlg(gid) {
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
-    <label>Video proof <span style="font-weight:500">(up to ${MAX_MB} MB)</span></label>
+    <label>Proof <span style="font-weight:500">(a clip or a picture, up to ${MAX_MB} MB)</span></label>
     <div class="row"><button type="button" class="teal grow" onclick="openCam()">Record</button>
       <button type="button" class="grow" onclick="this.closest('form').video.click()">Choose a file</button></div>
-    <input name="video" type="file" accept="video/*" hidden onchange="vidPick(this)">
+    <input name="video" type="file" accept="video/*,image/*" hidden onchange="vidPick(this)">
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     ${challengeBlock(g)}
@@ -1235,6 +1300,12 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
     <label>Group goal</label><input name="goal" value="${esc(g.goal)}" placeholder="e.g. 100 pushups a day for 30 days">
     <label>Daily quota (per person)</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
+    <label class="check" style="margin-top:16px"><input type="checkbox" name="somedays" ${everyDay(g) ? '' : 'checked'}
+      onchange="$('#gdays').hidden=!this.checked"><span>Only on certain days</span></label>
+    <div id="gdays" ${everyDay(g) ? 'hidden' : ''}>
+      <p class="muted" style="margin-bottom:8px">The quota is only expected on these. Missing any other day leaves a streak alone.</p>
+      <div class="days">${DAYNAMES.map((d, n) => `<label><input type="checkbox" name="day" value="${n}" ${activeDays(g).includes(n) ? 'checked' : ''}><span>${d[0]}</span></label>`).join('')}</div>
+    </div>
     ${g.id ? '' : `<p class="muted" style="margin-top:12px">You can invite friends once the group is created.</p>`}
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
@@ -1261,9 +1332,12 @@ function vidPick(input) {
   // A clip over the cap is no longer necessarily a clip that gets turned away: anything
   // big can be re-encoded to 720p first, and it is the result that has to fit. Whether it
   // is worth doing depends on how long the clip runs, which is not known until it is read.
-  const shrinks = !!mp4Type() && f.size >= COMPRESS_OVER, over = f.size > MAX_MB * 1048576;
+  const pic = /^image\//.test(f.type) || IMAGE.test(f.name || '');
+  const shrinks = pic ? f.size >= PHOTO_OVER : (!!mp4Type() && f.size >= COMPRESS_OVER);
+  const over = f.size > MAX_MB * 1048576;
   el.className = over && !shrinks ? 'warn' : 'muted';
   el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`
+    : pic ? `${mb(f.size)} MB${shrinks ? ' · scaled down before it uploads' : ''}`
     : shrinks ? `${mb(f.size)} MB · shrunk to 720p first if that is quicker than sending it` : `${mb(f.size)} MB`;
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
@@ -1382,7 +1456,15 @@ async function saveGroup(f, id) {
   const quotas = metrics.map((m, i) => ({metric: m.trim(), target: +targets[i]})).filter(qq => qq.metric && qq.target > 0);
   if (!quotas.length) return alert('Add at least one metric');
   working(f, 'Saving…');
-  const gid = id ? (await q(sb.from('groups').update({name: gname, goal, quotas}).eq('id', id)), id) : await q(sb.rpc('create_group', {p_name: gname, p_goal: goal, p_quotas: quotas}));
+  // All seven, or none picked at all, is stored as all seven rather than as nothing: it
+  // reads the same and leaves no row where "no days" could be mistaken for an empty group.
+  const picked = fd.get('somedays') ? fd.getAll('day').map(Number).sort() : [];
+  const active_days = picked.length ? picked : [...ALLDAYS];
+  const gid = id ? (await q(sb.from('groups').update({name: gname, goal, quotas, active_days}).eq('id', id)), id)
+                 : await q(sb.rpc('create_group', {p_name: gname, p_goal: goal, p_quotas: quotas}));
+  // create_group keeps the signature it always had, so an app that has not been updated
+  // yet still works; the days follow in their own write.
+  if (!id && active_days.length < 7) await q(sb.from('groups').update({active_days}).eq('id', gid));
   dlg(); await load(); openGroup(gid);
 }
 async function saveProfile(f) {
@@ -1410,7 +1492,7 @@ const REC_MAX = 120;                       // seconds; 50 MB at this bitrate is 
 const TIMERS = [0, 3, 10];                 // the count-in options, in the order the button cycles
 let camStream = null, camRec = null, camChunks = [], camTimer = null, camWake = null, camStart = 0;
 let camCount = null;                       // the count-in, so closing can cancel it
-let camTimerIdx = 0, camMuted = false;
+let camTimerIdx = 0, camMuted = false, camMode = 'video';
 let camTake = null;                        // the clip being reviewed, and its object URL
 let recorded = null;                       // what the camera produced, used in place of a picked file
 
@@ -1531,8 +1613,14 @@ async function toggleTorch() {
 
 // One place that decides what every control looks like, so a flip or a stop cannot leave
 // one of them saying something that is no longer true.
+function setMode(m) {
+  if (recording() || camCount) return;
+  camMode = m;
+  paintCam();
+}
+
 function paintCam() {
-  const rec = recording(), busy = rec || !!camCount;
+  const rec = recording(), busy = rec || !!camCount, pic = camMode === 'photo';
   $('#cammic').classList.toggle('on', camMuted);
   // An SVG path is not an HTMLElement, so it has no .hidden — assigning one silently
   // makes up a property and leaves the attribute exactly where it was.
@@ -1542,6 +1630,11 @@ function paintCam() {
   $('#camtimer').disabled = busy;
   $('#camflip').disabled = busy;
   $('#camgo').classList.toggle('on', rec);
+  $('#camgo').classList.toggle('pic', pic && !rec);
+  $('#modevid').classList.toggle('on', !pic);
+  $('#modepic').classList.toggle('on', pic);
+  $('#cammode').hidden = busy;             // mid-take there is nothing to switch to
+  $('#cammic').hidden = pic;               // a picture has no sound to cut
   $('#camx').hidden = false;
 }
 
@@ -1582,20 +1675,22 @@ function cancelCount() {
   $('#camcount').hidden = true;
 }
 
-// The shutter: stop if running, count in if a timer is set, otherwise start now.
+// The shutter: stop if running, count in if a timer is set, otherwise go now — and what
+// "go" means is whichever of the two the camera is set to.
 function shutter() {
   if (!camStream) return;
   if (recording()) return camRec.stop();
   if (camCount) return cancelCount(), paintCam();     // a second tap during the count-in calls it off
+  const go = camMode === 'photo' ? takePhoto : startRec;
   const secs = TIMERS[camTimerIdx];
-  if (!secs) return startRec();
+  if (!secs) return go();
   let left = secs;
   const tick = () => { $('#camcount').textContent = left; $('#camcount').hidden = false; };
   tick();
   camCount = setInterval(() => {
     if (--left > 0) return tick();
     cancelCount();
-    startRec();
+    go();
   }, 1000);
   paintCam();                              // only once camCount is set, or nothing reads as busy
 }
@@ -1635,9 +1730,25 @@ function showRev(on) {
   $('#camrev').hidden = !on;
   $('#camx').hidden = on;                  // in review there are two clear answers, and ✕ is neither
   if (on) return;
-  const pl = $('#camplay');
+  const pl = $('#camplay'), im = $('#camshot');
   if (pl) { try { pl.pause(); } catch (e) {} pl.removeAttribute('src'); pl.load(); }
+  if (im) im.removeAttribute('src');
   if (camTake) { URL.revokeObjectURL(camTake); camTake = null; }
+}
+
+// A still off the same stream, at whatever the camera is giving us. The preview is
+// mirrored for the front camera but what is drawn here is not, for the same reason a
+// recording is not: the picture is of the world, not of the mirror.
+async function takePhoto() {
+  const v = $('#campre'), w = v.videoWidth, h = v.videoHeight;
+  if (!w || !h) return alert('The camera is not ready yet.');
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(v, 0, 0, w, h);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+  if (!blob || blob.size < 1024) return alert('That did not come out. Try again.');
+  stopCam();
+  keepTake(blob, `shot.jpg`, 'image/jpeg');
 }
 
 function finishRec() {
@@ -1650,36 +1761,43 @@ function finishRec() {
   stopCam();                               // reviewing does not need the camera on
   paintCam();
   if (blob.size < 1024) { $('#cam').close(); return alert('That recording came out empty. Try again, or use "Choose a file".'); }
-  // Recorded here, so it is already 720p at the bitrate we asked for: nothing to re-encode.
-  // Committed straight away rather than on the way out of the review, so a phone that
-  // takes the app away mid-review does not take the clip with it.
-  recorded = new File([blob], `clip.${type.includes('webm') ? 'webm' : 'mp4'}`, {type});
-  recorded.fromCamera = true;
+  keepTake(blob, `clip.${type.includes('webm') ? 'webm' : 'mp4'}`, type);
+}
+
+// Committed straight away rather than on the way out of the review, so a phone that takes
+// the app away mid-review does not take the take with it. Then handed back to look at:
+// posting something you never saw is how a picture of the ceiling ends up in the feed.
+function keepTake(blob, filename, type) {
+  const pic = /^image\//.test(type);
+  recorded = new File([blob], filename, {type});
+  recorded.fromCamera = true;              // already the size we asked for: nothing to redo
   const el = $('#vsize');
   if (el) {
     // Every iPhone in the group has to be able to play this. A device with no H.264
     // recorder writes WebM, which they cannot, and the clip would post and then fail to
     // play for everyone else with nothing to explain it.
-    const ok = type.includes('mp4');
+    const ok = pic || type.includes('mp4');
     el.className = ok ? 'muted' : 'warn';
-    el.textContent = `Recorded · ${mb(recorded.size)} MB${ok ? '' : ' · this device records WebM, which iPhones cannot play. Choose a file instead if the group is on iPhones.'}`;
+    el.textContent = `${pic ? 'Photo' : 'Recorded'} · ${mb(recorded.size)} MB${ok ? '' : ' · this device records WebM, which iPhones cannot play. Choose a file instead if the group is on iPhones.'}`;
   }
-  // Watch it back before it goes anywhere. Posting something you never saw is how a clip
-  // of the ceiling ends up in the feed.
   camTake = URL.createObjectURL(blob);
-  const pl = $('#camplay');
-  pl.src = camTake;
-  pl.load();
-  // How long it runs and how big it is, so "use this" is not a guess. The length only
-  // arrives with the metadata, which is why it is filled in rather than written out here.
-  const w = $('#camrevw');
+  const pl = $('#camplay'), im = $('#camshot'), w = $('#camrevw');
+  pl.hidden = pic; im.hidden = !pic;
   w.textContent = `${mb(blob.size)} MB`;
-  pl.onloadedmetadata = () => {
-    const d = Math.round(pl.duration);
-    if (isFinite(d) && d > 0) w.textContent = `${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')} · ${mb(blob.size)} MB`;
-  };
+  if (pic) {
+    im.src = camTake;
+  } else {
+    pl.src = camTake;
+    pl.load();
+    // How long it runs, so "use this" is not a guess. The length only arrives with the
+    // metadata, which is why it is filled in rather than written out here.
+    pl.onloadedmetadata = () => {
+      const d = Math.round(pl.duration);
+      if (isFinite(d) && d > 0) w.textContent = `${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')} · ${mb(blob.size)} MB`;
+    };
+  }
   showRev(true);
-  pl.play().catch(() => {});
+  if (!pic) pl.play().catch(() => {});
 }
 
 function useTake() {
@@ -1726,7 +1844,40 @@ function playable(blob, seconds) {
   });
 }
 
+// A photo off a modern phone is ten or twelve megapixels, and a 4:5 card on a screen wants
+// a fraction of that. Redrawing it is quick — nothing like re-encoding a clip — so there
+// is no reason to send the original.
+const PHOTO_LONG = 1600, PHOTO_OVER = 400 * 1024;
+async function shrinkPhoto(file) {
+  if (file.fromCamera || file.size < PHOTO_OVER) return file;
+  let url;
+  try {
+    url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error('unreadable'));
+      setTimeout(() => rej(new Error('timed out')), 15000);
+      i.src = url;
+    });
+    const scale = Math.min(1, PHOTO_LONG / Math.max(img.naturalWidth, img.naturalHeight));
+    if (scale === 1 && file.type === 'image/jpeg') return file;
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const out = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    if (!out || out.size >= file.size) return file;          // no gain: not worth the risk
+    return new File([out], file.name.replace(/\.[^.]*$/, '') + '.jpg', {type: 'image/jpeg'});
+  } catch (e) {
+    return file;
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+
 async function shrink(file, onProgress) {
+  if (/^image\//.test(file.type) || IMAGE.test(file.name || '')) return shrinkPhoto(file);
   const type = mp4Type();
   if (!type || file.size < COMPRESS_OVER) return file;
   // Recorded in the app, so it is already 720p at the bitrate we asked for. Re-encoding it
@@ -1853,7 +2004,7 @@ async function upload(bucket, path, file, onProgress) {
 
 const mb = n => (n / 1048576).toFixed(1);
 
-const tooBig = n => `That video is ${(n / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`;
+const tooBig = n => `That file is ${(n / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`;
 
 // One tick per challenge you are on. There is nothing to choose between here: whichever
 // challenge is yours is the only one that fills your days, so a post either was done with
@@ -1867,7 +2018,7 @@ function challengeBlock(g) {
 
 async function addPost(f, gid) {
   const fd = new FormData(f), picked = recorded || fd.get('video');
-  if (!picked || !picked.size) return alert('Record a video, or choose one.');
+  if (!picked || !picked.size) return alert('Record something, or choose a file.');
   if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
   const bar = $('#uprog'), size = $('#vsize');
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
