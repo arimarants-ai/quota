@@ -73,6 +73,28 @@ for (const size of ['192x192', '512x512']) {
   assert.ok(has(size, 'maskable'), `manifest.json has no ${size} maskable icon. Without one Android crops the square icon into its adaptive shape and takes the corners with it.`);
 }
 
+// Screenshots drive the install dialog on Android and the packager's report. They are not
+// precached — they are read once, at install, and four phone screenshots would be several
+// megabytes of offline cache nobody benefits from.
+const shots = mf.screenshots || [];
+assert.ok(shots.length, 'manifest.json has no screenshots. PWABuilder asks for them, and Chrome falls back to the plain install prompt without them.');
+const ratios = new Set();
+for (const sh of shots) {
+  const f = sh.src.replace(/^\//, '');
+  assert.ok(existsSync(join(ROOT, f)), `manifest.json names ${sh.src}, which is not in the repo`);
+  const { w, h } = png(f);
+  assert.equal(`${w}x${h}`, sh.sizes, `${sh.src} says ${sh.sizes} but is ${w}x${h}`);
+  assert.equal(sh.form_factor, 'narrow', `${sh.src} needs form_factor narrow, or Chrome will not use it on a phone`);
+  assert.ok(sh.label, `${sh.src} has no label`);
+  // Chrome's own limits: nothing over 3840px, and never more than 2.3 times as long as
+  // it is wide, or it declines to show any of them.
+  assert.ok(Math.max(w, h) <= 3840, `${sh.src} is ${w}x${h}; Chrome ignores screenshots over 3840px`);
+  assert.ok(Math.max(w, h) / Math.min(w, h) <= 2.3, `${sh.src} is ${(Math.max(w, h) / Math.min(w, h)).toFixed(2)}:1; Chrome ignores anything past 2.3:1`);
+  ratios.add((w / h).toFixed(3));
+  assert.ok(!PRECACHE.includes(sh.src), `${sh.src} is precached. Screenshots are read once at install; caching them offline costs megabytes for nothing.`);
+}
+assert.equal(ratios.size, 1, `the screenshots are not all the same shape (${[...ratios].join(', ')}). Chrome shows a set only when every narrow screenshot matches.`);
+
 // iOS does not read the manifest for any of this.
 assert.ok(/<link[^>]+rel="apple-touch-icon"/.test(html), 'no apple-touch-icon: iOS would use a screenshot of the page as the home screen icon');
 assert.ok(/name="apple-mobile-web-app-capable"[^>]+content="yes"/.test(html), 'without apple-mobile-web-app-capable, iOS opens the home screen icon in Safari chrome');

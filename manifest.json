@@ -8,17 +8,78 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui", "browser"],
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
   "orientation": "portrait",
   "background_color": "#0f4c5c",
   "theme_color": "#0f4c5c",
-  "categories": ["health", "fitness", "lifestyle", "social"],
-  "launch_handler": { "client_mode": "navigate-existing" },
+  "categories": [
+    "health",
+    "fitness",
+    "lifestyle",
+    "social"
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "prefer_related_applications": false,
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-feed.png",
+      "sizes": "1284x2778",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Your streak, today's quotas and how many challenge days you have done"
+    },
+    {
+      "src": "/screenshot-group.png",
+      "sizes": "1284x2778",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "A group: who has hit the quota today, and everyone's streak"
+    },
+    {
+      "src": "/screenshot-post.png",
+      "sizes": "1284x2778",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Posting proof, with the day's challenge ticked off"
+    },
+    {
+      "src": "/screenshot-camera.png",
+      "sizes": "1284x2778",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Record a clip or take a picture without leaving the app"
+    }
   ]
 }
