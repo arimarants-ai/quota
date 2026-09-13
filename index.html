@@ -118,6 +118,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .chal:has(input:checked){border-style:solid;background:linear-gradient(180deg,rgba(244,129,58,.16),transparent)}
 .chal:has(input:checked) .txt small{visibility:hidden}
 .chal:has(input:checked) .txt small::before{content:"Counts towards your challenge";visibility:visible;color:var(--acc)}
+.nudge{border-color:var(--acc)}
+.nudge b{font-family:Unbounded,system-ui,sans-serif;font-size:15px}
+.nudge p{margin-top:5px;font-size:13px;line-height:1.4}
 .chalpick{margin-top:8px}
 .chalpick[hidden]{display:none}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
@@ -403,7 +406,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v34';
+const BUILD = 'quota-v35';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -677,7 +680,7 @@ async function copyErr(btn) {
 // installed app: it can sit suspended for days. Worth one forced refresh before giving up.
 const authErr = e => e && (e.status === 401 || e.code === 'PGRST301' || /jwt|token|not authenticated|unauthorized/i.test(e.message || ''));
 
-let inFlight = null, lastLoad = 0;
+let inFlight = null, lastLoad = 0, pushKnown = false;
 function load() { return inFlight || (inFlight = runLoad().finally(() => { inFlight = null; lastLoad = Date.now(); })); }
 
 async function runLoad() {
@@ -695,6 +698,9 @@ async function runLoad() {
     showErr(navigator.onLine ? `Could not load: ${plainly(e.message)}` : 'You are offline. Showing what was already here.', e && e.stack);
   } finally {
     quiet--; S.booting = false; render();
+    // Whether notifications are on is only known by asking the browser, and until it has
+    // been asked the feed cannot tell whether to offer them. Once per launch is enough.
+    if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
   }
 }
 function render() {
@@ -819,6 +825,7 @@ function feedView() {
     <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
     ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div>${esc(l.qq.metric)}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(l.g.name)}</span>` : ''}<br><b>${l.d}</b>/${l.qq.target}<i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i></div>`).join('')
       }${chals.map(c => `<div>${esc(effChallenge(c.sp))}${gs.length > 1 ? ` <span style="opacity:.7">· ${esc(c.g.name)}</span>` : ''}<br><b>${c.d}</b>/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}<i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i></div>`).join('')}</div>` : ''}</div>`
+    + pushPrompt()
     + spinPrompt()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
@@ -883,7 +890,17 @@ function feed(ps, showGroup) {
 // that "sometimes don't work". So a clip is only given its source while it is near the
 // screen, and gives it back once it is well past and not playing.
 let clipObs = null;
-const attachClip = v => { delete v.dataset.idle; if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src; };
+const attachClip = v => {
+  delete v.dataset.idle;
+  if (v.getAttribute('src') || !v.dataset.src) return;
+  v.src = v.dataset.src;
+  // preload="metadata" fetches the header and stops, and a video element that has never
+  // decoded a frame paints nothing — which is the black rectangle where the first frame
+  // of somebody's clip should be. Nudging off zero makes it decode one and show it.
+  if (v.tagName === 'VIDEO') v.addEventListener('loadedmetadata', () => {
+    try { if (v.currentTime < 0.05) v.currentTime = 0.05; } catch (e) {}
+  }, {once: true});
+};
 function releaseClip(v) {
   if (!v.getAttribute('src') || (v.tagName === 'VIDEO' && !v.paused)) return;
   v.dataset.idle = '1';                    // so letting go is not mistaken for a failure
@@ -966,6 +983,26 @@ function friendsView() {
   <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Search for someone above by their name or username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3><div class="card list">` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') + `</div>` : ''}`;
 }
+// Notifications were opt-in behind a card at the foot of the Profile tab, which is to say
+// opt-in by nobody. The permission prompt has to happen inside a tap, so this cannot be
+// automatic — but it can at least be somewhere people are actually looking.
+const PUSHASK = 'quota.pushask';
+const askedRecently = () => {
+  try { return Date.now() - (+localStorage.getItem(PUSHASK) || 0) < 7 * 864e5; } catch (e) { return false; }
+};
+function notNowPush() {
+  try { localStorage.setItem(PUSHASK, String(Date.now())); } catch (e) {}
+  render();
+}
+function pushPrompt() {
+  if (S.push !== 'off' || askedRecently()) return '';
+  return `<div class="card nudge">
+    <b>Turn on notifications</b>
+    <p class="muted">So you know when somebody in your groups posts, comments on your proof, or sends you a request. Without them the app only tells you when you open it.</p>
+    <div class="row" style="margin-top:12px"><button class="grow" onclick="notNowPush()">Not now</button><button class="primary grow" onclick="enablePush()">Turn on</button></div>
+  </div>`;
+}
+
 function pushCard() {
   const t = {
     on:          ['On for this device', '<button class="small" onclick="disablePush()">Turn off</button>'],
@@ -1530,8 +1567,23 @@ const recording = () => !!camRec && camRec.state === 'recording';
 const facing = () => { try { return localStorage.getItem('quota.facing') === 'user' ? 'user' : 'environment'; } catch (e) { return 'environment'; } };
 const setFacing = f => { try { localStorage.setItem('quota.facing', f); } catch (e) {} };
 
+// iOS asks for the camera itself, and there is no way to answer on somebody's behalf or
+// to stop it asking. What can be done is explain what is about to happen, once, so the
+// prompt is expected rather than a surprise — and say where to change the answer later.
+const CAMTOLD = 'quota.camtold';
+function camExplained() {
+  try {
+    if (localStorage.getItem(CAMTOLD)) return true;
+    localStorage.setItem(CAMTOLD, '1');
+  } catch (e) { return true; }        // no storage: do not nag on every open
+  return false;
+}
+
 async function openCam() {
   if (!camSupported()) return alert('This browser cannot record video. Use "Choose a file" instead.');
+  if (!camExplained()) {
+    alert('Quota is about to ask for your camera.\n\nAllow it once and your phone remembers — you can change it later in Settings \u2192 Quota.');
+  }
   const box = $('#cam'), why = $('#camwhy');
   why.hidden = true;
   showRev(false);
@@ -2148,6 +2200,7 @@ async function enablePush() {
     const k = sub.toJSON().keys;
     await q(sb.from('push_subscriptions').upsert({endpoint: sub.endpoint, user_id: me().id, p256dh: k.p256dh, auth: k.auth}));
     S.push = 'on';
+    try { localStorage.setItem(PUSHASK, String(Date.now())); } catch (e) {}
   } catch (e) { alert('Could not turn on notifications: ' + e.message); await refreshPush(); }
   render();
 }

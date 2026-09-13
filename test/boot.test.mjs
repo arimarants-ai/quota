@@ -1191,6 +1191,52 @@ await withPage({ ...SIGNED_IN, photos: true }, async page => {
     await page.locator('.post .ov.top .av img').first().getAttribute('src') !== null);
 });
 
+// ---- notifications nobody was ever offered
+// They were opt-in behind a card at the foot of the Profile tab, which is opt-in by
+// nobody: a whole group can go months without one and assume the app has none.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.push = 'off'; render(); });
+  await page.waitForTimeout(200);
+  const txt = await page.innerText('#app');
+  check('the feed offers notifications rather than hiding them in Profile',
+    /Turn on notifications/i.test(txt), txt.slice(0, 400));
+  check('  with a way to say no', await page.locator('#app button:has-text("Not now")').count() === 1);
+
+  await page.locator('#app button:has-text("Not now")').click();
+  await page.waitForTimeout(200);
+  check('  which is remembered rather than asked again on the next render',
+    !/Turn on notifications/i.test(await page.innerText('#app')));
+  check('    and remembered past a reload', await page.evaluate(() => !!localStorage.getItem('quota.pushask')));
+});
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  for (const state of ['on', 'denied', 'install', 'unsupported']) {
+    await page.evaluate(s => { S.push = s; render(); }, state);
+    check(`  nothing is asked when notifications are ${state}`,
+      !/Turn on notifications/i.test(await page.innerText('#app')), state);
+  }
+});
+
+// ---- the first frame of a clip
+// preload="metadata" reads the header and stops, and an element that has never decoded a
+// frame paints nothing: a black rectangle where the clip should be.
+await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const clip = await realClip(page);
+  const shown = await page.evaluate(async u => {
+    const v = document.querySelector('.reel video.proof');
+    v.removeAttribute('src'); v.dataset.src = u;
+    document.querySelectorAll('.reel').forEach(r => r.classList.remove('bust'));
+    attachClip(v);
+    await new Promise(r => setTimeout(r, 1500));
+    return {t: v.currentTime, ready: v.readyState};
+  }, clip);
+  check('a clip shows a frame rather than a black box', shown.t > 0 && shown.ready >= 2, JSON.stringify(shown));
+});
+
 // ---- proof can be a picture
 // Nothing new is stored for it: which one a post is, is read off the file, so every post
 // that already exists is still a clip.
