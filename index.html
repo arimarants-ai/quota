@@ -114,7 +114,10 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 /* posts */
 .post{padding:0;overflow:hidden}
 .reel{position:relative;aspect-ratio:4/5;background:#000;color:#fff}
-.reel video,.reel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:block} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
+/* Only the proof itself. Written as ".reel img" this also caught the avatar in the
+   overlay above it — absolutely positioned to fill that band, on top of the name and the
+   username, which is what a stretched face across every post turned out to be. */
+.reel .proof{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:block} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
 .reel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);pointer-events:none}
 .reel .ov{position:absolute;left:0;right:0;padding:14px;z-index:2;pointer-events:none}
 .reel .ov.top{top:0;display:flex;align-items:center;gap:10px;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent)}
@@ -133,7 +136,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .bust{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;gap:12px;
   align-items:center;justify-content:center;padding:24px;text-align:center;background:rgba(0,0,0,.72)}
 .reel.bust .bust{display:flex}
-.reel.bust .play,.reel.bust video,.reel.bust img{display:none}
+.reel.bust .play,.reel.bust .proof{display:none}
 .reel .bust p{font-size:14px;font-weight:700;line-height:1.4}
 .reel .bust button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.5);padding:8px 16px}
 /* The caption stays up while the video plays. The gradient behind it shrinks instead of
@@ -378,7 +381,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v30';
+const BUILD = 'quota-v31';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -837,8 +840,8 @@ function feed(ps, showGroup) {
     // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
     return h + `<div class="card post"><div class="reel">
       ${isPhoto(p)
-        ? `<img alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
-        : `<video playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>`}
+        ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
+        : `<video class="proof" playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>`}
       <div class="ov top">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
       ${isPhoto(p) ? '' : `<div class="play"><i></i></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
@@ -867,7 +870,7 @@ function releaseClip(v) {
 }
 function watchClips() {
   if (clipObs) clipObs.disconnect();
-  const vs = [...document.querySelectorAll('.reel video,.reel img')];
+  const vs = [...document.querySelectorAll('.reel .proof')];
   // Without an observer there is no way to tell what is on screen, so load them all and
   // accept the old behaviour rather than showing nothing.
   if (!self.IntersectionObserver) return vs.forEach(attachClip);
@@ -922,7 +925,7 @@ function playClip(v, postId) {
   if (go && go.catch) go.catch(() => clipBust(v, postId, true));
 }
 function retryClip(btn, postId) {
-  const reel = btn.closest('.reel'), v = reel.querySelector('video,img');
+  const reel = btn.closest('.reel'), v = reel.querySelector('.proof');
   reel.classList.remove('bust');
   delete v.dataset.retried;
   clipBust(v, postId, true);

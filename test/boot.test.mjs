@@ -1147,6 +1147,39 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.reel .bust p').first().innerText());
 });
 
+// A post has two pictures in it: the proof, and the face of whoever posted it. Every
+// assertion about the proof passed while the avatar was being stretched across the top of
+// every post, over the name and the username, so this is about the other one.
+await withPage({ ...SIGNED_IN, photos: true }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  await page.evaluate(() => {            // give everyone a face to draw
+    Object.values(S.profiles).forEach(u => { u.avatar_path = 'x.png'; });
+    render();
+  });
+  await page.waitForTimeout(300);
+  const box = await page.locator('.post .ov.top .av img').first().boundingBox();
+  check('the poster\'s face stays the size of a face', box && box.width <= 40 && box.height <= 40,
+    JSON.stringify(box));
+  const reel = await page.locator('.post .reel').first().boundingBox();
+  check('  rather than being stretched over the post', box && reel && box.width < reel.width / 2,
+    `${JSON.stringify(box)} in ${JSON.stringify(reel)}`);
+  check('  leaving the name and the username where they can be read',
+    await page.locator('.post .ov.top .who').first().isVisible()
+    && await page.locator('.post .ov.top .when').first().isVisible());
+  const top = await page.locator('.post .ov.top').first().innerText();
+  check('    and actually saying them', /Ari/.test(top) && /@ari/.test(top), top);
+
+  // The lazy loading is about the proof, not about faces: it takes the src off whatever it
+  // is given once that is off screen, and an avatar it was handed would simply vanish.
+  check('  and the face is not mistaken for something to unload',
+    await page.evaluate(() => ![...document.querySelectorAll('.reel .proof')].some(el => el.closest('.av'))));
+  await page.locator('.post').last().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(700);
+  check('    so it is still there after scrolling',
+    await page.locator('.post .ov.top .av img').first().getAttribute('src') !== null);
+});
+
 // ---- proof can be a picture
 // Nothing new is stored for it: which one a post is, is read off the file, so every post
 // that already exists is still a clip.
