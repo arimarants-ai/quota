@@ -44,6 +44,43 @@ const BUILD = (html.match(/const BUILD = '([^']+)'/) || [])[1];
 assert.equal(BUILD, VERSION,
   `index.html says BUILD '${BUILD}' but sw.js says VERSION '${VERSION}'. They name the same build, and the page reports BUILD when something goes wrong, so a mismatch sends people chasing the wrong version.`);
 
+// 2c. The manifest is what decides whether this can be installed, and whether a store
+// packager (PWABuilder and friends) will take it. Every requirement it has to meet is
+// mechanical, so none of them should ever be checked by hand.
+const mf = JSON.parse(read('manifest.json'));
+assert.ok(/<link[^>]+rel="manifest"[^>]+href="\/manifest\.json"/.test(html),
+  'index.html does not link /manifest.json. Nothing is installable without it.');
+for (const k of ['id', 'name', 'short_name', 'start_url', 'scope', 'display', 'background_color', 'theme_color']) {
+  assert.ok(mf[k], `manifest.json has no ${k}. PWABuilder treats it as required.`);
+}
+assert.equal(mf.display, 'standalone', 'manifest display must be standalone to install as an app');
+assert.ok(mf.short_name.length <= 12, `short_name "${mf.short_name}" is what fits under a home screen icon; keep it short`);
+
+// Every icon it promises has to exist, be a PNG, and actually be the size it claims —
+// a manifest that names a file that is not there fails a packager outright.
+const png = f => { const b = readFileSync(join(ROOT, f)); assert.ok(b.subarray(1, 4).toString() === 'PNG', `${f} is not a PNG`);
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
+for (const ic of mf.icons) {
+  const f = ic.src.replace(/^\//, '');
+  assert.ok(existsSync(join(ROOT, f)), `manifest.json names ${ic.src}, which is not in the repo`);
+  const { w, h } = png(f);
+  assert.equal(`${w}x${h}`, ic.sizes, `${ic.src} says ${ic.sizes} but is ${w}x${h}`);
+  assert.ok(PRECACHE.includes(ic.src), `${ic.src} is not in PRECACHE, so an installed app would have no icon offline`);
+}
+const has = (size, purpose) => mf.icons.some(i => i.sizes === size && (i.purpose || 'any').split(' ').includes(purpose));
+for (const size of ['192x192', '512x512']) {
+  assert.ok(has(size, 'any'), `manifest.json has no ${size} icon. Both 192 and 512 are required to install.`);
+  assert.ok(has(size, 'maskable'), `manifest.json has no ${size} maskable icon. Without one Android crops the square icon into its adaptive shape and takes the corners with it.`);
+}
+
+// iOS does not read the manifest for any of this.
+assert.ok(/<link[^>]+rel="apple-touch-icon"/.test(html), 'no apple-touch-icon: iOS would use a screenshot of the page as the home screen icon');
+assert.ok(/name="apple-mobile-web-app-capable"[^>]+content="yes"/.test(html), 'without apple-mobile-web-app-capable, iOS opens the home screen icon in Safari chrome');
+const vp = /<meta name="viewport" content="([^"]+)"/.exec(html);
+assert.ok(vp, 'no viewport meta');
+assert.ok(/width=device-width/.test(vp[1]), 'viewport must be width=device-width');
+assert.ok(/viewport-fit=cover/.test(vp[1]), 'viewport needs viewport-fit=cover, or a standalone app leaves bars around the notch');
+
 // 3. Changing a precached file without bumping VERSION leaves installed apps on the old
 // copy indefinitely, which is how a fix can look deployed and still not reach anyone.
 const digest = createHash('sha256')

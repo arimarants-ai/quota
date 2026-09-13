@@ -2,10 +2,11 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v31';
+const VERSION = 'quota-v32';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
+  '/icon-maskable-192.png', '/icon-maskable-512.png',
   '/vendor/supabase-js-2.49.4/supabase.js', '/vendor/supabase-js-2.49.4/591.supabase.js'];
 const STATIC_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -66,15 +67,23 @@ self.addEventListener('fetch', e => {
     (sameOrigin && /\.(png|svg|ico|css|js|json|woff2?)$/i.test(url.pathname));
   if (!isStatic) return;
 
-  e.respondWith(
-    caches.match(req).then(hit => hit || fetch(req).then(res => {
-      if (res && (res.ok || res.type === 'opaque')) {
-        const copy = res.clone();
-        caches.open(VERSION).then(c => c.put(req, copy));
-      }
+  // This version's cache first, then the network, and only then anything an older version
+  // left behind. caches.match() searches every cache there is, so asking it outright can
+  // answer with a copy from a version that has been superseded — for a file whose name
+  // does not change between releases, that is a stale asset served indefinitely. An old
+  // cache is still worth having as the last word when there is no network at all.
+  e.respondWith((async () => {
+    const mine = await caches.open(VERSION);
+    const hit = await mine.match(req);
+    if (hit) return hit;
+    try {
+      const res = await fetch(req);
+      if (res && (res.ok || res.type === 'opaque')) mine.put(req, res.clone());
       return res;
-    }))
-  );
+    } catch (err) {
+      return (await caches.match(req)) || Response.error();
+    }
+  })());
 });
 
 // ---- push notifications

@@ -108,5 +108,25 @@ function browser({ refuse = [] } = {}) {
   check('  and only then lets the old copy go', !(await fixed.caches.keys()).includes('quota-old'));
 }
 
+// 4. A file whose name does not change between releases — the manifest, an icon — must
+// not be answered out of a superseded cache. caches.match() searches every one of them,
+// so asking it outright serves the old copy for as long as that cache survives.
+{
+  const b = browser();
+  const stale = { ok: true, url: '/manifest.json', stale: true, clone: () => ({ ok: true }) };
+  b.stores.set('quota-old', new Map([['/manifest.json', stale]]));
+  await b.fire('install');
+  const fresh = await b.stores.get(b.version).get('/manifest.json');
+  const req = { url: '/manifest.json', method: 'GET', mode: 'same-origin' };
+  check('this version answers with its own copy, not one left behind',
+    fresh && !fresh.stale, JSON.stringify(fresh));
+  // And the old one is still reachable as a last resort when there is nothing else.
+  check('  while the older copy is still there to fall back on when offline',
+    !!await b.caches.match({ url: '/manifest.json' }));
+  await b.fire('activate');
+  check('  and once this version is complete, the old one is gone',
+    !(await b.caches.keys()).includes('quota-old'), (await b.caches.keys()).join(', '));
+}
+
 console.log(failed ? `\nFAIL: ${failed} check(s)` : '\nPASS: the worker never leaves an app with nothing to start from');
 process.exit(failed ? 1 : 0);
