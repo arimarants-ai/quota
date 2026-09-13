@@ -26,6 +26,10 @@ jobs:
       # somebody's installed app will not start. Needs nothing installed either.
       - run: node test/sw.test.mjs
 
+      # A bundled copy of the notify function that has drifted from its sources would be
+      # deployed in good faith and behave like an older version of the app.
+      - run: node test/bundle.test.mjs
+
       # The wheel rules live in the database, so they are checked against a real one.
       - run: sudo apt-get install -y --no-install-recommends postgresql
       - run: test/schema.test.sh
