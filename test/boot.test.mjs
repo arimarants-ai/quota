@@ -1294,6 +1294,34 @@ await withPage(SIGNED_IN, async page => {
   }
 });
 
+// Turning them off should not mean going to find the phone's settings, and a switch that
+// covers five different things has to say which five.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  // go('profile') asks the browser what the real state is and overwrites whatever was set,
+  // so land on the tab first and say what to draw after.
+  await page.evaluate(() => { S.tab = 'profile'; S.open = null; S.push = 'on'; render(); });
+  await page.waitForTimeout(300);
+  const card = page.locator('#app .card:has(.about)');
+  check('Profile can turn notifications off without leaving the app',
+    await card.locator('button:has-text("Turn off")').count() === 1);
+  const txt = await card.innerText();
+  check('  saying what it covers rather than just "on"',
+    /friend request/i.test(txt) && /comment on your proof/i.test(txt) && /like on your proof/i.test(txt), txt);
+
+  await page.evaluate(() => { S.push = 'off'; render(); });
+  await page.waitForTimeout(200);
+  const off = await page.locator('#app .card:has(.about)').innerText();
+  check('  and still saying it when they are off, so you know what you are missing',
+    /friend request/i.test(off) && /Turn on/i.test(off), off);
+
+  await page.evaluate(() => { S.push = 'denied'; render(); });
+  await page.waitForTimeout(200);
+  const denied = await page.innerText('#app');
+  check('  but pointing at the phone when the phone is what refused',
+    /Settings/.test(denied) && !/Turn off/.test(denied));
+});
+
 // ---- the first frame of a clip
 // preload="metadata" reads the header and stops, and an element that has never decoded a
 // frame paints nothing: a black rectangle where the clip should be.

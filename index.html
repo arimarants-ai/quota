@@ -118,6 +118,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .chal:has(input:checked){border-style:solid;background:linear-gradient(180deg,rgba(244,129,58,.16),transparent)}
 .chal:has(input:checked) .txt small{visibility:hidden}
 .chal:has(input:checked) .txt small::before{content:"Counts towards your challenge";visibility:visible;color:var(--acc)}
+.about{margin:12px 0 0;padding:12px 0 0 18px;border-top:1px solid var(--line);color:var(--muted);
+  font-size:13px;font-weight:600;line-height:1.55}
+.about li{padding-left:2px}
 .nudge{border-color:var(--acc)}
 .nudge b{font-family:Unbounded,system-ui,sans-serif;font-size:15px}
 .nudge p{margin-top:5px;font-size:13px;line-height:1.4}
@@ -1102,15 +1105,27 @@ function pushPrompt() {
   </div>`;
 }
 
+// What a notification can be about, said plainly. Five kinds behind one switch is a
+// decision, not an oversight — but it is only fair if the switch says what it covers.
+const PUSHABOUT = [
+  'somebody in your groups posting proof',
+  'a friend request',
+  'being added to a group',
+  'a comment on your proof',
+  'a like on your proof',
+];
 function pushCard() {
   const t = {
-    on:          ['On for this device', '<button class="small" onclick="disablePush()">Turn off</button>'],
-    off:         ['Get a nudge when someone in your groups posts', '<button class="teal small" onclick="enablePush()">Turn on</button>'],
-    denied:      ['Blocked. Turn them back on in Settings \u2192 Quota \u2192 Notifications.', ''],
+    on:          ['On for this phone', '<button class="small" onclick="disablePush()">Turn off</button>'],
+    off:         ['Off. You will only find out by opening the app.', '<button class="teal small" onclick="enablePush()">Turn on</button>'],
+    denied:      ['Turned off for Quota on this phone. Settings \u2192 Quota \u2192 Notifications puts them back.', ''],
     install:     ['Add Quota to your home screen first, then turn these on.', ''],
     unsupported: ["This browser doesn't support notifications.", ''],
   }[S.push] || ['', ''];
-  return `<div class="card row between"><div class="grow"><b>Group activity</b><div class="muted">${t[0]}</div></div>${t[1]}</div>`;
+  // The list stays whichever way the switch is set: off, it says what you are missing.
+  const list = (S.push === 'on' || S.push === 'off')
+    ? `<ul class="about">${PUSHABOUT.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+  return `<div class="card"><div class="row between"><div class="grow"><b>Notifications</b><div class="muted">${t[0]}</div></div>${t[1]}</div>${list}</div>`;
 }
 
 function profileView() {
