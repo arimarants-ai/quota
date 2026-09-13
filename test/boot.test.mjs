@@ -645,11 +645,22 @@ await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
-  check('posting offers the challenge', await page.locator('#dlg input[name=chal]').isChecked());
-  const label = await page.locator('#dlg .check:has(input[name=chal])').innerText();
+  // Off to begin with. A box that arrives ticked gets posted ticked by people who never
+  // read it, and a challenge day nobody decided to claim is worth nothing.
+  check('posting offers the challenge, unticked', await page.locator('#dlg input[name=chal]').count() === 1
+    && !await page.locator('#dlg input[name=chal]').isChecked());
+  const chal = page.locator('#dlg .chal');
+  const label = await chal.innerText();
   check('  naming the one that is yours', /100 burpees/.test(label), label);
+  check('    and saying what ticking it would mean', /did this with your challenge/i.test(label), label);
   check('  with nothing to choose between', await page.locator('#dlg select[name=chal]').count() === 0);
+  // Fine print gets scrolled past. This has to be something you cannot miss on the way
+  // to Post: a box of its own, as wide as the form, the height of a control.
+  const box = await chal.boundingBox(), sheet = await page.locator('#dlg').boundingBox();
+  check('  standing out rather than sitting in the small print',
+    box && sheet && box.width > sheet.width * 0.8 && box.height >= 48, JSON.stringify(box));
 
+  await page.locator('#dlg input[name=chal]').check();
   await page.locator('#dlg input[name=amount]').fill('50');
   await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
   await page.locator('#dlg button.primary').click();
@@ -662,13 +673,13 @@ await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
     sent && sent.spin_id === mySpin, `post ${JSON.stringify(sent)} vs own spin ${mySpin}`);
 });
 
-// Unticking the box posts without a challenge, the way it always did.
+// Left unticked, a post carries no challenge — which is what happens if nobody touches it.
 await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await settle(page);
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
-  await page.locator('#dlg input[name=chal]').uncheck();
+  // Left alone, which is now the default rather than something to undo.
   await page.locator('#dlg input[name=amount]').fill('50');
   await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
   await page.locator('#dlg button.primary').click();

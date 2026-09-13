@@ -96,6 +96,28 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .check{display:flex;align-items:center;gap:9px;margin-top:14px;font-weight:700;font-size:14px}
 .check input{width:19px;height:19px;margin:0;flex:none;accent-color:var(--acc)}
 .check span{font-weight:700}
+/* Big enough to be seen on the way past, and dashed while it is still a question — the
+   answer to which is the difference between a challenge day counting and not. */
+.chal{position:relative;display:flex;align-items:center;gap:13px;margin-top:16px;padding:14px;border-radius:15px;cursor:pointer;
+  border:2px dashed var(--acc);background:linear-gradient(180deg,rgba(244,129,58,.09),transparent)}
+/* Invisible but the size of the whole card, so the tap target is the card rather than a
+   28px square, and it is still a real focusable checkbox underneath. */
+.chal input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.chal input:focus-visible ~ .box{box-shadow:0 0 0 3px rgba(244,129,58,.35)}
+.chal .box{flex:none;width:28px;height:28px;border-radius:9px;border:2px solid var(--acc);background:var(--card);
+  display:grid;place-items:center}
+.chal .box::after{content:"";width:13px;height:7px;border-left:3px solid #fff;border-bottom:3px solid #fff;
+  border-radius:1px;transform:rotate(-45deg) translate(1px,-2px);opacity:0;transition:opacity .12s}
+.chal input:checked ~ .box{background:var(--acc);border-color:var(--acc)}
+.chal input:checked ~ .box::after{opacity:1}
+.chal .txt{font-weight:700;font-size:14px;line-height:1.3;min-width:0}
+.chal .txt b{display:block;font-size:16px;letter-spacing:-.01em}
+.chal .txt small{display:block;color:var(--muted);font-weight:600;font-size:13px;margin-top:1px}
+/* Once answered it stops asking: solid rather than dashed, and the line underneath says
+   what it now means instead of what to do. */
+.chal:has(input:checked){border-style:solid;background:linear-gradient(180deg,rgba(244,129,58,.16),transparent)}
+.chal:has(input:checked) .txt small{visibility:hidden}
+.chal:has(input:checked) .txt small::before{content:"Counts towards your challenge";visibility:visible;color:var(--acc)}
 .chalpick{margin-top:8px}
 .chalpick[hidden]{display:none}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
@@ -381,7 +403,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v33';
+const BUILD = 'quota-v34';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2012,11 +2034,18 @@ const tooBig = n => `That file is ${(n / 1048576).toFixed(0)} MB and the limit i
 // One tick per challenge you are on. There is nothing to choose between here: whichever
 // challenge is yours is the only one that fills your days, so a post either was done with
 // it or was not. Swapping to somebody else's is done on the wheel, for the whole cycle.
+// The one thing on this form nobody is looking for, and the one that decides whether a
+// day counts. It starts off — a box that arrives ticked gets posted ticked by people who
+// never read it, and a challenge day that fills itself is worth nothing — so it has to be
+// noticeable enough to be a decision rather than fine print.
 function challengeBlock(g) {
   const mine = myChallenges(g);
   if (!mine.length) return '';
-  return mine.map(sp => `<label class="check"><input type="checkbox" name="chal" value="${sp.id}|${esc(effChallenge(sp))}" checked>
-    <span>I did this with my challenge: <b>${esc(effChallenge(sp))}</b></span></label>`).join('');
+  return mine.map(sp => `<label class="chal">
+    <input type="checkbox" name="chal" value="${sp.id}|${esc(effChallenge(sp))}">
+    <span class="box"></span>
+    <span class="txt"><b>${esc(effChallenge(sp))}</b><small>Tap if you did this with your challenge</small></span>
+  </label>`).join('');
 }
 
 async function addPost(f, gid) {
