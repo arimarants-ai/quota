@@ -21,3 +21,22 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
   const what = challenge ? `${amount} ${challenge} ${metric}` : `${amount} ${metric}`;
   return justFinished ? `${name} completed the day's goal` : `${name} did ${what}`;
 }
+
+/** Who did it, by the name they chose, falling back to the one they signed up with. */
+export type Who = { username: string; display_name?: string | null };
+export const who = (p: Who) => p.display_name || p.username;
+
+/**
+ * Text for everything that is not a post. Kept here with the rest so it can be read
+ * beside what a post says, and tested without Deno or a database.
+ */
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like', name: string, extra?: string | null): string {
+  if (kind === 'friend') return `${name} sent you a friend request`;
+  if (kind === 'group') return `${name} added you to ${extra}`;
+  if (kind === 'like') return `${name} liked your proof`;
+  // A comment is worth reading in the notification itself, but a long one turns the
+  // whole thing into a wall; the rest is one tap away.
+  const body = (extra ?? '').replace(/\s+/g, ' ').trim();
+  const short = body.length > 80 ? `${body.slice(0, 79)}…` : body;
+  return short ? `${name}: ${short}` : `${name} commented on your proof`;
+}

@@ -130,3 +130,59 @@ end $$;
 
 reset role;
 \echo 'PASS: base policies'
+
+-- v14: a like is governed by the post it is on.
+-- Seeded as the owner: the fixtures are not what is under test. Someone outside the group can neither
+-- see one nor leave one, and nobody can like as somebody else.
+do $$
+declare gid bigint; pid bigint;
+begin
+  insert into auth.users (id) values
+    ('00000000-0000-0000-0000-0000000000e1'), ('00000000-0000-0000-0000-0000000000e2')
+    on conflict do nothing;
+  insert into public.profiles (id, username) values
+    ('00000000-0000-0000-0000-0000000000e1', 'liker'), ('00000000-0000-0000-0000-0000000000e2', 'notinvited')
+    on conflict do nothing;
+
+  perform set_config('test.uid', '00000000-0000-0000-0000-0000000000e1', true);
+  insert into public.groups (name, quotas, created_by)
+    values ('likes', '[{"metric":"pushups","target":10}]', '00000000-0000-0000-0000-0000000000e1') returning id into gid;
+  insert into public.group_members (group_id, user_id) values (gid, '00000000-0000-0000-0000-0000000000e1');
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (gid, '00000000-0000-0000-0000-0000000000e1', 'pushups', 10, 'x.mp4', current_date) returning id into pid;
+  -- From here on as app2, or the owner bypasses every policy below.
+  set local role app2;
+
+  -- A member may like it, once, and liking again is the same as having liked it.
+  insert into public.likes (post_id, user_id) values (pid, '00000000-0000-0000-0000-0000000000e1');
+  begin
+    insert into public.likes (post_id, user_id) values (pid, '00000000-0000-0000-0000-0000000000e1');
+    raise exception 'the same person liked the same post twice';
+  exception when unique_violation then null; end;
+
+  -- Not as somebody else, even from inside the group.
+  if pg_temp.blocked(format($q$insert into public.likes (post_id, user_id) values (%s, '00000000-0000-0000-0000-0000000000e2')$q$, pid)) is false then
+    raise exception 'a member liked a post as another person';
+  end if;
+
+  -- And not at all from outside it.
+  perform set_config('test.uid', '00000000-0000-0000-0000-0000000000e2', true);
+  if pg_temp.blocked(format($q$insert into public.likes (post_id, user_id) values (%s, '00000000-0000-0000-0000-0000000000e2')$q$, pid)) is false then
+    raise exception 'somebody outside the group liked a post in it';
+  end if;
+  if exists (select 1 from public.likes where post_id = pid) then
+    raise exception 'somebody outside the group can see who liked a post in it';
+  end if;
+
+  -- The person who left it can take it back; nobody else can.
+  if pg_temp.blocked(format($q$delete from public.likes where post_id = %s$q$, pid)) is false then
+    raise exception 'somebody else removed a like that was not theirs';
+  end if;
+  perform set_config('test.uid', '00000000-0000-0000-0000-0000000000e1', true);
+  delete from public.likes where post_id = pid and user_id = '00000000-0000-0000-0000-0000000000e1';
+  if exists (select 1 from public.likes where post_id = pid) then
+    raise exception 'taking back your own like did nothing';
+  end if;
+end $$;
+
+\echo 'PASS: like policies'

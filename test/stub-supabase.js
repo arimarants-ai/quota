@@ -40,7 +40,7 @@
     id: 90, wheel_id: 7, user_id: 'u2', cycle: cycleNow, sat_out: false, days_required: 2,
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
-  self.__ticks = []; self.__posts = [];
+  self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -54,6 +54,8 @@
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,
     wheel_days: self.__ticks,
+    likes: self.__likes,
+    comments: self.__cmts,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
   // column can be null, and a row can be missing what a newer column would have had.
@@ -79,6 +81,12 @@
       if (st.op === 'delete' && t === 'wheel_days') {
         self.__ticks = self.__ticks.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
+      if (st.op === 'delete' && t === 'likes') {
+        self.__likes = self.__likes.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
+      if (st.op === 'delete' && t === 'comments') {
+        self.__cmts = self.__cmts.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
       if (st.or != null) return { data: matches(rows(t), st.or), error: null };
       return st.op ? { data: null, error: null } : result(t);
     };
@@ -88,6 +96,8 @@
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
     p.insert = row => {
       if (t === 'invites') self.__invited = { ...row };
+      if (t === 'likes') self.__likes.push({ ...row });
+      if (t === 'comments') self.__cmts.push({ id: 700 + self.__cmts.length, created_at: new Date().toISOString(), ...row });
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
       return chain(t, { ...st, op: 'insert' });

@@ -844,3 +844,60 @@ alter table public.groups add constraint groups_active_days_sane check (
 -- Proof can be a picture as well as a clip. Which one a post is, is read off the file
 -- name, so nothing new is stored and every post already in here is still a clip.
 update storage.buckets set allowed_mime_types = array['video/*', 'image/*'] where id = 'proof';
+
+-- ============================================================
+-- v14 (likes, and telling people things happened): safe to run on an existing project.
+-- Deploy the notify function BEFORE running this — the new triggers call it with a kind
+-- it has to understand, and the old one would read an invite as if it were a post.
+-- ============================================================
+
+-- One row per person per post. The primary key is the whole point: liking twice is the
+-- same as liking once, and there is nothing to reconcile.
+create table if not exists public.likes (
+  post_id bigint not null references public.posts on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  created_at timestamptz default now(),
+  primary key (post_id, user_id)
+);
+create index if not exists likes_post on public.likes (post_id);
+alter table public.likes enable row level security;
+
+drop policy if exists "members see likes" on public.likes;
+drop policy if exists "members like" on public.likes;
+drop policy if exists "take back your own like" on public.likes;
+-- The same rule as the post itself: if you cannot see it, you cannot like it or know who did.
+create policy "members see likes" on public.likes for select
+  using (public.is_member((select group_id from public.posts where id = post_id)));
+create policy "members like" on public.likes for insert
+  with check (user_id = auth.uid() and public.is_member((select group_id from public.posts where id = post_id)));
+create policy "take back your own like" on public.likes for delete using (user_id = auth.uid());
+
+-- One hook for every kind of thing worth telling somebody about. The kind is passed as a
+-- trigger argument rather than guessed at the other end, so a row that happens to carry a
+-- group_id is never mistaken for a post.
+create or replace function public.notify_hook() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/notify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', '<HOOK_SECRET>'),
+    body    := jsonb_build_object('kind', TG_ARGV[0], 'record', to_jsonb(new))
+  );
+  return new;
+end $$;
+
+drop trigger if exists posts_notify on public.posts;
+create trigger posts_notify after insert on public.posts
+  for each row execute function public.notify_hook('post');
+
+drop trigger if exists invites_notify on public.invites;
+create trigger invites_notify after insert on public.invites
+  for each row execute function public.notify_hook('invite');
+
+drop trigger if exists comments_notify on public.comments;
+create trigger comments_notify after insert on public.comments
+  for each row execute function public.notify_hook('comment');
+
+drop trigger if exists likes_notify on public.likes;
+create trigger likes_notify after insert on public.likes
+  for each row execute function public.notify_hook('like');

@@ -156,6 +156,36 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .play i{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.7);display:grid;place-items:center;backdrop-filter:blur(6px)}
 .reel .play i::after{content:"";border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
 .reel.playing .play{display:none}
+/* Down the right, over the clip, the way a reel does it. */
+/* Above the failure card as well: a clip that would not load is still a post somebody
+   made, and still worth liking or replying to. */
+.reel .rail{position:absolute;right:10px;bottom:78px;z-index:4;display:flex;flex-direction:column;gap:16px;align-items:center}
+.reel .rail button{background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:#fff;font-weight:800;font-size:12px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.reel .rail svg{width:31px;height:31px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.reel .rail button.on svg{fill:#ff3b5c;stroke:#ff3b5c}
+.reel .rail b{min-height:14px;font-weight:800}
+.reel.playing .rail{bottom:96px}
+/* The comments, over the feed rather than under the post. */
+#cmt{max-height:82vh;display:flex;flex-direction:column}
+/* display:flex above beats the browser's own rule for a closed dialog, which would leave
+   the sheet on screen after it had been closed. The same trap as the camera buttons. */
+#cmt:not([open]){display:none}
+.chead{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.chead b{font-size:16px;font-weight:800}
+.chead button{background:none;padding:2px 6px;color:var(--muted);font-size:17px}
+#cbody{overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column}
+/* The caption is the first thing said about a post, so it sits above the replies with a
+   line under it rather than being mistaken for one of them. */
+.capline{display:flex;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
+.capline b{font-weight:800;font-size:14px;display:block}
+.capline p{margin-top:2px;font-size:15px;font-weight:700;line-height:1.35}
+.clist{flex:1;min-height:0;padding:4px 0}
+.clist .c{align-items:flex-start;gap:10px}
+.clist .c b{display:block;font-size:13px}
+/* Lighter than the caption above it, so the two do not read as the same kind of thing. */
+.clist .c span{display:block;color:var(--text);font-weight:500;font-size:14px}
+#cbody .cin{position:sticky;bottom:0;background:var(--sheet);padding:10px 0 0;margin-top:auto}
 /* A clip that cannot be played looks exactly like one that is merely slow: a black
    rectangle with a play button that does nothing. This says which it is. */
 .reel .bust{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;gap:12px;
@@ -349,6 +379,10 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" onclick="load()">Retry</button></div>
+<dialog id="cmt">
+  <div class="chead"><b id="ctitle">Comments</b><button type="button" onclick="closeComments()" aria-label="Close">✕</button></div>
+  <div id="cbody"></div>
+</dialog>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
   <div class="camtop">
@@ -406,7 +440,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v35';
+const BUILD = 'quota-v36';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -433,7 +467,7 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 const $ = s => document.querySelector(s);
 const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -598,7 +632,7 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -609,6 +643,7 @@ async function fetchAll() {
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
     q(sb.from('wheel_days').select('*')),
+    q(sb.from('likes').select('post_id,user_id')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -619,6 +654,7 @@ async function fetchAll() {
     stages: stages.filter(st => st.wheel_id === w.id)}));
   S.spins = spins.map(sp => ({...sp, results: Array.isArray(sp.results) ? sp.results : []}));
   S.ticks = ticks;
+  S.likes = (likes || []).map(l => ({p: l.post_id, u: l.user_id}));
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
@@ -701,6 +737,7 @@ async function runLoad() {
     // Whether notifications are on is only known by asking the browser, and until it has
     // been asked the feed cannot tell whether to offer them. Once per launch is enough.
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
+    if (me() && location.hash) goToHash();
   }
 }
 function render() {
@@ -867,17 +904,16 @@ function feed(ps, showGroup) {
     const h = p.day !== day ? `<p class="muted" style="margin:14px 18px 0">${dayLabel(p.day)}</p>` : ''; day = p.day;
     const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
     // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
-    return h + `<div class="card post"><div class="reel">
+    return h + `<div class="card post" data-post="${p.id}"><div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
         : `<video class="proof" playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>`}
       <div class="ov top">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
       ${isPhoto(p) ? '' : `<div class="play"><i></i></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
+      ${rail(p, cs.length)}
       ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
-      <div class="cmts">${cs.map(c => `<div class="c"><b>${esc(name(user(c.userId)))}</b><span>${esc(c.body)}</span>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" title="Delete">✕</button>` : ''}</div>`).join('')}
-      ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>` : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})"><input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off"><button class="primary">Send</button></form>`}
-      ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div></div>`;
+      ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div>`;
   }).join('');
 }
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
@@ -969,6 +1005,69 @@ function retryClip(btn, postId) {
   delete v.dataset.retried;
   clipBust(v, postId, true);
 }
+
+// Down the right-hand side, where every app that shows a reel puts them. Over the clip
+// rather than under it, so the picture keeps the whole card.
+const likesOn = id => S.likes.filter(l => l.p === id);
+const iLike = id => S.likes.some(l => l.p === id && l.u === me().id);
+function rail(p, comments) {
+  const n = likesOn(p.id).length, mine = iLike(p.id);
+  return `<div class="rail">
+    <button type="button" class="${mine ? 'on' : ''}" onclick="toggleLike(${p.id})" aria-label="${mine ? 'Unlike' : 'Like'}">
+      <svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg>
+      <b>${n || ''}</b>
+    </button>
+    <button type="button" onclick="openComments(${p.id})" aria-label="Comments">
+      <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3 1-4.6A8 8 0 1 1 21 12z"/></svg>
+      <b>${comments || ''}</b>
+    </button>
+  </div>`;
+}
+
+// Kept in front of them straight away rather than after a round trip: a heart that waits
+// on the network to fill in feels broken even when it is working.
+async function toggleLike(id) {
+  const m = me(), had = iLike(id);
+  S.likes = had ? S.likes.filter(l => !(l.p === id && l.u === m.id)) : [...S.likes, {p: id, u: m.id}];
+  render();
+  if (S.openPost === id) paintComments();
+  try {
+    if (had) await q(sb.from('likes').delete().eq('post_id', id).eq('user_id', m.id));
+    else await q(sb.from('likes').insert({post_id: id, user_id: m.id}));
+  } catch (e) {
+    S.likes = had ? [...S.likes, {p: id, u: m.id}] : S.likes.filter(l => !(l.p === id && l.u === m.id));
+    render();
+  }
+}
+
+// The caption belongs at the top of its own comments, the way a caption is the first
+// thing said about a post — above the line, not lost in the middle of the replies.
+function commentsBody(id) {
+  const p = S.posts.find(x => x.id === id);
+  if (!p) return '';
+  const cs = S.comments.filter(c => c.postId === id);
+  const u = user(p.userId);
+  return `${p.caption ? `<div class="capline">${av(u)}<div><b>${esc(name(u))}</b><p>${esc(p.caption)}</p></div></div>` : ''}
+    <div class="clist">${cs.length ? cs.map(c => `<div class="c">${av(user(c.userId))}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
+      <span>${esc(c.body)}</span></div>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')
+      : `<p class="muted" style="text-align:center;padding:24px 0">No comments yet.</p>`}</div>
+    ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>`
+      : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${id})"><input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off"><button class="primary">Send</button></form>`}`;
+}
+
+function paintComments() {
+  const box = $('#cbody');
+  if (box && S.openPost != null) box.innerHTML = commentsBody(S.openPost);
+}
+
+function openComments(id) {
+  S.openPost = id;
+  $('#ctitle').textContent = `${plural(S.comments.filter(c => c.postId === id).length, 'comment')}`;
+  paintComments();
+  const d = $('#cmt');
+  if (!d.open) d.showModal();
+}
+function closeComments() { S.openPost = null; const d = $('#cmt'); if (d.open) d.close(); }
 
 function friendsView() {
   const m = me(), incoming = S.invites.filter(i => i.type === 'friend' && i.to === m.id), outgoing = S.invites.filter(i => i.type === 'friend' && i.from === m.id);
@@ -2155,8 +2254,16 @@ async function addComment(f, postId) {
   working(f, '…');
   await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body}));
   const y = scrollY; await load(); scrollTo(0, y);
+  // The sheet is a dialog of its own: render() redraws the feed behind it and would leave
+  // the comment you just wrote missing from the only place you are looking.
+  if (S.openPost === postId) openComments(postId);
 }
-async function delComment(id) { await q(sb.from('comments').delete().eq('id', id)); const y = scrollY; await load(); scrollTo(0, y); }
+async function delComment(id) {
+  const at = S.openPost;
+  await q(sb.from('comments').delete().eq('id', id));
+  const y = scrollY; await load(); scrollTo(0, y);
+  if (at != null) openComments(at);
+}
 
 // An installed app comes back to the foreground constantly, and this refetches every
 // table each time. Once every 15 seconds is plenty; load() itself collapses overlapping calls.
@@ -2272,6 +2379,28 @@ addEventListener('focusin', fitBar);
 // flash the bar back for a frame. Let the focus settle first.
 addEventListener('focusout', () => setTimeout(fitBar, 0));
 fitBar();
+
+// A notification is worth tapping only if it arrives somewhere. The service worker sends
+// the app to /#post-<id>; this is the other half, run once the feed has something in it.
+function goToHash() {
+  const m = /^#post-(\d+)$/.exec(location.hash || '');
+  if (m) {
+    const id = +m[1];
+    if (!S.posts.some(p => p.id === id)) return;
+    history.replaceState(null, '', location.pathname);
+    S.tab = 'feed'; S.open = null; render();
+    const el = document.querySelector(`[data-post="${id}"]`);
+    if (el) el.scrollIntoView({block: 'center'});
+    openComments(id);
+    return;
+  }
+  if (location.hash === '#friends' || location.hash === '#groups') {
+    const tab = location.hash.slice(1);
+    history.replaceState(null, '', location.pathname);
+    go(tab);
+  }
+}
+addEventListener('hashchange', goToHash);
 
 // Nothing here is allowed to leave the page blank. Paint first, then fill it in.
 render();

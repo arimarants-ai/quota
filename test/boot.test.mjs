@@ -1191,6 +1191,81 @@ await withPage({ ...SIGNED_IN, photos: true }, async page => {
     await page.locator('.post .ov.top .av img').first().getAttribute('src') !== null);
 });
 
+// ---- liking, and comments in a sheet of their own
+// Down the right of the clip the way every app that shows a reel does it, and the count
+// moves the instant it is tapped rather than after a round trip.
+await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const heart = page.locator('.post .rail button').first();
+  const bubble = page.locator('.post .rail button').nth(1);
+  check('a post can be liked from the clip itself', await heart.count() === 1);
+  check('  over it, down the right, not under it', await page.evaluate(() => {
+    const r = document.querySelector('.reel .rail'), reel = document.querySelector('.reel');
+    if (!r || !reel) return false;
+    const a = r.getBoundingClientRect(), b = reel.getBoundingClientRect();
+    return a.right <= b.right + 1 && a.left > b.left + b.width / 2 && a.bottom <= b.bottom + 1;
+  }));
+  check('  and nothing is claimed before anyone taps', (await heart.innerText()).trim() === '');
+
+  // The stub's clips cannot decode, so this post is showing its failure card — which is
+  // the case worth checking: a clip that would not load is still a post worth replying to.
+  check('  and reachable even on a post whose clip would not load',
+    await page.locator('.post .reel.bust').count() > 0);
+  await heart.click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  check('  tapping it counts at once', (await heart.innerText()).trim() === '1');
+  check('    and says it was you', await heart.evaluate(b => b.classList.contains('on')));
+  check('    with the like really sent', (await page.evaluate(() => self.__likes)).length === 1,
+    JSON.stringify(await page.evaluate(() => self.__likes)));
+
+  await heart.click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  check('  and again takes it back', (await heart.innerText()).trim() === ''
+    && !await heart.evaluate(b => b.classList.contains('on'))
+    && (await page.evaluate(() => self.__likes)).length === 0);
+
+  // Comments are not under the post any more; they come up over it.
+  check('comments are not sitting under the post', await page.locator('.post .clist').count() === 0);
+  await bubble.click();
+  await page.waitForTimeout(300);
+  check('  tapping the bubble brings them up', await page.locator('#cmt').isVisible());
+  const cap = await page.locator('#cmt .capline').count()
+    ? await page.locator('#cmt .capline').innerText() : '(no caption block)';
+  check('    with the caption at the top', /fifty in the bag/.test(cap), cap);
+  check('      in its own block above the replies, with a line under it',
+    await page.evaluate(() => {
+      const c = document.querySelector('#cmt .capline');
+      return !!c && getComputedStyle(c).borderBottomWidth !== '0px'
+        && c.compareDocumentPosition(document.querySelector('#cmt .clist')) === Node.DOCUMENT_POSITION_FOLLOWING;
+    }));
+  check('    and the caption still shows on the post itself',
+    await page.locator('.post .reel .cap').first().isVisible());
+
+  await page.locator('#cmt input[name=body]').fill('nice one');
+  await page.locator('#cmt form.cin button').click();
+  await page.waitForTimeout(900);
+  check('  a comment written there appears there', /nice one/.test(await page.locator('#cmt .clist').innerText()),
+    await page.locator('#cmt .clist').innerText());
+  check('    without the sheet closing under you', await page.locator('#cmt').isVisible());
+  await page.locator('#cmt .chead button').click();
+  await page.waitForTimeout(200);
+  check('  and it closes when you are done', await page.locator('#cmt').isHidden());
+});
+
+// A notification is worth tapping only if it lands on the thing it is about.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { location.hash = `#post-${S.posts[0].id}`; });
+  await page.waitForTimeout(500);
+  check('a link to a post opens that post', await page.locator('#cmt').isVisible()
+    && await page.evaluate(() => S.openPost) === await page.evaluate(() => S.posts[0].id));
+  check('  and tidies the address up behind itself', await page.evaluate(() => location.hash) === '');
+  await page.evaluate(() => { closeComments(); location.hash = '#friends'; });
+  await page.waitForTimeout(400);
+  check('  a link to friends goes to friends', await page.evaluate(() => S.tab) === 'friends');
+});
+
 // ---- notifications nobody was ever offered
 // They were opt-in behind a card at the foot of the Profile tab, which is opt-in by
 // nobody: a whole group can go months without one and assume the app has none.
@@ -1561,14 +1636,18 @@ await withPage(SIGNED_IN, async page => {
   const shown = () => page.evaluate(() => getComputedStyle($('#bar')).display !== 'none');
   check('the bar is there to begin with', await shown());
 
-  await page.locator('.cin input').first().focus();
+  // Comments moved into a sheet of their own, so the search box is the plain text field
+  // still sitting on a page behind the bar.
+  await page.evaluate(() => go('friends'));
+  await page.waitForTimeout(200);
+  await page.locator('#fq').focus();
   await page.waitForTimeout(150);
-  check('  tapping a comment box puts it away at once', !await shown());
+  check('  tapping a text field puts it away at once', !await shown());
   check('    with no viewport change needed', await page.evaluate(() => innerHeight === visualViewport.height));
   check('    and without lifting it first',
     await page.evaluate(() => document.documentElement.style.getPropertyValue('--vvb')) === '0px');
 
-  await page.locator('.cin input').first().blur();
+  await page.locator('#fq').blur();
   await page.waitForTimeout(200);
   check('  and gives it back when you are done', await shown());
 

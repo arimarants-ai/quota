@@ -1,5 +1,5 @@
 // Run: node --experimental-strip-types message.test.ts
-import { messageFor } from './message.ts';
+import { messageFor, socialFor } from './message.ts';
 let n = 0;
 const eq = (got: string, want: string, msg: string) => {
   if (got !== want) throw new Error(`FAIL ${msg}\n  got:  ${got}\n  want: ${want}`);
@@ -48,3 +48,17 @@ eq(messageFor('Bob', 'pushups', 100, [{ metric: 'pushups', target: 100 }], [{ me
    "Bob completed the day's goal", 'finishing the day still announces the goal');
 
 console.log(`\nall ${n} message checks passed`);
+
+// --- everything that is not a post
+{
+  eq(socialFor('friend', 'Ari'), 'Ari sent you a friend request', 'a friend request says who');
+  eq(socialFor('group', 'Ari', 'Lock In'), 'Ari added you to Lock In', 'a group invite names the group');
+  eq(socialFor('like', 'Ari'), 'Ari liked your proof', 'a like says whose');
+  eq(socialFor('comment', 'Ari', 'nice one'), 'Ari: nice one', 'a comment carries what was said');
+  eq(socialFor('comment', 'Ari', '  nice\n  one  '), 'Ari: nice one', '  tidied onto one line');
+  eq(socialFor('comment', 'Ari', ''), 'Ari commented on your proof', '  and says something when there is nothing to quote');
+  const long = 'x'.repeat(200);
+  const got = socialFor('comment', 'Ari', long);
+  eq(String(got.length <= 90), 'true', '  a long one is cut rather than filling the screen');
+  eq(String(got.endsWith('…')), 'true', '  and says it was cut');
+}

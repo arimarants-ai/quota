@@ -39,6 +39,13 @@ create schema if not exists auth;
 create table auth.users (id uuid primary key);
 create function auth.uid() returns uuid language sql stable as
   $fn$ select nullif(current_setting('test.uid', true), '')::uuid $fn$;
+-- pg_net only exists on Supabase. Stubbed rather than cut out, so the triggers that call
+-- it are really created and really fire — what they would have sent is not the point here,
+-- but a trigger that cannot be created at all very much is.
+create schema if not exists net;
+create function net.http_post(url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
+  headers jsonb default '{}'::jsonb, timeout_milliseconds int default 5000)
+  returns bigint language sql as $fn$ select 1::bigint $fn$;
 -- Enough of Supabase's storage schema for the bucket statements to run rather than be
 -- cut out of the file. Only the columns schema.sql actually touches.
 create schema if not exists storage;
