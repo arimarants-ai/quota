@@ -1394,6 +1394,28 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(300);
   check('  tapping your own takes it back', (await page.evaluate(() => self.__reacts)).length === 1,
     JSON.stringify(await page.evaluate(() => self.__reacts)));
+
+  // Nothing around them. A clipped or filtered box over a playing video shows up on iOS as a
+  // faint darker rectangle with an edge, and the bob carried the emoji into that edge.
+  check('  nothing around them that could clip or tint them', await page.evaluate(() => {
+    const r = document.querySelector('.reel .reacts'), c = getComputedStyle(r);
+    const b = getComputedStyle(r.querySelector('button'));
+    return c.overflow === 'visible' && c.backgroundColor === 'rgba(0, 0, 0, 0)' && c.backdropFilter === 'none'
+      && b.filter === 'none';
+  }));
+
+  // A crowd of them is capped and stays inside the post, none cut off the top or the bottom.
+  await page.evaluate(() => {
+    for (let i = 0; i < 12; i++) S.reacts.push({p: S.posts[0].id, u: 'u' + (i + 3), e: '💪'}); render();
+  });
+  await page.waitForTimeout(200);
+  const crowd = await page.evaluate(() => {
+    const reel = document.querySelector('.reel').getBoundingClientRect();
+    const bs = [...document.querySelectorAll('.reel .reacts button')].map(b => b.getBoundingClientRect());
+    return {n: bs.length, out: bs.filter(r => r.top < reel.top || r.bottom > reel.bottom || r.left < reel.left).length};
+  });
+  check('  a crowd of them is capped', crowd.n === 10, JSON.stringify(crowd));
+  check('    and every one sits inside the post, whole', crowd.out === 0, JSON.stringify(crowd));
 });
 
 // A notification is worth tapping only if it lands on the thing it is about.

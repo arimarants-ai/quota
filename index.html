@@ -173,9 +173,13 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
    bobs on its own slow cycle, offset in phase and nudged sideways so they read as a loose
    column of floating things rather than a stack. */
 .reel .reacts{position:absolute;left:14px;bottom:72px;z-index:4;display:flex;flex-direction:column-reverse;
-  align-items:flex-start;gap:0;pointer-events:none;max-height:60%;overflow:hidden}
+  flex-wrap:wrap-reverse;align-content:flex-start;align-items:flex-start;gap:0 6px;pointer-events:none;
+  max-height:calc(100% - 130px);overflow:visible}
+/* No overflow clip and no filter on these: over a playing video iOS paints a clipped, filtered
+   layer as a faint darker box with an edge, and the bob carried the emoji into that edge. A
+   text-shadow keeps them legible on a bright frame without a layer of their own. */
 .reel .reacts button{background:none;border:0;padding:2px;font-size:26px;line-height:1;pointer-events:none;
-  filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));transform:translateX(var(--x,0px));
+  text-shadow:0 2px 6px rgba(0,0,0,.6);transform:translateX(var(--x,0px));
   animation:bob 3.4s ease-in-out infinite;animation-delay:calc(var(--i,0) * -.7s)}
 .reel .reacts button.mine{pointer-events:auto;cursor:pointer}
 @keyframes bob{
@@ -473,7 +477,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v38';
+const BUILD = 'quota-v39';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1086,7 +1090,7 @@ function rail(p, comments) {
 // reel: one emoji per reaction, bare, each on its own slow bob with its own phase so they
 // never move in step. Yours are the ones that answer to a tap.
 const REACTS = ['🔥', '💪', '👏', '😤', '😂', '🫡'];
-const FLOAT_MAX = 14;                      // past this it is a wall, not a feeling
+const FLOAT_MAX = 10;                      // past this it is a wall, not a feeling
 const reactsOn = id => S.reacts.filter(r => r.p === id);
 function reactBubbles(id) {
   const all = reactsOn(id).slice(-FLOAT_MAX);
