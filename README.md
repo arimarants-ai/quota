@@ -80,12 +80,53 @@ to move to a newer version.
 
 ## When notifications stop
 
-Every trigger that sends one calls the `notify` edge function with a shared secret. Older
-blocks in `schema.sql` carry that secret as the literal placeholder `'<HOOK_SECRET>'`, so
-re-running one of them — which is what happens when a later feature block gets pasted in —
-replaces a working trigger with one that sends the wrong secret. The function answers 403,
-`pg_net` throws the answer away, and every notification stops with nothing anywhere saying
-why. That is the first thing to check:
+Nothing anywhere says so. `pg_net` sends the call and throws the answer away, so a push
+that never went out looks exactly like one that did. The answers are kept for a while
+though, and they say which of the two failures it is:
+
+```sql
+select created, status_code, content from net._http_response order by created desc limit 10;
+```
+
+| What comes back | Where it stopped | What it means |
+| --- | --- | --- |
+| `403 forbidden` | Inside the function | The secret the trigger sent is not the secret the function holds. |
+| `401 UNAUTHORIZED_NO_AUTH_HEADER` | Supabase's gateway, before the function | That function has **Verify JWT** switched on, so the call never arrives. |
+| `200` | Nowhere | It went. |
+
+Rows landing exactly on the hour are the `wheelday` cron; anything else is somebody
+posting, commenting, liking or inviting.
+
+### 403: the secret
+
+Every trigger calls the `notify` function with a shared secret. Older blocks in
+`schema.sql` carry that secret as the literal placeholder `'<HOOK_SECRET>'`, so re-running
+one of them — which is what happens when a later feature block gets pasted in — replaces a
+working trigger with one that sends the string `<HOOK_SECRET>`. The same 403 comes back if
+`HOOK_SECRET` was never set on the function at all, because an unset one can never match.
+So set both ends explicitly, to the same value:
+
+1. Edge Functions → Secrets → `HOOK_SECRET`.
+2. `alter database postgres set app.hook_secret = 'that same value';`
+3. Run the v16 block at the bottom of `schema.sql`.
+4. In a **new** SQL session: `select coalesce(current_setting('app.hook_secret', true), '') <> '' as secret_is_set;`
+
+### 401: the gateway
+
+`wheelday` guards itself with the same shared secret `notify` does, so it wants the same
+setting: Edge Functions → `wheelday` → turn **Verify JWT** off (`--no-verify-jwt` if you
+deploy from a terminal). With it on, the gateway rejects the cron job before the function
+runs, which is why spin-day reminders can be dead while everything else is merely wrong.
+
+To check either from outside, without waiting for someone to post:
+
+```bash
+curl -i -X POST https://<project>.supabase.co/functions/v1/notify -d '{}'
+# 403 forbidden  -> deployed, running, and guarding itself. Good.
+# 401 ...        -> Verify JWT is on; the gateway is answering, not the function.
+```
+
+The old check, for whether the placeholder is what is in the trigger:
 
 ```sql
 -- Is the placeholder still sitting in the trigger?
