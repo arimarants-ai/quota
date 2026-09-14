@@ -138,14 +138,24 @@ select created, status_code, content from net._http_response order by created de
 ```
 
 The fix, and the reason it cannot happen again, is the v16 block at the bottom of
-`schema.sql`: the secret moves into a database setting, so nothing pasted in afterwards can
-overwrite it, and a missing one is written to the Postgres log instead of being swallowed.
-Set it once with `alter database postgres set app.hook_secret = '...'`, run the block, then
-in a new session check it took:
+`schema.sql`: the secret moves out of the function body and into a row in `private.config`,
+which re-running the block cannot touch, and a missing one is written to the Postgres log
+instead of being swallowed. Run the block, then write the value once:
 
 ```sql
-select coalesce(current_setting('app.hook_secret', true), '') <> '' as secret_is_set;
+insert into private.config (key, value) values ('hook_secret', 'the-real-secret')
+  on conflict (key) do update set value = excluded.value;
+
+select left(value, 6) || '…' as hook_secret from private.config where key = 'hook_secret';
 ```
+
+It has to match the `HOOK_SECRET` set on the edge functions. That one is project-wide, so
+it covers `notify` and `wheelday` together. Supabase masks it after it is saved, so if you
+cannot read it back, overwrite both ends with a new value rather than trying to recover it.
+
+A database setting would read better than a table, but `alter database ... set` on a custom
+parameter needs superuser and Supabase does not hand that out — it fails with
+`permission denied to set parameter`.
 
 ## When the app cannot load
 
