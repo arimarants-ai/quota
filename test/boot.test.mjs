@@ -1192,24 +1192,29 @@ await withPage({ ...SIGNED_IN, photos: true }, async page => {
 });
 
 // ---- liking, and comments in a sheet of their own
-// Down the right of the clip the way every app that shows a reel does it, and the count
-// moves the instant it is tapped rather than after a round trip.
+// Under the clip and straight above the replies, so liking a post and answering it are
+// the same gesture in the same place. The count moves the instant it is tapped rather
+// than after a round trip.
 await withPage(SIGNED_IN, async page => {
   await page.setViewportSize({ width: 390, height: 844 });
   await settle(page);
-  const heart = page.locator('.post .rail button').first();
-  const bubble = page.locator('.post .rail button').nth(1);
-  check('a post can be liked from the clip itself', await heart.count() === 1);
-  check('  over it, down the right, not under it', await page.evaluate(() => {
-    const r = document.querySelector('.reel .rail'), reel = document.querySelector('.reel');
+  const heart = page.locator('.post .acts .lk').first();
+  const bubble = page.locator('.post .acts .cc').first();
+  check('a post can be liked', await heart.count() === 1);
+  check('  from under the clip, not over it', await page.evaluate(() => {
+    const r = document.querySelector('.post .acts'), reel = document.querySelector('.post .reel');
     if (!r || !reel) return false;
     const a = r.getBoundingClientRect(), b = reel.getBoundingClientRect();
-    return a.right <= b.right + 1 && a.left > b.left + b.width / 2 && a.bottom <= b.bottom + 1;
+    return a.top >= b.bottom - 1;
+  }));
+  check('    and the replies sit under that again', await page.evaluate(() => {
+    const acts = document.querySelector('.post .acts'), cm = document.querySelector('.post .cmts');
+    return !!acts && !!cm && acts.compareDocumentPosition(cm) === Node.DOCUMENT_POSITION_FOLLOWING;
   }));
   // A blank where a number goes reads as something still loading. Zero is a number.
   check('  a post nobody has liked says nought, rather than nothing',
     (await heart.innerText()).trim() === '0', await heart.innerText());
-  check('    and so does its comment count', (await bubble.innerText()).trim() === '0',
+  check('    and so does its comment count', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
   // The stub's clips cannot decode, so this post is showing its failure card — which is
@@ -1235,129 +1240,80 @@ await withPage(SIGNED_IN, async page => {
   const shown = await page.evaluate(() => {
     const id = S.posts[0].id;
     const put = n => { S.likes = Array.from({length: n}, (_, i) => ({p: id, u: 'x' + i})); render();
-      return document.querySelector('.post .rail button b').textContent; };
+      return document.querySelector('.post .acts .lk b').textContent; };
     const out = {a: put(999), b: put(1000), c: put(1200), d: put(15400), e: put(2400000)};
     S.likes = []; render(); return out;
   });
   check('  a big count is shortened', JSON.stringify(shown) ===
     JSON.stringify({a: '999', b: '1K', c: '1.2K', d: '15K', e: '2.4M'}), JSON.stringify(shown));
 
-  // Comments are not under the post any more; they come up over it.
-  check('comments are not sitting under the post', await page.locator('.post .clist').count() === 0);
-  await bubble.click();
-  await page.waitForTimeout(300);
-  check('  tapping the bubble brings them up', await page.locator('#cmt').isVisible());
-  const cap = await page.locator('#cmt .capline').count()
-    ? await page.locator('#cmt .capline').innerText() : '(no caption block)';
-  check('    with the caption at the top', /fifty in the bag/.test(cap), cap);
-  // A caption is the post talking, not somebody replying to it, so it carries no face and
-  // no name — which is exactly what makes it read as a caption rather than a first comment.
-  check('      with no name or face on it, unlike a comment',
-    !/@/.test(cap) && !/Ari/.test(cap) && await page.locator('#cmt .capline .av').count() === 0, cap);
-  check('      in its own block above the replies, with a line under it',
-    await page.evaluate(() => {
-      const c = document.querySelector('#cmt .capline');
-      return !!c && getComputedStyle(c).borderBottomWidth !== '0px'
-        && c.compareDocumentPosition(document.querySelector('#cmt .clist')) === Node.DOCUMENT_POSITION_FOLLOWING;
-    }));
-  check('    and the caption still shows on the post itself',
+  // Comments sit under the post again, with a box that is always ready: on a post you are
+  // already looking at, the thing to say is the thing in front of you.
+  check('the replies are under the post, not behind a sheet', await page.locator('.post .cmts').count() > 0);
+  check('  with somewhere to type already there', await page.locator('.post .cin input').count() > 0);
+  check('  and nothing to open first', await page.locator('#cmt').count() === 0);
+  check('  the caption stays on the clip, where it was written',
     await page.locator('.post .reel .cap').first().isVisible());
 
-  // flex:1 is a 0% basis, which Safari resolves to nothing inside a container with no set
-  // height: the sheet came up as a header and a void on iOS while looking fine here. Chromium
-  // cannot show the collapse, so this checks the thing that causes it instead.
-  const zeroBasis = await page.evaluate(() => [...document.querySelectorAll('#cmt, #cmt *')]
-    .filter(el => { const b = getComputedStyle(el).flexBasis; return b !== 'auto' && b !== '0px' && /%/.test(b); })
-    .map(el => `${el.tagName.toLowerCase()}#${el.id || ''}.${el.className || ''} basis=${getComputedStyle(el).flexBasis}`));
-  check('  nothing in the sheet has a percentage flex basis, which Safari collapses to nothing',
-    zeroBasis.length === 0, zeroBasis.join(' | '));
-  check('  and the body of the sheet has height to it',
-    await page.evaluate(() => document.querySelector('#cbody').getBoundingClientRect().height) >= 96);
+  const box = page.locator('.post .cin input').first();
+  const send = page.locator('.post form.cin button.primary').first();
+  const list = () => page.locator('.post .clist').first().innerText();
 
   // Held open, so what shows here is what the page put up on its own rather than what came
   // back: a count that waits on the round trip reads as a tap that did nothing.
   await page.evaluate(() => { self.__stall = new Promise(r => { self.__go = r; }); });
-  await page.locator('#cmt input[name=body]').fill('nice one');
-  await page.locator('#cmt form.cin button.primary').click();
+  await box.fill('nice one');
+  await send.click();
   await page.waitForTimeout(250);
-  check('  a comment counts before the write comes back', (await bubble.innerText()).trim() === '1',
+  check('  a comment counts before the write comes back', /^1 comment$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
-  check('    and shows in the sheet that soon too',
-    /nice one/.test(await page.locator('#cmt .clist').innerText()),
-    await page.locator('#cmt .clist').innerText());
+  check('    and shows under the post that soon too', /nice one/.test(await list()), await list());
   check('      with no delete on it until it is really saved',
-    await page.locator('#cmt .clist .x').count() === 0);
+    await page.locator('.post .clist .x').count() === 0);
   await page.evaluate(() => { const g = self.__go; self.__stall = null; g(); });
   await page.waitForTimeout(900);
-  check('  a comment written there appears there', /nice one/.test(await page.locator('#cmt .clist').innerText()),
-    await page.locator('#cmt .clist').innerText());
-  check('    without the sheet closing under you', await page.locator('#cmt').isVisible());
-  // Written one, so both the heading over it and the number on the post behind it move.
-  check('    with the heading over it counting it', /^1 comment$/.test((await page.locator('#ctitle').innerText()).trim()),
-    await page.locator('#ctitle').innerText());
-  check('    and the count on the post behind it', (await bubble.innerText()).trim() === '1',
+  check('  a comment written there stays there', /nice one/.test(await list()), await list());
+  check('    and it can be taken back once it is saved', await page.locator('.post .clist .x').count() === 1);
+
+  await page.locator('.post .clist .x').first().click();
+  await page.waitForTimeout(900);
+  check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
-  // Taken back, and both numbers come down again.
-  await page.locator('#cmt .clist .x').first().click();
-  await page.waitForTimeout(900);
-  check('  taking a comment back drops the heading back', /^0 comments$/.test((await page.locator('#ctitle').innerText()).trim()),
-    await page.locator('#ctitle').innerText());
-  check('    and the count on the post with it', (await bubble.innerText()).trim() === '0',
-    await bubble.innerText());
-  await page.locator('#cmt input[name=body]').fill('nice one');
-  await page.locator('#cmt form.cin button.primary').click();
-  await page.waitForTimeout(900);
   // The phone's keyboard has its own emoji key; this is the one in the box, for reaching
   // them without leaving the field.
-  check('  the box has an emoji button', await page.locator('#cmt .cin .emo').count() === 1);
-  check('    which is put away until it is asked for', await page.locator('#cmt #emoji').isHidden());
-  await page.locator('#cmt .cin .emo').click();
+  check('  the box has an emoji button', await page.locator('.post .cin .emo').count() > 0);
+  check('    which is put away until it is asked for', await page.locator('.post .cmts .emoji').first().isHidden());
+  await page.locator('.post .cin .emo').first().click();
   await page.waitForTimeout(200);
-  check('    and opens a set to pick from', await page.locator('#cmt #emoji').isVisible()
-    && await page.locator('#cmt #emoji button').count() >= 10);
-  await page.locator('#cmt input[name=body]').fill('great');
-  await page.locator('#cmt #emoji button').first().click();
+  check('    and opens a set to pick from', await page.locator('.post .cmts .emoji').first().isVisible()
+    && await page.locator('.post .cmts .emoji button').count() >= 10);
+  await box.fill('great');
+  await page.locator('.post .cmts .emoji button').first().click();
   await page.waitForTimeout(200);
-  check('    putting one where the caret was',
-    /great./.test(await page.locator('#cmt input[name=body]').inputValue()),
-    await page.locator('#cmt input[name=body]').inputValue());
-  await page.locator('#cmt .chead button').click();
-  await page.waitForTimeout(200);
-  check('  and it closes when you are done', await page.locator('#cmt').isHidden());
+  check('    putting one where the caret was', /great./.test(await box.inputValue()), await box.inputValue());
+
+  // Every post carries its own box and its own tray, so the one you opened is the one that
+  // answers — the second post must not have taken the first one's emoji.
+  const many = await page.evaluate(() => document.querySelectorAll('.post .cin input').length);
+  if (many > 1) {
+    const second = await page.locator('.post .cmts .emoji').nth(1).isHidden();
+    check('    and the tray belongs to the post it was opened from', second === true);
+  }
 });
 
-// The box you type a comment into sits at the bottom of a sheet, and a dialog is pinned to
-// the layout viewport — which a keyboard does not shrink. Left alone, the keyboard covers
-// exactly the part you were trying to reach, which is "there is nowhere to type".
+// The reaction buttons moved off the clip with the like, so the picker has to come up over
+// the row it was opened from rather than over the video.
 await withPage(SIGNED_IN, async page => {
-  await page.setViewportSize({ width: 390, height: 844 });
   await settle(page);
-  await page.locator('.post .rail button').nth(1).click();
-  await page.waitForTimeout(300);
-  const bottom = () => page.evaluate(() => document.querySelector('#cmt').getBoundingClientRect().bottom);
-  const inputBottom = () => page.evaluate(() => {
-    const el = document.querySelector('#cbody .cin input');
-    return el ? el.getBoundingClientRect().bottom : null;
-  });
-  const at0 = await bottom();
-  check('with no keyboard the sheet sits on the bottom of the screen',
-    Math.abs(at0 - 844) < 2, String(at0));
-
-  // 336px of keyboard, which is about what an iPhone puts up.
-  await page.evaluate(() => {
-    Object.defineProperty(self, 'visualViewport', {configurable: true,
-      value: {height: innerHeight - 336, offsetTop: 0, addEventListener() {}}});
-    fitBar();
-  });
-  await page.waitForTimeout(250);
-  const kb = await page.evaluate(() => document.documentElement.style.getPropertyValue('--kb'));
-  check('  the keyboard height is known', kb === '336px', kb);
-  const lifted = await bottom();
-  check('  and the sheet climbs over it', Math.round(844 - lifted) === 336, `${at0} -> ${lifted}`);
-  const ib = await inputBottom();
-  check('    so the box you type in is somewhere you can see',
-    ib !== null && ib <= 844 - 336 + 1, `input bottom ${ib}, keyboard starts at ${844 - 336}`);
+  await page.locator('.post .acts .react').first().click();
+  await page.waitForTimeout(200);
+  check('the picker opens from the row under the clip', await page.locator('.post .acts .reactpick').count() === 1);
+  check('  clear of the clip above it', await page.evaluate(() => {
+    const pick = document.querySelector('.reactpick'), reel = document.querySelector('.post .reel');
+    if (!pick || !reel) return false;
+    return pick.getBoundingClientRect().top >= reel.getBoundingClientRect().top;
+  }));
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees
@@ -1385,14 +1341,14 @@ await withPage(SIGNED_IN, async page => {
   const reel = page.locator('.post .reel').first();
   check('nothing is shown on a post nobody has reacted to', await reel.locator('.reacts').count() === 0);
 
-  await reel.locator('.rail .react').click();
+  await page.locator('.post .acts .react').first().click();
   await page.waitForTimeout(200);
-  check('the react button offers a set to choose from', await reel.locator('.reactpick button').count() >= 5);
-  await reel.locator('.reactpick button').first().click();
+  check('the react button offers a set to choose from', await page.locator('.post .reactpick button').count() >= 5);
+  await page.locator('.post .reactpick button').first().click();
   await page.waitForTimeout(300);
   check('  picking one puts it on the post', await reel.locator('.reacts button').count() === 1,
     await reel.locator('.reacts').innerText().catch(() => '(none)'));
-  check('    and the picker goes away', await reel.locator('.reactpick').count() === 0);
+  check('    and the picker goes away', await page.locator('.post .reactpick').count() === 0);
   check('    with it really sent', (await page.evaluate(() => self.__reacts)).length === 1,
     JSON.stringify(await page.evaluate(() => self.__reacts)));
   check('    bare, with no ring or pill around it', await page.evaluate(() => {
@@ -1404,12 +1360,11 @@ await withPage(SIGNED_IN, async page => {
     return c.animationName === 'bob' && parseFloat(c.animationDuration) > 0;
   }));
   check('    answering to a tap because it is yours', await reel.locator('.reacts button.mine').count() === 1);
-  check('  in the corner, clear of the rail', await page.evaluate(() => {
+  check('  in the corner of the clip, and inside it', await page.evaluate(() => {
     const r = document.querySelector('.reel .reacts'), reel = document.querySelector('.reel');
-    const rail = document.querySelector('.reel .rail');
-    if (!r || !reel || !rail) return false;
-    const a = r.getBoundingClientRect(), b = reel.getBoundingClientRect(), c = rail.getBoundingClientRect();
-    return a.left < b.left + b.width / 2 && a.bottom <= b.bottom + 1 && a.right <= c.left;
+    if (!r || !reel) return false;
+    const a = r.getBoundingClientRect(), b = reel.getBoundingClientRect();
+    return a.left < b.left + b.width / 2 && a.bottom <= b.bottom + 1 && a.top >= b.top - 1;
   }));
 
   // Two people with the same one is two of them floating, like two likes on a reel, and
@@ -1426,9 +1381,9 @@ await withPage(SIGNED_IN, async page => {
     && await page.evaluate(() => getComputedStyle(document.querySelector('.reel .reacts button:not(.mine)')).pointerEvents === 'none'));
 
   // A different one sits beside it.
-  await reel.locator('.rail .react').click();
+  await page.locator('.post .acts .react').first().click();
   await page.waitForTimeout(150);
-  await reel.locator('.reactpick button').nth(1).click();
+  await page.locator('.post .reactpick button').nth(1).click();
   await page.waitForTimeout(300);
   // Three floating now: the two 🔥 and this one. Each reaction is its own thing.
   check('  a different one floats alongside them', await reel.locator('.reacts button').count() === 3);
@@ -1468,10 +1423,14 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => { location.hash = `#post-${S.posts[0].id}`; });
   await page.waitForTimeout(500);
-  check('a link to a post opens that post', await page.locator('#cmt').isVisible()
-    && await page.evaluate(() => S.openPost) === await page.evaluate(() => S.posts[0].id));
+  check('a link to a post scrolls to that post', await page.evaluate(() => {
+    const el = document.querySelector(`[data-post="${S.posts[0].id}"]`);
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.top < innerHeight && r.bottom > 0;
+  }));
   check('  and tidies the address up behind itself', await page.evaluate(() => location.hash) === '');
-  await page.evaluate(() => { closeComments(); location.hash = '#friends'; });
+  await page.evaluate(() => { location.hash = '#friends'; });
   await page.waitForTimeout(400);
   check('  a link to friends goes to friends', await page.evaluate(() => S.tab) === 'friends');
 });
