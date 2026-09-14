@@ -99,6 +99,12 @@ select created, status_code, content from net._http_response order by created de
 The fix, and the reason it cannot happen again, is the v16 block at the bottom of
 `schema.sql`: the secret moves into a database setting, so nothing pasted in afterwards can
 overwrite it, and a missing one is written to the Postgres log instead of being swallowed.
+Set it once with `alter database postgres set app.hook_secret = '...'`, run the block, then
+in a new session check it took:
+
+```sql
+select coalesce(current_setting('app.hook_secret', true), '') <> '' as secret_is_set;
+```
 
 ## When the app cannot load
 

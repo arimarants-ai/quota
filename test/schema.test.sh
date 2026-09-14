@@ -70,14 +70,17 @@ open(f'{w}/base.sql', 'w').write(
     s[s.index('-- row level security'):s.index('-- video storage')] +
     s[s.index('-- v2 (redesign)'):s.index('-- v3 (profile)')] +
     s[s.index('-- v3 (profile)'):s.index("insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)\n  values ('avatars'")])
-# Everything from the wheels block on, with the pg_cron scheduling cut out of the middle:
-# that extension only exists on Supabase, and it is a call into the function above rather
-# than logic of its own. What it schedules — wheel_due_now() — is covered below. Anything
-# after it still has to be applied, or a later block would be silently skipped.
+# Everything from the wheels block on, with every pg_cron scheduling block cut out of the
+# middle: that extension only exists on Supabase, and each one is a call into a function
+# above rather than logic of its own. What they schedule — wheel_due_now() — is covered
+# below. Anything after them still has to be applied, or a later block would be silently
+# skipped. All of them, not just the first: a second one was added in v16, and cutting only
+# the first left it in to fail on a plain Postgres.
 CRON = '-- pg_cron runs it every hour'
 body = s[s.index('-- v6 (wheels)'):]
-cut = body.index(CRON)
-body = body[:cut] + body[body.index('$cron$);', cut) + len('$cron$);'):]
+while CRON in body:
+    cut = body.index(CRON)
+    body = body[:cut] + body[body.index('$cron$);', cut) + len('$cron$);'):]
 open(f'{w}/v6.sql', 'w').write(body)
 EOF
 

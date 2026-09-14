@@ -946,22 +946,18 @@ create trigger reactions_notify after insert on public.reactions
 --
 --   alter database postgres set app.hook_secret = 'the-real-secret';
 --
--- and it survives anything that is pasted in afterwards. Run that line first, then this
--- block, then check it took:
+-- and it survives anything pasted in afterwards. Run that line, then this block, then open
+-- a new SQL session and check it took:
 --
---   select public.notify_secret() <> '' as secret_is_set;
+--   select coalesce(current_setting('app.hook_secret', true), '') <> '' as secret_is_set;
+--
+-- It is read inline rather than through a helper on purpose: a function that returns the
+-- secret is one PostgREST can be talked into calling.
 -- ============================================================
-
--- Null rather than an error when it has never been set, so the check below can say so.
-create or replace function public.notify_secret() returns text
-language sql stable security definer set search_path = public as $$
-  select coalesce(current_setting('app.hook_secret', true), '')
-$$;
-revoke all on function public.notify_secret() from public, anon, authenticated;
 
 create or replace function public.notify_hook() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare secret text := public.notify_secret();
+declare secret text := coalesce(current_setting('app.hook_secret', true), '');
 begin
   -- A missing secret is worth saying out loud. It goes to the Postgres log rather than
   -- nowhere, which is the whole problem this block exists to fix.
@@ -977,12 +973,14 @@ begin
   return new;
 end $$;
 
--- The hourly wheel reminder carried the same placeholder, so it gets the same treatment.
+-- pg_cron runs it every hour on the hour; the hourly wheel reminder carried the same
+-- placeholder, so it is re-scheduled here to read the setting too.
 select cron.unschedule('wheel-reminders') where exists (select 1 from cron.job where jobname = 'wheel-reminders');
 select cron.schedule('wheel-reminders', '0 * * * *', $cron$
   select net.http_post(
     url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/wheelday',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', public.notify_secret()),
+    headers := jsonb_build_object('Content-Type', 'application/json',
+                                  'x-hook-secret', coalesce(current_setting('app.hook_secret', true), '')),
     body    := '{}'::jsonb
-  ) where public.notify_secret() <> '';
+  ) where coalesce(current_setting('app.hook_secret', true), '') <> '';
 $cron$);
