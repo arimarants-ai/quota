@@ -1246,6 +1246,17 @@ await withPage(SIGNED_IN, async page => {
   check('    and the caption still shows on the post itself',
     await page.locator('.post .reel .cap').first().isVisible());
 
+  // flex:1 is a 0% basis, which Safari resolves to nothing inside a container with no set
+  // height: the sheet came up as a header and a void on iOS while looking fine here. Chromium
+  // cannot show the collapse, so this checks the thing that causes it instead.
+  const zeroBasis = await page.evaluate(() => [...document.querySelectorAll('#cmt, #cmt *')]
+    .filter(el => { const b = getComputedStyle(el).flexBasis; return b !== 'auto' && b !== '0px' && /%/.test(b); })
+    .map(el => `${el.tagName.toLowerCase()}#${el.id || ''}.${el.className || ''} basis=${getComputedStyle(el).flexBasis}`));
+  check('  nothing in the sheet has a percentage flex basis, which Safari collapses to nothing',
+    zeroBasis.length === 0, zeroBasis.join(' | '));
+  check('  and the body of the sheet has height to it',
+    await page.evaluate(() => document.querySelector('#cbody').getBoundingClientRect().height) >= 96);
+
   await page.locator('#cmt input[name=body]').fill('nice one');
   await page.locator('#cmt form.cin button.primary').click();
   await page.waitForTimeout(900);
@@ -1304,6 +1315,22 @@ await withPage(SIGNED_IN, async page => {
     ib !== null && ib <= 844 - 336 + 1, `input bottom ${ib}, keyboard starts at ${844 - 336}`);
 });
 
+// A tap handler that throws used to throw into nothing: the rejection catcher only sees
+// promises, and a plain error event went nowhere. That is a tap that does nothing, with
+// nothing to copy and send.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    const b = document.createElement('button'); b.id = 'boom';
+    b.setAttribute('onclick', "throw new Error('tap went wrong')");
+    document.body.append(b);
+  });
+  await page.locator('#boom').click();
+  await page.waitForTimeout(200);
+  check('an error thrown by a tap shows on the bar', /tap went wrong/.test(await page.innerText('#err')),
+    await page.innerText('#err'));
+});
+
 // ---- reactions
 // More than a like: several different ones on the same post, from several people, sitting
 // in the corner of it rather than in a list underneath.
@@ -1323,7 +1350,15 @@ await withPage(SIGNED_IN, async page => {
   check('    and the picker goes away', await reel.locator('.reactpick').count() === 0);
   check('    with it really sent', (await page.evaluate(() => self.__reacts)).length === 1,
     JSON.stringify(await page.evaluate(() => self.__reacts)));
-  check('    marked as yours', await reel.locator('.reacts button.on').count() === 1);
+  check('    bare, with no ring or pill around it', await page.evaluate(() => {
+    const b = document.querySelector('.reel .reacts button'), c = getComputedStyle(b);
+    return c.backgroundColor === 'rgba(0, 0, 0, 0)' && c.borderStyle === 'none';
+  }));
+  check('    and moving, not parked', await page.evaluate(() => {
+    const c = getComputedStyle(document.querySelector('.reel .reacts button'));
+    return c.animationName === 'bob' && parseFloat(c.animationDuration) > 0;
+  }));
+  check('    answering to a tap because it is yours', await reel.locator('.reacts button.mine').count() === 1);
   check('  in the corner, clear of the rail', await page.evaluate(() => {
     const r = document.querySelector('.reel .reacts'), reel = document.querySelector('.reel');
     const rail = document.querySelector('.reel .rail');
@@ -1332,21 +1367,30 @@ await withPage(SIGNED_IN, async page => {
     return a.left < b.left + b.width / 2 && a.bottom <= b.bottom + 1 && a.right <= c.left;
   }));
 
-  // Two people with the same one is one bubble with a count, not two bubbles.
+  // Two people with the same one is two of them floating, like two likes on a reel, and
+  // only yours can be tapped.
   await page.evaluate(() => { const e = S.reacts[0].e; S.reacts.push({p: S.posts[0].id, u: 'u2', e}); render(); });
   await page.waitForTimeout(200);
-  check('  the same one from two people counts rather than repeating',
-    await reel.locator('.reacts button').count() === 1 && /2/.test(await reel.locator('.reacts button i').innerText()));
+  check('  the same one from two people floats twice', await reel.locator('.reacts button').count() === 2);
+  check('    each on its own phase, so they do not move in step', await page.evaluate(() => {
+    const [a, b] = document.querySelectorAll('.reel .reacts button');
+    return getComputedStyle(a).animationDelay !== getComputedStyle(b).animationDelay;
+  }));
+  check('    and the other person\'s is not a button you can press',
+    await reel.locator('.reacts button:not(.mine)').count() === 1
+    && await page.evaluate(() => getComputedStyle(document.querySelector('.reel .reacts button:not(.mine)')).pointerEvents === 'none'));
 
   // A different one sits beside it.
   await reel.locator('.rail .react').click();
   await page.waitForTimeout(150);
   await reel.locator('.reactpick button').nth(1).click();
   await page.waitForTimeout(300);
-  check('  a different one sits beside it', await reel.locator('.reacts button').count() === 2);
+  // Three floating now: the two 🔥 and this one. Each reaction is its own thing.
+  check('  a different one floats alongside them', await reel.locator('.reacts button').count() === 3);
 
   // Tapping your own takes it back.
-  await reel.locator('.reacts button.on').first().click();
+  // It is bobbing, and Playwright will not press a thing that is moving. A thumb will.
+  await reel.locator('.reacts button.mine').first().click({ force: true });
   await page.waitForTimeout(300);
   check('  tapping your own takes it back', (await page.evaluate(() => self.__reacts)).length === 1,
     JSON.stringify(await page.evaluate(() => self.__reacts)));

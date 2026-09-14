@@ -169,12 +169,20 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .rail button.on svg{fill:#ff3b5c;stroke:#ff3b5c}
 .reel .rail b{min-height:14px;font-weight:800}
 .reel.playing .rail{bottom:96px}
-/* What people left, in the corner of the post, out of the rail's way. */
-.reel .reacts{position:absolute;left:12px;bottom:78px;z-index:4;display:flex;flex-wrap:wrap;gap:6px;max-width:60%}
-.reel .reacts button{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.22);border-radius:999px;
-  padding:5px 9px;font-size:16px;line-height:1;color:#fff;display:flex;align-items:center;gap:5px;backdrop-filter:blur(6px)}
-.reel .reacts button.on{background:rgba(244,129,58,.85);border-color:transparent}
-.reel .reacts i{font-style:normal;font-size:12px;font-weight:800}
+/* What people left, drifting up the left side of the post. Bare emoji, no pill: each one
+   bobs on its own slow cycle, offset in phase and nudged sideways so they read as a loose
+   column of floating things rather than a stack. */
+.reel .reacts{position:absolute;left:14px;bottom:72px;z-index:4;display:flex;flex-direction:column-reverse;
+  align-items:flex-start;gap:0;pointer-events:none;max-height:60%;overflow:hidden}
+.reel .reacts button{background:none;border:0;padding:2px;font-size:26px;line-height:1;pointer-events:none;
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));transform:translateX(var(--x,0px));
+  animation:bob 3.4s ease-in-out infinite;animation-delay:calc(var(--i,0) * -.7s)}
+.reel .reacts button.mine{pointer-events:auto;cursor:pointer}
+@keyframes bob{
+  0%,100%{transform:translate(var(--x,0px),0) scale(1)}
+  50%{transform:translate(calc(var(--x,0px) + 4px),-9px) scale(1.06)}
+}
+@media (prefers-reduced-motion:reduce){.reel .reacts button{animation:none}}
 .reel .reactpick{position:absolute;right:10px;bottom:150px;z-index:5;display:flex;gap:2px;padding:6px;
   background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.22);border-radius:999px;backdrop-filter:blur(10px)}
 .reel .reactpick button{background:none;padding:5px 7px;font-size:22px;line-height:1;border-radius:999px}
@@ -188,13 +196,17 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .chead{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .chead b{font-size:16px;font-weight:800}
 .chead button{background:none;padding:2px 6px;color:var(--muted);font-size:17px}
-#cbody{overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column}
+/* flex:1 is flex:1 1 0%, and in a container with no set height Safari resolves that 0% to
+   nothing at all — so with min-height:0 this collapsed to a zero-height body on iOS while
+   Chromium sized it to its content. Header, then nothing: "there is nowhere to type".
+   Basis auto sizes from the content and only shrinks once the sheet hits its cap. */
+#cbody{overflow:auto;flex:1 1 auto;min-height:96px;display:flex;flex-direction:column}
 /* The caption is the first thing said about a post, so it sits above the replies with a
    line under it rather than being mistaken for one of them. */
 /* The caption, not a comment: no face and no name, because it is the post talking rather
    than somebody replying to it. Bold, with a line between it and the replies. */
 .capline{padding:14px 2px;border-bottom:1px solid var(--line);font-size:16px;font-weight:800;line-height:1.35}
-.clist{flex:1;min-height:0;padding:4px 0}
+.clist{flex:1 1 auto;padding:4px 0}
 .clist .c{align-items:flex-start;gap:10px}
 .clist .c b{display:block;font-size:13px}
 /* Lighter than the caption above it, so the two do not read as the same kind of thing. */
@@ -461,7 +473,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v37';
+const BUILD = 'quota-v38';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1070,18 +1082,23 @@ function rail(p, comments) {
   </div>`;
 }
 
-// What people have left on a post, floating in the corner. Counted per emoji, so ten
-// people with the same one is one bubble rather than ten.
+// What people have left on a post, drifting up the side of it the way likes drift up a
+// reel: one emoji per reaction, bare, each on its own slow bob with its own phase so they
+// never move in step. Yours are the ones that answer to a tap.
 const REACTS = ['🔥', '💪', '👏', '😤', '😂', '🫡'];
+const FLOAT_MAX = 14;                      // past this it is a wall, not a feeling
 const reactsOn = id => S.reacts.filter(r => r.p === id);
 function reactBubbles(id) {
-  const all = reactsOn(id);
+  const all = reactsOn(id).slice(-FLOAT_MAX);
   if (!all.length) return '';
-  const by = new Map();
-  for (const r of all) by.set(r.e, (by.get(r.e) || 0) + 1);
-  const mine = new Set(all.filter(r => r.u === me().id).map(r => r.e));
-  return `<div class="reacts">${[...by].map(([e, n]) => `<button type="button" class="${mine.has(e) ? 'on' : ''}"
-    onclick="toggleReact(${id},'${e}')" aria-label="${esc(e)} ${n}">${e}${n > 1 ? `<i>${n}</i>` : ''}</button>`).join('')}</div>`;
+  const m = me().id;
+  return `<div class="reacts">${all.map((r, i) => {
+    const mine = r.u === m;
+    // A little sideways scatter, deterministic per slot so a re-render does not shuffle them.
+    const x = ((i * 37) % 23) - 6;
+    return `<button type="button" style="--i:${i};--x:${x}px" class="${mine ? 'mine' : ''}"
+      ${mine ? `onclick="toggleReact(${id},'${r.e}')"` : 'tabindex="-1"'} aria-label="${esc(r.e)}${mine ? ' (yours, tap to remove)' : ''}">${r.e}</button>`;
+  }).join('')}</div>`;
 }
 
 function pickReact(ev, id) {
@@ -2432,6 +2449,13 @@ sb.auth.onAuthStateChange((event, session) => {
 
 // Last resort, and it goes first so that it covers the boot below too. Whatever we
 // failed to anticipate, say so rather than leave a page that has stopped responding.
+// An inline onclick that throws never reaches the rejection catcher below: it is a plain
+// error event, and until now it went nowhere. A tap that silently does nothing is the
+// hardest bug to report, so it goes on the bar like everything else.
+addEventListener('error', e => {
+  if (!e.error || document.hidden) return;
+  showErr(`Something went wrong: ${e.error.message || e.message}`, e.error.stack);
+});
 addEventListener('unhandledrejection', e => {
   if (e.reason?.shown || document.hidden) return;       // q() already put it in front of them
   showErr(`Something went wrong: ${e.reason?.message || e.reason}`, e.reason?.stack);
