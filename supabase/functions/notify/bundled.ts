@@ -139,10 +139,11 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
+  if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
   // A comment is worth reading in the notification itself, but a long one turns the
   // whole thing into a wall; the rest is one tap away.
   const body = (extra ?? '').replace(/\s+/g, ' ').trim();
@@ -222,8 +223,8 @@ Deno.serve(async (req) => {
     }));
   }
 
-  if (kind === 'comment' || kind === 'like') {
-    const { post_id, user_id: actor, body: text } = record ?? {};
+  if (kind === 'comment' || kind === 'like' || kind === 'reaction') {
+    const { post_id, user_id: actor, body: text, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
     const [[post], [from]] = await Promise.all([
       rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
@@ -233,9 +234,10 @@ Deno.serve(async (req) => {
     if (!post || !from || post.user_id === actor) return new Response('ignored', { status: 200 });
     return blast([post.user_id], JSON.stringify({
       title: 'Quota',
-      body: socialFor(kind === 'like' ? 'like' : 'comment', who(from), kind === 'comment' ? text : null),
+      body: socialFor(kind, who(from), kind === 'comment' ? text : kind === 'reaction' ? emoji : null),
       url: atPost(post_id),
-      tag: `${kind}-${post_id}`,
+      // A reaction is tagged by the emoji so two different ones do not replace each other.
+      tag: kind === 'reaction' ? `reaction-${post_id}-${emoji}` : `${kind}-${post_id}`,
     }));
   }
 

@@ -901,3 +901,34 @@ create trigger comments_notify after insert on public.comments
 drop trigger if exists likes_notify on public.likes;
 create trigger likes_notify after insert on public.likes
   for each row execute function public.notify_hook('like');
+
+-- ============================================================
+-- v15 (reactions): safe to run on an existing project. Deploy the notify function first,
+-- as with v14 — this adds another kind for it to understand.
+-- ============================================================
+
+-- One row per person per emoji per post: you can put more than one on a post, but not the
+-- same one twice, and taking it back is deleting the row you left.
+create table if not exists public.reactions (
+  post_id bigint not null references public.posts on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  emoji text not null check (char_length(emoji) between 1 and 8),
+  created_at timestamptz default now(),
+  primary key (post_id, user_id, emoji)
+);
+create index if not exists reactions_post on public.reactions (post_id);
+alter table public.reactions enable row level security;
+
+drop policy if exists "members see reactions" on public.reactions;
+drop policy if exists "members react" on public.reactions;
+drop policy if exists "take back your own reaction" on public.reactions;
+-- Governed by the post, exactly as likes and comments are.
+create policy "members see reactions" on public.reactions for select
+  using (public.is_member((select group_id from public.posts where id = post_id)));
+create policy "members react" on public.reactions for insert
+  with check (user_id = auth.uid() and public.is_member((select group_id from public.posts where id = post_id)));
+create policy "take back your own reaction" on public.reactions for delete using (user_id = auth.uid());
+
+drop trigger if exists reactions_notify on public.reactions;
+create trigger reactions_notify after insert on public.reactions
+  for each row execute function public.notify_hook('reaction');

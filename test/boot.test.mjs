@@ -1233,6 +1233,10 @@ await withPage(SIGNED_IN, async page => {
   const cap = await page.locator('#cmt .capline').count()
     ? await page.locator('#cmt .capline').innerText() : '(no caption block)';
   check('    with the caption at the top', /fifty in the bag/.test(cap), cap);
+  // A caption is the post talking, not somebody replying to it, so it carries no face and
+  // no name — which is exactly what makes it read as a caption rather than a first comment.
+  check('      with no name or face on it, unlike a comment',
+    !/@/.test(cap) && !/Ari/.test(cap) && await page.locator('#cmt .capline .av').count() === 0, cap);
   check('      in its own block above the replies, with a line under it',
     await page.evaluate(() => {
       const c = document.querySelector('#cmt .capline');
@@ -1243,14 +1247,109 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.post .reel .cap').first().isVisible());
 
   await page.locator('#cmt input[name=body]').fill('nice one');
-  await page.locator('#cmt form.cin button').click();
+  await page.locator('#cmt form.cin button.primary').click();
   await page.waitForTimeout(900);
   check('  a comment written there appears there', /nice one/.test(await page.locator('#cmt .clist').innerText()),
     await page.locator('#cmt .clist').innerText());
   check('    without the sheet closing under you', await page.locator('#cmt').isVisible());
+  // The phone's keyboard has its own emoji key; this is the one in the box, for reaching
+  // them without leaving the field.
+  check('  the box has an emoji button', await page.locator('#cmt .cin .emo').count() === 1);
+  check('    which is put away until it is asked for', await page.locator('#cmt #emoji').isHidden());
+  await page.locator('#cmt .cin .emo').click();
+  await page.waitForTimeout(200);
+  check('    and opens a set to pick from', await page.locator('#cmt #emoji').isVisible()
+    && await page.locator('#cmt #emoji button').count() >= 10);
+  await page.locator('#cmt input[name=body]').fill('great');
+  await page.locator('#cmt #emoji button').first().click();
+  await page.waitForTimeout(200);
+  check('    putting one where the caret was',
+    /great./.test(await page.locator('#cmt input[name=body]').inputValue()),
+    await page.locator('#cmt input[name=body]').inputValue());
   await page.locator('#cmt .chead button').click();
   await page.waitForTimeout(200);
   check('  and it closes when you are done', await page.locator('#cmt').isHidden());
+});
+
+// The box you type a comment into sits at the bottom of a sheet, and a dialog is pinned to
+// the layout viewport — which a keyboard does not shrink. Left alone, the keyboard covers
+// exactly the part you were trying to reach, which is "there is nowhere to type".
+await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  await page.locator('.post .rail button').nth(1).click();
+  await page.waitForTimeout(300);
+  const bottom = () => page.evaluate(() => document.querySelector('#cmt').getBoundingClientRect().bottom);
+  const inputBottom = () => page.evaluate(() => {
+    const el = document.querySelector('#cbody .cin input');
+    return el ? el.getBoundingClientRect().bottom : null;
+  });
+  const at0 = await bottom();
+  check('with no keyboard the sheet sits on the bottom of the screen',
+    Math.abs(at0 - 844) < 2, String(at0));
+
+  // 336px of keyboard, which is about what an iPhone puts up.
+  await page.evaluate(() => {
+    Object.defineProperty(self, 'visualViewport', {configurable: true,
+      value: {height: innerHeight - 336, offsetTop: 0, addEventListener() {}}});
+    fitBar();
+  });
+  await page.waitForTimeout(250);
+  const kb = await page.evaluate(() => document.documentElement.style.getPropertyValue('--kb'));
+  check('  the keyboard height is known', kb === '336px', kb);
+  const lifted = await bottom();
+  check('  and the sheet climbs over it', Math.round(844 - lifted) === 336, `${at0} -> ${lifted}`);
+  const ib = await inputBottom();
+  check('    so the box you type in is somewhere you can see',
+    ib !== null && ib <= 844 - 336 + 1, `input bottom ${ib}, keyboard starts at ${844 - 336}`);
+});
+
+// ---- reactions
+// More than a like: several different ones on the same post, from several people, sitting
+// in the corner of it rather than in a list underneath.
+await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const reel = page.locator('.post .reel').first();
+  check('nothing is shown on a post nobody has reacted to', await reel.locator('.reacts').count() === 0);
+
+  await reel.locator('.rail .react').click();
+  await page.waitForTimeout(200);
+  check('the react button offers a set to choose from', await reel.locator('.reactpick button').count() >= 5);
+  await reel.locator('.reactpick button').first().click();
+  await page.waitForTimeout(300);
+  check('  picking one puts it on the post', await reel.locator('.reacts button').count() === 1,
+    await reel.locator('.reacts').innerText().catch(() => '(none)'));
+  check('    and the picker goes away', await reel.locator('.reactpick').count() === 0);
+  check('    with it really sent', (await page.evaluate(() => self.__reacts)).length === 1,
+    JSON.stringify(await page.evaluate(() => self.__reacts)));
+  check('    marked as yours', await reel.locator('.reacts button.on').count() === 1);
+  check('  in the corner, clear of the rail', await page.evaluate(() => {
+    const r = document.querySelector('.reel .reacts'), reel = document.querySelector('.reel');
+    const rail = document.querySelector('.reel .rail');
+    if (!r || !reel || !rail) return false;
+    const a = r.getBoundingClientRect(), b = reel.getBoundingClientRect(), c = rail.getBoundingClientRect();
+    return a.left < b.left + b.width / 2 && a.bottom <= b.bottom + 1 && a.right <= c.left;
+  }));
+
+  // Two people with the same one is one bubble with a count, not two bubbles.
+  await page.evaluate(() => { const e = S.reacts[0].e; S.reacts.push({p: S.posts[0].id, u: 'u2', e}); render(); });
+  await page.waitForTimeout(200);
+  check('  the same one from two people counts rather than repeating',
+    await reel.locator('.reacts button').count() === 1 && /2/.test(await reel.locator('.reacts button i').innerText()));
+
+  // A different one sits beside it.
+  await reel.locator('.rail .react').click();
+  await page.waitForTimeout(150);
+  await reel.locator('.reactpick button').nth(1).click();
+  await page.waitForTimeout(300);
+  check('  a different one sits beside it', await reel.locator('.reacts button').count() === 2);
+
+  // Tapping your own takes it back.
+  await reel.locator('.reacts button.on').first().click();
+  await page.waitForTimeout(300);
+  check('  tapping your own takes it back', (await page.evaluate(() => self.__reacts)).length === 1,
+    JSON.stringify(await page.evaluate(() => self.__reacts)));
 });
 
 // A notification is worth tapping only if it lands on the thing it is about.

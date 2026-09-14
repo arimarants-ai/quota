@@ -72,8 +72,8 @@ Deno.serve(async (req) => {
     }));
   }
 
-  if (kind === 'comment' || kind === 'like') {
-    const { post_id, user_id: actor, body: text } = record ?? {};
+  if (kind === 'comment' || kind === 'like' || kind === 'reaction') {
+    const { post_id, user_id: actor, body: text, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
     const [[post], [from]] = await Promise.all([
       rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
@@ -83,9 +83,10 @@ Deno.serve(async (req) => {
     if (!post || !from || post.user_id === actor) return new Response('ignored', { status: 200 });
     return blast([post.user_id], JSON.stringify({
       title: 'Quota',
-      body: socialFor(kind === 'like' ? 'like' : 'comment', who(from), kind === 'comment' ? text : null),
+      body: socialFor(kind, who(from), kind === 'comment' ? text : kind === 'reaction' ? emoji : null),
       url: atPost(post_id),
-      tag: `${kind}-${post_id}`,
+      // A reaction is tagged by the emoji so two different ones do not replace each other.
+      tag: kind === 'reaction' ? `reaction-${post_id}-${emoji}` : `${kind}-${post_id}`,
     }));
   }
 

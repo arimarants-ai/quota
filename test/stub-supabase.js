@@ -40,7 +40,7 @@
     id: 90, wheel_id: 7, user_id: 'u2', cycle: cycleNow, sat_out: false, days_required: 2,
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
-  self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = [];
+  self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -55,6 +55,7 @@
     spins: self.__spins,
     wheel_days: self.__ticks,
     likes: self.__likes,
+    reactions: self.__reacts,
     comments: self.__cmts,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
@@ -81,6 +82,9 @@
       if (st.op === 'delete' && t === 'wheel_days') {
         self.__ticks = self.__ticks.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
+      if (st.op === 'delete' && t === 'reactions') {
+        self.__reacts = self.__reacts.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
       if (st.op === 'delete' && t === 'likes') {
         self.__likes = self.__likes.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
@@ -97,6 +101,7 @@
     p.insert = row => {
       if (t === 'invites') self.__invited = { ...row };
       if (t === 'likes') self.__likes.push({ ...row });
+      if (t === 'reactions') self.__reacts.push({ ...row });
       if (t === 'comments') self.__cmts.push({ id: 700 + self.__cmts.length, created_at: new Date().toISOString(), ...row });
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });

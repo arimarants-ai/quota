@@ -62,3 +62,5 @@ console.log(`\nall ${n} message checks passed`);
   eq(String(got.length <= 90), 'true', '  a long one is cut rather than filling the screen');
   eq(String(got.endsWith('…')), 'true', '  and says it was cut');
 }
+eq(socialFor('reaction', 'Ari', '🔥'), 'Ari reacted 🔥', 'a reaction carries the emoji');
+eq(socialFor('reaction', 'Ari'), 'Ari reacted', '  and reads properly without one');

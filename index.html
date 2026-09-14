@@ -169,8 +169,19 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .rail button.on svg{fill:#ff3b5c;stroke:#ff3b5c}
 .reel .rail b{min-height:14px;font-weight:800}
 .reel.playing .rail{bottom:96px}
+/* What people left, in the corner of the post, out of the rail's way. */
+.reel .reacts{position:absolute;left:12px;bottom:78px;z-index:4;display:flex;flex-wrap:wrap;gap:6px;max-width:60%}
+.reel .reacts button{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.22);border-radius:999px;
+  padding:5px 9px;font-size:16px;line-height:1;color:#fff;display:flex;align-items:center;gap:5px;backdrop-filter:blur(6px)}
+.reel .reacts button.on{background:rgba(244,129,58,.85);border-color:transparent}
+.reel .reacts i{font-style:normal;font-size:12px;font-weight:800}
+.reel .reactpick{position:absolute;right:10px;bottom:150px;z-index:5;display:flex;gap:2px;padding:6px;
+  background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.22);border-radius:999px;backdrop-filter:blur(10px)}
+.reel .reactpick button{background:none;padding:5px 7px;font-size:22px;line-height:1;border-radius:999px}
+.reel .reactpick button:active{background:rgba(255,255,255,.2)}
+.reel.playing .reacts{bottom:96px}
 /* The comments, over the feed rather than under the post. */
-#cmt{max-height:82vh;display:flex;flex-direction:column}
+#cmt{max-height:calc(82dvh - var(--kb, 0px));display:flex;flex-direction:column;overflow:hidden}
 /* display:flex above beats the browser's own rule for a closed dialog, which would leave
    the sheet on screen after it had been closed. The same trap as the camera buttons. */
 #cmt:not([open]){display:none}
@@ -180,15 +191,20 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 #cbody{overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column}
 /* The caption is the first thing said about a post, so it sits above the replies with a
    line under it rather than being mistaken for one of them. */
-.capline{display:flex;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
-.capline b{font-weight:800;font-size:14px;display:block}
-.capline p{margin-top:2px;font-size:15px;font-weight:700;line-height:1.35}
+/* The caption, not a comment: no face and no name, because it is the post talking rather
+   than somebody replying to it. Bold, with a line between it and the replies. */
+.capline{padding:14px 2px;border-bottom:1px solid var(--line);font-size:16px;font-weight:800;line-height:1.35}
 .clist{flex:1;min-height:0;padding:4px 0}
 .clist .c{align-items:flex-start;gap:10px}
 .clist .c b{display:block;font-size:13px}
 /* Lighter than the caption above it, so the two do not read as the same kind of thing. */
 .clist .c span{display:block;color:var(--text);font-weight:500;font-size:14px}
-#cbody .cin{position:sticky;bottom:0;background:var(--sheet);padding:10px 0 0;margin-top:auto}
+#cbody .cin{position:sticky;bottom:0;background:var(--sheet);padding:10px 0 0;margin-top:auto;align-items:center}
+.cin .emo{background:var(--soft);padding:0;width:38px;height:38px;flex:none;font-size:19px;line-height:1}
+.emoji{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;padding:8px 0 0;position:sticky;bottom:0;background:var(--sheet)}
+.emoji[hidden]{display:none}
+.emoji button{background:none;padding:6px 0;font-size:21px;line-height:1;border-radius:9px}
+.emoji button:active{background:var(--soft)}
 /* A clip that cannot be played looks exactly like one that is merely slow: a black
    rectangle with a play button that does nothing. This says which it is. */
 .reel .bust{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;gap:12px;
@@ -228,7 +244,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 /* A keyboard is up. No app puts its tab bar on top of one, and here it would sit over
    the box being typed into. */
 :root.keys .bar{display:none}
-dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24px 0 0;width:100%;max-width:100%;margin:auto 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24px 0 0;width:100%;max-width:100%;
+  margin:auto 0 var(--kb, 0px);max-height:calc(100dvh - var(--kb, 0px) - 24px);overflow:auto;
+  padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
@@ -443,7 +461,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v36';
+const BUILD = 'quota-v37';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -470,7 +488,7 @@ const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 const $ = s => document.querySelector(s);
 const LOGO = bg => `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bg ? '<rect width="132" height="132" rx="30" fill="#0F4C5C"/>' : ''}<circle cx="66" cy="66" r="46" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="#F4813A" stroke-width="18" stroke-linecap="round" stroke-dasharray="216 289" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#F4813A" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -635,7 +653,7 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -647,6 +665,7 @@ async function fetchAll() {
     q(sb.from('spins').select('*')),
     q(sb.from('wheel_days').select('*')),
     q(sb.from('likes').select('post_id,user_id')),
+    q(sb.from('reactions').select('post_id,user_id,emoji')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -658,6 +677,7 @@ async function fetchAll() {
   S.spins = spins.map(sp => ({...sp, results: Array.isArray(sp.results) ? sp.results : []}));
   S.ticks = ticks;
   S.likes = (likes || []).map(l => ({p: l.post_id, u: l.user_id}));
+  S.reacts = (reacts || []).map(r => ({p: r.post_id, u: r.user_id, e: r.emoji}));
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
@@ -915,6 +935,7 @@ function feed(ps, showGroup) {
       ${isPhoto(p) ? '' : `<div class="play"><i></i></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
       ${rail(p, cs.length)}
+      ${reactBubbles(p.id)}
       ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
       ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div>`;
   }).join('');
@@ -960,6 +981,24 @@ function watchClips() {
     else if (e.boundingClientRect.width) releaseClip(e.target);
   }), {rootMargin: '150% 0px'});
   vs.forEach(v => clipObs.observe(v));
+}
+
+// The phone's own keyboard has an emoji key, and this does not replace it — it is there
+// for the same reason every chat box has one: reaching emoji without leaving the field.
+const EMOJI = ['🔥', '💪', '👏', '😤', '😂', '😮', '🥵', '🫡', '🙌', '❤️', '🏆', '🐐',
+  '👀', '😭', '💀', '🤝', '⚡', '✅', '🧊', '🚀'];
+function toggleEmoji(btn) {
+  const box = $('#emoji');
+  if (box) box.hidden = !box.hidden;
+}
+function putEmoji(e) {
+  const input = document.querySelector('#cbody .cin input');
+  if (!input) return;
+  const at = input.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, at) + e + input.value.slice(input.selectionEnd ?? at);
+  input.focus();
+  const to = at + e.length;
+  try { input.setSelectionRange(to, to); } catch (err) {}
 }
 
 const reelOf = v => v.closest('.reel');
@@ -1024,7 +1063,50 @@ function rail(p, comments) {
       <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3 1-4.6A8 8 0 1 1 21 12z"/></svg>
       <b>${comments || ''}</b>
     </button>
+    <button type="button" class="react" onclick="pickReact(event,${p.id})" aria-label="React">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>
+      <b></b>
+    </button>
   </div>`;
+}
+
+// What people have left on a post, floating in the corner. Counted per emoji, so ten
+// people with the same one is one bubble rather than ten.
+const REACTS = ['🔥', '💪', '👏', '😤', '😂', '🫡'];
+const reactsOn = id => S.reacts.filter(r => r.p === id);
+function reactBubbles(id) {
+  const all = reactsOn(id);
+  if (!all.length) return '';
+  const by = new Map();
+  for (const r of all) by.set(r.e, (by.get(r.e) || 0) + 1);
+  const mine = new Set(all.filter(r => r.u === me().id).map(r => r.e));
+  return `<div class="reacts">${[...by].map(([e, n]) => `<button type="button" class="${mine.has(e) ? 'on' : ''}"
+    onclick="toggleReact(${id},'${e}')" aria-label="${esc(e)} ${n}">${e}${n > 1 ? `<i>${n}</i>` : ''}</button>`).join('')}</div>`;
+}
+
+function pickReact(ev, id) {
+  ev.stopPropagation();
+  const reel = ev.currentTarget.closest('.reel');
+  const had = reel.querySelector('.reactpick');
+  if (had) return had.remove();
+  const box = document.createElement('div');
+  box.className = 'reactpick';
+  box.innerHTML = REACTS.map(e => `<button type="button" onclick="toggleReact(${id},'${e}');this.parentNode.remove()">${e}</button>`).join('');
+  reel.appendChild(box);
+}
+
+// Same as a like: shown at once and put back if the write is refused.
+async function toggleReact(id, emoji) {
+  const m = me(), had = S.reacts.some(r => r.p === id && r.u === m.id && r.e === emoji);
+  const undo = () => { S.reacts = had ? [...S.reacts, {p: id, u: m.id, e: emoji}]
+    : S.reacts.filter(r => !(r.p === id && r.u === m.id && r.e === emoji)); render(); };
+  S.reacts = had ? S.reacts.filter(r => !(r.p === id && r.u === m.id && r.e === emoji))
+                 : [...S.reacts, {p: id, u: m.id, e: emoji}];
+  render();
+  try {
+    if (had) await q(sb.from('reactions').delete().eq('post_id', id).eq('user_id', m.id).eq('emoji', emoji));
+    else await q(sb.from('reactions').insert({post_id: id, user_id: m.id, emoji}));
+  } catch (e) { undo(); }
 }
 
 // Kept in front of them straight away rather than after a round trip: a heart that waits
@@ -1049,13 +1131,17 @@ function commentsBody(id) {
   const p = S.posts.find(x => x.id === id);
   if (!p) return '';
   const cs = S.comments.filter(c => c.postId === id);
-  const u = user(p.userId);
-  return `${p.caption ? `<div class="capline">${av(u)}<div><b>${esc(name(u))}</b><p>${esc(p.caption)}</p></div></div>` : ''}
+  return `${p.caption ? `<p class="capline">${esc(p.caption)}</p>` : ''}
     <div class="clist">${cs.length ? cs.map(c => `<div class="c">${av(user(c.userId))}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
       <span>${esc(c.body)}</span></div>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')
       : `<p class="muted" style="text-align:center;padding:24px 0">No comments yet.</p>`}</div>
     ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>`
-      : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${id})"><input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off"><button class="primary">Send</button></form>`}`;
+      : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${id})">
+        <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">🙂</button>
+        <input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off">
+        <button class="primary">Send</button>
+      </form>
+      <div class="emoji" id="emoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putEmoji('${e}')">${e}</button>`).join('')}</div>`}`;
 }
 
 function paintComments() {
@@ -2381,6 +2467,10 @@ function fitBar() {
   // land — in which the bar rides a long way up the screen before vanishing.
   const KEYBOARD = 120;
   root.style.setProperty('--vvb', `${keys || gap > KEYBOARD || gap <= 4 ? 0 : gap}px`);
+  // The bar is put away when a keyboard is up, but a bottom sheet has to climb over it:
+  // a dialog is pinned to the layout viewport, which the keyboard does not shrink, so the
+  // box being typed into ends up underneath it. This is the real height, not the offset.
+  root.style.setProperty('--kb', `${gap > 4 ? gap : 0}px`);
   root.classList.toggle('keys', keys || gap > KEYBOARD);
 }
 if (self.visualViewport) {
