@@ -1206,7 +1206,11 @@ await withPage(SIGNED_IN, async page => {
     const a = r.getBoundingClientRect(), b = reel.getBoundingClientRect();
     return a.right <= b.right + 1 && a.left > b.left + b.width / 2 && a.bottom <= b.bottom + 1;
   }));
-  check('  and nothing is claimed before anyone taps', (await heart.innerText()).trim() === '');
+  // A blank where a number goes reads as something still loading. Zero is a number.
+  check('  a post nobody has liked says nought, rather than nothing',
+    (await heart.innerText()).trim() === '0', await heart.innerText());
+  check('    and so does its comment count', (await bubble.innerText()).trim() === '0',
+    await bubble.innerText());
 
   // The stub's clips cannot decode, so this post is showing its failure card — which is
   // the case worth checking: a clip that would not load is still a post worth replying to.
@@ -1221,9 +1225,22 @@ await withPage(SIGNED_IN, async page => {
 
   await heart.click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(200);
-  check('  and again takes it back', (await heart.innerText()).trim() === ''
+  check('  and again takes it back', (await heart.innerText()).trim() === '0'
     && !await heart.evaluate(b => b.classList.contains('on'))
-    && (await page.evaluate(() => self.__likes)).length === 0);
+    && (await page.evaluate(() => self.__likes)).length === 0,
+    (await heart.innerText()).trim());
+
+  // A big count is shortened the way counts are shortened everywhere, so five digits do
+  // not walk across the clip.
+  const shown = await page.evaluate(() => {
+    const id = S.posts[0].id;
+    const put = n => { S.likes = Array.from({length: n}, (_, i) => ({p: id, u: 'x' + i})); render();
+      return document.querySelector('.post .rail button b').textContent; };
+    const out = {a: put(999), b: put(1000), c: put(1200), d: put(15400), e: put(2400000)};
+    S.likes = []; render(); return out;
+  });
+  check('  a big count is shortened', JSON.stringify(shown) ===
+    JSON.stringify({a: '999', b: '1K', c: '1.2K', d: '15K', e: '2.4M'}), JSON.stringify(shown));
 
   // Comments are not under the post any more; they come up over it.
   check('comments are not sitting under the post', await page.locator('.post .clist').count() === 0);
@@ -1257,12 +1274,40 @@ await withPage(SIGNED_IN, async page => {
   check('  and the body of the sheet has height to it',
     await page.evaluate(() => document.querySelector('#cbody').getBoundingClientRect().height) >= 96);
 
+  // Held open, so what shows here is what the page put up on its own rather than what came
+  // back: a count that waits on the round trip reads as a tap that did nothing.
+  await page.evaluate(() => { self.__stall = new Promise(r => { self.__go = r; }); });
   await page.locator('#cmt input[name=body]').fill('nice one');
   await page.locator('#cmt form.cin button.primary').click();
+  await page.waitForTimeout(250);
+  check('  a comment counts before the write comes back', (await bubble.innerText()).trim() === '1',
+    await bubble.innerText());
+  check('    and shows in the sheet that soon too',
+    /nice one/.test(await page.locator('#cmt .clist').innerText()),
+    await page.locator('#cmt .clist').innerText());
+  check('      with no delete on it until it is really saved',
+    await page.locator('#cmt .clist .x').count() === 0);
+  await page.evaluate(() => { const g = self.__go; self.__stall = null; g(); });
   await page.waitForTimeout(900);
   check('  a comment written there appears there', /nice one/.test(await page.locator('#cmt .clist').innerText()),
     await page.locator('#cmt .clist').innerText());
   check('    without the sheet closing under you', await page.locator('#cmt').isVisible());
+  // Written one, so both the heading over it and the number on the post behind it move.
+  check('    with the heading over it counting it', /^1 comment$/.test((await page.locator('#ctitle').innerText()).trim()),
+    await page.locator('#ctitle').innerText());
+  check('    and the count on the post behind it', (await bubble.innerText()).trim() === '1',
+    await bubble.innerText());
+
+  // Taken back, and both numbers come down again.
+  await page.locator('#cmt .clist .x').first().click();
+  await page.waitForTimeout(900);
+  check('  taking a comment back drops the heading back', /^0 comments$/.test((await page.locator('#ctitle').innerText()).trim()),
+    await page.locator('#ctitle').innerText());
+  check('    and the count on the post with it', (await bubble.innerText()).trim() === '0',
+    await bubble.innerText());
+  await page.locator('#cmt input[name=body]').fill('nice one');
+  await page.locator('#cmt form.cin button.primary').click();
+  await page.waitForTimeout(900);
   // The phone's keyboard has its own emoji key; this is the one in the box, for reaching
   // them without leaving the field.
   check('  the box has an emoji button', await page.locator('#cmt .cin .emo').count() === 1);

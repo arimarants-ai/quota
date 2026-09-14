@@ -94,7 +94,10 @@
       if (st.or != null) return { data: matches(rows(t), st.or), error: null };
       return st.op ? { data: null, error: null } : result(t);
     };
-    const p = { then: (res, rej) => Promise.resolve(run()).then(res, rej) };
+    // A test can hold a write open (self.__stall) to see what the page shows while it is
+    // still in flight, rather than only after the round trip has landed.
+    const p = { then: (res, rej) => Promise.resolve(
+      self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
     for (const k of ['select', 'order', 'limit', 'in', 'upsert', 'update']) p[k] = () => chain(t, st);
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });

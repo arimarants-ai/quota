@@ -167,7 +167,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   color:#fff;font-weight:800;font-size:12px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
 .reel .rail svg{width:31px;height:31px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .reel .rail button.on svg{fill:#ff3b5c;stroke:#ff3b5c}
-.reel .rail b{min-height:14px;font-weight:800}
+.reel .rail b{min-height:14px;font-weight:800;font-variant-numeric:tabular-nums}
 .reel.playing .rail{bottom:96px}
 /* What people left, drifting up the left side of the post. Bare emoji, no pill: each one
    bobs on its own slow cycle, offset in phase and nudged sideways so they read as a loose
@@ -477,7 +477,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v39';
+const BUILD = 'quota-v40';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -663,6 +663,14 @@ const quotaText = g => g.quotas.map(qq => `${qq.target} ${esc(qq.metric)}`).join
 const time = ts => new Date(ts).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
 const dayLabel = d => d === today() ? 'Today' : d === daysAgo(1) ? 'Yesterday' : new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+// Counts on a post read the way counts read everywhere else: a plain number while it is
+// small, thousands and millions shortened once it is not, so a busy post does not push a
+// five-digit number across the clip.
+function num(n) {
+  if (n < 1000) return `${n}`;
+  if (n < 999950) { const k = n / 1000; return `${k < 10 ? k.toFixed(1).replace(/\.0$/, '') : Math.round(k)}K`; }
+  const m = n / 1e6; return `${m < 10 ? m.toFixed(1).replace(/\.0$/, '') : Math.round(m)}M`;
+}
 const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(user(id))); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
 async function fetchAll() {
@@ -953,7 +961,7 @@ function feed(ps, showGroup) {
       ${rail(p, cs.length)}
       ${reactBubbles(p.id)}
       ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
-      ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${cs.length ? plural(cs.length, 'comment') : ''}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div>`;
+      ${p.userId === me().id ? `<div class="postfoot"><span class="muted">${plural(cs.length, 'comment')}</span><button class="ghost small" onclick="delPost(${p.id})">Delete post</button></div>` : ''}</div>`;
   }).join('');
 }
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
@@ -1070,14 +1078,17 @@ const likesOn = id => S.likes.filter(l => l.p === id);
 const iLike = id => S.likes.some(l => l.p === id && l.u === me().id);
 function rail(p, comments) {
   const n = likesOn(p.id).length, mine = iLike(p.id);
+  // The count sits under its icon always, zero included: a blank space where a number goes
+  // reads as something still loading, and you cannot tell a post nobody liked from one
+  // whose likes have not arrived.
   return `<div class="rail">
-    <button type="button" class="${mine ? 'on' : ''}" onclick="toggleLike(${p.id})" aria-label="${mine ? 'Unlike' : 'Like'}">
+    <button type="button" class="${mine ? 'on' : ''}" onclick="toggleLike(${p.id})" aria-label="${mine ? 'Unlike' : 'Like'}, ${plural(n, 'like')}">
       <svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg>
-      <b>${n || ''}</b>
+      <b class="n">${num(n)}</b>
     </button>
-    <button type="button" onclick="openComments(${p.id})" aria-label="Comments">
+    <button type="button" onclick="openComments(${p.id})" aria-label="${plural(comments, 'comment')}">
       <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3 1-4.6A8 8 0 1 1 21 12z"/></svg>
-      <b>${comments || ''}</b>
+      <b class="n">${num(comments)}</b>
     </button>
     <button type="button" class="react" onclick="pickReact(event,${p.id})" aria-label="React">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>
@@ -1154,7 +1165,7 @@ function commentsBody(id) {
   const cs = S.comments.filter(c => c.postId === id);
   return `${p.caption ? `<p class="capline">${esc(p.caption)}</p>` : ''}
     <div class="clist">${cs.length ? cs.map(c => `<div class="c">${av(user(c.userId))}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
-      <span>${esc(c.body)}</span></div>${c.userId === me().id ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')
+      <span>${esc(c.body)}</span></div>${c.userId === me().id && !c.pending ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')
       : `<p class="muted" style="text-align:center;padding:24px 0">No comments yet.</p>`}</div>
     ${S.noComments ? `<p class="muted">Comments are off until the v2 block of schema.sql is run.</p>`
       : `<form class="cin" onsubmit="event.preventDefault();addComment(this,${id})">
@@ -1168,11 +1179,14 @@ function commentsBody(id) {
 function paintComments() {
   const box = $('#cbody');
   if (box && S.openPost != null) box.innerHTML = commentsBody(S.openPost);
+  // The heading carries the count, so it has to be written on every repaint rather than
+  // once when the sheet opens: write a comment and the number above it should move too.
+  const t = $('#ctitle');
+  if (t && S.openPost != null) t.textContent = plural(S.comments.filter(c => c.postId === S.openPost).length, 'comment');
 }
 
 function openComments(id) {
   S.openPost = id;
-  $('#ctitle').textContent = `${plural(S.comments.filter(c => c.postId === id).length, 'comment')}`;
   paintComments();
   const d = $('#cmt');
   if (!d.open) d.showModal();
@@ -2374,17 +2388,36 @@ async function delPost(id) {
 async function addComment(f, postId) {
   const body = f.body.value.trim(); if (!body) return;
   working(f, '…');
-  await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body}));
+  // Show it, and count it, before the round trip finishes — a count that only moves once
+  // the server answers reads as a tap that did nothing. It carries no real id yet, so it
+  // is marked pending and offers no delete until load() brings back the real row.
+  const tmp = {id: -Date.now(), postId, userId: me().id, body, pending: true};
+  S.comments = [...S.comments, tmp];
+  render(); paintComments();
+  try {
+    await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body}));
+  } catch (e) {
+    S.comments = S.comments.filter(c => c !== tmp);
+    render(); paintComments();
+    throw e;
+  }
   const y = scrollY; await load(); scrollTo(0, y);
   // The sheet is a dialog of its own: render() redraws the feed behind it and would leave
   // the comment you just wrote missing from the only place you are looking.
-  if (S.openPost === postId) openComments(postId);
+  if (S.openPost === postId) paintComments();
 }
 async function delComment(id) {
-  const at = S.openPost;
-  await q(sb.from('comments').delete().eq('id', id));
+  const at = S.openPost, gone = S.comments.filter(c => c.id !== id);
+  S.comments = gone; render(); paintComments();
+  try {
+    await q(sb.from('comments').delete().eq('id', id));
+  } catch (e) {
+    await load();
+    if (at != null) paintComments();
+    throw e;
+  }
   const y = scrollY; await load(); scrollTo(0, y);
-  if (at != null) openComments(at);
+  if (at != null) paintComments();
 }
 
 // An installed app comes back to the foreground constantly, and this refetches every
