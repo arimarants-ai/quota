@@ -932,3 +932,57 @@ create policy "take back your own reaction" on public.reactions for delete using
 drop trigger if exists reactions_notify on public.reactions;
 create trigger reactions_notify after insert on public.reactions
   for each row execute function public.notify_hook('reaction');
+
+-- ============================================================
+-- v16 (the hook secret lives outside the function): safe, and worth running.
+--
+-- Every block above that creates notify_hook() carries '<HOOK_SECRET>' as a literal
+-- placeholder. Paste one of them in again without substituting it — which is exactly what
+-- happens when a later feature block gets run — and the trigger starts sending the string
+-- '<HOOK_SECRET>' as the secret. The edge function answers 403, pg_net drops the answer on
+-- the floor, and every notification in the app stops with nothing anywhere saying why.
+--
+-- So the secret stops living in the function body. Set it once:
+--
+--   alter database postgres set app.hook_secret = 'the-real-secret';
+--
+-- and it survives anything that is pasted in afterwards. Run that line first, then this
+-- block, then check it took:
+--
+--   select public.notify_secret() <> '' as secret_is_set;
+-- ============================================================
+
+-- Null rather than an error when it has never been set, so the check below can say so.
+create or replace function public.notify_secret() returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce(current_setting('app.hook_secret', true), '')
+$$;
+revoke all on function public.notify_secret() from public, anon, authenticated;
+
+create or replace function public.notify_hook() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare secret text := public.notify_secret();
+begin
+  -- A missing secret is worth saying out loud. It goes to the Postgres log rather than
+  -- nowhere, which is the whole problem this block exists to fix.
+  if secret = '' then
+    raise warning 'notify_hook: app.hook_secret is not set, so % notifications are not being sent', TG_ARGV[0];
+    return new;
+  end if;
+  perform net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/notify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', secret),
+    body    := jsonb_build_object('kind', TG_ARGV[0], 'record', to_jsonb(new))
+  );
+  return new;
+end $$;
+
+-- The hourly wheel reminder carried the same placeholder, so it gets the same treatment.
+select cron.unschedule('wheel-reminders') where exists (select 1 from cron.job where jobname = 'wheel-reminders');
+select cron.schedule('wheel-reminders', '0 * * * *', $cron$
+  select net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/wheelday',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', public.notify_secret()),
+    body    := '{}'::jsonb
+  ) where public.notify_secret() <> '';
+$cron$);

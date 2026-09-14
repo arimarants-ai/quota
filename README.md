@@ -78,6 +78,28 @@ every line of `index.html` depends on that file: when it did not arrive, the pag
 came up blank with nothing on it. See `vendor/supabase-js-2.49.4/README.md` for how
 to move to a newer version.
 
+## When notifications stop
+
+Every trigger that sends one calls the `notify` edge function with a shared secret. Older
+blocks in `schema.sql` carry that secret as the literal placeholder `'<HOOK_SECRET>'`, so
+re-running one of them — which is what happens when a later feature block gets pasted in —
+replaces a working trigger with one that sends the wrong secret. The function answers 403,
+`pg_net` throws the answer away, and every notification stops with nothing anywhere saying
+why. That is the first thing to check:
+
+```sql
+-- Is the placeholder still sitting in the trigger?
+select prosrc like '%<HOOK_SECRET>%' as placeholder_left_in
+from pg_proc where proname = 'notify_hook';
+
+-- What did the last few calls actually come back with? 403 means the secret is wrong.
+select created, status_code, content from net._http_response order by created desc limit 10;
+```
+
+The fix, and the reason it cannot happen again, is the v16 block at the bottom of
+`schema.sql`: the secret moves into a database setting, so nothing pasted in afterwards can
+overwrite it, and a missing one is written to the Postgres log instead of being swallowed.
+
 ## When the app cannot load
 
 An installed app can sit closed for days, so its access token has almost always
