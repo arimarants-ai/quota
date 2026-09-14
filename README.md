@@ -78,6 +78,85 @@ every line of `index.html` depends on that file: when it did not arrive, the pag
 came up blank with nothing on it. See `vendor/supabase-js-2.49.4/README.md` for how
 to move to a newer version.
 
+## When notifications stop
+
+Nothing anywhere says so. `pg_net` sends the call and throws the answer away, so a push
+that never went out looks exactly like one that did. The answers are kept for a while
+though, and they say which of the two failures it is:
+
+```sql
+select created, status_code, content from net._http_response order by created desc limit 10;
+```
+
+| What comes back | Where it stopped | What it means |
+| --- | --- | --- |
+| `403 forbidden` | Inside the function | The secret the trigger sent is not the secret the function holds. |
+| `401 UNAUTHORIZED_NO_AUTH_HEADER` | Supabase's gateway, before the function | That function has **Verify JWT** switched on, so the call never arrives. |
+| `200` | Nowhere | It went. |
+
+Rows landing exactly on the hour are the `wheelday` cron; anything else is somebody
+posting, commenting, liking or inviting.
+
+### 403: the secret
+
+Every trigger calls the `notify` function with a shared secret. Older blocks in
+`schema.sql` carry that secret as the literal placeholder `'<HOOK_SECRET>'`, so re-running
+one of them — which is what happens when a later feature block gets pasted in — replaces a
+working trigger with one that sends the string `<HOOK_SECRET>`. The same 403 comes back if
+`HOOK_SECRET` was never set on the function at all, because an unset one can never match.
+So set both ends explicitly, to the same value:
+
+1. Edge Functions → Secrets → `HOOK_SECRET`.
+2. `alter database postgres set app.hook_secret = 'that same value';`
+3. Run the v16 block at the bottom of `schema.sql`.
+4. In a **new** SQL session: `select coalesce(current_setting('app.hook_secret', true), '') <> '' as secret_is_set;`
+
+### 401: the gateway
+
+`wheelday` guards itself with the same shared secret `notify` does, so it wants the same
+setting: Edge Functions → `wheelday` → turn **Verify JWT** off (`--no-verify-jwt` if you
+deploy from a terminal). With it on, the gateway rejects the cron job before the function
+runs, which is why spin-day reminders can be dead while everything else is merely wrong.
+
+To check either from outside, without waiting for someone to post:
+
+```bash
+curl -i -X POST https://<project>.supabase.co/functions/v1/notify -d '{}'
+# 403 forbidden  -> deployed, running, and guarding itself. Good.
+# 401 ...        -> Verify JWT is on; the gateway is answering, not the function.
+```
+
+The old check, for whether the placeholder is what is in the trigger:
+
+```sql
+-- Is the placeholder still sitting in the trigger?
+select prosrc like '%<HOOK_SECRET>%' as placeholder_left_in
+from pg_proc where proname = 'notify_hook';
+
+-- What did the last few calls actually come back with? 403 means the secret is wrong.
+select created, status_code, content from net._http_response order by created desc limit 10;
+```
+
+The fix, and the reason it cannot happen again, is the v16 block at the bottom of
+`schema.sql`: the secret moves out of the function body and into a row in `private.config`,
+which re-running the block cannot touch, and a missing one is written to the Postgres log
+instead of being swallowed. Run the block, then write the value once:
+
+```sql
+insert into private.config (key, value) values ('hook_secret', 'the-real-secret')
+  on conflict (key) do update set value = excluded.value;
+
+select left(value, 6) || '…' as hook_secret from private.config where key = 'hook_secret';
+```
+
+It has to match the `HOOK_SECRET` set on the edge functions. That one is project-wide, so
+it covers `notify` and `wheelday` together. Supabase masks it after it is saved, so if you
+cannot read it back, overwrite both ends with a new value rather than trying to recover it.
+
+A database setting would read better than a table, but `alter database ... set` on a custom
+parameter needs superuser and Supabase does not hand that out — it fails with
+`permission denied to set parameter`.
+
 ## When the app cannot load
 
 An installed app can sit closed for days, so its access token has almost always

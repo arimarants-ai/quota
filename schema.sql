@@ -932,3 +932,67 @@ create policy "take back your own reaction" on public.reactions for delete using
 drop trigger if exists reactions_notify on public.reactions;
 create trigger reactions_notify after insert on public.reactions
   for each row execute function public.notify_hook('reaction');
+
+-- ============================================================
+-- v16 (the hook secret lives outside the function): safe, and worth running.
+--
+-- Every block above that creates notify_hook() carries '<HOOK_SECRET>' as a literal
+-- placeholder. Paste one of them in again without substituting it — which is exactly what
+-- happens when a later feature block gets run — and the trigger starts sending the string
+-- '<HOOK_SECRET>' as the secret. The edge function answers 403, pg_net drops the answer on
+-- the floor, and every notification in the app stops with nothing anywhere saying why.
+--
+-- So the secret stops living in the function body and moves into a row. Running this block
+-- again cannot touch that row: the value is written by one statement, on its own, once.
+--
+--   insert into private.config (key, value) values ('hook_secret', 'the-real-secret')
+--     on conflict (key) do update set value = excluded.value;
+--
+-- It has to match the HOOK_SECRET set on the edge functions, which is project-wide and so
+-- covers both notify and wheelday. To check what is stored:
+--
+--   select left(value, 6) || '…' as hook_secret from private.config where key = 'hook_secret';
+--
+-- A database setting would have been tidier, but ALTER DATABASE ... SET on a custom
+-- parameter needs superuser, and Supabase does not hand that out. Vault would work too;
+-- this is a table because it depends on nothing that can change under it.
+-- ============================================================
+
+-- Nothing is granted on a new schema, so only the owner reaches it — and PostgREST only
+-- serves the schemas it is told to, which are public and graphql_public. This is neither.
+create schema if not exists private;
+
+create table if not exists private.config (
+  key text primary key,
+  value text not null
+);
+
+create or replace function public.notify_hook() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare secret text := coalesce((select value from private.config where key = 'hook_secret'), '');
+begin
+  -- A missing secret is worth saying out loud. It goes to the Postgres log rather than
+  -- nowhere, which is the whole problem this block exists to fix.
+  if secret = '' then
+    raise warning 'notify_hook: no hook_secret in private.config, so % notifications are not being sent', TG_ARGV[0];
+    return new;
+  end if;
+  perform net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/notify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', secret),
+    body    := jsonb_build_object('kind', TG_ARGV[0], 'record', to_jsonb(new))
+  );
+  return new;
+end $$;
+
+-- pg_cron runs it every hour on the hour; the hourly wheel reminder carried the same
+-- placeholder, so it reads the same row now.
+select cron.unschedule('wheel-reminders') where exists (select 1 from cron.job where jobname = 'wheel-reminders');
+select cron.schedule('wheel-reminders', '0 * * * *', $cron$
+  select net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/wheelday',
+    headers := jsonb_build_object('Content-Type', 'application/json',
+                                  'x-hook-secret', (select value from private.config where key = 'hook_secret')),
+    body    := '{}'::jsonb
+  ) where exists (select 1 from private.config where key = 'hook_secret' and value <> '');
+$cron$);
