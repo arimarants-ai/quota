@@ -52,6 +52,16 @@ and downscale to 192.
 After changing any of these, bump `VERSION` in `sw.js` or installed apps keep
 the old icons from cache.
 
+The four `screenshot-*.png` in `manifest.json` are what Chrome and PWABuilder put
+on the install prompt, so they have to look like the app that is actually shipping:
+
+```bash
+node test/screenshots.mjs
+```
+
+That renders them from the real page against the test stub. A screenshot taken on a
+phone, of a real run, is better — this is the floor, not the ceiling.
+
 The service worker caches only static assets. Everything from Supabase (sign-in,
 database, video upload, signed video URLs) always goes to the network, so the
 worker can never serve a stale feed or a stale video.

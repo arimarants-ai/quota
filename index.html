@@ -252,7 +252,12 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel .reacts button{background:none;border:0;padding:2px;font-size:26px;line-height:1;pointer-events:none;
   text-shadow:0 2px 6px rgba(0,0,0,.6);transform:translateX(var(--x,0px));
   animation:bob 3.4s ease-in-out infinite;animation-delay:calc(var(--i,0) * -.7s)}
-.reel .reacts button.mine{pointer-events:auto;cursor:pointer}
+/* Yours answer to a tap. The glyph is 26px and it is bobbing, so the thing you are
+   aiming at is both small and moving: a tap that was dead on when it left your thumb can
+   land where the emoji was rather than where it is. The hit area is extended past the
+   glyph by more than the bob can carry it, which costs no layout and no paint. */
+.reel .reacts button.mine{pointer-events:auto;cursor:pointer;position:relative}
+.reel .reacts button.mine::after{content:"";position:absolute;inset:-11px -9px}
 @keyframes bob{
   0%,100%{transform:translate(var(--x,0px),0) scale(1)}
   50%{transform:translate(calc(var(--x,0px) + 4px),-9px) scale(1.06)}
