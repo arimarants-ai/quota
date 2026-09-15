@@ -1400,7 +1400,8 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('.stories .s:not(.me)').click();
   await page.waitForTimeout(300);
   check('  tapping it opens the story', await page.locator('#story').isVisible());
-  check('    with the words on it', /day one/.test(await page.locator('#story .face').innerText()),
+  // The Strong face sets them in capitals, which is a look, not a change to the words.
+  check('    with the words on it', /day one/i.test(await page.locator('#story .face').innerText()),
     await page.locator('#story .face').innerText());
   check('    and it counts as seen', await page.evaluate(() => S.seen.length) === 1);
   await page.locator('#story .who .x').click();
@@ -1428,53 +1429,61 @@ await withPage(SIGNED_IN, async page => {
   check('a story older than a day is not in the row', await page.locator('.stories .s').count() === 1);
 });
 
-// Making one: what is typed shows where it will sit, and every control changes the thing
-// itself rather than a preview of it.
+// Making one. The words are typed onto the card itself and every control changes the
+// thing rather than a preview of it; the two it writes for you arrive as drafts.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => newStory());
   await page.waitForTimeout(250);
   check('the editor opens on a blank card', await page.locator('#make').isVisible());
-  check('  with somewhere to type', await page.locator('#make textarea').count() === 1);
+  const type = page.locator('#make .type');
+  check('  with the words typed straight onto the card',
+    await type.count() === 1 && await type.evaluate(el => el.isContentEditable));
+  check('    inside it, not in a box somewhere else', await page.evaluate(() => {
+    const a = document.querySelector('#make .type').getBoundingClientRect(), b = document.querySelector('#make .face').getBoundingClientRect();
+    return a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+  }));
 
-  await page.locator('#make textarea').fill('fifty done');
-  await page.waitForTimeout(250);
-  // The box being typed into is the card: same face, same colour, same place. Drawing the
-  // words underneath it as well printed everything twice, slightly out of register.
-  check('  what is typed is held as the story', await page.evaluate(() => S.draft.body) === 'fifty done');
-  check('    typed straight onto the card rather than into a box somewhere else',
-    await page.evaluate(() => {
-      const ta = document.querySelector('#make .type'), face = document.querySelector('#make .face');
-      const a = ta.getBoundingClientRect(), b = face.getBoundingClientRect();
-      return a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
-    }));
-  check('    and the words are not also drawn underneath it',
-    await page.locator('#make .face .words').count() === 0
-    || await page.evaluate(() => getComputedStyle(document.querySelector('#make .face .words')).display) === 'none');
+  await type.click();
+  await page.keyboard.type('fifty done');
+  await page.waitForTimeout(200);
+  check('  what is typed is held as the story', await page.evaluate(() => S.draft.body) === 'fifty done',
+    await page.evaluate(() => S.draft.body));
 
   const look = () => page.evaluate(() => {
     const w = document.querySelector('#make .type');
-    return {bg: document.querySelector('#make .face').style.background, font: w.style.fontFamily, ink: w.style.color, cls: w.className};
+    return {bg: document.querySelector('#make .face').style.background, font: w.style.fontFamily, ink: w.style.color, cls: w.className, x: w.style.left};
   });
   const before = await look();
-  await page.locator('#make .set').first().locator('.sw').nth(3).click();
+  await page.locator('#make .bgbtn').click();
   await page.waitForTimeout(200);
-  check('  a different background changes it', (await look()).bg !== before.bg);
-  await page.locator('#make .ft').nth(1).click();
+  check('  tapping the background goes round to the next one', (await look()).bg !== before.bg);
+  const pill = await page.locator('#make .fontpill').innerText();
+  await page.locator('#make .fontpill').click();
   await page.waitForTimeout(200);
-  check('  a different typeface changes it', (await look()).font !== before.font);
-  await page.evaluate(() => draftSet('ink', 3));
+  check('  tapping the font pill goes round to the next face', (await look()).font !== before.font
+    && await page.locator('#make .fontpill').innerText() !== pill);
+  await page.locator('#make .dot').nth(3).click();
   await page.waitForTimeout(200);
-  check('  a different colour changes it', (await look()).ink !== before.ink);
-  await page.evaluate(() => draftSet('at', 2));
-  await page.waitForTimeout(200);
-  check('  and it can be moved down the card', /at2/.test((await look()).cls), (await look()).cls);
+  check('  a colour from the strip recolours the words', (await look()).ink !== before.ink);
+  check('    and the card carries the same colour, so the decoration follows it',
+    await page.evaluate(() => document.querySelector('#make .face').style.color !== ''));
 
-  await page.locator('#make .set').last().locator('button').first().click();
+  // Dragged, and remembered where it was let go.
+  const box = await type.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 120, { steps: 6 });
+  await page.mouse.up();
   await page.waitForTimeout(200);
-  check('  an emoji goes on the end of it', /fifty done/.test(await page.evaluate(() => S.draft.body))
-    && (await page.evaluate(() => S.draft.body)).length > 'fifty done'.length,
-    await page.evaluate(() => S.draft.body));
+  check('  the words can be dragged down the card', await page.evaluate(() => styleOf(S.draft).y) > .55,
+    String(await page.evaluate(() => styleOf(S.draft).y)));
+
+  await page.locator('#make .tb[aria-label=Sticker]').click();
+  await page.waitForTimeout(150);
+  await page.locator('#make .stickers button').first().click();
+  await page.waitForTimeout(200);
+  check('  a sticker lands on the card', await page.locator('#make .face .stk').count() === 1);
 
   await page.evaluate(() => closeDraft());
   await page.waitForTimeout(150);
@@ -1487,17 +1496,19 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => suggestAfterPost(S.groups[0], 50, 'pushups'));
   await page.waitForTimeout(250);
   check('finishing the day offers a story already written', await page.locator('#make').isVisible());
-  check('  saying what was done', /50 pushups/.test(await page.evaluate(() => S.draft.body)),
-    await page.evaluate(() => S.draft.body));
-  check('  and it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
-  check('  which can still be edited before it goes', await page.locator('#make textarea').count() === 1);
+  check('  with the number drawn large', /^50$/.test((await page.locator('#make .face .hero .big').innerText()).trim())
+    && /pushups/i.test(await page.locator('#make .face .hero .tag').innerText()));
+  check('  and a stamp on it', await page.locator('#make .face .hero .stamp').count() === 1);
+  check('  it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
+  check('  which can still be edited before it goes', await page.locator('#make .type').count() === 1);
   await page.evaluate(() => closeDraft());
 
   // A milestone offers one too, on a wider ladder than the confetti uses.
-  await page.evaluate(() => suggest('streak', {body: STORY_MILE_LINE(7)}));
+  await page.evaluate(() => suggest('streak', {n: 7, body: STORY_MILE_LINE(7)}));
   await page.waitForTimeout(250);
   check('a streak milestone offers one as well', await page.locator('#make').isVisible()
-    && /Day 7/.test(await page.evaluate(() => S.draft.body)), await page.evaluate(() => S.draft.body));
+    && /^7$/.test((await page.locator('#make .face .hero .big').innerText()).trim())
+    && /day streak/i.test(await page.locator('#make .face .hero .tag').innerText()));
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees
