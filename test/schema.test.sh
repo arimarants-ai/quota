@@ -52,6 +52,14 @@ create schema if not exists storage;
 create table storage.buckets (id text primary key, name text, public boolean,
   file_size_limit bigint, allowed_mime_types text[]);
 insert into storage.buckets (id, name) values ('proof', 'proof'), ('avatars', 'avatars');
+-- The objects themselves, and the helper the policies read paths with, so a block that
+-- puts policies on storage can be applied here rather than cut out and left unchecked.
+-- foldername returns the folders and not the file, which is what the real one does.
+create table storage.objects (id bigserial primary key, bucket_id text, name text,
+  owner uuid, created_at timestamptz default now());
+alter table storage.objects enable row level security;
+create function storage.foldername(name text) returns text[] language sql immutable as
+  $fn$ select (string_to_array(name, '/'))[1:greatest(array_length(string_to_array(name, '/'), 1) - 1, 0)] $fn$;
 EOF
 
 # The tables and helper the wheels block builds on, plus the block itself, taken straight

@@ -1337,7 +1337,7 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party .n').innerText());
   check('  with confetti over it', await page.locator('#party canvas').count() === 1);
 
-  await page.locator('#party button').click();
+  await page.locator('#party button:not(.share)').click();
   await page.waitForTimeout(150);
   check('  it goes away when it is dismissed', await page.locator('#party').isHidden());
 
@@ -1360,7 +1360,7 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isVisible()
     && /365/.test(await page.locator('#party .n').innerText()),
     await page.locator('#party .n').innerText().catch(() => '(hidden)'));
-  await page.locator('#party button').click();
+  await page.locator('#party button:not(.share)').click();
 
   // Nothing is celebrated for a run that has not been earned today.
   await page.evaluate(() => {
@@ -1373,6 +1373,142 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(200);
   check('  and a run with today still owing is not celebrated yet',
     await page.locator('#party').isHidden());
+});
+
+// Stories. Only people with one running are in the row, unseen first, and somebody you
+// share a group with who has posted nothing is simply not in it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const put = rows => page.evaluate(list => {
+    S.stories = list.map(r => ({...r, ts: Date.now() - (r.agoMins || 1) * 60000, style: r.style || {}}));
+    S.seen = []; render();
+  }, rows);
+
+  await put([]);
+  check('with nobody posting, the row is just your own circle',
+    await page.locator('.stories .s').count() === 1);
+  check('  which offers to add one', /Add story/.test(await page.locator('.stories .s.me').innerText()));
+  check('    and somebody you share a group with but who has posted nothing is not in it',
+    await page.locator('.stories .s').count() === 1);
+
+  await put([{id: 1, u: 'u2', kind: 'text', body: 'day one'}]);
+  check('somebody with a story appears', await page.locator('.stories .s').count() === 2);
+  check('  with a lit ring because it has not been watched',
+    await page.locator('.stories .s:not(.me) .rg.new').count() === 1);
+
+  // Watched, and the ring goes quiet rather than the person disappearing.
+  await page.locator('.stories .s:not(.me)').click();
+  await page.waitForTimeout(300);
+  check('  tapping it opens the story', await page.locator('#story').isVisible());
+  // The Strong face sets them in capitals, which is a look, not a change to the words.
+  check('    with the words on it', /day one/i.test(await page.locator('#story .face').innerText()),
+    await page.locator('#story .face').innerText());
+  check('    and it counts as seen', await page.evaluate(() => S.seen.length) === 1);
+  await page.locator('#story .who .x').click();
+  await page.waitForTimeout(250);
+  check('    the ring is quiet once watched',
+    await page.locator('.stories .s:not(.me) .rg.old').count() === 1);
+  check('      and they are still in the row', await page.locator('.stories .s').count() === 2);
+
+  // Unseen ones come first however they arrive.
+  await page.evaluate(() => {
+    S.profiles.u3 = {id: 'u3', username: 'kit', display_name: 'Kit'};
+    S.groups[0].members = [...new Set([...S.groups[0].members, 'u3'])];
+  });
+  await put([{id: 1, u: 'u2', kind: 'text', body: 'seen one'}, {id: 2, u: 'u3', kind: 'text', body: 'fresh'}]);
+  await page.evaluate(() => { S.seen = [1]; render(); });
+  await page.waitForTimeout(150);
+  check('the unseen one is pulled to the front',
+    /Kit/.test(await page.locator('.stories .s:not(.me)').first().innerText()),
+    await page.locator('.stories .s:not(.me)').first().innerText());
+  check('  and it is the lit one', await page.evaluate(() =>
+    document.querySelectorAll('.stories .s:not(.me)')[0].querySelector('.rg').classList.contains('new')));
+
+  // A day old is gone, and the policy says the same thing on the server.
+  await put([{id: 9, u: 'u2', kind: 'text', body: 'yesterday', agoMins: 60 * 25}]);
+  check('a story older than a day is not in the row', await page.locator('.stories .s').count() === 1);
+});
+
+// Making one. The words are typed onto the card itself and every control changes the
+// thing rather than a preview of it; the two it writes for you arrive as drafts.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => newStory());
+  await page.waitForTimeout(250);
+  check('the editor opens on a blank card', await page.locator('#make').isVisible());
+  const type = page.locator('#make .type');
+  check('  with the words typed straight onto the card',
+    await type.count() === 1 && await type.evaluate(el => el.isContentEditable));
+  check('    inside it, not in a box somewhere else', await page.evaluate(() => {
+    const a = document.querySelector('#make .type').getBoundingClientRect(), b = document.querySelector('#make .face').getBoundingClientRect();
+    return a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+  }));
+
+  await type.click();
+  await page.keyboard.type('fifty done');
+  await page.waitForTimeout(200);
+  check('  what is typed is held as the story', await page.evaluate(() => S.draft.body) === 'fifty done',
+    await page.evaluate(() => S.draft.body));
+
+  const look = () => page.evaluate(() => {
+    const w = document.querySelector('#make .type');
+    return {bg: document.querySelector('#make .face').style.background, font: w.style.fontFamily, ink: w.style.color, cls: w.className, x: w.style.left};
+  });
+  const before = await look();
+  await page.locator('#make .bgbtn').click();
+  await page.waitForTimeout(200);
+  check('  tapping the background goes round to the next one', (await look()).bg !== before.bg);
+  const pill = await page.locator('#make .fontpill').innerText();
+  await page.locator('#make .fontpill').click();
+  await page.waitForTimeout(200);
+  check('  tapping the font pill goes round to the next face', (await look()).font !== before.font
+    && await page.locator('#make .fontpill').innerText() !== pill);
+  await page.locator('#make .dot').nth(3).click();
+  await page.waitForTimeout(200);
+  check('  a colour from the strip recolours the words', (await look()).ink !== before.ink);
+  check('    and the card carries the same colour, so the decoration follows it',
+    await page.evaluate(() => document.querySelector('#make .face').style.color !== ''));
+
+  // Dragged, and remembered where it was let go.
+  const box = await type.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 120, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  check('  the words can be dragged down the card', await page.evaluate(() => styleOf(S.draft).y) > .55,
+    String(await page.evaluate(() => styleOf(S.draft).y)));
+
+  await page.locator('#make .tb[aria-label=Sticker]').click();
+  await page.waitForTimeout(150);
+  await page.locator('#make .stickers button').first().click();
+  await page.waitForTimeout(200);
+  check('  a sticker lands on the card', await page.locator('#make .face .stk').count() === 1);
+
+  await page.evaluate(() => closeDraft());
+  await page.waitForTimeout(150);
+  check('  and closing it throws the draft away', await page.evaluate(() => S.draft) === null);
+});
+
+// The one it writes for you. Built, never sent on its own.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => suggestAfterPost(S.groups[0], 50, 'pushups'));
+  await page.waitForTimeout(250);
+  check('finishing the day offers a story already written', await page.locator('#make').isVisible());
+  check('  with the number drawn large', /^50$/.test((await page.locator('#make .face .hero .big').innerText()).trim())
+    && /pushups/i.test(await page.locator('#make .face .hero .tag').innerText()));
+  check('  and a stamp on it', await page.locator('#make .face .hero .stamp').count() === 1);
+  check('  it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
+  check('  which can still be edited before it goes', await page.locator('#make .type').count() === 1);
+  await page.evaluate(() => closeDraft());
+
+  // A milestone offers one too, on a wider ladder than the confetti uses.
+  await page.evaluate(() => suggest('streak', {n: 7, body: STORY_MILE_LINE(7)}));
+  await page.waitForTimeout(250);
+  check('a streak milestone offers one as well', await page.locator('#make').isVisible()
+    && /^7$/.test((await page.locator('#make .face .hero .big').innerText()).trim())
+    && /day streak/i.test(await page.locator('#make .face .hero .tag').innerText()));
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees

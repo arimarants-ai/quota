@@ -71,7 +71,7 @@ input,select,textarea{font:inherit;font-size:16px;width:100%;padding:12px 14px;b
 input:focus,select:focus,textarea:focus{border-color:var(--mk);box-shadow:0 0 0 3px var(--mkring)}
 textarea{resize:vertical;line-height:1.5}
 .check input{width:19px}
-input[type=file]{padding:10px;font-size:14px}
+input[type=file]{padding:10px;font-size:16px}
 label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 6px}
 .row{display:flex;gap:10px;align-items:center}
 .wrap{flex-wrap:wrap}
@@ -103,23 +103,129 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .mini div:last-child{border-bottom:0}
 .mini i::after{content:"";display:block;height:100%;background:var(--mk);width:var(--w)}
 .mini i.done::after{background:var(--mk)}
-/* Who has been out today. A ring that is filled means it is done; the greyed ones are
-   who the app is for. Names are left as people typed them — no caps. */
+/* Only people with something running are in this row, unseen first. A lit ring is a story
+   you have not watched; once you have, it goes quiet rather than disappearing. */
 .stories{display:flex;gap:14px;padding:14px 20px 2px;overflow-x:auto;scrollbar-width:none}
 .stories::-webkit-scrollbar{display:none}
-.stories .s{flex:none;width:62px;background:none;padding:0;border-radius:0;display:flex;flex-direction:column;align-items:center;gap:7px}
-.stories .rg{position:relative;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--mk)}
-.stories .s.out .rg{border-color:var(--line)}
-/* Yours, before you have posted: the one circle that is still a question. */
-.stories .s:not(.done):not(.out) .rg{border-style:dashed}
-.stories .rg .av{width:44px;height:44px;font-size:16px}
-.stories .s.out .av{opacity:.45;filter:grayscale(1)}
-.stories .rg i{position:absolute;right:-2px;bottom:-2px;width:19px;height:19px;border-radius:50%;background:var(--mk);
-  color:var(--onmk);display:grid;place-items:center;font-style:normal;font-weight:800;font-size:14px;line-height:1;border:2px solid var(--bg)}
+.stories .s{flex:none;width:64px;background:none;padding:0;border-radius:0;display:flex;flex-direction:column;align-items:center;gap:7px}
+.stories .rg{position:relative;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;
+  background:var(--soft);padding:3px}
+/* Always the full sweep, not the streak ramp: early in a run the ramp is nearly flat, and
+   a ring that says "unwatched" has to look like one whatever day you are on. */
+.stories .rg.new{background:linear-gradient(135deg,#0b5a34,#2fd36f 52%,#7ef0b0)}
+/* Watched: the same ring with the life gone out of it, not a different shape. */
+.stories .rg.old{background:none;box-shadow:inset 0 0 0 2px var(--line)}
+.stories .s.me .rg{background:none;box-shadow:inset 0 0 0 2px var(--line)}
+.stories .s.me.has .rg{box-shadow:none}
+.stories .rg .av{width:100%;height:100%;font-size:17px;box-shadow:0 0 0 2px var(--bg)}
+.stories .rg i{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:var(--mk);
+  color:var(--onmk);display:grid;place-items:center;font-style:normal;font-weight:800;font-size:15px;line-height:1;border:2px solid var(--bg)}
 .stories .nm{font-size:11px;font-weight:700;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stories .s.done .nm{color:var(--text)}
-/* A disabled circle is still somebody's face, so it is not dimmed twice. */
-.stories .s[disabled]{opacity:1}
+.stories .s.me .nm{color:var(--text)}
+
+/* One drawing, used by the editor and by everyone who watches it after. */
+.face{position:relative;width:100%;aspect-ratio:9/16;overflow:hidden;background:#000;touch-action:none}
+.face .fill{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* The words: a block that sits at the point it was dragged to, centred on it. */
+.face .type{position:absolute;transform:translate(-50%,-50%);max-width:88%;min-width:40px;padding:6px 12px;
+  line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere;outline:none;
+  text-shadow:0 2px 18px rgba(0,0,0,.28);cursor:grab;touch-action:none}
+.face .type.boxed{border-radius:10px;text-shadow:none;padding:8px 14px}
+.face .type.sz0{font-size:20px}
+.face .type.sz1{font-size:30px}
+.face .type.sz2{font-size:42px}
+.face .type:empty::before{content:attr(data-ph);opacity:.5}
+.face .stk{position:absolute;transform:translate(-50%,-50%);font-size:72px;line-height:1;cursor:grab;touch-action:none;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));user-select:none}
+/* The two it writes for you. The ring and the sparks are drawn in the ink colour, so
+   picking a colour recolours the whole card, not just the words. */
+.face .deco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.face .hero{position:absolute;left:0;right:0;top:11%;display:flex;flex-direction:column;align-items:center;gap:4px;
+  pointer-events:none;color:inherit}
+.face .hero .big{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:172px;line-height:.82;letter-spacing:-.03em;
+  text-shadow:0 8px 40px rgba(0,0,0,.28)}
+.face .hero .tag{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;
+  text-transform:uppercase;margin-top:10px;padding:8px 14px;border:2px solid currentColor;border-radius:999px}
+.face .hero .tickring{width:64px;height:64px;margin-bottom:8px}
+.face .hero .tickring svg{width:100%;height:100%;display:block}
+.face .hero .stamp{position:absolute;right:8%;top:58%;transform:rotate(-9deg);font-family:Oswald,system-ui,sans-serif;font-weight:600;
+  font-size:26px;letter-spacing:.2em;text-transform:uppercase;padding:6px 12px 5px;border:4px solid currentColor;border-radius:8px;
+  opacity:.85;mix-blend-mode:screen}
+.face.tpl .type{text-shadow:0 2px 14px rgba(0,0,0,.35)}
+
+/* Watching. Full screen, because that is what it is for. */
+#story,#make{position:fixed;inset:0;z-index:70;background:#050706;display:grid;grid-template-columns:minmax(0,1fr);place-items:center}
+#story[hidden],#make[hidden]{display:none}
+#story .pane,#make .pane{position:relative;width:min(100%,430px);height:100%;display:flex;flex-direction:column;
+  padding:calc(8px + env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))}
+#story .bars{display:flex;gap:4px;padding:0 10px}
+#story .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
+#story .bars i.done{background:rgba(255,255,255,.85)}
+#story .bars i.now{background:#fff}
+#story .who{display:flex;align-items:center;gap:9px;padding:12px 12px 10px;color:#fff;position:relative;z-index:3}
+#story .who b{font-size:14.5px;font-weight:800}
+#story .who span{font-size:12px;color:rgba(255,255,255,.7)}
+#story .who .x,#story .who .bin{margin-left:auto;background:none;color:#fff;font-size:17px;padding:4px 6px}
+#story .who .bin{margin-left:auto}
+#story .who .bin + .x{margin-left:0}
+#story .face{flex:1;aspect-ratio:auto;min-height:0}
+/* Half each, under everything: forward on the right the way every app does it. */
+#story .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
+#story .tap.back{left:0}
+#story .tap.fwd{right:0;width:62%}
+
+/* Making one. The other app's shape: close on the left, tools on the right, the card in
+   the middle, colours along the bottom, share underneath. */
+#make .mbar{display:flex;align-items:center;gap:10px;padding:8px 12px;color:#fff}
+#make .mbar.top{padding-top:6px}
+#make .mbar .x{background:none;color:#fff;font-size:18px;padding:6px 8px}
+#make .tools{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0}
+#make .bgbtn{width:34px;height:34px;border-radius:50%;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+#make .fontpill{background:rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;min-width:0;flex:0 1 74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#make .tb{width:36px;height:36px;border-radius:50%;padding:0;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;font-size:18px}
+#make .tb.on{background:#fff;color:#0b0c0e}
+#make .tb svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#make .tb .ab{font-weight:800;font-size:15px;line-height:1}
+#make .tb.on .ab{background:#0b0c0e;color:#fff;padding:1px 5px;border-radius:4px}
+#make .canvas{position:relative;flex:1;min-height:0;display:grid;min-width:0}
+#make .canvas .face{height:100%;aspect-ratio:auto}
+#make .stickers{position:absolute;left:12px;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(8,1fr);gap:4px;
+  padding:10px;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);border-radius:16px;z-index:3}
+#make .stickers[hidden]{display:none}
+#make .stickers button{background:none;padding:6px 0;font-size:24px;line-height:1}
+/* The colours, in a strip along the bottom of the card. */
+#make .inks{display:flex;gap:10px;padding:12px 14px 6px;overflow-x:auto;scrollbar-width:none;min-width:0}
+#make .inks::-webkit-scrollbar{display:none}
+#make .dot{flex:none;width:30px;height:30px;border-radius:50%;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+#make .dot.on{box-shadow:0 0 0 2.5px #0b0c0e,0 0 0 5px #fff}
+#make .mbar.bottom{padding-bottom:calc(10px + env(safe-area-inset-bottom));min-width:0}
+#make .who{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:#fff;min-width:0}
+#make .go{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--mk);color:var(--onmk);
+  font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:11px 16px;border-radius:999px}
+#make .go svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#make .go:disabled{opacity:.6}
+
+/* The words are typed where they will sit, over the picture, rather than in a box
+   somewhere else that has to be imagined onto it. */
+#make .type{position:absolute;left:0;right:0;width:100%;background:none;border:0;outline:none;resize:none;
+  padding:0 26px;text-align:center;font-weight:800;line-height:1.15;overflow:hidden;
+  text-shadow:0 2px 18px rgba(0,0,0,.3);caret-color:currentColor}
+#make .type::placeholder{color:currentColor;opacity:.45}
+#make .set{min-width:0}
+#make .tools::-webkit-scrollbar{display:none}
+#make .set span{display:block;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(255,255,255,.5);margin-bottom:6px}
+#make .set .row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;min-width:0}
+#make .set .row::-webkit-scrollbar{display:none}
+#make .sw{width:34px;height:34px;flex:none;border-radius:50%;padding:0;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+#make .sw.on{border-color:#fff}
+/* Drawn from the two colours the button actually has, rather than from currentColor,
+   which left the marker invisible in one of the two states. */
+#make .pos{display:block;width:16px;height:16px;box-shadow:inset 0 0 0 1.5px #fff;position:relative}
+#make .pos::after{content:"";position:absolute;left:3px;right:3px;height:2.5px;background:#fff}
+#make .pos.p2::after{bottom:3px}
+#make .emo button{flex:none;background:none;padding:4px;font-size:22px;line-height:1}
+
 /* What happened while you were not looking. Shut, and one line tall: the streak is what
    the top of this screen is for. */
 .act{margin:14px 18px 0;border:1px solid var(--line)}
@@ -472,6 +578,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 #party p{color:var(--muted);font-weight:600;font-size:14.5px;line-height:1.45;margin-top:8px}
 #party button{width:100%;margin-top:22px;padding:14px;background:var(--mk);color:var(--onmk);
   font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+#party button.share{margin-top:9px;background:none;color:var(--mkt);border:1px solid var(--line)}
 
 /* the splash while the first load runs, and the banner when it fails */
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
@@ -498,6 +605,9 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
 <div id="party" hidden role="dialog" aria-live="polite"></div>
+<div id="story" hidden role="dialog" aria-label="Story"></div>
+<div id="make" hidden role="dialog" aria-label="New story"></div>
+<input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" onclick="load()">Retry</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
@@ -556,7 +666,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v44';
+const BUILD = 'quota-v45';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -601,7 +711,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -774,7 +884,7 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -787,6 +897,9 @@ async function fetchAll() {
     q(sb.from('wheel_days').select('*')),
     q(sb.from('likes').select('post_id,user_id')),
     q(sb.from('reactions').select('post_id,user_id,emoji')),
+    // A day is in the policy, so anything that comes back is by definition still running.
+    q(sb.from('stories').select('*').order('created_at')),
+    q(sb.from('story_views').select('story_id')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -799,6 +912,16 @@ async function fetchAll() {
   S.ticks = ticks;
   S.likes = (likes || []).map(l => ({p: l.post_id, u: l.user_id}));
   S.reacts = (reacts || []).map(r => ({p: r.post_id, u: r.user_id, e: r.emoji}));
+  S.stories = (stories || []).map(x => ({id: x.id, u: x.user_id, kind: x.kind, path: x.media_path,
+    body: x.body, style: (x.style && typeof x.style === 'object') ? x.style : {}, ts: Date.parse(x.created_at)}));
+  S.seen = (seen || []).map(v => v.story_id);
+  // Signed one round trip for the lot, the way proof is. A story with no file is a card of
+  // text and needs nothing.
+  const withFiles = S.stories.filter(x => x.path);
+  if (withFiles.length) {
+    const urls = await q(sb.storage.from('stories').createSignedUrls(withFiles.map(x => x.path), 3600));
+    urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; });
+  }
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
@@ -811,7 +934,7 @@ async function fetchAll() {
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at)}));
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId)])];
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
@@ -1019,32 +1142,300 @@ function feedView() {
     + activityBox()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
-// ---- who has been out today, and what happened while you were not looking.
-// Both are read off what the feed already loaded. Nothing here runs a query of its own,
-// so neither can show something the feed itself does not know.
-const postedToday = id => S.posts.some(p => p.userId === id && p.day === today());
+// ---- stories
+// Only people with something running appear, unseen first, the way every app that has
+// these does it. Somebody in your groups who has posted nothing is not a gap in the row —
+// they are simply not in it.
+const FRESH = () => Date.now() - 864e5;
+const liveStories = () => S.stories.filter(x => x.ts > FRESH());
+const storiesOf = id => liveStories().filter(x => x.u === id).sort((a, b) => a.ts - b.ts);
+const unseenOf = id => storiesOf(id).filter(x => !S.seen.includes(x.id));
+// Ways for a card of text to look. The app's own greens first, then a couple that are just
+// for fun, because a story is allowed to be.
+const STORY_BG = ['linear-gradient(160deg,#0b5a34,#2fd36f)', 'linear-gradient(160deg,#0b0c0e,#343b3f)',
+  'linear-gradient(160deg,#2fd36f,#a7f3d0)', 'linear-gradient(160deg,#12934f,#0b0c0e)',
+  'linear-gradient(160deg,#f7f7f5,#d9dedb)', 'linear-gradient(160deg,#1db061,#0b5a34)',
+  'linear-gradient(160deg,#ff9f43,#ff5d73)', 'linear-gradient(160deg,#5fd0ff,#a78bfa)'];
+// Tap the pill to go round these, the way the other app does it.
+const STORY_FONT = [
+  {name: 'Strong', css: 'Oswald,system-ui,sans-serif', w: 600, tt: 'uppercase', ls: '.02em'},
+  {name: 'Classic', css: "'Plus Jakarta Sans',system-ui,sans-serif", w: 800, tt: 'none', ls: '-.02em'},
+  {name: 'Light', css: "'Plus Jakarta Sans',system-ui,sans-serif", w: 500, tt: 'none', ls: '0'},
+  {name: 'Mono', css: 'ui-monospace,SFMono-Regular,Menlo,monospace', w: 700, tt: 'none', ls: '0'},
+];
+const STORY_INK = ['#ffffff', '#0b0c0e', '#2fd36f', '#ffd60a', '#ff5d73', '#ff9f43', '#5fd0ff', '#a78bfa', '#ff6fb5', '#7ef0b0', '#8b8f94'];
+// What goes behind words when they are boxed: the ink itself, with whichever of black or
+// white reads on it.
+const onInk = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); return (r * .299 + g * .587 + b * .114) > 150 ? '#0b0c0e' : '#ffffff'; };
+const styleOf = st => ({bg: 0, font: 0, ink: 0, size: 1, box: 0, align: 'center', x: .5, y: .5,
+  stk: null, sx: .5, sy: .74, tpl: null, n: null, sub: null, ...(st.style || {})});
+
+// The words as a block that sits wherever it was dragged to. In the editor the same block
+// is the thing being typed into, so what you see is exactly what everyone else gets.
+function wordsOf(st, editing) {
+  const y = styleOf(st), f = STORY_FONT[y.font] || STORY_FONT[0], ink = STORY_INK[y.ink] || '#fff';
+  if (!st.body && !editing) return '';
+  const boxed = y.box === 1 ? `background:${ink};color:${onInk(ink)}` : y.box === 2 ? `background:rgba(0,0,0,.38);color:${ink}` : `color:${ink}`;
+  return `<div class="type sz${y.size}${y.box ? ' boxed' : ''}" style="left:${y.x * 100}%;top:${y.y * 100}%;font-family:${f.css};font-weight:${f.w};text-transform:${f.tt};letter-spacing:${f.ls};text-align:${y.align};${boxed}"${
+    editing ? ' contenteditable="true" spellcheck="false" data-ph="Say something"' : ''}>${esc(st.body || '')}</div>`;
+}
+
+// Decoration for the two it writes for you: the app's own ring, large and faint, and a
+// scatter of sparks. Drawn in the ink colour so the colour strip recolours it too.
+const SPARK = (x, y, r) => `<path d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r}Z"/>`;
+function tplFace(y) {
+  const deco = `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="currentColor" opacity=".9">${SPARK(62, 118, 16)}${SPARK(330, 96, 10)}${SPARK(342, 250, 22)}${SPARK(48, 372, 9)}${SPARK(300, 560, 13)}${SPARK(84, 610, 18)}</g>
+    <circle cx="330" cy="620" r="150" fill="none" stroke="currentColor" stroke-width="34" opacity=".14"/>
+    <circle cx="330" cy="620" r="150" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-dasharray="705 942" transform="rotate(-90 330 620)" opacity=".28"/>
+  </svg>`;
+  if (y.tpl === 'streak') return `${deco}<div class="hero">
+    <b class="big">${esc(String(y.n ?? ''))}</b><span class="tag">day streak</span></div>`;
+  return `${deco}<div class="hero">
+    <span class="tickring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"/><path d="M15 25l6 6 12-13" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <b class="big">${esc(String(y.n ?? ''))}</b><span class="tag">${esc(y.sub || '')}</span>
+    <span class="stamp">Done</span></div>`;
+}
+
+// One drawing used by the editor and the viewer alike.
+function storyFace(st, live, editing) {
+  const y = styleOf(st), bg = st.kind === 'text' ? STORY_BG[y.bg] || STORY_BG[0] : '#000';
+  const media = st.kind === 'text' ? ''
+    : st.kind === 'photo' ? `<img class="fill" alt=""${st.url ? ` src="${esc(st.url)}"` : ''}>`
+    : `<video class="fill" playsinline ${live ? 'autoplay' : ''} muted="${live ? 'false' : 'true'}"${st.url ? ` src="${esc(st.url)}"` : ''}></video>`;
+  const stk = y.stk ? `<span class="stk" style="left:${y.sx * 100}%;top:${y.sy * 100}%">${esc(y.stk)}</span>` : '';
+  return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${wordsOf(st, editing)}${stk}</div>`;
+}
+
 function storyRow() {
-  const m = me(), gs = myGroups();
-  if (!gs.length) return '';
-  const ids = [...new Set(gs.flatMap(g => g.members))].filter(id => id !== m.id);
-  // Whoever has posted comes first: the row is a list of who is done, and the people
-  // still owing it are the tail of it rather than the front.
-  const order = ids.sort((a, b) => (postedToday(b) ? 1 : 0) - (postedToday(a) ? 1 : 0));
-  const mine = postedToday(m.id);
+  const m = me();
+  // Everyone you can see, which is both rules at once: your groups and your friends.
+  const near = [...new Set([...myGroups().flatMap(g => g.members), ...S.friends])].filter(id => id !== m.id);
+  const withOne = near.filter(id => storiesOf(id).length);
+  const order = [...withOne.filter(id => unseenOf(id).length), ...withOne.filter(id => !unseenOf(id).length)];
+  const mine = storiesOf(m.id).length;
   return `<div class="stories">
-    <button type="button" class="s${mine ? ' done' : ''}" onclick="submitDlg(0)">
-      <span class="rg">${av(m)}${mine ? '' : '<i>+</i>'}</span><span class="nm">${mine ? 'Posted' : 'Your proof'}</span></button>
-    ${order.map(id => { const u = user(id), on = postedToday(id);
-      return `<button type="button" class="s${on ? ' done' : ' out'}"${on ? ` onclick="jumpToPost('${id}')"` : ' disabled'}>
-        <span class="rg">${av(u)}</span><span class="nm">${esc(name(u))}</span></button>`; }).join('')}
+    <button type="button" class="s me${mine ? ' has' : ''}" onclick="${mine ? `openStory('${m.id}')` : 'storyKind()'}">
+      <span class="rg${mine ? (unseenOf(m.id).length ? ' new' : ' old') : ''}">${av(m)}${mine ? '' : '<i>+</i>'}</span>
+      <span class="nm">${mine ? 'Your story' : 'Add story'}</span></button>
+    ${order.map(id => { const u = user(id), fresh = unseenOf(id).length;
+      return `<button type="button" class="s" onclick="openStory('${id}')">
+        <span class="rg ${fresh ? 'new' : 'old'}">${av(u)}</span>
+        <span class="nm">${esc(name(u))}</span></button>`; }).join('')}
   </div>`;
 }
-// Tapping somebody who has posted takes you to the proof itself, which is the only thing
-// the circle was ever standing in for.
-function jumpToPost(uid) {
-  const p = S.posts.find(x => x.userId === uid && x.day === today());
-  const el = p && document.querySelector(`[data-post="${p.id}"]`);
-  if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+// ---- watching one
+let storyTimer = null;
+function openStory(uid) {
+  const all = storiesOf(uid);
+  if (!all.length) return;
+  // Straight to the first one you have not seen, so opening somebody twice does not make
+  // you sit through the ones you have.
+  const from = all.findIndex(x => !S.seen.includes(x.id));
+  S.story = {uid, i: from < 0 ? 0 : from};
+  paintStory();
+}
+function closeStory() { clearTimeout(storyTimer); S.story = null; $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
+function stepStory(d) {
+  const all = storiesOf(S.story.uid), i = S.story.i + d;
+  if (i < 0) return;
+  if (i >= all.length) return closeStory();
+  S.story.i = i; paintStory();
+}
+function paintStory() {
+  const box = $('#story'), all = storiesOf(S.story.uid), st = all[S.story.i];
+  if (!st) return closeStory();
+  const u = user(st.uid || S.story.uid);
+  box.hidden = false;
+  box.innerHTML = `<div class="pane">
+    <div class="bars">${all.map((x, i) => `<i class="${i < S.story.i ? 'done' : i === S.story.i ? 'now' : ''}"></i>`).join('')}</div>
+    <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
+      ${st.u === me().id ? `<button type="button" class="bin" onclick="delStory(${st.id})" aria-label="Delete">🗑</button>` : ''}
+      <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
+    ${storyFace(st, true)}
+    <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
+    <button type="button" class="tap fwd" onclick="stepStory(1)" aria-label="Next"></button>
+  </div>`;
+  markSeen(st.id);
+  clearTimeout(storyTimer);
+  // A card of text is read in a few seconds; a clip runs as long as it runs.
+  if (st.kind !== 'video') storyTimer = setTimeout(() => S.story && stepStory(1), 5000);
+  else { const v = box.querySelector('video'); if (v) v.onended = () => S.story && stepStory(1); }
+}
+async function markSeen(id) {
+  if (S.seen.includes(id)) return;
+  S.seen = [...S.seen, id];
+  const el = $('#story'); if (el) el.dataset.seen = String(S.seen.length);
+  try { await q(sb.from('story_views').insert({story_id: id, user_id: me().id}), true); } catch (e) {}
+}
+async function delStory(id) {
+  const st = S.stories.find(x => x.id === id);
+  if (!confirm('Take this story down?')) return;
+  closeStory();
+  S.stories = S.stories.filter(x => x.id !== id); render();
+  try {
+    await q(sb.from('stories').delete().eq('id', id));
+    if (st && st.path) await sb.storage.from('stories').remove([st.path]);
+  } catch (e) {}
+  load();
+}
+
+// ---- making one
+// The draft is a story that has not been sent: the same shape, so the editor draws it with
+// storyFace() exactly as everyone else will see it. Words are typed onto the card and dragged
+// to wherever they should sit; the controls go round a list on each tap rather than opening
+// a menu, because that is what a thumb wants.
+function newStory(pre) {
+  S.draft = {kind: 'text', body: '', style: {}, ...(pre || {})};
+  if (S.draft.file && !S.draft.url) S.draft.url = URL.createObjectURL(S.draft.file);
+  paintDraft();
+}
+// Three ways in, and the camera is the same one proof uses — capped at ten seconds when
+// it is opened from here.
+function storyKind() {
+  dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
+    <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();camFor='story';openCam()">Camera</button>
+      <button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Choose a file</button></div>
+    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>`);
+}
+async function storyFile(input) {
+  const f = input.files[0]; input.value = '';
+  if (!f) return;
+  const photo = /^image\//.test(f.type) || IMAGE.test(f.name || '');
+  if (!photo) {
+    // Ten seconds is the whole idea of the thing, so a longer clip is turned away here
+    // rather than quietly posted at full length.
+    const secs = await new Promise(res => {
+      const v = document.createElement('video'), u = URL.createObjectURL(f);
+      v.onloadedmetadata = () => { URL.revokeObjectURL(u); res(v.duration || 0); };
+      v.onerror = () => { URL.revokeObjectURL(u); res(0); };
+      v.src = u;
+    });
+    if (secs > STORY_SECS + 0.6) return alert(`That clip runs ${Math.round(secs)} seconds. A story can be ${STORY_SECS}.`);
+  }
+  const small = await shrink(f, () => {});
+  newStory({kind: photo ? 'photo' : 'video', file: small, body: ''});
+}
+function draftSet(k, v) { S.draft.style = {...styleOf(S.draft), [k]: v}; paintDraft(); }
+const cycle = (k, list) => { const y = styleOf(S.draft); draftSet(k, (((+y[k] || 0) + 1) % list.length)); };
+function draftAlign() { const a = ['center', 'left', 'right'], y = styleOf(S.draft); draftSet('align', a[(a.indexOf(y.align) + 1) % 3]); }
+function draftSticker(e) { const y = styleOf(S.draft); S.draft.style = {...y, stk: y.stk === e ? null : e}; $('#make .stickers').hidden = true; paintDraft(); }
+// Typing does not repaint: the block being typed into is already the card, and redrawing it
+// under a caret is how a caret ends up somewhere else.
+function draftTyped(el) {
+  S.draft.body = el.textContent.replace(/\r/g, '').slice(0, 280);
+  if (el.textContent.length > 280) { el.textContent = S.draft.body; placeCaretEnd(el); }
+}
+function placeCaretEnd(el) {
+  try { const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } catch (e) {}
+}
+function closeDraft() { S.draft = null; $('#make').hidden = true; $('#make').innerHTML = ''; }
+
+function paintDraft() {
+  const d = S.draft, box = $('#make');
+  if (!d) return;
+  const y = styleOf(d), f = STORY_FONT[y.font] || STORY_FONT[0], m = me();
+  box.hidden = false;
+  box.innerHTML = `<div class="pane">
+    <div class="mbar top">
+      <button type="button" class="x" onclick="closeDraft()" aria-label="Close">✕</button>
+      <div class="tools">
+        ${d.kind === 'text' ? `<button type="button" class="bgbtn" style="background:${STORY_BG[y.bg]}" onclick="cycle('bg',STORY_BG)" aria-label="Background"></button>` : ''}
+        <button type="button" class="fontpill" onclick="cycle('font',STORY_FONT)" style="font-family:${f.css};font-weight:${f.w}">${f.name}</button>
+        <button type="button" class="tb${y.box ? ' on' : ''}" onclick="cycle('box',[0,1,2])" aria-label="Text background"><span class="ab">A</span></button>
+        <button type="button" class="tb" onclick="draftAlign()" aria-label="Align"><svg viewBox="0 0 24 24"><path d="M4 6h16M${y.align === 'left' ? '4 12h10M4 18h13' : y.align === 'right' ? '10 12h10M7 18h13' : '7 12h10M5 18h14'}"/></svg></button>
+        <button type="button" class="tb" onclick="cycle('size',[0,1,2])" aria-label="Size"><span class="ab" style="font-size:${13 + y.size * 3}px">Aa</span></button>
+        <button type="button" class="tb" onclick="$('#make .stickers').hidden=!$('#make .stickers').hidden" aria-label="Sticker">☺</button>
+      </div>
+    </div>
+    <div class="canvas">${storyFace(d, false, true)}
+      <div class="stickers" hidden>${EMOJI.map(e => `<button type="button" onclick="draftSticker('${e}')">${e}</button>`).join('')}</div>
+    </div>
+    <div class="inks">${STORY_INK.map((c, i) => `<button type="button" class="dot${y.ink === i ? ' on' : ''}" style="background:${c}" onclick="draftSet('ink',${i})" aria-label="Colour ${i + 1}"></button>`).join('')}</div>
+    <div class="mbar bottom">
+      <span class="who">${av(m, 'sm')}${d.suggested ? 'Ready when you are' : 'Your story'}</span>
+      <button type="button" class="go" onclick="postStory()" aria-label="Share">Share<svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 8 6 8-16-8Z"/></svg></button>
+    </div>
+  </div>`;
+  const type = box.querySelector('.type');
+  if (type) {
+    type.addEventListener('input', () => draftTyped(type));
+    dragify(type, 'x', 'y', () => { type.focus(); placeCaretEnd(type); });
+  }
+  const stk = box.querySelector('.stk');
+  if (stk) dragify(stk, 'sx', 'sy', () => {});
+}
+
+// Drag a thing about the card. A press that does not move is a tap, and a tap on the words
+// puts the caret in them; a press that moves takes the block with it and remembers where it
+// was let go. While the words have the caret, pointer events are theirs to place it.
+function dragify(el, kx, ky, onTap) {
+  let sx = 0, sy = 0, ox = 0, oy = 0, moved = false, live = false;
+  el.addEventListener('pointerdown', e => {
+    if (el.isContentEditable && document.activeElement === el) return;
+    live = true; moved = false; sx = e.clientX; sy = e.clientY;
+    const r = el.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2;
+    try { el.setPointerCapture(e.pointerId); } catch (x) {}
+    e.preventDefault();
+  });
+  el.addEventListener('pointermove', e => {
+    if (!live) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 6) return;
+    moved = true;
+    const st = el.closest('.face').getBoundingClientRect();
+    el.style.left = `${((ox + dx - st.left) / st.width) * 100}%`;
+    el.style.top = `${((oy + dy - st.top) / st.height) * 100}%`;
+  });
+  const done = e => {
+    if (!live) return; live = false;
+    if (!moved) return onTap();
+    const st = el.closest('.face').getBoundingClientRect();
+    const x = Math.min(.95, Math.max(.05, (e.clientX - sx + ox - st.left) / st.width));
+    const yy = Math.min(.95, Math.max(.05, (e.clientY - sy + oy - st.top) / st.height));
+    S.draft.style = {...styleOf(S.draft), [kx]: +x.toFixed(3), [ky]: +yy.toFixed(3)};
+  };
+  el.addEventListener('pointerup', done);
+  el.addEventListener('pointercancel', done);
+}
+
+// A story is small and already the right size, so it goes up as it is.
+async function postStory() {
+  const d = S.draft, m = me();
+  if (!d) return;
+  const go = $('#make .go');
+  if (go) { go.disabled = true; go.textContent = 'Sharing…'; }
+  try {
+    let path = null;
+    if (d.file) {
+      path = `${m.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${(d.file.name || '').split('.').pop() || (d.kind === 'photo' ? 'jpg' : 'mp4')}`;
+      const {error} = await sb.storage.from('stories').upload(path, d.file, {contentType: d.file.type || undefined});
+      if (error) throw error;
+    }
+    await q(sb.from('stories').insert({user_id: m.id, kind: d.kind, media_path: path,
+      body: d.body || null, style: styleOf(d)}));
+  } catch (e) {
+    if (go) { go.disabled = false; go.textContent = 'Share'; }
+    return showErr('That story did not go up.', String(e && e.message || e));
+  }
+  closeDraft();
+  await load();
+}
+
+// ---- the one it offers to write for you
+// Built, not posted: it opens as a draft with everything already set, and goes nowhere
+// unless it is shared. The number is the story; the words underneath are yours to change.
+function suggest(kind, data) {
+  if (S.draft || S.story) return;
+  const tpl = kind === 'streak' ? {tpl: 'streak', n: data.n} : {tpl: 'done', n: data.n, sub: data.sub};
+  newStory({suggested: true, kind: 'text', body: data.body || '',
+    style: {bg: kind === 'streak' ? 0 : 5, font: 0, ink: 0, size: 1, y: .82, ...tpl}});
+}
+function suggestAfterPost(g, amount, metric) {
+  const st = streak(g, me().id);
+  suggest('done', {n: amount, sub: metric, body: st > 1 ? `Day ${st} · ${g.name}` : g.name});
 }
 
 const ago = t => { const s = (Date.now() - t) / 1000;
@@ -1444,6 +1835,10 @@ function resetView() {
 // Only the long ones. A run of five is a good week, not a thing to interrupt somebody for,
 // and a celebration that arrives every few days stops meaning anything at all.
 const MILESTONES = [25, 50, 100, 150, 250, 365, 500, 1000];
+// Worth a story sooner than it is worth stopping the app for: a first week is a real
+// thing to say out loud, and a hundred is a different kind of thing again.
+const STORY_MILESTONES = [3, 5, 7, 10, 14, 21, 25, 30, 50, 75, 100, 150, 200, 250, 300, 365, 500, 1000];
+const STORY_MILE_LINE = d => d >= 365 ? 'A full year. Every single day.' : d >= 100 ? 'Not one missed.' : 'Still going.';
 const MILESTONE_LINE = {
   25: 'Three and a half weeks without missing one.',
   50: 'Fifty days. Most people never see the far side of a fortnight.',
@@ -1473,7 +1868,8 @@ function party(d) {
     <div class="n num">${d}</div><span class="days">day streak</span>
     <h2>${d >= 365 ? 'A year of this' : 'Still going'}</h2>
     <p>${MILESTONE_LINE[d] || 'Not one missed.'}</p>
-    <button type="button" onclick="$('#party').hidden = true">Keep going</button></div>`;
+    <button type="button" onclick="$('#party').hidden = true">Keep going</button>
+    <button type="button" class="share" onclick="$('#party').hidden = true;suggest('streak',{n:${d},body:STORY_MILE_LINE(${d})})">Share it</button></div>`;
   box.hidden = false;
   confetti(box.querySelector('canvas'));
 }
@@ -1995,6 +2391,9 @@ async function saveProfile(f) {
 // inside the page keeps the app alive and in charge, and lets us ask for 720p in the first
 // place — so there is nothing to re-encode afterwards, which is the other half of the wait.
 const REC_MAX = 120;                       // seconds; 50 MB at this bitrate is about 160
+const STORY_SECS = 10;                     // a story is a moment, not a clip
+let camFor = 'post';                       // what the camera was opened for
+const recMax = () => camFor === 'story' ? STORY_SECS : REC_MAX;
 const TIMERS = [0, 3, 10];                 // the count-in options, in the order the button cycles
 let camStream = null, camRec = null, camChunks = [], camTimer = null, camWake = null, camStart = 0;
 let camCount = null;                       // the count-in, so closing can cancel it
@@ -2236,8 +2635,8 @@ function startRec() {
     // A red dot and how long is left, because a clip that stops on its own at two minutes
     // with no warning is the same surprise as one that never recorded.
     $('#camtime').innerHTML = `<b></b>${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` +
-      ` <small>/ ${Math.floor(REC_MAX / 60)}:${String(REC_MAX % 60).padStart(2, '0')}</small>`;
-    if (secs >= REC_MAX && recording()) camRec.stop();
+      ` <small>/ ${Math.floor(recMax() / 60)}:${String(recMax() % 60).padStart(2, '0')}</small>`;
+    if (secs >= recMax() && recording()) camRec.stop();
   }, 250);
 }
 
@@ -2324,6 +2723,13 @@ function keepTake(blob, filename, type) {
 function useTake() {
   showRev(false);
   $('#cam').close();
+  // Opened from a story, so it goes back to the story rather than sitting in a form
+  // nobody is looking at.
+  if (camFor === 'story') {
+    camFor = 'post';
+    if (recorded) newStory({kind: /^image\//.test(recorded.type) ? 'photo' : 'video', file: recorded, body: ''});
+    recorded = null;
+  }
 }
 
 async function retake() {
@@ -2544,6 +2950,9 @@ function challengeBlock(g) {
   </label>`).join('');
 }
 
+// Whether today was already in the bag before this post went in: the suggestion is for
+// the one that finished it, not for every clip after it.
+let wasDone = false;
 async function addPost(f, gid) {
   const fd = new FormData(f), picked = recorded || fd.get('video');
   if (!picked || !picked.size) return alert('Record something, or choose a file.');
@@ -2576,6 +2985,7 @@ async function addPost(f, gid) {
       if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
     });
     working(f, 'Posting…');
+    wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
     const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
     await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
       caption: fd.get('caption').trim(), video_path: path, day: today(),
@@ -2586,6 +2996,10 @@ async function addPost(f, gid) {
     return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false);
   }
   dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
+  // The post that finished the day is worth offering to say something about. The one after
+  // it is not, which is what wasDone is for.
+  const g = S.groups.find(x => x.id === gid);
+  if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g, +fd.get('amount'), String(fd.get('metric') || ''));
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;
