@@ -59,7 +59,8 @@ h2{margin:0;font-size:17px;font-weight:800}
 h3{margin:22px 18px 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 p{margin:0}
 button{font:inherit;font-weight:800;border:0;border-radius:0;padding:11px 16px;background:var(--soft);color:var(--text);cursor:pointer;white-space:nowrap}
-button:active{transform:scale(.97)}
+button{transition:transform .12s ease,opacity .15s ease,background-color .15s ease,color .15s ease}
+button:active{transform:scale(.96)}
 button.primary{background:var(--mk);color:var(--onmk)}
 button.teal{background:var(--teal);color:var(--onteal)}
 button.small{padding:7px 12px;font-size:13px}
@@ -333,23 +334,38 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
    overlay above it — absolutely positioned to fill that band, on top of the name and the
    username, which is what a stretched face across every post turned out to be. */
 .reel .proof{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:block} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
-.reel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);pointer-events:none}
-.reel .ov{position:absolute;left:0;right:0;padding:14px;z-index:2;pointer-events:none}
-.reel .ov.top{top:0;display:flex;align-items:center;gap:10px;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent)}
-.reel .ov.bot{bottom:0;display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
-.reel .av{background:#fff;color:#0b0c0e;width:34px;height:34px;font-size:14px}
-.reel .who{font-weight:800;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.6)}
-.reel .when{font-size:12px;color:#d6e4e8}
-.reel .badge{margin-left:auto;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:13px;padding:5px 10px;border-radius:0;text-transform:uppercase;letter-spacing:.02em}
-.reel .cap{font-size:15px;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.reel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(to top,rgba(0,0,0,.45),transparent);pointer-events:none}
+/* Who and when, on the card above the clip, the way every established feed does it. */
+.post .head{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.post .head .av{width:34px;height:34px;font-size:14px}
+.post .head .who{font-weight:800;font-size:14.5px;line-height:1.2}
+.post .head .when{font-size:12.5px;color:var(--muted);font-weight:600}
+.post .head .more{margin-left:auto;background:none;color:var(--muted);font-size:20px;line-height:1;padding:4px 6px}
+.reel .badge{position:absolute;right:12px;top:12px;z-index:4;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:13px;padding:5px 10px;border-radius:0;text-transform:uppercase;letter-spacing:.02em}
+/* The player is the clip and one glyph. Tap plays and the pause bars show for a moment
+   before getting out of the way; tap again and the triangle is straight back. */
 .reel .play{position:absolute;inset:0;display:grid;place-items:center;z-index:1;pointer-events:none}
-.reel .play i{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.7);display:grid;place-items:center;backdrop-filter:blur(6px)}
-.reel .play i::after{content:"";border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
-.reel.playing .play{display:none}
+.reel .play i{width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.35);border:1.5px solid rgba(255,255,255,.75);display:grid;place-items:center;backdrop-filter:blur(6px);transition:opacity .22s,transform .22s}
+.reel .play i::after{content:"";border-left:17px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+.reel.playing .play i{opacity:0;transform:scale(1.25)}
+.reel.playing.flash .play i{opacity:1;transform:none}
+.reel.playing .play i::after{border:0;width:16px;height:18px;margin:0;background:linear-gradient(to right,#fff 0 36%,transparent 36% 64%,#fff 64%)}
+.reel .sound{position:absolute;right:12px;bottom:14px;z-index:2;width:30px;height:30px;border-radius:50%;padding:0;background:rgba(0,0,0,.45);display:grid;place-items:center;opacity:0;transition:opacity .2s}
+.reel.started .sound{opacity:1}
+.reel .sound svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.reel .sound .m{display:none}
+.reel .sound.off .w{display:none}
+.reel .sound.off .m{display:block}
+/* The only sign of time: a line along the bottom edge. No scrubber, no numbers. */
+.reel .prg{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.25);z-index:2;opacity:0;transition:opacity .2s}
+.reel.started .prg{opacity:1}
+.reel .prg b{display:block;height:100%;width:0;background:#fff}
+.post .cap{padding:8px 14px 0;font-size:14px;line-height:1.45;user-select:text;-webkit-user-select:text}
+.post .cap b{font-weight:800;margin-right:6px}
 /* What people left, drifting up the left side of the post. Bare emoji, no pill: each one
    bobs on its own slow cycle, offset in phase and nudged sideways so they read as a loose
    column of floating things rather than a stack. */
-.reel .reacts{position:absolute;left:14px;bottom:60px;z-index:4;display:flex;flex-direction:column-reverse;
+.reel .reacts{position:absolute;left:14px;bottom:18px;z-index:4;display:flex;flex-direction:column-reverse;
   flex-wrap:wrap-reverse;align-content:flex-start;align-items:flex-start;gap:0 6px;pointer-events:none;
   max-height:calc(100% - 118px);overflow:visible}
 /* No overflow clip and no filter on these: over a playing video iOS paints a clipped, filtered
@@ -369,22 +385,22 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   50%{transform:translate(calc(var(--x,0px) + 4px),-9px) scale(1.06)}
 }
 @media (prefers-reduced-motion:reduce){.reel .reacts button{animation:none}}
-.reel.playing .reacts{bottom:88px}
 /* What you do about a post, under the clip and directly above what people said. */
-.acts{position:relative;display:flex;align-items:center;gap:16px;padding:11px 14px 10px;border-top:1px solid var(--line)}
-.acts button{background:none;padding:0;display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13.5px;font-weight:800}
+.acts{position:relative;display:flex;align-items:center;gap:18px;padding:10px 14px 2px}
+.acts button{background:none;padding:0;display:flex;align-items:center;gap:6px;color:var(--text);font-size:13.5px;font-weight:800}
+.acts button:active{transform:scale(.9)}
 .acts svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .acts .lk.on{color:#ff3b5c}
-.acts .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c}
-.acts .cc{font-size:13px;font-weight:700;color:var(--muted)}
-.acts .del{margin-left:auto;font-size:12.5px}
+.acts .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes heart{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
 /* Over the row it was opened from, not over the clip. */
 .reactpick{position:absolute;left:8px;bottom:calc(100% - 6px);z-index:5;display:flex;gap:2px;padding:6px;
   background:var(--card);border:1px solid var(--line);box-shadow:0 10px 26px -12px rgba(11,12,14,.5)}
 .reactpick button{background:none;padding:5px 7px;font-size:22px;line-height:1}
 .reactpick button:active{background:var(--soft)}
 /* The replies, and a box that is always ready. */
-.cmts{padding:2px 14px 12px}
+.cmts{padding:6px 14px 12px}
+.clist .c.pending{animation:rise .22s cubic-bezier(.2,.7,.2,1)}
 .clist{padding:2px 0 6px}
 .clist .c{align-items:flex-start;gap:9px}
 .clist .c b{display:block;font-size:13px}
@@ -401,11 +417,6 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .reel.bust .play,.reel.bust .proof{display:none}
 .reel .bust p{font-size:14px;font-weight:700;line-height:1.4}
 .reel .bust button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.5);padding:8px 16px}
-/* The caption stays up while the video plays. The gradient behind it shrinks instead of
-   going away, so the text still has something to sit on, and the extra bottom padding
-   lifts it clear of the native controls rather than letting them sit on top of it. */
-.reel.playing::after{height:26%}
-.reel.playing .ov.bot{padding-bottom:54px}
 .c{display:flex;gap:8px;padding:7px 0;font-size:14px;align-items:flex-start}
 .c b{font-weight:800;flex:none}
 .c span{color:var(--muted);flex:1;font-weight:500}
@@ -440,6 +451,27 @@ dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24p
   margin:auto 0 var(--kb, 0px);max-height:calc(100dvh - var(--kb, 0px) - 24px);overflow:auto;
   padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
+/* A sheet comes up from the bottom and goes back the way it came; a grab handle says so. */
+#dlg::before{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--line);margin:-6px auto 14px}
+#dlg[open]{animation:sheet .28s cubic-bezier(.2,.8,.2,1)}
+#dlg[open]::backdrop{animation:fade .22s}
+#dlg.out{animation:sheetout .15s ease-in forwards}
+#dlg.out::backdrop{animation:fadeout .15s ease-in forwards}
+@keyframes sheet{from{transform:translateY(28px);opacity:0}}
+@keyframes sheetout{to{transform:translateY(20px);opacity:0}}
+@keyframes fade{from{opacity:0}}
+@keyframes fadeout{to{opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes popin{from{opacity:0;transform:scale(.88)}}
+.reactpick{animation:popin .16s cubic-bezier(.2,.8,.2,1);transform-origin:left bottom}
+.emoji:not([hidden]){animation:rise .18s cubic-bezier(.2,.7,.2,1)}
+#story:not([hidden]),#make:not([hidden]){animation:fade .18s}
+#party:not([hidden]) .card{animation:popin .32s cubic-bezier(.2,.8,.2,1)}
+#err:not([hidden]){animation:rise .22s cubic-bezier(.2,.7,.2,1)}
+.stories .rg{transition:transform .12s}
+.stories .s:active .rg{transform:scale(.94)}
+.bar .add:active{transform:scale(.9)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0s!important;transition-duration:0s!important}}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
 /* welcome + auth */
@@ -676,7 +708,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v46';
+const BUILD = 'quota-v47';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1035,7 +1067,23 @@ function render() {
   // runLoad's finally, so a throw here escapes the load entirely and leaves whatever was
   // on screen — the splash, on a cold start — with a Retry that fails the same way.
   try {
+    // The screen is rebuilt from scratch, which used to take a playing clip with it: a like
+    // or a reply swapped the <video> for a fresh one that had not decoded a frame, and the
+    // post went black. The reels already on screen are kept and put back, along with
+    // anything half-typed into a reply box.
+    const keep = new Map([...document.querySelectorAll('#app .post[data-post] .reel')].map(r => [r.parentNode.dataset.post, r]));
+    const typed = new Map([...document.querySelectorAll('#app .post[data-post] .cin input')].filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
     $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+    document.querySelectorAll('#app .post[data-post] .reel').forEach(r => {
+      const old = keep.get(r.parentNode.dataset.post); if (!old) return;
+      const np = r.querySelector('.proof'), op = old.querySelector('.proof');
+      if (!np || !op || np.tagName !== op.tagName) return;          // a different thing now: take the new one
+      if (np.dataset.src) op.dataset.src = np.dataset.src;         // a reload re-signs every URL; the old one is still good for an hour
+      const nr = r.querySelector('.reacts'), or = old.querySelector('.reacts');   // the one other thing on a reel that changes
+      if (or) or.remove(); if (nr) old.appendChild(nr);
+      r.replaceWith(old);
+    });
+    typed.forEach((v, id) => { const i = document.querySelector(`#app .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
   // After the screen is drawn, not before: the celebration sits over whatever you were
   // looking at. Cheap enough to ask on every render, and it answers once.
   const mile = milestoneDue();
@@ -1385,7 +1433,7 @@ function paintDraft() {
     <div class="inks">${STORY_INK.map((c, i) => `<button type="button" class="dot${y.ink === i ? ' on' : ''}" style="background:${c}" onclick="draftSet('ink',${i})" aria-label="Colour ${i + 1}"></button>`).join('')}</div>
     <div class="mbar bottom">
       <span class="who">${av(m, 'sm')}${d.suggested ? 'Ready when you are' : 'Your story'}</span>
-      <button type="button" class="go" onclick="postStory()" aria-label="Share">Share<svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 8 6 8-16-8Z"/></svg></button>
+      <button type="button" class="go" onclick="postStory()" aria-label="Share">Share<svg viewBox="0 0 24 24"><path d="M20 12L4 4l6 8-6 8 16-8Z"/></svg></button>
     </div>
   </div>`;
   const type = box.querySelector('.type');
@@ -1528,17 +1576,23 @@ function feed(ps, showGroup) {
   return ps.map(p => {
     const h = p.day !== day ? `<p class="muted" style="margin:14px 18px 0">${dayLabel(p.day)}</p>` : ''; day = p.day;
     const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
-    // Controls stay on once shown: hiding them inside a pause tap lets the tap fall through to onclick, which replays.
-    return h + `<div class="card post" data-post="${p.id}"><div class="reel">
+    // The header sits on the card above the clip, so the clip is only the clip. The
+    // player is the clip and a pause: no native controls, ever.
+    return h + `<div class="card post" data-post="${p.id}">
+      <div class="head">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
+        ${p.userId === me().id ? `<button type="button" class="more" onclick="delPost(${p.id})" aria-label="Delete post">⋯</button>` : ''}</div>
+      <div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
-        : `<video class="proof" playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="this.parentNode.classList.add('playing')" onended="this.controls=false;this.parentNode.classList.remove('playing')"></video>`}
-      <div class="ov top">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div><div class="badge">+${effort(p)}</div></div>
-      ${isPhoto(p) ? '' : `<div class="play"><i></i></div>`}
+        : `<video class="proof" playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
+      <div class="badge">+${effort(p)}</div>
+      ${isPhoto(p) ? '' : `<div class="play"><i></i></div>
+      <button type="button" class="sound" onclick="clipSound(this)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6"/><path class="m" d="M4 4l16 16"/></svg></button>
+      <div class="prg"><b></b></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
-      ${reactBubbles(p.id)}
-      ${p.caption ? `<div class="ov bot"><div class="cap">${esc(p.caption)}</div></div>` : ''}</div>
+      ${reactBubbles(p.id)}</div>
       ${acts(p, cs.length)}
+      ${p.caption ? `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>` : ''}
       ${commentsFor(p, cs)}</div>`;
   }).join('');
 }
@@ -1638,12 +1692,29 @@ async function clipBust(v, postId, play) {
 function playClip(v, postId) {
   attachClip(v);                           // tapped before it came into view: give it back its source
   if (!v.getAttribute('src')) return clipBust(v, postId, true);
-  if (v.controls) return;
-  v.controls = true;
+  if (!v.paused) return v.pause();
   // play() rejects when the source never arrived, and an unhandled rejection here is the
   // whole bug: the tap does nothing and nothing says why.
   const go = v.play();
   if (go && go.catch) go.catch(() => clipBust(v, postId, true));
+}
+// The reel wears the player's state. Playing hides the glyph after showing the pause bars
+// for a moment; paused brings the play triangle straight back; ended rewinds the line.
+function clipState(v, st) {
+  const reel = reelOf(v); if (!reel) return;
+  reel.classList.toggle('playing', st === 'play');
+  clearTimeout(reel._flash);
+  if (st === 'play') { reel.classList.add('started', 'flash'); reel._flash = setTimeout(() => reel.classList.remove('flash'), 700); }
+  else reel.classList.remove('flash');
+  if (st === 'end') { reel.classList.remove('started'); const b = reel.querySelector('.prg b'); if (b) b.style.width = '0'; }
+}
+function clipTime(v) {
+  const b = reelOf(v)?.querySelector('.prg b');
+  if (b && v.duration) b.style.width = (v.currentTime / v.duration * 100) + '%';
+}
+function clipSound(btn) {
+  const v = reelOf(btn).querySelector('video'); if (!v) return;
+  v.muted = !v.muted; btn.classList.toggle('off', v.muted);
 }
 function retryClip(btn, postId) {
   const reel = btn.closest('.reel'), v = reel.querySelector('.proof');
@@ -1671,8 +1742,10 @@ function acts(p, comments) {
     <button type="button" class="react" onclick="pickReact(event,${p.id})" aria-label="React">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>
     </button>
-    <span class="cc">${num(comments)} ${comments === 1 ? 'comment' : 'comments'}</span>
-    ${p.userId === me().id ? `<button class="ghost small del" onclick="delPost(${p.id})">Delete</button>` : ''}
+    <button type="button" class="cm" onclick="this.closest('.post').querySelector('.cin input').focus()" aria-label="${plural(comments, 'comment')}">
+      <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/></svg>
+      <b class="cc">${num(comments)}</b>
+    </button>
   </div>`;
 }
 
@@ -1681,7 +1754,7 @@ function acts(p, comments) {
 function commentsFor(p, cs) {
   if (S.noComments) return `<div class="cmts"><p class="muted">Comments are off until the v2 block of schema.sql is run.</p></div>`;
   return `<div class="cmts">
-    ${cs.length ? `<div class="clist">${cs.map(c => `<div class="c">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
+    ${cs.length ? `<div class="clist">${cs.map(c => `<div class="c${c.pending ? ' pending' : ''}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
       <span>${esc(c.body)}</span></div>${c.userId === me().id && !c.pending ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')}</div>` : ''}
     <form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})">
       <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">🙂</button>
@@ -2098,7 +2171,12 @@ async function resetPassword(f) {
 }
 
 // ---- dialogs
-function dlg(html) { const d = $('#dlg'); if (!html) return d.close(); d.innerHTML = html; d.showModal(); }
+let dlgT = null;
+function dlg(html) {
+  const d = $('#dlg'); clearTimeout(dlgT); d.classList.remove('out');
+  if (!html) { if (!d.open) return; d.classList.add('out'); dlgT = setTimeout(() => { d.close(); d.classList.remove('out'); }, 150); return; }
+  d.innerHTML = html; if (!d.open) d.showModal();
+}
 // What is on a wheel, for anyone in the group. You have to spin it, so you get to see it
 // — but only whoever made it gets the Edit button, and the database enforces that whether
 // the button is there or not.
@@ -2272,8 +2350,10 @@ function vidPick(input) {
     : shrinks ? `${mb(f.size)} MB · shrunk to 720p first if that is quicker than sending it` : `${mb(f.size)} MB`;
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
-function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); load(); if (tab === 'profile') refreshPush().then(render); }
-function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); }
+function go(tab) { S.tab = tab; S.open = null; render(); scrollTo(0, 0); rise(); load(); if (tab === 'profile') refreshPush().then(render); }
+// The new screen comes up rather than snapping on.
+const rise = () => { if (!matchMedia('(prefers-reduced-motion: reduce)').matches && $('#app').animate) $('#app').animate([{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'cubic-bezier(.2,.7,.2,1)'}); };
+function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); rise(); }
 async function auth(f, mode) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
   working(f, '…');

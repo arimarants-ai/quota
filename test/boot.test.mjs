@@ -174,29 +174,36 @@ await withPage(SIGNED_IN, async page => {
   check('resuming repeatedly does not refetch every time', after === before, `${before} -> ${after} loads`);
 });
 
-// The caption used to be hidden the moment playback started, along with the play button
-// and the gradient. It is the one thing on that overlay worth reading while watching.
+// The caption sits under the clip with the username in front of it, the way every feed
+// writes one, and the clip carries nothing but the clip, the badge and the player.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
-  const cap = page.locator('.reel .cap').first();
+  const cap = page.locator('.post .cap').first();
   check('a post shows its caption', await cap.isVisible() && (await cap.innerText()).includes('fifty in the bag'));
-  await page.locator('.reel').first().evaluate(el => el.classList.add('playing'));
-  check('  and keeps it once the video is playing', await cap.isVisible());
-  // Native controls sit at the bottom of the video, so the caption has to move off them.
-  const [reel, box] = await Promise.all([
-    page.locator('.reel').first().boundingBox(),
-    cap.boundingBox(),                                     // null once it is hidden
-  ]);
-  const clearance = box && reel ? reel.y + reel.height - (box.y + box.height) : -1;
-  check('  clear of the native controls', clearance >= 40,
-    box ? `only ${Math.round(clearance)}px above the bottom` : 'the caption is not on screen at all');
+  check('  under the clip, not over it', await page.evaluate(() => {
+    const c = document.querySelector('.post .cap'), r = document.querySelector('.post .reel');
+    return c.getBoundingClientRect().top >= r.getBoundingClientRect().bottom - 1;
+  }));
+  check('  with the username in front of it', /^ari/.test((await cap.innerText()).trim()), await cap.innerText());
+  // The player is the clip and a pause. Nothing native, nothing that says Safari.
+  const v = page.locator('.post video').first();
+  check('the clip has no native controls', await v.evaluate(el => !el.controls));
+  check('  and one glyph over it', await page.locator('.post .reel .play').first().count() === 1);
+  check('  and a line for time rather than numbers', await page.locator('.post .reel .prg').first().count() === 1
+    && !/\d:\d\d/.test(await page.locator('.post .reel').first().innerText()));
+  await page.evaluate(() => clipState(document.querySelector('.post video'), 'play'));
+  check('  playing hides the glyph', await page.locator('.post .reel').first().evaluate(r => r.classList.contains('playing')
+    && getComputedStyle(r.querySelector('.play i')).opacity !== '1' || r.classList.contains('flash')));
+  await page.evaluate(() => clipState(document.querySelector('.post video'), 'pause'));
+  check('  and pausing brings it straight back', await page.locator('.post .reel').first().evaluate(r => !r.classList.contains('playing')));
+  check('  the sound toggle is a speaker, not a menu', await page.locator('.post .reel .sound').first().count() === 1);
 });
 
-// A post with no caption should not leave an empty overlay floating over the video.
+// A post with no caption simply has no caption line.
 await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
   await settle(page);
   check('a post without a caption still renders', await page.locator('.reel').count() >= 1);
-  check('  but with no empty caption overlay', await page.locator('.reel .ov.bot').count() === 0);
+  check('  but with no empty caption line', await page.locator('.post .cap').count() === 0);
 });
 
 // Uploading a phone video is the longest thing the app does, and supabase-js sends it
@@ -1169,16 +1176,16 @@ await withPage({ ...SIGNED_IN, photos: true }, async page => {
     render();
   });
   await page.waitForTimeout(300);
-  const box = await page.locator('.post .ov.top .av img').first().boundingBox();
+  const box = await page.locator('.post .head .av img').first().boundingBox();
   check('the poster\'s face stays the size of a face', box && box.width <= 40 && box.height <= 40,
     JSON.stringify(box));
   const reel = await page.locator('.post .reel').first().boundingBox();
   check('  rather than being stretched over the post', box && reel && box.width < reel.width / 2,
     `${JSON.stringify(box)} in ${JSON.stringify(reel)}`);
   check('  leaving the name and the username where they can be read',
-    await page.locator('.post .ov.top .who').first().isVisible()
-    && await page.locator('.post .ov.top .when').first().isVisible());
-  const top = await page.locator('.post .ov.top').first().innerText();
+    await page.locator('.post .head .who').first().isVisible()
+    && await page.locator('.post .head .when').first().isVisible());
+  const top = await page.locator('.post .head').first().innerText();
   check('    and actually saying them', /Ari/.test(top) && /@ari/.test(top), top);
 
   // The lazy loading is about the proof, not about faces: it takes the src off whatever it
@@ -1188,7 +1195,7 @@ await withPage({ ...SIGNED_IN, photos: true }, async page => {
   await page.locator('.post').last().scrollIntoViewIfNeeded();
   await page.waitForTimeout(700);
   check('    so it is still there after scrolling',
-    await page.locator('.post .ov.top .av img').first().getAttribute('src') !== null);
+    await page.locator('.post .head .av img').first().getAttribute('src') !== null);
 });
 
 // ---- liking, and comments in a sheet of their own
@@ -1201,6 +1208,7 @@ await withPage(SIGNED_IN, async page => {
   const heart = page.locator('.post .acts .lk').first();
   const bubble = page.locator('.post .acts .cc').first();
   check('a post can be liked', await heart.count() === 1);
+  await page.evaluate(() => { self.__v0 = document.querySelector('.post video'); });
   check('  from under the clip, not over it', await page.evaluate(() => {
     const r = document.querySelector('.post .acts'), reel = document.querySelector('.post .reel');
     if (!r || !reel) return false;
@@ -1214,7 +1222,7 @@ await withPage(SIGNED_IN, async page => {
   // A blank where a number goes reads as something still loading. Zero is a number.
   check('  a post nobody has liked says nought, rather than nothing',
     (await heart.innerText()).trim() === '0', await heart.innerText());
-  check('    and so does its comment count', /^0 comments$/.test((await bubble.innerText()).trim()),
+  check('    and so does its comment count', /^0$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
   // The stub's clips cannot decode, so this post is showing its failure card — which is
@@ -1224,6 +1232,8 @@ await withPage(SIGNED_IN, async page => {
   await heart.click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(200);
   check('  tapping it counts at once', (await heart.innerText()).trim() === '1');
+  check('    and the clip is the same element it was, not a fresh black one',
+    await page.evaluate(() => document.querySelector('.post video') === self.__v0));
   check('    and says it was you', await heart.evaluate(b => b.classList.contains('on')));
   check('    with the like really sent', (await page.evaluate(() => self.__likes)).length === 1,
     JSON.stringify(await page.evaluate(() => self.__likes)));
@@ -1252,8 +1262,8 @@ await withPage(SIGNED_IN, async page => {
   check('the replies are under the post, not behind a sheet', await page.locator('.post .cmts').count() > 0);
   check('  with somewhere to type already there', await page.locator('.post .cin input').count() > 0);
   check('  and nothing to open first', await page.locator('#cmt').count() === 0);
-  check('  the caption stays on the clip, where it was written',
-    await page.locator('.post .reel .cap').first().isVisible());
+  check('  the caption is under the clip, where it reads',
+    await page.locator('.post .cap').first().isVisible());
 
   const box = page.locator('.post .cin input').first();
   const send = page.locator('.post form.cin button.primary').first();
@@ -1265,7 +1275,7 @@ await withPage(SIGNED_IN, async page => {
   await box.fill('nice one');
   await send.click();
   await page.waitForTimeout(250);
-  check('  a comment counts before the write comes back', /^1 comment$/.test((await bubble.innerText()).trim()),
+  check('  a comment counts before the write comes back', /^1$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
   check('    and shows under the post that soon too', /nice one/.test(await list()), await list());
   check('      with no delete on it until it is really saved',
@@ -1277,7 +1287,7 @@ await withPage(SIGNED_IN, async page => {
 
   await page.locator('.post .clist .x').first().click();
   await page.waitForTimeout(900);
-  check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
+  check('  taking one back drops the count with it', /^0$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
   // The phone's keyboard has its own emoji key; this is the one in the box, for reaching
@@ -1941,7 +1951,7 @@ await withPage(SIGNED_IN, async page => {
 // A post says who by both names, the way every app that has usernames does.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
-  const top = await page.locator('.post .ov.top').first().innerText();
+  const top = await page.locator('.post .head').first().innerText();
   check('a post carries the name and the username', /Ari/.test(top) && /@ari/.test(top), top);
 });
 
