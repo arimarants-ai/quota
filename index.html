@@ -112,13 +112,17 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .stories{display:flex;gap:14px;padding:14px 20px 2px;overflow-x:auto;scrollbar-width:none}
 .stories::-webkit-scrollbar{display:none}
 .stories .s{flex:none;width:64px;background:none;padding:0;border-radius:0;display:flex;flex-direction:column;align-items:center;gap:7px}
-.stories .rg{position:relative;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;
-  background:var(--soft);padding:3px}
+/* One ring, used by the row and by every face on a post. Sized off the face inside it, so
+   the same rule works around a 58px avatar and a 34px one. */
+.rg{position:relative;display:grid;place-items:center;flex:none;border-radius:50%;padding:2.5px;background:var(--soft)}
+button.rg{border:0;font:inherit}
+.rg .av{box-shadow:0 0 0 2px var(--card)}
 /* Always the full sweep, not the streak ramp: early in a run the ramp is nearly flat, and
    a ring that says "unwatched" has to look like one whatever day you are on. */
-.stories .rg.new{background:linear-gradient(135deg,#0b5a34,#2fd36f 52%,#7ef0b0)}
+.rg.new{background:linear-gradient(135deg,#0b5a34,#2fd36f 52%,#7ef0b0)}
 /* Watched: the same ring with the life gone out of it, not a different shape. */
-.stories .rg.old{background:none;box-shadow:inset 0 0 0 2px var(--line)}
+.rg.old{background:none;box-shadow:inset 0 0 0 2px var(--line)}
+.stories .rg{width:58px;height:58px;padding:3px}
 .stories .s.me .rg{background:none;box-shadow:inset 0 0 0 2px var(--line)}
 .stories .s.me.has .rg{box-shadow:none}
 .stories .rg .av{width:100%;height:100%;font-size:17px;box-shadow:0 0 0 2px var(--bg)}
@@ -378,6 +382,11 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 /* Who and when, on the card above the clip, the way every established feed does it. */
 .post .head{display:flex;align-items:center;gap:10px;padding:12px 14px}
 .post .head .av{width:34px;height:34px;font-size:14px}
+/* The gap between ring and face eats into the band, so the padding has to cover both: 3px
+   of ring, 1px of card showing through, which reads as a ring at 34px rather than a hair. */
+.post .head .rg{padding:4px}
+.post .head .rg .av{box-shadow:0 0 0 1px var(--card)}
+.post .head .rg:active{transform:scale(.92)}
 .post .head .who{font-weight:800;font-size:14.5px;line-height:1.2}
 .post .head .when{font-size:12.5px;color:var(--muted);font-weight:600}
 .post .head .more{margin-left:auto;background:none;color:var(--muted);font-size:20px;line-height:1;padding:4px 6px}
@@ -759,7 +768,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v49';
+const BUILD = 'quota-v50';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1275,6 +1284,16 @@ const FRESH = () => Date.now() - 864e5;
 const liveStories = () => S.stories.filter(x => x.ts > FRESH());
 const storiesOf = id => liveStories().filter(x => x.u === id).sort((a, b) => a.ts - b.ts);
 const unseenOf = id => storiesOf(id).filter(x => !S.seen.includes(x.id));
+// The same face, with a ring around it when there is a story behind it: lit if it has not
+// been watched, quiet once it has. It is the ring that makes a story findable at all —
+// somebody scrolling the feed should not have to go back to the top to notice one — so it
+// travels with the face rather than living only in the row. Tapping it opens the story.
+const avStory = (u, cls = '') => {
+  if (!u || !u.id || !storiesOf(u.id).length) return av(u, cls);
+  return `<button type="button" class="rg ${unseenOf(u.id).length ? 'new' : 'old'}"
+    onclick="event.stopPropagation();openStory('${esc(u.id)}')"
+    aria-label="${esc(name(u))}'s story">${av(u, cls)}</button>`;
+};
 // Ways for a card of text to look. The app's own greens first, then a couple that are just
 // for fun, because a story is allowed to be.
 // The first eight are what stories already carry, so their numbers must not move.
@@ -1572,7 +1591,8 @@ function storyKind() {
   dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
     <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();camFor='story';openCam()">Camera</button>
       <button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Choose a file</button></div>
-    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>`);
+    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button></div>`);
 }
 async function storyFile(input) {
   const f = input.files[0]; input.value = '';
@@ -1816,7 +1836,7 @@ function feed(ps, showGroup) {
     // The header sits on the card above the clip, so the clip is only the clip. The
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
-      <div class="head">${av(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
+      <div class="head">${avStory(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
         ${p.userId === me().id ? `<button type="button" class="more" onclick="delPost(${p.id})" aria-label="Delete post">⋯</button>` : ''}</div>
       <div class="reel">
       ${isPhoto(p)
@@ -2413,6 +2433,13 @@ async function resetPassword(f) {
 }
 
 // ---- dialogs
+// A sheet that asks a question has to be answerable with "never mind". Escape does that
+// on a keyboard and there is no Escape on a phone, so the dark part of the screen closes
+// it — but only when the sheet is a set of choices. A sheet with a form in it is holding
+// something that was typed or chosen, and a stray tap beside it must not throw that away.
+$('#dlg').addEventListener('click', e => {
+  if (e.target === $('#dlg') && !$('#dlg').querySelector('form')) dlg();
+});
 let dlgT = null;
 function dlg(html) {
   const d = $('#dlg'); clearTimeout(dlgT); d.classList.remove('out');
