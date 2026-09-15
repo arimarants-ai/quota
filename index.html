@@ -173,6 +173,16 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 #story .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
 #story .tap.back{left:0}
 #story .tap.fwd{right:0;width:62%}
+/* Who watched: only on your own, in the corner where the other app keeps it. */
+#story .eye{position:absolute;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3;display:flex;align-items:center;gap:6px;
+  background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:999px}
+#story .eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round}
+#story .seenby{position:absolute;left:0;right:0;bottom:0;max-height:60%;overflow-y:auto;z-index:4;background:#fff;color:var(--ink);
+  padding:14px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+#story .seenby[hidden]{display:none}
+#story .seenby .hd{display:flex;align-items:center;justify-content:space-between}
+#story .seenby .hd .x{background:none;font-size:17px;padding:4px 6px}
+#story .seenby b{font-size:14.5px;font-weight:800}
 
 /* Making one. The other app's shape: close on the left, tools on the right, the card in
    the middle, colours along the bottom, share underneath. */
@@ -666,7 +676,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v45';
+const BUILD = 'quota-v46';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -711,7 +721,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -899,7 +909,7 @@ async function fetchAll() {
     q(sb.from('reactions').select('post_id,user_id,emoji')),
     // A day is in the policy, so anything that comes back is by definition still running.
     q(sb.from('stories').select('*').order('created_at')),
-    q(sb.from('story_views').select('story_id')),
+    q(sb.from('story_views').select('story_id,user_id,seen_at')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -914,7 +924,10 @@ async function fetchAll() {
   S.reacts = (reacts || []).map(r => ({p: r.post_id, u: r.user_id, e: r.emoji}));
   S.stories = (stories || []).map(x => ({id: x.id, u: x.user_id, kind: x.kind, path: x.media_path,
     body: x.body, style: (x.style && typeof x.style === 'object') ? x.style : {}, ts: Date.parse(x.created_at)}));
-  S.seen = (seen || []).map(v => v.story_id);
+  // Yours say what you have watched; the rest are who watched yours, which is all the
+  // policy lets through.
+  S.views = (seen || []).map(v => ({s: v.story_id, u: v.user_id, ts: Date.parse(v.seen_at)}));
+  S.seen = S.views.filter(v => v.u === uid).map(v => v.s);
   // Signed one round trip for the lot, the way proof is. A story with no file is a card of
   // text and needs nothing.
   const withFiles = S.stories.filter(x => x.path);
@@ -934,7 +947,7 @@ async function fetchAll() {
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at)}));
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u)])];
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
@@ -1256,6 +1269,7 @@ function paintStory() {
     ${storyFace(st, true)}
     <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
     <button type="button" class="tap fwd" onclick="stepStory(1)" aria-label="Next"></button>
+    ${st.u === me().id ? `<button type="button" class="eye" onclick="seenBy(${st.id})">${EYE} ${viewersOf(st.id).length}</button><div class="seenby" hidden></div>` : ''}
   </div>`;
   markSeen(st.id);
   clearTimeout(storyTimer);
@@ -1263,9 +1277,24 @@ function paintStory() {
   if (st.kind !== 'video') storyTimer = setTimeout(() => S.story && stepStory(1), 5000);
   else { const v = box.querySelector('video'); if (v) v.onended = () => S.story && stepStory(1); }
 }
+// Everyone but you, newest first. Your own row is there too, from opening it, and is not
+// a viewer.
+const viewersOf = id => S.views.filter(v => v.s === id && v.u !== me().id).sort((a, b) => b.ts - a.ts);
+const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/></svg>';
+function seenBy(id) {
+  const box = $('#story .seenby'), on = box.hidden;
+  clearTimeout(storyTimer);
+  box.hidden = !on;
+  if (!on) { paintStory(); return; }
+  const vs = viewersOf(id);
+  box.innerHTML = `<div class="hd"><b>Seen by ${vs.length}</b><button type="button" class="x" onclick="seenBy(${id})" aria-label="Close">✕</button></div>
+    ${vs.length ? vs.map(v => { const u = user(v.u); return `<div class="row">${av(u)}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div><span class="muted">${ago(v.ts)}</span></div>`; }).join('')
+      : '<p class="muted">Nobody yet.</p>'}`;
+}
 async function markSeen(id) {
   if (S.seen.includes(id)) return;
   S.seen = [...S.seen, id];
+  S.views = [...S.views, {s: id, u: me().id, ts: Date.now()}];
   const el = $('#story'); if (el) el.dataset.seen = String(S.seen.length);
   try { await q(sb.from('story_views').insert({story_id: id, user_id: me().id}), true); } catch (e) {}
 }

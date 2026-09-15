@@ -1427,6 +1427,28 @@ await withPage(SIGNED_IN, async page => {
   // A day old is gone, and the policy says the same thing on the server.
   await put([{id: 9, u: 'u2', kind: 'text', body: 'yesterday', agoMins: 60 * 25}]);
   check('a story older than a day is not in the row', await page.locator('.stories .s').count() === 1);
+
+  // Who watched yours is yours to know. The eye sits on your own story and on nobody else's.
+  await put([{id: 20, u: 'u1', kind: 'text', body: 'mine'}, {id: 21, u: 'u2', kind: 'text', body: 'theirs'}]);
+  await page.evaluate(() => { S.views = [{s: 20, u: 'u2', ts: Date.now() - 60000}, {s: 20, u: 'u3', ts: Date.now()}, {s: 21, u: 'u3', ts: Date.now()}]; render(); });
+  await page.evaluate(() => openStory('u1'));
+  await page.waitForTimeout(200);
+  check('your own story counts who watched it', await page.locator('#story .eye').innerText() === '2',
+    await page.locator('#story .eye').innerText());
+  await page.locator('#story .eye').click();
+  await page.waitForTimeout(150);
+  const sheet = await page.locator('#story .seenby').innerText();
+  check('  and tapping the count names them', /Seen by 2/.test(sheet) && /Kit/.test(sheet), sheet);
+  check('    newest first', sheet.indexOf('Kit') < sheet.indexOf('Sam'), sheet);
+  check('    without counting you', !/@ari/.test(sheet));
+  await page.locator('#story .seenby .x').click();
+  await page.waitForTimeout(150);
+  check('    and it closes', await page.locator('#story .seenby').isHidden());
+  await page.locator('#story .who .x').click();
+  await page.evaluate(() => openStory('u2'));
+  await page.waitForTimeout(200);
+  check("somebody else's story has no such count", await page.locator('#story .eye').count() === 0);
+  await page.locator('#story .who .x').click();
 });
 
 // Making one. The words are typed onto the card itself and every control changes the

@@ -1092,3 +1092,14 @@ select cron.schedule('stories-expire', '7 * * * *', $cron$
   delete from public.stories where created_at < now() - interval '24 hours';
   delete from storage.objects where bucket_id = 'stories' and created_at < now() - interval '25 hours';
 $cron$);
+
+-- ============================================================
+-- v18 (seen by): safe to run on an existing project.
+--
+-- Who watched your story is yours to know, and nobody else's. The rows were always
+-- written; this is only the other half of the read. Nothing else changes.
+-- ============================================================
+drop policy if exists "your own views" on public.story_views;
+create policy "your own views" on public.story_views for select
+  using (user_id = auth.uid()
+      or exists (select 1 from public.stories s where s.id = story_id and s.user_id = auth.uid()));
