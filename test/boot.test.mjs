@@ -611,8 +611,8 @@ await withPage(SIGNED_IN, async page => {
     const w = S.wheels[0];
     w.breaks_streak = true;
     w.every_days = 1;                     // so yesterday is a cycle that has closed
-    w.starts_on = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
-    const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), c = cycleOf(w, y);
+    w.starts_on = daysAgo(10);
+    const y = daysAgo(1), c = cycleOf(w, y);
     const row = extra => [{id: 900, wheel_id: w.id, user_id: 'u1', cycle: c, results: [], days_required: 1, ...extra}];
     S.spins = row({sat_out: false});
     const unfinished = brokeStreak(S.groups[0], 'u1', y);
@@ -1314,6 +1314,65 @@ await withPage(SIGNED_IN, async page => {
     if (!pick || !reel) return false;
     return pick.getBoundingClientRect().top >= reel.getBoundingClientRect().top;
   }));
+});
+
+// A long run is the point of the app, so it gets stopped for — once, on the day it was
+// earned, and never again for the same number.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('nothing is celebrated on an ordinary day', await page.locator('#party').isHidden());
+
+  // 25 days behind today, and today already done: the run is real and it ends now.
+  const back = async n => page.evaluate(days => {
+    const d = i => { const x = new Date(); x.setDate(x.getDate() - i); return x.toLocaleDateString('en-CA'); };
+    S.totals = S.totals.filter(t => t.u !== 'u1');
+    for (let i = 0; i < days; i++) S.totals.push({g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    render();
+  }, n);
+
+  await back(25);
+  await page.waitForTimeout(200);
+  check('twenty-five days is worth stopping for', await page.locator('#party').isVisible());
+  check('  and it says which run it is', /25/.test(await page.locator('#party .n').innerText()),
+    await page.locator('#party .n').innerText());
+  check('  with confetti over it', await page.locator('#party canvas').count() === 1);
+
+  await page.locator('#party button').click();
+  await page.waitForTimeout(150);
+  check('  it goes away when it is dismissed', await page.locator('#party').isHidden());
+
+  // The same run, drawn again. It must not come back.
+  await page.evaluate(() => render());
+  await page.waitForTimeout(200);
+  check('  and does not come back on the next render', await page.locator('#party').isHidden());
+  check('    because the number is written down', await page.evaluate(() => localStorage.milestone) === '25');
+  check('      and read back before celebrating anything', await page.evaluate(() => milestoneDue()) === 0);
+
+  // A day that is not a milestone passes without a word.
+  await back(26);
+  await page.waitForTimeout(200);
+  check('  twenty-six is just another day', await page.locator('#party').isHidden());
+
+  // The next one up still lands, and skips the ones never seen rather than queueing them.
+  await back(365);
+  await page.waitForTimeout(200);
+  check('a year lands, and does not walk up through every number below it',
+    await page.locator('#party').isVisible()
+    && /365/.test(await page.locator('#party .n').innerText()),
+    await page.locator('#party .n').innerText().catch(() => '(hidden)'));
+  await page.locator('#party button').click();
+
+  // Nothing is celebrated for a run that has not been earned today.
+  await page.evaluate(() => {
+    const d = i => { const x = new Date(); x.setDate(x.getDate() - i); return x.toLocaleDateString('en-CA'); };
+    try { localStorage.removeItem('milestone'); } catch (e) {}
+    S.totals = S.totals.filter(t => t.u !== 'u1');
+    for (let i = 1; i <= 100; i++) S.totals.push({g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    render();
+  });
+  await page.waitForTimeout(200);
+  check('  and a run with today still owing is not celebrated yet',
+    await page.locator('#party').isHidden());
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees
