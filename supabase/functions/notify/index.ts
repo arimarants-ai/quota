@@ -72,6 +72,23 @@ Deno.serve(async (req) => {
     }));
   }
 
+  // A story is gone in a day, so its notification goes to the story rather than to a post.
+  if (kind === 'story_like' || kind === 'story_reaction') {
+    const { story_id, user_id: actor, emoji } = record ?? {};
+    if (!story_id || !actor) return new Response('ignored', { status: 200 });
+    const [[story], [from]] = await Promise.all([
+      rest(`stories?id=eq.${story_id}&select=user_id`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+    ]);
+    if (!story || !from || story.user_id === actor) return new Response('ignored', { status: 200 });
+    return blast([story.user_id], JSON.stringify({
+      title: 'Quota',
+      body: socialFor(kind, who(from), kind === 'story_reaction' ? emoji : null),
+      url: `${SITE_URL}/#story-${story.user_id}`,
+      tag: kind === 'story_reaction' ? `story-reaction-${story_id}-${emoji}` : `story-like-${story_id}`,
+    }));
+  }
+
   if (kind === 'comment' || kind === 'like' || kind === 'reaction') {
     const { post_id, user_id: actor, body: text, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });

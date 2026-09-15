@@ -139,11 +139,14 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
+  // A story says so, because it is gone in a day and the post it is not is still there.
+  if (kind === 'story_like') return `${name} liked your story`;
+  if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
   // A comment is worth reading in the notification itself, but a long one turns the
   // whole thing into a wall; the rest is one tap away.
   const body = (extra ?? '').replace(/\s+/g, ' ').trim();
@@ -220,6 +223,23 @@ Deno.serve(async (req) => {
       body: socialFor(isGroup ? 'group' : 'friend', who(from), isGroup ? group[0].name : null),
       url: `${SITE_URL}/#${isGroup ? 'groups' : 'friends'}`,
       tag: `invite-${record.id ?? to_user}`,
+    }));
+  }
+
+  // A story is gone in a day, so its notification goes to the story rather than to a post.
+  if (kind === 'story_like' || kind === 'story_reaction') {
+    const { story_id, user_id: actor, emoji } = record ?? {};
+    if (!story_id || !actor) return new Response('ignored', { status: 200 });
+    const [[story], [from]] = await Promise.all([
+      rest(`stories?id=eq.${story_id}&select=user_id`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+    ]);
+    if (!story || !from || story.user_id === actor) return new Response('ignored', { status: 200 });
+    return blast([story.user_id], JSON.stringify({
+      title: 'Quota',
+      body: socialFor(kind, who(from), kind === 'story_reaction' ? emoji : null),
+      url: `${SITE_URL}/#story-${story.user_id}`,
+      tag: kind === 'story_reaction' ? `story-reaction-${story_id}-${emoji}` : `story-like-${story_id}`,
     }));
   }
 

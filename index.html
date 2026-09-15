@@ -150,6 +150,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   pointer-events:none;color:inherit}
 .face .hero .big{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:172px;line-height:.82;letter-spacing:-.03em;
   text-shadow:0 8px 40px rgba(0,0,0,.28)}
+.face .hero .word{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:58px;line-height:1;letter-spacing:-.01em;
+  text-transform:uppercase;text-align:center;padding:0 22px;text-shadow:0 8px 40px rgba(0,0,0,.28);overflow-wrap:anywhere}
 .face .hero .tag{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;
   text-transform:uppercase;margin-top:10px;padding:8px 14px;border:2px solid currentColor;border-radius:999px}
 .face .hero .tickring{width:64px;height:64px;margin-bottom:8px}
@@ -189,6 +191,25 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 #story .seenby .hd{display:flex;align-items:center;justify-content:space-between}
 #story .seenby .hd .x{background:none;font-size:17px;padding:4px 6px}
 #story .seenby b{font-size:14.5px;font-weight:800}
+/* Answering one: a heart and an emoji, along the bottom where a thumb already is. */
+#story .answer{position:absolute;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom));z-index:3;
+  display:flex;align-items:center;justify-content:center;gap:22px}
+#story .answer button{background:none;padding:8px;color:#fff;display:grid;place-items:center}
+#story .answer svg{width:31px;height:31px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,.55))}
+#story .answer .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
+#story .answer .reactpick{bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);transform-origin:bottom center;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);border:0;border-radius:999px}
+#story .answer .reactpick button{padding:6px 8px;font-size:24px;line-height:1}
+/* What your own story got: beside the eye, in the same quiet pill. */
+#story .tally{position:absolute;left:104px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3;display:flex;align-items:center;gap:6px;
+  background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:999px}
+#story .tally svg{width:17px;height:17px;fill:#ff3b5c;stroke:#ff3b5c;stroke-width:1.6}
+/* Drifting up the left, exactly as they do on a post. */
+#story .reacts{position:absolute;left:14px;bottom:76px;z-index:3;display:flex;flex-direction:column-reverse;
+  flex-wrap:wrap-reverse;align-content:flex-start;align-items:flex-start;gap:0 6px;pointer-events:none;max-height:50%}
+#story .reacts span{font-size:26px;line-height:1;padding:2px;text-shadow:0 2px 6px rgba(0,0,0,.6);
+  transform:translateX(var(--x,0px));animation:bob 3.4s ease-in-out infinite;animation-delay:calc(var(--i,0) * -.7s)}
 
 /* Making one. The other app's shape: close on the left, tools on the right, the card in
    the middle, colours along the bottom, share underneath. */
@@ -725,7 +746,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v48';
+const BUILD = 'quota-v49';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -770,7 +791,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -943,7 +964,7 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -959,6 +980,8 @@ async function fetchAll() {
     // A day is in the policy, so anything that comes back is by definition still running.
     q(sb.from('stories').select('*').order('created_at')),
     q(sb.from('story_views').select('story_id,user_id,seen_at')),
+    q(sb.from('story_likes').select('story_id,user_id')),
+    q(sb.from('story_reactions').select('story_id,user_id,emoji')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -976,6 +999,8 @@ async function fetchAll() {
   // Yours say what you have watched; the rest are who watched yours, which is all the
   // policy lets through.
   S.views = (seen || []).map(v => ({s: v.story_id, u: v.user_id, ts: Date.parse(v.seen_at)}));
+  S.slikes = (slikes || []).map(l => ({s: l.story_id, u: l.user_id}));
+  S.sreacts = (sreacts || []).map(r => ({s: r.story_id, u: r.user_id, e: r.emoji}));
   S.seen = S.views.filter(v => v.u === uid).map(v => v.s);
   // Signed one round trip for the lot, the way proof is. A story with no file is a card of
   // text and needs nothing.
@@ -996,7 +1021,7 @@ async function fetchAll() {
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at)}));
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u)])];
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
@@ -1301,6 +1326,11 @@ function tplFace(y) {
   </svg>`;
   if (y.tpl === 'streak') return `${deco}<div class="hero">
     <b class="big">${esc(String(y.n ?? ''))}</b><span class="tag">day streak</span></div>`;
+  // A challenge is words rather than a number, so it is set as words: large, but able to
+  // wrap, because "100 burpees every morning" is not going to fit on one line.
+  if (y.tpl === 'chal') return `${deco}<div class="hero">
+    <span class="tickring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"/><path d="M15 25l6 6 12-13" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <b class="word">${esc(String(y.n ?? ''))}</b><span class="tag">challenge done</span></div>`;
   return `${deco}<div class="hero">
     <span class="tickring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"/><path d="M15 25l6 6 12-13" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <b class="big">${esc(String(y.n ?? ''))}</b><span class="tag">${esc(y.sub || '')}</span>
@@ -1343,7 +1373,7 @@ function openStory(uid) {
   // Straight to the first one you have not seen, so opening somebody twice does not make
   // you sit through the ones you have.
   const from = all.findIndex(x => !S.seen.includes(x.id));
-  S.story = {uid, i: from < 0 ? 0 : from};
+  S.story = {uid, i: from < 0 ? 0 : from, at: Date.now()};
   paintStory();
 }
 function closeStory() { clearTimeout(storyTimer); S.story = null; $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
@@ -1351,33 +1381,93 @@ function stepStory(d) {
   const all = storiesOf(S.story.uid), i = S.story.i + d;
   if (i < 0) return;
   if (i >= all.length) return closeStory();
-  S.story.i = i; paintStory();
+  S.story.i = i; S.story.at = Date.now(); paintStory();
 }
 function paintStory() {
   const box = $('#story'), all = storiesOf(S.story.uid), st = all[S.story.i];
   if (!st) return closeStory();
-  const u = user(st.uid || S.story.uid);
+  const u = user(st.uid || S.story.uid), mine = st.u === me().id, likes = storyLikes(st.id).length;
   box.hidden = false;
   box.innerHTML = `<div class="pane">
     <div class="bars">${all.map((x, i) => `<i class="${i < S.story.i ? 'done' : i === S.story.i ? 'now' : ''}"></i>`).join('')}</div>
     <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
-      ${st.u === me().id ? `<button type="button" class="bin" onclick="delStory(${st.id})" aria-label="Delete">🗑</button>` : ''}
+      ${mine ? `<button type="button" class="bin" onclick="delStory(${st.id})" aria-label="Delete">🗑</button>` : ''}
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
     ${storyFace(st, true)}
     <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
     <button type="button" class="tap fwd" onclick="stepStory(1)" aria-label="Next"></button>
-    ${st.u === me().id ? `<button type="button" class="eye" onclick="seenBy(${st.id})">${EYE} ${viewersOf(st.id).length}</button><div class="seenby" hidden></div>` : ''}
+    ${storyBubbles(st.id)}
+    ${mine ? `<button type="button" class="eye" onclick="seenBy(${st.id})">${EYE} ${viewersOf(st.id).length}</button>
+      ${likes ? `<span class="tally">${HEART} ${num(likes)}</span>` : ''}<div class="seenby" hidden></div>`
+    : `<div class="answer">
+        <button type="button" class="lk${iLikeStory(st.id) ? ' on' : ''}" onclick="toggleStoryLike(${st.id})" aria-label="${iLikeStory(st.id) ? 'Unlike' : 'Like'}">${HEART}</button>
+        <button type="button" class="rx" onclick="pickStoryReact(event,${st.id})" aria-label="React">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button>
+      </div>`}
   </div>`;
   markSeen(st.id);
   clearTimeout(storyTimer);
-  // A card of text is read in a few seconds; a clip runs as long as it runs.
-  if (st.kind !== 'video') storyTimer = setTimeout(() => S.story && stepStory(1), 5000);
-  else { const v = box.querySelector('video'); if (v) v.onended = () => S.story && stepStory(1); }
+  // A card of text is read in a few seconds; a clip runs as long as it runs. Answering one
+  // repaints it, and the clock is not restarted for that: it would make a story you keep
+  // reacting to sit there forever.
+  if (st.kind !== 'video') {
+    const left = Math.max(1200, 5000 - (Date.now() - (S.story.at || (S.story.at = Date.now()))));
+    storyTimer = setTimeout(() => S.story && stepStory(1), left);
+  } else { const v = box.querySelector('video'); if (v) v.onended = () => S.story && stepStory(1); }
 }
+// Answering one. A heart and as many emoji as you like, the same two answers a post takes
+// — and both reach the person who posted it, because a story is gone tomorrow and an
+// answer nobody saw is no answer.
+const storyLikes = id => S.slikes.filter(l => l.s === id);
+const iLikeStory = id => S.slikes.some(l => l.s === id && l.u === me().id);
+const storyReacts = id => S.sreacts.filter(r => r.s === id);
+async function toggleStoryLike(id) {
+  const m = me(), had = iLikeStory(id);
+  S.slikes = had ? S.slikes.filter(l => !(l.s === id && l.u === m.id)) : [...S.slikes, {s: id, u: m.id}];
+  paintStory();
+  try {
+    if (had) await q(sb.from('story_likes').delete().eq('story_id', id).eq('user_id', m.id));
+    else await q(sb.from('story_likes').insert({story_id: id, user_id: m.id}));
+  } catch (e) {
+    S.slikes = had ? [...S.slikes, {s: id, u: m.id}] : S.slikes.filter(l => !(l.s === id && l.u === m.id));
+    paintStory();
+  }
+}
+async function toggleStoryReact(id, emoji) {
+  const m = me(), had = S.sreacts.some(r => r.s === id && r.u === m.id && r.e === emoji);
+  const put = on => { S.sreacts = on ? [...S.sreacts, {s: id, u: m.id, e: emoji}]
+    : S.sreacts.filter(r => !(r.s === id && r.u === m.id && r.e === emoji)); paintStory(); };
+  put(!had);
+  try {
+    if (had) await q(sb.from('story_reactions').delete().eq('story_id', id).eq('user_id', m.id).eq('emoji', emoji));
+    else await q(sb.from('story_reactions').insert({story_id: id, user_id: m.id, emoji}));
+  } catch (e) { put(had); }
+}
+// The story is not going anywhere while the picker is open: the timer stops, and starts
+// again when the picker closes.
+function pickStoryReact(ev, id) {
+  ev.stopPropagation();
+  clearTimeout(storyTimer);
+  const pane = ev.currentTarget.closest('.pane'), had = pane.querySelector('.reactpick');
+  if (had) return had.remove();
+  const box = document.createElement('div');
+  box.className = 'reactpick';
+  box.innerHTML = REACTS.map(e => `<button type="button" onclick="toggleStoryReact(${id},'${e}')">${e}</button>`).join('');
+  pane.querySelector('.answer').appendChild(box);
+}
+// What people have left on a story, drifting up its left side the way they drift up a post.
+function storyBubbles(id) {
+  const all = storyReacts(id).slice(-FLOAT_MAX);
+  if (!all.length) return '';
+  return `<div class="reacts">${all.map((r, i) =>
+    `<span style="--i:${i};--x:${((i * 37) % 23) - 6}px">${r.e}</span>`).join('')}</div>`;
+}
+
 // Everyone but you, newest first. Your own row is there too, from opening it, and is not
 // a viewer.
 const viewersOf = id => S.views.filter(v => v.s === id && v.u !== me().id).sort((a, b) => b.ts - a.ts);
 const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/></svg>';
+const HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg>';
 function seenBy(id) {
   const box = $('#story .seenby'), on = box.hidden;
   clearTimeout(storyTimer);
@@ -1574,13 +1664,24 @@ async function postStory() {
 // unless it is shared. The number is the story; the words underneath are yours to change.
 function suggest(kind, data) {
   if (S.draft || S.story) return;
-  const tpl = kind === 'streak' ? {tpl: 'streak', n: data.n} : {tpl: 'done', n: data.n, sub: data.sub};
+  const tpl = kind === 'streak' ? {tpl: 'streak', n: data.n}
+    : kind === 'chal' ? {tpl: 'chal', n: data.n}
+    : {tpl: 'done', n: data.n, sub: data.sub};
   newStory({suggested: true, kind: 'text', body: data.body || '',
-    style: {bg: kind === 'streak' ? 0 : 5, font: 0, ink: 0, size: 1, y: .82, ...tpl}});
+    style: {bg: kind === 'streak' ? 0 : kind === 'chal' ? 3 : 5, font: 0, ink: 0, size: 1, y: .82, ...tpl}});
 }
 function suggestAfterPost(g, amount, metric) {
   const st = streak(g, me().id);
   suggest('done', {n: amount, sub: metric, body: st > 1 ? `Day ${st} · ${g.name}` : g.name});
+}
+// Every challenge of mine that is finished right now. Compared across a post to find the
+// one that post finished — the wheel gives you a whole cycle to do it in, so the day it
+// lands on is the only moment it is news.
+const doneChallengeIds = () => new Set(myGroups().flatMap(g => myChallenges(g)
+  .filter(sp => challengeDone(g, sp)).map(sp => sp.id)));
+function suggestAfterChallenge(g, sp) {
+  const w = S.wheels.find(x => x.id === sp.wheel_id), need = requiredDays(w, sp);
+  suggest('chal', {n: effChallenge(sp), body: `${need} ${need === 1 ? 'day' : 'days'} · ${g.name}`});
 }
 
 const ago = t => { const s = (Date.now() - t) / 1000;
@@ -1595,13 +1696,13 @@ function activityBox() {
     ev.push({t: c.ts, u: c.userId, what: mine.has(c.postId) ? 'commented on your proof' : 'left a comment'});
   for (const i of S.invites) if (i.to === m.id)
     ev.push({t: i.ts, u: i.from, what: i.type === 'group' ? 'invited you to a group' : 'wants to be friends'});
-  // A row with no time on it cannot be placed in an order, and a list in no order is not
-  // a record of anything.
-  const list = ev.filter(e => Number.isFinite(e.t) && S.profiles[e.u]).sort((a, b) => b.t - a.t).slice(0, 8);
+  // Today, and only today. Yesterday's is not news, and a row with no time on it cannot
+  // be placed in an order at all — a list in no order is not a record of anything.
+  const list = ev.filter(e => Number.isFinite(e.t) && S.profiles[e.u] && ymd(new Date(e.t)) === today())
+    .sort((a, b) => b.t - a.t).slice(0, 8);
   if (!list.length) return '';
-  const day = list.filter(e => Date.now() - e.t < 864e5).length;
   return `<details class="act">
-    <summary><span class="dot"></span>Recent activity${day ? `<span class="n">${day} today</span>` : ''}
+    <summary><span class="dot"></span>Today${`<span class="n">${list.length}</span>`}
       <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
     ${list.map(e => `<div class="e">${av(user(e.u), 'sm')}<p><b>${esc(name(user(e.u)))}</b> ${esc(e.what)}</p><span class="t">${ago(e.t)}</span></div>`).join('')}
   </details>`;
@@ -2586,6 +2687,28 @@ const recording = () => !!camRec && camRec.state === 'recording';
 const facing = () => { try { return localStorage.getItem('quota.facing') === 'user' ? 'user' : 'environment'; } catch (e) { return 'environment'; } };
 const setFacing = f => { try { localStorage.setItem('quota.facing', f); } catch (e) {} };
 
+// Stopping every track ends the capture session, and WebKit then asks for the camera
+// again on the next request — which is why the prompt came back on every single open,
+// every retake and every flip. So a camera that is closed is parked rather than stopped:
+// the stream is held a little longer in case it is wanted again, and dropped for good if
+// it is not, or the moment the app is put away.
+const PARK_MS = 45000;
+let camPark = null, camFacing = null;
+const camLive = () => !!camStream && camStream.getVideoTracks().some(t => t.readyState === 'live');
+function parkCam() {
+  clearTimeout(camPark); camPark = null;
+  if (!camLive()) return dropCam();
+  const v = $('#campre'); if (v) v.srcObject = null;
+  camStream.getAudioTracks().forEach(t => t.enabled = false);   // nothing is listening while it waits
+  camPark = setTimeout(dropCam, PARK_MS);
+}
+function dropCam() {
+  clearTimeout(camPark); camPark = null;
+  if (camStream) camStream.getTracks().forEach(t => t.stop());  // or the camera light stays on
+  camStream = null; camFacing = null;
+  const v = $('#campre'); if (v) v.srcObject = null;
+}
+
 // iOS asks for the camera itself, and there is no way to answer on somebody's behalf or
 // to stop it asking. What can be done is explain what is about to happen, once, so the
 // prompt is expected rather than a surprise — and say where to change the answer later.
@@ -2601,7 +2724,7 @@ function camExplained() {
 async function openCam() {
   if (!camSupported()) return alert('This browser cannot record video. Use "Choose a file" instead.');
   if (!camExplained()) {
-    alert('Quota is about to ask for your camera.\n\nAllow it once and your phone remembers — you can change it later in Settings \u2192 Quota.');
+    alert('Quota is about to ask for your camera.\n\nAllow it once and it stays allowed while the app is open. On iPhone, an app opened from the home screen asks again each time it is launched — that is the phone, not Quota.');
   }
   const box = $('#cam'), why = $('#camwhy');
   why.hidden = true;
@@ -2620,24 +2743,34 @@ async function startCam(want) {
   $('#camgo').classList.remove('on');
   $('#camflip').disabled = true;
   $('#camtime').textContent = 'Starting…';
-  if (camStream) stopTracks();             // flipping: let the old one go before asking for the other
-  try {
-    // 720p from the camera we want. Every part of this is a preference, not a demand: a
-    // phone that cannot manage it gives what it has rather than refusing outright — and
-    // facingMode in particular is ignored outright by desktop browsers.
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: {facingMode: {ideal: want}, width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30}},
-      audio: true,
-    });
-  } catch (e) {
-    why.textContent = e && e.name === 'NotAllowedError'
-      ? 'Camera access was refused. Allow it in your browser settings, or use "Choose a file".'
-      : `The camera could not be opened: ${e.message || e}`;
-    why.hidden = false;
-    $('#camtime').textContent = '';
-    return;
+  clearTimeout(camPark); camPark = null;
+  // Still holding it from a moment ago, pointing the way it is wanted: nothing to ask for.
+  if (!(camLive() && camFacing === want)) {
+    // Flipping, or picking it back up too late: the one that is wanted is asked for
+    // before the one in hand is let go, so the capture session never ends in between and
+    // the phone has nothing to ask about.
+    const held = camStream;
+    try {
+      // 720p from the camera we want. Every part of this is a preference, not a demand: a
+      // phone that cannot manage it gives what it has rather than refusing outright — and
+      // facingMode in particular is ignored outright by desktop browsers.
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: {facingMode: {ideal: want}, width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30}},
+        audio: true,
+      });
+    } catch (e) {
+      camStream = held;                    // a flip that was refused still has the old one
+      why.textContent = e && e.name === 'NotAllowedError'
+        ? 'Camera access was refused. Allow it in your browser settings, or use "Choose a file".'
+        : `The camera could not be opened: ${e.message || e}`;
+      why.hidden = false;
+      $('#camtime').textContent = '';
+      return;
+    }
+    if (held) held.getTracks().forEach(t => t.stop());
+    camFacing = want;
   }
-  // Closed again while the camera was still opening: let go of it rather than leaving the
+  // Closed again while the camera was still opening: put it away rather than leaving the
   // light on behind a dialog nobody can see.
   if (!box.open) return stopCam();
   setFacing(want);
@@ -2743,16 +2876,9 @@ function closeCam() {
   $('#cam').close();
 }
 
-function stopTracks() {
-  if (camStream) camStream.getTracks().forEach(t => t.stop());   // or the camera light stays on
-  camStream = null;
-  const v = $('#campre');
-  if (v) v.srcObject = null;
-}
-
 function stopCam() {
   clearInterval(camTimer); camTimer = null;
-  stopTracks();
+  parkCam();
   const go = $('#camgo');
   if (go) { go.disabled = true; go.classList.remove('on'); }
   releaseWake();
@@ -2820,6 +2946,7 @@ function startRec() {
 // as a usable clip, instead of losing the lot with the page.
 addEventListener('pagehide', () => {
   if (recording()) { try { camRec.stop(); } catch (e) {} }
+  dropCam();                               // parked or not, the app is going away
 });
 
 function showRev(on) {
@@ -3128,7 +3255,7 @@ function challengeBlock(g) {
 
 // Whether today was already in the bag before this post went in: the suggestion is for
 // the one that finished it, not for every clip after it.
-let wasDone = false;
+let wasDone = false, chalWas = new Set();
 async function addPost(f, gid) {
   const fd = new FormData(f), picked = recorded || fd.get('video');
   if (!picked || !picked.size) return alert('Record something, or choose a file.');
@@ -3162,6 +3289,7 @@ async function addPost(f, gid) {
     });
     working(f, 'Posting…');
     wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
+    chalWas = doneChallengeIds();
     const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
     await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
       caption: fd.get('caption').trim(), video_path: path, day: today(),
@@ -3173,9 +3301,13 @@ async function addPost(f, gid) {
   }
   dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
   // The post that finished the day is worth offering to say something about. The one after
-  // it is not, which is what wasDone is for.
+  // it is not, which is what wasDone is for. Finishing the whole challenge is rarer than
+  // finishing a day, so when one post does both, that is the one offered.
   const g = S.groups.find(x => x.id === gid);
-  if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g, +fd.get('amount'), String(fd.get('metric') || ''));
+  const fresh = [...doneChallengeIds()].find(id => !chalWas.has(id));
+  const freshIn = fresh && myGroups().find(x => myChallenges(x).some(sp => sp.id === fresh));
+  if (freshIn) suggestAfterChallenge(freshIn, myChallenges(freshIn).find(sp => sp.id === fresh));
+  else if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g, +fd.get('amount'), String(fd.get('metric') || ''));
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;
@@ -3213,6 +3345,9 @@ async function delComment(id) {
 // An installed app comes back to the foreground constantly, and this refetches every
 // table each time. Once every 15 seconds is plenty; load() itself collapses overlapping calls.
 document.addEventListener('visibilitychange', () => {
+  // A parked camera is for coming straight back to it. Put the app away and it goes out,
+  // rather than sitting there with the light on.
+  if (document.hidden && !$('#cam').open) dropCam();
   if (document.hidden || !me() || Date.now() - lastLoad < 15000) return;
   load();
 });
@@ -3347,6 +3482,12 @@ function goToHash() {
     S.tab = 'feed'; S.open = null; render();
     const el = document.querySelector(`[data-post="${id}"]`);
     if (el) el.scrollIntoView({block: 'start'});
+    return;
+  }
+  const sm = /^#story-([0-9a-f-]+)$/i.exec(location.hash || '');
+  if (sm) {
+    history.replaceState(null, '', location.pathname);
+    if (storiesOf(sm[1]).length) { S.tab = 'feed'; S.open = null; render(); openStory(sm[1]); }
     return;
   }
   if (location.hash === '#friends' || location.hash === '#groups') {
