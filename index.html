@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Quota">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Bebas+Neue&family=Playfair+Display:ital,wght@1,700&family=Caveat:wght@700&family=Pacifico&family=Space+Mono:wght@700&display=swap">
 <style>
 /* Black, white and one green, and the green is the streak itself.
    --mk   the mark colour: fills, rules, rings
@@ -135,6 +135,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere;outline:none;
   text-shadow:0 2px 18px rgba(0,0,0,.28);cursor:grab;touch-action:none}
 .face .type.boxed{border-radius:10px;text-shadow:none;padding:8px 14px}
+.face .type.fx{text-shadow:none}
+.face .type.sz2.fx[style*="text-stroke"]{-webkit-text-stroke-width:2px}
 .face .type.sz0{font-size:20px}
 .face .type.sz1{font-size:30px}
 .face .type.sz2{font-size:42px}
@@ -194,24 +196,46 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 #make .mbar.top{padding-top:6px}
 #make .mbar .x{background:none;color:#fff;font-size:18px;padding:6px 8px}
 #make .tools{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0}
-#make .bgbtn{width:34px;height:34px;border-radius:50%;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
-#make .fontpill{background:rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;min-width:0;flex:0 1 74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#make .tb{width:36px;height:36px;border-radius:50%;padding:0;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;font-size:18px}
+#make .bgbtn{width:34px;height:34px;flex:none;border-radius:50%;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+#make .bgbtn.on{box-shadow:0 0 0 2px #050706,0 0 0 4px #fff}
+#make .fontpill{background:rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:8px 12px 8px 14px;font-size:14px;min-width:0;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+#make .fontpill i{font-style:normal;font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-size:11px;opacity:.7}
+#make .fontpill.on{background:#fff;color:#0b0c0e}
+#make .tb{width:36px;height:36px;flex:none;border-radius:50%;padding:0;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;font-size:18px}
 #make .tb.on{background:#fff;color:#0b0c0e}
-#make .tb svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-#make .tb .ab{font-weight:800;font-size:15px;line-height:1}
-#make .tb.on .ab{background:#0b0c0e;color:#fff;padding:1px 5px;border-radius:4px}
+#make .tb svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#make .inkbtn span{width:20px;height:20px;border-radius:50%;box-shadow:0 0 0 2px #fff}
+#make .inkbtn.on span{box-shadow:0 0 0 2px #0b0c0e}
 #make .canvas{position:relative;flex:1;min-height:0;display:grid;min-width:0}
 #make .canvas .face{height:100%;aspect-ratio:auto}
-#make .stickers{position:absolute;left:12px;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(8,1fr);gap:4px;
-  padding:10px;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);border-radius:16px;z-index:3}
-#make .stickers[hidden]{display:none}
-#make .stickers button{background:none;padding:6px 0;font-size:24px;line-height:1}
-/* The colours, in a strip along the bottom of the card. */
-#make .inks{display:flex;gap:10px;padding:12px 14px 6px;overflow-x:auto;scrollbar-width:none;min-width:0}
-#make .inks::-webkit-scrollbar{display:none}
-#make .dot{flex:none;width:30px;height:30px;border-radius:50%;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+/* One tray at a time over the foot of the card: everything of one kind laid out at once,
+   the one in use marked, so choosing is a look and a tap rather than a walk round a loop. */
+#make .tray{position:absolute;left:12px;right:12px;bottom:12px;max-height:60%;overflow-y:auto;overscroll-behavior:contain;z-index:3;color:#fff;
+  padding:12px;background:rgba(0,0,0,.74);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:16px;
+  animation:rise .2s cubic-bezier(.2,.7,.2,1);scrollbar-width:none}
+#make .tray::-webkit-scrollbar{display:none}
+#make .trow{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+#make .chip{background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:0 13px;height:34px;font-weight:800;line-height:1;display:grid;place-items:center}
+#make .chip.on{background:#fff;color:#0b0c0e}
+#make .chip.ic{width:40px;padding:0}
+#make .chip svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+#make .sep{width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 2px}
+#make .grid{display:grid;gap:8px}
+#make .fonts{grid-template-columns:repeat(2,1fr)}
+#make .fonts button{background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:12px 10px;font-size:21px;line-height:1.1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#make .fonts button.on{background:#fff;color:#0b0c0e}
+#make .inks{grid-template-columns:repeat(6,1fr);justify-items:center;padding:4px 0}
+#make .dot{width:38px;height:38px;border-radius:50%;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
 #make .dot.on{box-shadow:0 0 0 2.5px #0b0c0e,0 0 0 5px #fff}
+#make .bgs{grid-template-columns:repeat(4,1fr);gap:10px}
+#make .tile{aspect-ratio:3/4;border-radius:10px;padding:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+#make .tile.on{box-shadow:0 0 0 2.5px #0b0c0e,0 0 0 5px #fff}
+#make .fxs{grid-template-columns:repeat(3,1fr)}
+#make .fxs button{background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:10px 6px 9px;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:7px}
+#make .fxs button.on{background:rgba(255,255,255,.3)}
+#make .fxs .demo{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:28px;line-height:1;padding:4px 10px;border-radius:6px}
+#make .stks{grid-template-columns:repeat(7,1fr);gap:2px}
+#make .stks button{background:none;padding:7px 0;font-size:26px;line-height:1}
 #make .mbar.bottom{padding-bottom:calc(10px + env(safe-area-inset-bottom));min-width:0}
 #make .who{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:#fff;min-width:0}
 #make .go{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--mk);color:var(--onmk);
@@ -219,26 +243,6 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 #make .go svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 #make .go:disabled{opacity:.6}
 
-/* The words are typed where they will sit, over the picture, rather than in a box
-   somewhere else that has to be imagined onto it. */
-#make .type{position:absolute;left:0;right:0;width:100%;background:none;border:0;outline:none;resize:none;
-  padding:0 26px;text-align:center;font-weight:800;line-height:1.15;overflow:hidden;
-  text-shadow:0 2px 18px rgba(0,0,0,.3);caret-color:currentColor}
-#make .type::placeholder{color:currentColor;opacity:.45}
-#make .set{min-width:0}
-#make .tools::-webkit-scrollbar{display:none}
-#make .set span{display:block;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
-  color:rgba(255,255,255,.5);margin-bottom:6px}
-#make .set .row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;min-width:0}
-#make .set .row::-webkit-scrollbar{display:none}
-#make .sw{width:34px;height:34px;flex:none;border-radius:50%;padding:0;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-#make .sw.on{border-color:#fff}
-/* Drawn from the two colours the button actually has, rather than from currentColor,
-   which left the marker invisible in one of the two states. */
-#make .pos{display:block;width:16px;height:16px;box-shadow:inset 0 0 0 1.5px #fff;position:relative}
-#make .pos::after{content:"";position:absolute;left:3px;right:3px;height:2.5px;background:#fff}
-#make .pos.p2::after{bottom:3px}
-#make .emo button{flex:none;background:none;padding:4px;font-size:22px;line-height:1}
 
 /* What happened while you were not looking. Shut, and one line tall: the streak is what
    the top of this screen is for. */
@@ -721,7 +725,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v47';
+const BUILD = 'quota-v48';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1233,31 +1237,56 @@ const storiesOf = id => liveStories().filter(x => x.u === id).sort((a, b) => a.t
 const unseenOf = id => storiesOf(id).filter(x => !S.seen.includes(x.id));
 // Ways for a card of text to look. The app's own greens first, then a couple that are just
 // for fun, because a story is allowed to be.
+// The first eight are what stories already carry, so their numbers must not move.
 const STORY_BG = ['linear-gradient(160deg,#0b5a34,#2fd36f)', 'linear-gradient(160deg,#0b0c0e,#343b3f)',
   'linear-gradient(160deg,#2fd36f,#a7f3d0)', 'linear-gradient(160deg,#12934f,#0b0c0e)',
   'linear-gradient(160deg,#f7f7f5,#d9dedb)', 'linear-gradient(160deg,#1db061,#0b5a34)',
-  'linear-gradient(160deg,#ff9f43,#ff5d73)', 'linear-gradient(160deg,#5fd0ff,#a78bfa)'];
-// Tap the pill to go round these, the way the other app does it.
+  'linear-gradient(160deg,#ff9f43,#ff5d73)', 'linear-gradient(160deg,#5fd0ff,#a78bfa)',
+  '#0b0c0e', '#ffffff', '#0b5a34', '#ff5d73', '#1a1f4d', '#ffd60a',
+  'linear-gradient(160deg,#ff6fb5,#ffd60a)', 'linear-gradient(160deg,#0f2027,#203a43 50%,#2c5364)',
+  'linear-gradient(160deg,#a78bfa,#ff6fb5 60%,#ff9f43)', 'radial-gradient(120% 90% at 30% 20%,#1d5a3a,#061a10 60%,#03100a)',
+  'linear-gradient(160deg,#7ef0b0,#5fd0ff)', 'linear-gradient(160deg,#3b0f2e,#8b1e5b 55%,#ff5d73)',
+  'repeating-linear-gradient(135deg,#0b5a34 0 14px,#0e6b3e 14px 28px)', 'linear-gradient(160deg,#fff7e6,#ffd6a5)'];
+// Every face is a whole look, not a weight: the first four are what stories already carry.
 const STORY_FONT = [
   {name: 'Strong', css: 'Oswald,system-ui,sans-serif', w: 600, tt: 'uppercase', ls: '.02em'},
   {name: 'Classic', css: "'Plus Jakarta Sans',system-ui,sans-serif", w: 800, tt: 'none', ls: '-.02em'},
   {name: 'Light', css: "'Plus Jakarta Sans',system-ui,sans-serif", w: 500, tt: 'none', ls: '0'},
-  {name: 'Mono', css: 'ui-monospace,SFMono-Regular,Menlo,monospace', w: 700, tt: 'none', ls: '0'},
+  {name: 'Mono', css: "'Space Mono',ui-monospace,SFMono-Regular,Menlo,monospace", w: 700, tt: 'none', ls: '0'},
+  {name: 'Poster', css: "'Bebas Neue',Oswald,system-ui,sans-serif", w: 400, tt: 'uppercase', ls: '.06em'},
+  {name: 'Editorial', css: "'Playfair Display',Georgia,serif", w: 700, tt: 'none', ls: '0', fs: 'italic'},
+  {name: 'Handwritten', css: 'Caveat,cursive', w: 700, tt: 'none', ls: '0'},
+  {name: 'Script', css: 'Pacifico,cursive', w: 400, tt: 'none', ls: '0'},
 ];
-const STORY_INK = ['#ffffff', '#0b0c0e', '#2fd36f', '#ffd60a', '#ff5d73', '#ff9f43', '#5fd0ff', '#a78bfa', '#ff6fb5', '#7ef0b0', '#8b8f94'];
+const STORY_INK = ['#ffffff', '#0b0c0e', '#2fd36f', '#ffd60a', '#ff5d73', '#ff9f43', '#5fd0ff', '#a78bfa', '#ff6fb5', '#7ef0b0', '#8b8f94',
+  '#0b5a34', '#ff3b5c', '#ffb703', '#8ecae6', '#fb8500', '#c77dff', '#f4f1ea', '#1a1f4d'];
+// What the words are wearing. The first three are the box states stories already carry.
+const STORY_FX = ['Plain', 'Box', 'Faded box', 'Shadow', 'Outline', 'Glow'];
+const STICKER_MORE = ['🎉', '⭐', '🌟', '💯', '🥇', '🏅', '👑', '🏃', '🏋️', '🚴', '🧘', '👟', '⛰️', '🌊', '☀️', '🌙',
+  '⏰', '🗓️', '📈', '🎯', '💥', '✨', '🧠', '🦾', '💧', '🥗', '🍎', '🥤', '😎', '🤩', '😅', '🫠', '😴', '🥶', '🙏', '🫶', '😈', '🙃', '🤯', '🫁'];
 // What goes behind words when they are boxed: the ink itself, with whichever of black or
 // white reads on it.
 const onInk = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); return (r * .299 + g * .587 + b * .114) > 150 ? '#0b0c0e' : '#ffffff'; };
 const styleOf = st => ({bg: 0, font: 0, ink: 0, size: 1, box: 0, align: 'center', x: .5, y: .5,
-  stk: null, sx: .5, sy: .74, tpl: null, n: null, sub: null, ...(st.style || {})});
+  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, ...(st.style || {})});
+// Every sticker on a card. The single one older stories carry is folded in.
+const stickersOf = y => [...(Array.isArray(y.stks) ? y.stks : []), ...(y.stk ? [{e: y.stk, x: y.sx, y: y.sy}] : [])];
+// The effect as inline style, so the words and the chip that previews them agree.
+function fxStyle(fx, ink) {
+  return fx === 1 ? `background:${ink};color:${onInk(ink)}`
+    : fx === 2 ? `background:rgba(0,0,0,.38);color:${ink}`
+    : fx === 3 ? `color:${ink};text-shadow:0 4px 18px rgba(0,0,0,.65)`
+    : fx === 4 ? `color:${ink};-webkit-text-fill-color:transparent;-webkit-text-stroke:1.5px ${ink}`
+    : fx === 5 ? `color:${ink};text-shadow:0 0 6px ${ink},0 0 20px ${ink},0 0 42px ${ink}`
+    : `color:${ink}`;
+}
 
 // The words as a block that sits wherever it was dragged to. In the editor the same block
 // is the thing being typed into, so what you see is exactly what everyone else gets.
 function wordsOf(st, editing) {
   const y = styleOf(st), f = STORY_FONT[y.font] || STORY_FONT[0], ink = STORY_INK[y.ink] || '#fff';
   if (!st.body && !editing) return '';
-  const boxed = y.box === 1 ? `background:${ink};color:${onInk(ink)}` : y.box === 2 ? `background:rgba(0,0,0,.38);color:${ink}` : `color:${ink}`;
-  return `<div class="type sz${y.size}${y.box ? ' boxed' : ''}" style="left:${y.x * 100}%;top:${y.y * 100}%;font-family:${f.css};font-weight:${f.w};text-transform:${f.tt};letter-spacing:${f.ls};text-align:${y.align};${boxed}"${
+  return `<div class="type sz${y.size}${y.box === 1 || y.box === 2 ? ' boxed' : ''}${y.box >= 3 ? ' fx' : ''}" style="left:${y.x * 100}%;top:${y.y * 100}%;font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'};text-transform:${f.tt};letter-spacing:${f.ls};text-align:${y.align};${fxStyle(y.box, ink)}"${
     editing ? ' contenteditable="true" spellcheck="false" data-ph="Say something"' : ''}>${esc(st.body || '')}</div>`;
 }
 
@@ -1284,7 +1313,7 @@ function storyFace(st, live, editing) {
   const media = st.kind === 'text' ? ''
     : st.kind === 'photo' ? `<img class="fill" alt=""${st.url ? ` src="${esc(st.url)}"` : ''}>`
     : `<video class="fill" playsinline ${live ? 'autoplay' : ''} muted="${live ? 'false' : 'true'}"${st.url ? ` src="${esc(st.url)}"` : ''}></video>`;
-  const stk = y.stk ? `<span class="stk" style="left:${y.sx * 100}%;top:${y.sy * 100}%">${esc(y.stk)}</span>` : '';
+  const stk = stickersOf(y).map((k, i) => `<span class="stk" data-i="${i}" style="left:${k.x * 100}%;top:${k.y * 100}%">${esc(k.e)}</span>`).join('');
   return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${wordsOf(st, editing)}${stk}</div>`;
 }
 
@@ -1415,9 +1444,20 @@ async function storyFile(input) {
   newStory({kind: photo ? 'photo' : 'video', file: small, body: ''});
 }
 function draftSet(k, v) { S.draft.style = {...styleOf(S.draft), [k]: v}; paintDraft(); }
-const cycle = (k, list) => { const y = styleOf(S.draft); draftSet(k, (((+y[k] || 0) + 1) % list.length)); };
-function draftAlign() { const a = ['center', 'left', 'right'], y = styleOf(S.draft); draftSet('align', a[(a.indexOf(y.align) + 1) % 3]); }
-function draftSticker(e) { const y = styleOf(S.draft); S.draft.style = {...y, stk: y.stk === e ? null : e}; $('#make .stickers').hidden = true; paintDraft(); }
+// One tray under the card at a time: fonts, colours, backgrounds, effects or stickers.
+function draftTray(k) { S.draft.tray = S.draft.tray === k ? null : k; paintDraft(); }
+// A sticker lands near the middle, a little off so two do not sit on top of each other.
+function draftSticker(e) {
+  const y = styleOf(S.draft), n = stickersOf(y).length;
+  const dx = [0, .17, -.17, .3, -.3][n % 5];
+  S.draft.style = {...y, stk: null, stks: [...stickersOf(y), {e, x: +(.5 + dx).toFixed(3), y: +(.66 - Math.floor(n / 5) * .12 - (n % 5) * .03).toFixed(3)}]};
+  S.draft.tray = null; paintDraft();
+}
+function draftStk(i, patch) {
+  const y = styleOf(S.draft), list = stickersOf(y);
+  S.draft.style = {...y, stk: null, stks: patch ? list.map((k, j) => j === i ? {...k, ...patch} : k) : list.filter((k, j) => j !== i)};
+  if (!patch) paintDraft();
+}
 // Typing does not repaint: the block being typed into is already the card, and redrawing it
 // under a caret is how a caret ends up somewhere else.
 function draftTyped(el) {
@@ -1433,24 +1473,32 @@ function closeDraft() { S.draft = null; $('#make').hidden = true; $('#make').inn
 function paintDraft() {
   const d = S.draft, box = $('#make');
   if (!d) return;
-  const y = styleOf(d), f = STORY_FONT[y.font] || STORY_FONT[0], m = me();
+  const y = styleOf(d), f = STORY_FONT[y.font] || STORY_FONT[0], ink = STORY_INK[y.ink] || '#fff', m = me(), t = d.tray;
+  const align = a => `<path d="M4 6h16M${a === 'left' ? '4 12h10M4 18h13' : a === 'right' ? '10 12h10M7 18h13' : '7 12h10M5 18h14'}"/>`;
+  const tray = !t ? '' : `<div class="tray" data-tray="${t}">${
+    t === 'font' ? `<div class="trow">
+        ${[0, 1, 2].map(i => `<button type="button" class="chip${y.size === i ? ' on' : ''}" onclick="draftSet('size',${i})" aria-label="Size ${i + 1}" style="font-size:${12 + i * 3}px">Aa</button>`).join('')}
+        <i class="sep"></i>
+        ${['left', 'center', 'right'].map(a => `<button type="button" class="chip ic${y.align === a ? ' on' : ''}" onclick="draftSet('align','${a}')" aria-label="Align ${a}"><svg viewBox="0 0 24 24">${align(a)}</svg></button>`).join('')}
+      </div><div class="grid fonts">${STORY_FONT.map((k, i) => `<button type="button" class="${y.font === i ? 'on' : ''}" style="font-family:${k.css};font-weight:${k.w};font-style:${k.fs || 'normal'};text-transform:${k.tt};letter-spacing:${k.ls}" onclick="draftSet('font',${i})">${k.name}</button>`).join('')}</div>`
+    : t === 'ink' ? `<div class="grid inks">${STORY_INK.map((c, i) => `<button type="button" class="dot${y.ink === i ? ' on' : ''}" style="background:${c}" onclick="draftSet('ink',${i})" aria-label="Colour ${i + 1}"></button>`).join('')}</div>`
+    : t === 'bg' ? `<div class="grid bgs">${STORY_BG.map((b, i) => `<button type="button" class="tile${y.bg === i ? ' on' : ''}" style="background:${b}" onclick="draftSet('bg',${i})" aria-label="Background ${i + 1}"></button>`).join('')}</div>`
+    : t === 'fx' ? `<div class="grid fxs">${STORY_FX.map((n, i) => `<button type="button" class="${y.box === i ? 'on' : ''}" onclick="draftSet('box',${i})"><span class="demo" style="${fxStyle(i, ink)}">Aa</span>${n}</button>`).join('')}</div>`
+    : `<div class="grid stks">${[...EMOJI, ...STICKER_MORE].map(e => `<button type="button" onclick="draftSticker('${e}')">${e}</button>`).join('')}</div>`
+  }</div>`;
   box.hidden = false;
   box.innerHTML = `<div class="pane">
     <div class="mbar top">
       <button type="button" class="x" onclick="closeDraft()" aria-label="Close">✕</button>
       <div class="tools">
-        ${d.kind === 'text' ? `<button type="button" class="bgbtn" style="background:${STORY_BG[y.bg]}" onclick="cycle('bg',STORY_BG)" aria-label="Background"></button>` : ''}
-        <button type="button" class="fontpill" onclick="cycle('font',STORY_FONT)" style="font-family:${f.css};font-weight:${f.w}">${f.name}</button>
-        <button type="button" class="tb${y.box ? ' on' : ''}" onclick="cycle('box',[0,1,2])" aria-label="Text background"><span class="ab">A</span></button>
-        <button type="button" class="tb" onclick="draftAlign()" aria-label="Align"><svg viewBox="0 0 24 24"><path d="M4 6h16M${y.align === 'left' ? '4 12h10M4 18h13' : y.align === 'right' ? '10 12h10M7 18h13' : '7 12h10M5 18h14'}"/></svg></button>
-        <button type="button" class="tb" onclick="cycle('size',[0,1,2])" aria-label="Size"><span class="ab" style="font-size:${13 + y.size * 3}px">Aa</span></button>
-        <button type="button" class="tb" onclick="$('#make .stickers').hidden=!$('#make .stickers').hidden" aria-label="Sticker">☺</button>
+        ${d.kind === 'text' ? `<button type="button" class="bgbtn${t === 'bg' ? ' on' : ''}" style="background:${STORY_BG[y.bg]}" onclick="draftTray('bg')" aria-label="Background"></button>` : ''}
+        <button type="button" class="fontpill${t === 'font' ? ' on' : ''}" onclick="draftTray('font')" style="font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'}">${f.name}<i>▾</i></button>
+        <button type="button" class="tb inkbtn${t === 'ink' ? ' on' : ''}" onclick="draftTray('ink')" aria-label="Text colour"><span style="background:${ink}"></span></button>
+        <button type="button" class="tb${t === 'fx' ? ' on' : ''}" onclick="draftTray('fx')" aria-label="Text effect"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 17l.8 2.2L8 20l-2.2.8L5 23l-.8-2.2L2 20l2.2-.8z"/></svg></button>
+        <button type="button" class="tb${t === 'stk' ? ' on' : ''}" onclick="draftTray('stk')" aria-label="Sticker">☺</button>
       </div>
     </div>
-    <div class="canvas">${storyFace(d, false, true)}
-      <div class="stickers" hidden>${EMOJI.map(e => `<button type="button" onclick="draftSticker('${e}')">${e}</button>`).join('')}</div>
-    </div>
-    <div class="inks">${STORY_INK.map((c, i) => `<button type="button" class="dot${y.ink === i ? ' on' : ''}" style="background:${c}" onclick="draftSet('ink',${i})" aria-label="Colour ${i + 1}"></button>`).join('')}</div>
+    <div class="canvas">${storyFace(d, false, true)}${tray}</div>
     <div class="mbar bottom">
       <span class="who">${av(m, 'sm')}${d.suggested ? 'Ready when you are' : 'Your story'}</span>
       <button type="button" class="go" onclick="postStory()" aria-label="Share">Share<svg viewBox="0 0 24 24"><path d="M20 12L4 4l6 8-6 8 16-8Z"/></svg></button>
@@ -1459,16 +1507,16 @@ function paintDraft() {
   const type = box.querySelector('.type');
   if (type) {
     type.addEventListener('input', () => draftTyped(type));
-    dragify(type, 'x', 'y', () => { type.focus(); placeCaretEnd(type); });
+    dragify(type, (x, yy) => { S.draft.style = {...styleOf(S.draft), x, y: yy}; }, () => { type.focus(); placeCaretEnd(type); });
   }
-  const stk = box.querySelector('.stk');
-  if (stk) dragify(stk, 'sx', 'sy', () => {});
+  // Stickers drag; a tap on one takes it off the card.
+  box.querySelectorAll('.stk').forEach(el => { const i = +el.dataset.i; dragify(el, (x, yy) => draftStk(i, {x, y: yy}), () => draftStk(i)); });
 }
 
 // Drag a thing about the card. A press that does not move is a tap, and a tap on the words
 // puts the caret in them; a press that moves takes the block with it and remembers where it
 // was let go. While the words have the caret, pointer events are theirs to place it.
-function dragify(el, kx, ky, onTap) {
+function dragify(el, set, onTap) {
   let sx = 0, sy = 0, ox = 0, oy = 0, moved = false, live = false;
   el.addEventListener('pointerdown', e => {
     if (el.isContentEditable && document.activeElement === el) return;
@@ -1492,7 +1540,7 @@ function dragify(el, kx, ky, onTap) {
     const st = el.closest('.face').getBoundingClientRect();
     const x = Math.min(.95, Math.max(.05, (e.clientX - sx + ox - st.left) / st.width));
     const yy = Math.min(.95, Math.max(.05, (e.clientY - sy + oy - st.top) / st.height));
-    S.draft.style = {...styleOf(S.draft), [kx]: +x.toFixed(3), [ky]: +yy.toFixed(3)};
+    set(+x.toFixed(3), +yy.toFixed(3));
   };
   el.addEventListener('pointerup', done);
   el.addEventListener('pointercancel', done);
