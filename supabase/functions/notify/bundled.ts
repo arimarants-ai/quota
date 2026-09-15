@@ -139,7 +139,7 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
@@ -147,6 +147,12 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'react
   // A story says so, because it is gone in a day and the post it is not is still there.
   if (kind === 'story_like') return `${name} liked your story`;
   if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
+  // Which comment, so a notification about one of several reads as being about one.
+  if (kind === 'comment_like') {
+    const said = (extra ?? '').replace(/\s+/g, ' ').trim();
+    const short = said.length > 60 ? `${said.slice(0, 59)}\u2026` : said;
+    return short ? `${name} liked your comment: ${short}` : `${name} liked your comment`;
+  }
   // A comment is worth reading in the notification itself, but a long one turns the
   // whole thing into a wall; the rest is one tap away.
   const body = (extra ?? '').replace(/\s+/g, ' ').trim();
@@ -206,8 +212,10 @@ Deno.serve(async (req) => {
     });
   };
 
-  // A notification is worth tapping only if it lands on the thing it is about.
+  // A notification is worth tapping only if it lands on the thing it is about: the post
+  // for something about a post, and the comment itself for something about a comment.
   const atPost = (id: number) => `${SITE_URL}/#post-${id}`;
+  const atComment = (id: number) => `${SITE_URL}/#comment-${id}`;
 
   if (kind === 'invite') {
     const { type, from_user, to_user, group_id: gid } = record ?? {};
@@ -243,6 +251,24 @@ Deno.serve(async (req) => {
     }));
   }
 
+  // Somebody liked a comment. The person to tell is whoever wrote it, not whoever owns
+  // the post it sits under.
+  if (kind === 'comment_like') {
+    const { comment_id, user_id: actor } = record ?? {};
+    if (!comment_id || !actor) return new Response('ignored', { status: 200 });
+    const [[comment], [from]] = await Promise.all([
+      rest(`comments?id=eq.${comment_id}&select=user_id,body`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+    ]);
+    if (!comment || !from || comment.user_id === actor) return new Response('ignored', { status: 200 });
+    return blast([comment.user_id], JSON.stringify({
+      title: 'Quota',
+      body: socialFor('comment_like', who(from), comment.body),
+      url: atComment(comment_id),
+      tag: `comment-like-${comment_id}`,
+    }));
+  }
+
   if (kind === 'comment' || kind === 'like' || kind === 'reaction') {
     const { post_id, user_id: actor, body: text, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
@@ -255,7 +281,8 @@ Deno.serve(async (req) => {
     return blast([post.user_id], JSON.stringify({
       title: 'Quota',
       body: socialFor(kind, who(from), kind === 'comment' ? text : kind === 'reaction' ? emoji : null),
-      url: atPost(post_id),
+      // A comment lands on the comment; a like or a reaction is about the post itself.
+      url: kind === 'comment' && record.id ? atComment(record.id) : atPost(post_id),
       // A reaction is tagged by the emoji so two different ones do not replace each other.
       tag: kind === 'reaction' ? `reaction-${post_id}-${emoji}` : `${kind}-${post_id}`,
     }));

@@ -103,10 +103,15 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   color:var(--text);font-variant-numeric:tabular-nums;text-align:right;min-width:0;overflow-wrap:anywhere}
 .mini div span{min-width:0;line-height:1.25;overflow-wrap:anywhere}
 .mini div em{display:block;font-style:normal;font-weight:600;font-size:11px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
-.mini i{display:block;height:2px;background:var(--line);border-radius:0;overflow:hidden}
+/* The whole gradient is the whole day. A quarter done shows the first quarter of it, which
+   is the dark end, and it lightens as it fills — so the colour says how far along you are
+   and not merely that you are along. Drawn as the gradient with the unearned part covered
+   rather than as a fill that is coloured, because a fill scales its own gradient and a
+   quarter-width fill would then be the whole dark-to-light run squeezed into a quarter. */
+.mini i{display:block;height:2px;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);border-radius:0;overflow:hidden}
 .mini div:last-child{border-bottom:0}
-.mini i::after{content:"";display:block;height:100%;background:var(--mk);width:var(--w)}
-.mini i.done::after{background:var(--mk)}
+.mini i::after{content:"";display:block;height:100%;margin-left:var(--w);width:calc(100% - var(--w));
+  background:var(--line);transition:margin-left .4s,width .4s}
 /* Only people with something running are in this row, unseen first. A lit ring is a story
    you have not watched; once you have, it goes quiet rather than disappearing. */
 .stories{display:flex;gap:14px;padding:14px 20px 2px;overflow-x:auto;scrollbar-width:none}
@@ -315,9 +320,10 @@ button.rg{border:0;font:inherit}
 .q{margin-top:14px}
 .q .t{display:flex;justify-content:space-between;font-weight:700;font-size:14px}
 .q .t span{color:var(--muted)}
-.tr{height:3px;border-radius:0;background:var(--line);margin-top:8px;overflow:hidden}
-.tr i{display:block;height:100%;border-radius:0;background:var(--mk);transition:width .4s}
-.tr i.done{background:var(--mk)}
+/* The same bar in a group card, so the two cannot say different things about one day. */
+.tr{height:3px;border-radius:0;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);margin-top:8px;overflow:hidden}
+.tr i{display:block;height:100%;border-radius:0;margin-left:var(--w, 0);width:calc(100% - var(--w, 0));
+  background:var(--line);transition:margin-left .4s,width .4s}
 .ppl{display:flex;margin-top:14px;align-items:center}
 .ppl .av{border:2px solid var(--card);margin-left:-8px}
 .ppl .av:first-child{margin-left:0}
@@ -574,6 +580,16 @@ button.rg{border:0;font:inherit}
 .c b{font-weight:800;flex:none}
 .c span{color:var(--muted);flex:1;font-weight:500}
 .c .x{background:none;padding:0 4px;color:var(--muted);font-weight:600;font-size:13px}
+/* A heart on a reply, the same gesture as the one on the post, at the size of a reply. */
+.c .clk{background:none;padding:2px 3px;flex:none;display:flex;align-items:center;gap:3px;color:var(--muted);align-self:flex-start}
+.c .clk svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.c .clk i{font-style:normal;font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.c .clk.on{color:#ff3b5c}
+.c .clk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
+.c .clk:active{opacity:1;transform:scale(.85)}
+/* Arrived here from a notification: say which reply it was, then stop saying it. */
+.clist .c.found{background:var(--mktint);box-shadow:0 0 0 6px var(--mktint);animation:foundit 2.2s ease-out}
+@keyframes foundit{0%,55%{background:var(--mkveil);box-shadow:0 0 0 6px var(--mkveil)}}
 .cin{display:flex;gap:8px;margin-top:4px;align-items:center}
 .cin input{padding:10px 12px}          /* 16px, like every field: smaller and iOS zooms in */
 .cin button{padding:0 14px}
@@ -881,7 +897,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v53';
+const BUILD = 'quota-v54';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -926,7 +942,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1099,7 +1115,7 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -1118,6 +1134,7 @@ async function fetchAll() {
     q(sb.from('story_likes').select('story_id,user_id')),
     q(sb.from('story_reactions').select('story_id,user_id,emoji')),
     q(sb.from('badges').select('user_id,streak,earned_at')),
+    q(sb.from('comment_likes').select('comment_id,user_id')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -1138,6 +1155,7 @@ async function fetchAll() {
   S.slikes = (slikes || []).map(l => ({s: l.story_id, u: l.user_id}));
   S.sreacts = (sreacts || []).map(r => ({s: r.story_id, u: r.user_id, e: r.emoji}));
   S.badges = (badges || []).map(b => ({u: b.user_id, n: b.streak, ts: Date.parse(b.earned_at)}));
+  S.clikes = (clikes || []).map(l => ({c: l.comment_id, u: l.user_id}));
   S.seen = S.views.filter(v => v.u === uid).map(v => v.s);
   // Signed one round trip for the lot, the way proof is. A story with no file is a card of
   // text and needs nothing.
@@ -1928,7 +1946,7 @@ function groupCard(g) {
   const m = me(), doneIds = g.members.filter(id => hit(g, id)), st = streak(g, m.id);
   return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><h2>${esc(g.name)}<span>${
     onDay(g) ? `${doneIds.length} of ${g.members.length} done` : 'rest day'}${st ? ` · ${st} day streak` : ''}</span></h2>
-    ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="width:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
+    ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="--w:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
     <div class="ppl">${g.members.map(id => av(user(id), hit(g, id) ? '' : 'todo')).join('')}<span class="muted">${
       !onDay(g) ? `rest day · ${esc(restText(g))}`
       : doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
@@ -2144,8 +2162,10 @@ function acts(p, comments) {
 function commentsFor(p, cs) {
   if (S.noComments) return `<div class="cmts"><p class="muted">Comments are off until the v2 block of schema.sql is run.</p></div>`;
   return `<div class="cmts">
-    ${cs.length ? `<div class="clist">${cs.map(c => `<div class="c${c.pending ? ' pending' : ''}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
-      <span>${esc(c.body)}</span></div>${c.userId === me().id && !c.pending ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')}</div>` : ''}
+    ${cs.length ? `<div class="clist">${cs.map(c => `<div class="c${c.pending ? ' pending' : ''}" data-cmt="${c.id}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
+      <span>${esc(c.body)}</span></div>${c.pending ? '' : `<button type="button" class="clk${iLikeComment(c.id) ? ' on' : ''}" onclick="toggleCommentLike(${c.id})" aria-label="${iLikeComment(c.id) ? 'Unlike' : 'Like'} this comment">${HEART}${
+        commentLikes(c.id).length ? `<i>${num(commentLikes(c.id).length)}</i>` : ''}</button>`}${
+        c.userId === me().id && !c.pending ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')}</div>` : ''}
     <form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})">
       <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">${SMILEY}</button>
       <input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off">
@@ -3805,6 +3825,22 @@ async function delPost(id) {
   await sb.storage.from('proof').remove([p.path]);
   load();
 }
+// A comment can be liked, the same gesture as liking the post it sits under, and whoever
+// wrote it is the one who hears about it.
+const commentLikes = id => S.clikes.filter(l => l.c === id);
+const iLikeComment = id => S.clikes.some(l => l.c === id && l.u === me().id);
+async function toggleCommentLike(id) {
+  const m = me(), had = iLikeComment(id);
+  S.clikes = had ? S.clikes.filter(l => !(l.c === id && l.u === m.id)) : [...S.clikes, {c: id, u: m.id}];
+  render();
+  try {
+    if (had) await q(sb.from('comment_likes').delete().eq('comment_id', id).eq('user_id', m.id));
+    else await q(sb.from('comment_likes').insert({comment_id: id, user_id: m.id}));
+  } catch (e) {
+    S.clikes = had ? [...S.clikes, {c: id, u: m.id}] : S.clikes.filter(l => !(l.c === id && l.u === m.id));
+    render();
+  }
+}
 async function addComment(f, postId) {
   const body = f.body.value.trim(); if (!body) return;
   working(f, '…');
@@ -3968,9 +4004,25 @@ function goToHash() {
     const id = +m[1];
     if (!S.posts.some(p => p.id === id)) return;
     history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = null; render();
+    S.tab = 'feed'; S.open = S.who = null; S.settings = false; render();
     const el = document.querySelector(`[data-post="${id}"]`);
     if (el) el.scrollIntoView({block: 'start'});
+    return;
+  }
+  // A notification about a comment lands on the comment, not near it: the post is opened,
+  // the reply is scrolled to and marked for a second so the eye finds it among twenty.
+  const cm = /^#comment-(\d+)$/.exec(location.hash || '');
+  if (cm) {
+    const cid = +cm[1], c = S.comments.find(x => x.id === cid);
+    if (!c || !S.posts.some(p => p.id === c.postId)) return;
+    history.replaceState(null, '', location.pathname);
+    S.tab = 'feed'; S.open = S.who = null; S.settings = false; render();
+    const el = document.querySelector(`[data-cmt="${cid}"]`);
+    if (el) {
+      el.scrollIntoView({block: 'center'});
+      el.classList.add('found');
+      setTimeout(() => el.classList.remove('found'), 2200);
+    }
     return;
   }
   const sm = /^#story-([0-9a-f-]+)$/i.exec(location.hash || '');
