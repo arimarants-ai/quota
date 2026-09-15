@@ -1309,6 +1309,20 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('.post .cmts .emoji button').first().click();
   await page.waitForTimeout(200);
   check('    putting one where the caret was', /great./.test(await box.inputValue()), await box.inputValue());
+  // A redraw lands between the tap and the insert often enough to matter: the tray that
+  // was tapped is then a branch that has been thrown away, and walking up from it reaches
+  // a box nobody can see. It goes into the one on screen.
+  await box.fill('again');
+  await page.evaluate(() => {
+    const t = document.querySelector('.post .cmts .emoji button');
+    render();                                        // the whole screen, out from under it
+    putEmoji(t, '\u2705');
+  });
+  await page.waitForTimeout(200);
+  check('      even when the screen is redrawn under the tap',
+    /again\u2705/.test(await box.inputValue()), await box.inputValue());
+  check('      and the tray is still open after a redraw',
+    await page.locator('.post .cmts .emoji').first().isVisible());
 
   // Every post carries its own box and its own tray, so the one you opened is the one that
   // answers — the second post must not have taken the first one's emoji.
@@ -1523,7 +1537,42 @@ await withPage(SIGNED_IN, async page => {
   check('your own story counts the hearts it got', /2/.test(await page.locator('#story .tally').innerText()));
   check('  shows what people left on it', await page.locator('#story .reacts span').count() === 1);
   check('  and offers nothing to press on yourself', await page.locator('#story .answer').count() === 0);
-  await page.locator('#story .who .x').click();
+
+  // Who watched and who liked are the same sheet read two ways.
+  await page.locator('#story .tally').click();
+  await page.waitForTimeout(200);
+  const liked = await page.locator('#story .seenby').innerText();
+  check('  tapping the count says who liked it', /Liked by 2/.test(liked) && /Sam/.test(liked) && /Kit/.test(liked), liked);
+  check('    marking what each of them left', await page.locator('#story .seenby .hrt').count() === 2
+    && await page.locator('#story .seenby .em').count() === 1);
+  // The sheet covers the buttons that opened it, so it carries both lists itself.
+  await page.locator('#story .seenby .tabs button').first().click();
+  await page.waitForTimeout(200);
+  check('    and the other list is one tap away, inside the sheet',
+    await page.locator('#story .seenby .tabs button.on').innerText().then(t => /Seen by/.test(t)));
+
+  // A story of your own opens a menu, not a bin, and nothing in the app is an emoji you press.
+  check('your own story has no bin on it', !/[\u{1F300}-\u{1FAFF}]/u.test(
+    await page.locator('#story .who .bin').innerText() || 'x'));
+  await page.locator('#story .who .bin').click();
+  await page.waitForTimeout(300);
+  const menu = await page.locator('#dlg .menu').innerText();
+  check('  it offers more than deleting', /edit/i.test(menu) && /liked/i.test(menu) && /watched/i.test(menu), menu);
+  check('    with deleting last', /delete/i.test((await page.locator('#dlg .menu button').last().innerText())));
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(350);
+  check('  editing reopens the editor on that story', await page.locator('#make').isVisible()
+    && await page.evaluate(() => S.draft.editing) === 20);
+  check('    saving rather than sharing', /save/i.test(await page.locator('#make .go').innerText()),
+    await page.locator('#make .go').innerText());
+  await page.evaluate(() => { S.draft.body = 'reworded'; });
+  await page.locator('#make .go').click();
+  await page.waitForTimeout(400);
+  const edits = (await page.evaluate(() => self.__edits)).filter(e => e.table === 'stories');
+  check('    and it goes back to the story it came from, not up as a new one',
+    edits.length === 1 && edits[0].body === 'reworded'
+    && await page.evaluate(() => S.stories.filter(x => x.body === 'reworded').length) === 0,
+    JSON.stringify(edits));
 });
 
 // Making one. The words are typed onto the card itself and every control changes the
@@ -1627,6 +1676,26 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => closeDraft());
   await page.waitForTimeout(150);
   check('  and closing it throws the draft away', await page.evaluate(() => S.draft) === null);
+});
+
+// An emoji is something people leave on each other's things, never a control.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const emoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+  await page.evaluate(() => newStory());
+  await page.waitForTimeout(250);
+  check('the sticker button is drawn, not an emoji',
+    !emoji.test(await page.locator('#make .tb[aria-label=Sticker]').innerText())
+    && await page.locator('#make .tb[aria-label=Sticker] svg').count() === 1,
+    await page.locator('#make .tb[aria-label=Sticker]').innerText());
+  check('  and what it opens is all emoji, which is the point of it',
+    await page.evaluate(() => { draftTray('stk'); return true; }));
+  await page.evaluate(() => closeDraft());
+  await page.waitForTimeout(200);
+  check('the emoji button on a comment box is drawn too',
+    !emoji.test(await page.locator('.post .cin .emo').first().innerText())
+    && await page.locator('.post .cin .emo svg').count() >= 1,
+    await page.locator('.post .cin .emo').first().innerText());
 });
 
 // Finishing the whole challenge is worth saying out loud, and is rarer than finishing a day.

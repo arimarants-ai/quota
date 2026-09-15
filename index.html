@@ -190,15 +190,27 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 #story .seenby[hidden]{display:none}
 #story .seenby .hd{display:flex;align-items:center;justify-content:space-between}
 #story .seenby .hd .x{background:none;font-size:17px;padding:4px 6px}
+#story .seenby .tabs{display:flex;gap:6px;min-width:0}
+#story .seenby .tabs button{background:none;padding:6px 0;margin-right:10px;font-size:14.5px;font-weight:800;color:var(--muted);border-bottom:2px solid transparent}
+#story .seenby .tabs button.on{color:var(--text);border-bottom-color:var(--mk)}
+#story .seenby .mark{display:flex;align-items:center;gap:8px;flex:none}
+#story .seenby .em{font-style:normal;font-size:17px;line-height:1}
+#story .seenby .hrt{display:block;width:17px;height:17px}
+#story .seenby .hrt svg{width:100%;height:100%;fill:#ff3b5c;stroke:#ff3b5c;stroke-width:1.6}
+/* A list of things you can do, one per line, the last one the one you cannot undo. */
+.menu{display:flex;flex-direction:column;gap:2px;margin-top:14px}
+.menu button{background:none;text-align:left;padding:14px 4px;font-size:15px;font-weight:700;border-bottom:1px solid var(--line)}
+.menu button:last-child{border-bottom:0}
+.menu button.bad{color:#d1344f}
 #story .seenby b{font-size:14.5px;font-weight:800}
 /* Answering one: a heart and an emoji, along the bottom where a thumb already is. */
-#story .answer{position:absolute;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom));z-index:3;
-  display:flex;align-items:center;justify-content:center;gap:22px}
+#story .answer{position:absolute;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:3;
+  display:flex;flex-direction:row;align-items:center;gap:6px}
 #story .answer button{background:none;padding:8px;color:#fff;display:grid;place-items:center}
 #story .answer svg{width:31px;height:31px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
   filter:drop-shadow(0 2px 8px rgba(0,0,0,.55))}
 #story .answer .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
-#story .answer .reactpick{bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);transform-origin:bottom center;
+#story .answer .reactpick{bottom:calc(100% + 4px);right:0;left:auto;transform-origin:bottom right;
   background:rgba(0,0,0,.72);backdrop-filter:blur(14px);border:0;border-radius:999px}
 #story .answer .reactpick button{padding:6px 8px;font-size:24px;line-height:1}
 /* What your own story got: beside the eye, in the same quiet pill. */
@@ -456,7 +468,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
    doing, and the padding is what keeps the tap target the size of a thumb without it. */
 .cin button.primary{background:none;color:var(--mkt);padding:9px 6px;font-size:17px;line-height:1.3}
 .cin button.primary:active{opacity:.55;transform:none}
-.cin .emo{background:var(--soft);padding:0;width:38px;height:38px;flex:none;font-size:19px;line-height:1;border-radius:0}
+.cin .emo{background:var(--soft);padding:0;width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:0}
+.cin .emo svg{width:21px;height:21px;fill:none;stroke:var(--muted);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* bubble bar */
 /* iOS keeps a fixed element pinned to the layout viewport, which is not what is on
    screen: while the URL bar collapses or a keyboard comes up the two differ, and the bar
@@ -1115,6 +1128,7 @@ function render() {
     // anything half-typed into a reply box.
     const keep = new Map([...document.querySelectorAll('#app .post[data-post] .reel')].map(r => [r.parentNode.dataset.post, r]));
     const typed = new Map([...document.querySelectorAll('#app .post[data-post] .cin input')].filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
+    const trays = [...document.querySelectorAll('#app .post[data-post] .emoji:not([hidden])')].map(t => t.closest('.post').dataset.post);
     $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
     document.querySelectorAll('#app .post[data-post] .reel').forEach(r => {
       const old = keep.get(r.parentNode.dataset.post); if (!old) return;
@@ -1126,6 +1140,7 @@ function render() {
       r.replaceWith(old);
     });
     typed.forEach((v, id) => { const i = document.querySelector(`#app .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
+    trays.forEach(id => { const t = document.querySelector(`#app .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
   // After the screen is drawn, not before: the celebration sits over whatever you were
   // looking at. Cheap enough to ask on every render, and it answers once.
   const mile = milestoneDue();
@@ -1391,14 +1406,15 @@ function paintStory() {
   box.innerHTML = `<div class="pane">
     <div class="bars">${all.map((x, i) => `<i class="${i < S.story.i ? 'done' : i === S.story.i ? 'now' : ''}"></i>`).join('')}</div>
     <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
-      ${mine ? `<button type="button" class="bin" onclick="delStory(${st.id})" aria-label="Delete">🗑</button>` : ''}
+      ${mine ? `<button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>` : ''}
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
     ${storyFace(st, true)}
     <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
     <button type="button" class="tap fwd" onclick="stepStory(1)" aria-label="Next"></button>
     ${storyBubbles(st.id)}
     ${mine ? `<button type="button" class="eye" onclick="seenBy(${st.id})">${EYE} ${viewersOf(st.id).length}</button>
-      ${likes ? `<span class="tally">${HEART} ${num(likes)}</span>` : ''}<div class="seenby" hidden></div>`
+      <button type="button" class="tally" onclick="seenBy(${st.id},'likes')" aria-label="Who liked it">${HEART} ${num(likes)}</button>
+      <div class="seenby" hidden></div>`
     : `<div class="answer">
         <button type="button" class="lk${iLikeStory(st.id) ? ' on' : ''}" onclick="toggleStoryLike(${st.id})" aria-label="${iLikeStory(st.id) ? 'Unlike' : 'Like'}">${HEART}</button>
         <button type="button" class="rx" onclick="pickStoryReact(event,${st.id})" aria-label="React">
@@ -1468,15 +1484,35 @@ function storyBubbles(id) {
 const viewersOf = id => S.views.filter(v => v.s === id && v.u !== me().id).sort((a, b) => b.ts - a.ts);
 const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/></svg>';
 const HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg>';
-function seenBy(id) {
-  const box = $('#story .seenby'), on = box.hidden;
+// An emoji is something people leave on each other's things. It is never the button that
+// does the leaving, and never a button that deletes anything: a picture of a face carries
+// a feeling, and a control should not.
+const SMILEY = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>';
+const DOTS = '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>';
+// Who watched, or who liked — the same sheet, because they are the same list read two
+// ways, and what each person left is shown beside their name either way.
+function seenBy(id, which) {
+  const box = $('#story .seenby'), same = !box.hidden && box.dataset.which === (which || 'views');
   clearTimeout(storyTimer);
-  box.hidden = !on;
-  if (!on) { paintStory(); return; }
-  const vs = viewersOf(id);
-  box.innerHTML = `<div class="hd"><b>Seen by ${vs.length}</b><button type="button" class="x" onclick="seenBy(${id})" aria-label="Close">✕</button></div>
-    ${vs.length ? vs.map(v => { const u = user(v.u); return `<div class="row">${av(u)}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div><span class="muted">${ago(v.ts)}</span></div>`; }).join('')
-      : '<p class="muted">Nobody yet.</p>'}`;
+  if (same) { box.hidden = true; paintStory(); return; }
+  box.hidden = false;
+  box.dataset.which = which || 'views';
+  const likes = which === 'likes';
+  const rows = likes
+    ? storyLikes(id).filter(l => l.u !== me().id).map(l => ({u: l.u, ts: null}))
+    : viewersOf(id);
+  const left = uid => {
+    const mine = S.sreacts.filter(r => r.s === id && r.u === uid).map(r => r.e).join('');
+    return (S.slikes.some(l => l.s === id && l.u === uid) ? `<i class="hrt">${HEART}</i>` : '') + (mine ? `<i class="em">${esc(mine)}</i>` : '');
+  };
+  // Both lists are reachable from inside the sheet: it covers the buttons that opened it,
+  // so switching between them cannot depend on reaching those again.
+  box.innerHTML = `<div class="hd">
+      <span class="tabs"><button type="button" class="${likes ? '' : 'on'}" onclick="seenBy(${id},'views')">Seen by ${viewersOf(id).length}</button>
+        <button type="button" class="${likes ? 'on' : ''}" onclick="seenBy(${id},'likes')">Liked by ${storyLikes(id).filter(l => l.u !== me().id).length}</button></span>
+      <button type="button" class="x" onclick="seenBy(${id},'${which || 'views'}')" aria-label="Close">✕</button></div>
+    ${rows.length ? rows.map(v => { const u = user(v.u); return `<div class="row">${av(u)}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div><span class="mark">${left(v.u)}${v.ts ? `<span class="muted">${ago(v.ts)}</span>` : ''}</span></div>`; }).join('')
+      : `<p class="muted">${likes ? 'No likes yet.' : 'Nobody yet.'}</p>`}`;
 }
 async function markSeen(id) {
   if (S.seen.includes(id)) return;
@@ -1484,6 +1520,28 @@ async function markSeen(id) {
   S.views = [...S.views, {s: id, u: me().id, ts: Date.now()}];
   const el = $('#story'); if (el) el.dataset.seen = String(S.seen.length);
   try { await q(sb.from('story_views').insert({story_id: id, user_id: me().id}), true); } catch (e) {}
+}
+// What you can do to a story you posted. A menu rather than a bin on its own: deleting is
+// the last thing on it, not the only thing, and not a picture of a rubbish bin.
+function storyMenu(id) {
+  const st = S.stories.find(x => x.id === id);
+  if (!st) return;
+  clearTimeout(storyTimer);
+  dlg(`<h2>Your story</h2><p class="muted">${esc(ago(st.ts))} ago · ${plural(viewersOf(id).length, 'view')} · ${plural(storyLikes(id).length, 'like')}</p>
+    <div class="menu">
+      <button type="button" onclick="dlg();editStory(${id})">Edit the words and colours</button>
+      <button type="button" onclick="dlg();seenBy(${id},'likes')">See who liked it</button>
+      <button type="button" onclick="dlg();seenBy(${id})">See who watched it</button>
+      <button type="button" class="bad" onclick="dlg();delStory(${id})">Delete this story</button>
+    </div>`);
+}
+// Editing reopens the editor on the story itself: the picture or the clip it already has
+// stays where it is, and only the wording and the look are sent back.
+function editStory(id) {
+  const st = S.stories.find(x => x.id === id);
+  if (!st) return;
+  closeStory();
+  newStory({...st, editing: id});
 }
 async function delStory(id) {
   const st = S.stories.find(x => x.id === id);
@@ -1505,6 +1563,7 @@ async function delStory(id) {
 function newStory(pre) {
   S.draft = {kind: 'text', body: '', style: {}, ...(pre || {})};
   if (S.draft.file && !S.draft.url) S.draft.url = URL.createObjectURL(S.draft.file);
+  if (S.draft.editing) S.draft.file = null;   // the file is already up; only words and look are being changed
   paintDraft();
 }
 // Three ways in, and the camera is the same one proof uses — capped at ten seconds when
@@ -1585,13 +1644,14 @@ function paintDraft() {
         <button type="button" class="fontpill${t === 'font' ? ' on' : ''}" onclick="draftTray('font')" style="font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'}">${f.name}<i>▾</i></button>
         <button type="button" class="tb inkbtn${t === 'ink' ? ' on' : ''}" onclick="draftTray('ink')" aria-label="Text colour"><span style="background:${ink}"></span></button>
         <button type="button" class="tb${t === 'fx' ? ' on' : ''}" onclick="draftTray('fx')" aria-label="Text effect"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 17l.8 2.2L8 20l-2.2.8L5 23l-.8-2.2L2 20l2.2-.8z"/></svg></button>
-        <button type="button" class="tb${t === 'stk' ? ' on' : ''}" onclick="draftTray('stk')" aria-label="Sticker">☺</button>
+        <button type="button" class="tb${t === 'stk' ? ' on' : ''}" onclick="draftTray('stk')" aria-label="Sticker">${SMILEY}</button>
       </div>
     </div>
     <div class="canvas">${storyFace(d, false, true)}${tray}</div>
     <div class="mbar bottom">
-      <span class="who">${av(m, 'sm')}${d.suggested ? 'Ready when you are' : 'Your story'}</span>
-      <button type="button" class="go" onclick="postStory()" aria-label="Share">Share<svg viewBox="0 0 24 24"><path d="M20 12L4 4l6 8-6 8 16-8Z"/></svg></button>
+      <span class="who">${av(m, 'sm')}${d.editing ? 'Editing your story' : d.suggested ? 'Ready when you are' : 'Your story'}</span>
+      <button type="button" class="go" onclick="postStory()" aria-label="${d.editing ? 'Save' : 'Share'}">${d.editing ? 'Save' : 'Share'}${
+        d.editing ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l5 5 9-11"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M20 12L4 4l6 8-6 8 16-8Z"/></svg>'}</button>
     </div>
   </div>`;
   const type = box.querySelector('.type');
@@ -1641,8 +1701,16 @@ async function postStory() {
   const d = S.draft, m = me();
   if (!d) return;
   const go = $('#make .go');
-  if (go) { go.disabled = true; go.textContent = 'Sharing…'; }
+  if (go) { go.disabled = true; go.textContent = d.editing ? 'Saving…' : 'Sharing…'; }
   try {
+    // Editing one that is already up: the words and the look go back to the row it came
+    // from, and the file it points at is left exactly where it is.
+    if (d.editing) {
+      await q(sb.from('stories').update({body: d.body || null, style: styleOf(d)}).eq('id', d.editing));
+      closeDraft();
+      await load();
+      return;
+    }
     let path = null;
     if (d.file) {
       path = `${m.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${(d.file.name || '').split('.').pop() || (d.kind === 'photo' ? 'jpg' : 'mp4')}`;
@@ -1652,8 +1720,8 @@ async function postStory() {
     await q(sb.from('stories').insert({user_id: m.id, kind: d.kind, media_path: path,
       body: d.body || null, style: styleOf(d)}));
   } catch (e) {
-    if (go) { go.disabled = false; go.textContent = 'Share'; }
-    return showErr('That story did not go up.', String(e && e.message || e));
+    if (go) { go.disabled = false; go.textContent = d.editing ? 'Save' : 'Share'; }
+    return showErr(d.editing ? 'That change did not save.' : 'That story did not go up.', String(e && e.message || e));
   }
   closeDraft();
   await load();
@@ -1813,13 +1881,21 @@ function watchClips() {
 const EMOJI = ['🔥', '💪', '👏', '😤', '😂', '😮', '🥵', '🫡', '🙌', '❤️', '🏆', '🐐',
   '👀', '😭', '💀', '🤝', '⚡', '✅', '🧊', '🚀'];
 // One tray per post now that every post carries its own box to type in, so both of these
-// work off the post they were tapped in rather than the only one on the page.
+// work off the post they were tapped in rather than the only one on the page. Found by
+// which post it is rather than by walking up from the button: a tap that lands as the
+// screen is being redrawn is holding a button whose branch has already been replaced, and
+// walking up from that reaches the copy that was thrown away — the emoji went into a box
+// nobody could see.
+const postPart = (el, sel) => {
+  const id = el.closest('.post')?.dataset.post;
+  return id ? document.querySelector(`.post[data-post="${id}"] ${sel}`) : el.closest('.cmts')?.querySelector(sel);
+};
 function toggleEmoji(btn) {
-  const box = btn.closest('.cmts')?.querySelector('.emoji');
+  const box = postPart(btn, '.emoji');
   if (box) box.hidden = !box.hidden;
 }
 function putEmoji(btn, e) {
-  const input = btn.closest('.cmts')?.querySelector('.cin input');
+  const input = postPart(btn, '.cin input');
   if (!input) return;
   const at = input.selectionStart ?? input.value.length;
   input.value = input.value.slice(0, at) + e + input.value.slice(input.selectionEnd ?? at);
@@ -1923,7 +1999,7 @@ function commentsFor(p, cs) {
     ${cs.length ? `<div class="clist">${cs.map(c => `<div class="c${c.pending ? ' pending' : ''}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
       <span>${esc(c.body)}</span></div>${c.userId === me().id && !c.pending ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')}</div>` : ''}
     <form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})">
-      <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">🙂</button>
+      <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">${SMILEY}</button>
       <input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off">
       <button class="primary">Send</button>
     </form>

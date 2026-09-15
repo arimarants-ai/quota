@@ -1165,3 +1165,31 @@ create trigger story_likes_notify after insert on public.story_likes
 drop trigger if exists story_reactions_notify on public.story_reactions;
 create trigger story_reactions_notify after insert on public.story_reactions
   for each row execute function public.notify_hook('story_reaction');
+
+-- ============================================================
+-- v20 (editing a story you posted): safe to run on an existing project.
+--
+-- Wording and colours are the only things an edit can change. Which story it is, whose it
+-- is, what file it points at and when it was posted are all fixed — an edit that could
+-- move the file would be a way to point a story at somebody else's, and one that could
+-- move the clock would be a way to make a story that never expires.
+-- ============================================================
+create or replace function public.story_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.user_id    := old.user_id;
+  new.kind       := old.kind;
+  new.media_path := old.media_path;
+  new.created_at := old.created_at;
+  return new;
+end $$;
+
+drop trigger if exists stories_edit_guard on public.stories;
+create trigger stories_edit_guard before update on public.stories
+  for each row execute function public.story_edit_guard();
+
+drop policy if exists "reword your own story" on public.stories;
+-- The same day limit as reading one: a story nobody can see any more is not one to edit.
+create policy "reword your own story" on public.stories for update
+  using (user_id = auth.uid() and created_at > now() - interval '24 hours')
+  with check (user_id = auth.uid());

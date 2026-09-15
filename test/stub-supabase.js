@@ -41,7 +41,7 @@
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
-  self.__slikes = []; self.__sreacts = [];
+  self.__slikes = []; self.__sreacts = []; self.__edits = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -105,7 +105,9 @@
     // still in flight, rather than only after the round trip has landed.
     const p = { then: (res, rej) => Promise.resolve(
       self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
-    for (const k of ['select', 'order', 'limit', 'in', 'upsert', 'update']) p[k] = () => chain(t, st);
+    for (const k of ['select', 'order', 'limit', 'in', 'upsert']) p[k] = () => chain(t, st);
+    // An edit is worth seeing land: the page sends one for a story whose wording changed.
+    p.update = row => { self.__edits.push({ table: t, ...row }); return chain(t, { ...st, op: 'update' }); };
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
     p.insert = row => {
