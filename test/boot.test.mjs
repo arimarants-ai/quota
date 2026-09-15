@@ -1484,22 +1484,50 @@ await withPage(SIGNED_IN, async page => {
 
   const look = () => page.evaluate(() => {
     const w = document.querySelector('#make .type');
-    return {bg: document.querySelector('#make .face').style.background, font: w.style.fontFamily, ink: w.style.color, cls: w.className, x: w.style.left};
+    return {bg: document.querySelector('#make .face').style.background, font: w.style.fontFamily, ink: w.style.color, cls: w.className, x: w.style.left, sh: w.style.textShadow};
   });
   const before = await look();
+  // Every choice is laid out at once in a tray, the one in use marked; nothing to cycle.
   await page.locator('#make .bgbtn').click();
   await page.waitForTimeout(200);
-  check('  tapping the background goes round to the next one', (await look()).bg !== before.bg);
+  check('  the background button opens every background at once', await page.locator('#make .tray[data-tray=bg] .tile').count() >= 16
+    && await page.locator('#make .tray .tile.on').count() === 1);
+  await page.locator('#make .tray .tile').nth(3).click();
+  await page.waitForTimeout(200);
+  check('    and picking one changes the card', (await look()).bg !== before.bg && await page.locator('#make .tray[data-tray=bg]').count() === 1);
   const pill = await page.locator('#make .fontpill').innerText();
   await page.locator('#make .fontpill').click();
   await page.waitForTimeout(200);
-  check('  tapping the font pill goes round to the next face', (await look()).font !== before.font
-    && await page.locator('#make .fontpill').innerText() !== pill);
-  await page.locator('#make .dot').nth(3).click();
+  check('  the font pill opens every face at once', await page.locator('#make .tray[data-tray=font] .fonts button').count() >= 8
+    && await page.locator('#make .tray .fonts button.on').count() === 1);
+  check('    with size and alignment in the same tray', await page.locator('#make .tray .chip').count() === 6);
+  await page.locator('#make .tray .fonts button').nth(6).click();
   await page.waitForTimeout(200);
-  check('  a colour from the strip recolours the words', (await look()).ink !== before.ink);
+  check('    and picking one changes the words', (await look()).font !== before.font
+    && await page.locator('#make .fontpill').innerText() !== pill);
+  await page.locator('#make .tray .chip[aria-label="Align left"]').click();
+  await page.waitForTimeout(150);
+  check('    alignment too', await page.evaluate(() => styleOf(S.draft).align) === 'left');
+  await page.locator('#make .inkbtn').click();
+  await page.waitForTimeout(200);
+  check('  the colour sits next to the font, and opens every colour at once',
+    await page.locator('#make .tray[data-tray=ink] .dot').count() >= 16);
+  await page.locator('#make .tray .dot').nth(3).click();
+  await page.waitForTimeout(200);
+  check('    and picking one recolours the words', (await look()).ink !== before.ink);
   check('    and the card carries the same colour, so the decoration follows it',
     await page.evaluate(() => document.querySelector('#make .face').style.color !== ''));
+  await page.locator('#make .tb[aria-label="Text effect"]').click();
+  await page.waitForTimeout(200);
+  check('  the words can wear an effect', await page.locator('#make .tray[data-tray=fx] .fxs button').count() === 6);
+  await page.locator('#make .tray .fxs button').nth(5).click();
+  await page.waitForTimeout(200);
+  check('    a glow is a glow', /px/.test((await look()).sh) && await page.evaluate(() => styleOf(S.draft).box) === 5, (await look()).sh);
+  await page.locator('#make .tray .fxs button').nth(4).click();
+  await page.waitForTimeout(200);
+  check('    and an outline is hollow', await page.evaluate(() => /text-stroke/.test(document.querySelector('#make .type').getAttribute('style'))));
+  await page.locator('#make .tray .fxs button').nth(0).click();
+  await page.waitForTimeout(150);
 
   // Dragged, and remembered where it was let go.
   const box = await type.boundingBox();
@@ -1511,11 +1539,25 @@ await withPage(SIGNED_IN, async page => {
   check('  the words can be dragged down the card', await page.evaluate(() => styleOf(S.draft).y) > .55,
     String(await page.evaluate(() => styleOf(S.draft).y)));
 
+  // As many stickers as you like; a tap takes one off again.
   await page.locator('#make .tb[aria-label=Sticker]').click();
   await page.waitForTimeout(150);
-  await page.locator('#make .stickers button').first().click();
+  check('  the sticker tray has plenty to choose from', await page.locator('#make .tray .stks button').count() >= 50);
+  await page.locator('#make .tray .stks button').first().click();
   await page.waitForTimeout(200);
-  check('  a sticker lands on the card', await page.locator('#make .face .stk').count() === 1);
+  check('  a sticker lands on the card', await page.locator('#make .face .stk').count() === 1
+    && await page.locator('#make .tray').count() === 0);
+  await page.locator('#make .tb[aria-label=Sticker]').click();
+  await page.waitForTimeout(150);
+  await page.locator('#make .tray .stks button').nth(3).click();
+  await page.waitForTimeout(200);
+  check('    and a second one joins it rather than replacing it', await page.locator('#make .face .stk').count() === 2
+    && await page.evaluate(() => styleOf(S.draft).stks.length) === 2);
+  await page.locator('#make .face .stk').first().click();
+  await page.waitForTimeout(200);
+  check('    tapping one takes it off', await page.locator('#make .face .stk').count() === 1);
+  check('  a story from before, with its one sticker, still draws it',
+    await page.evaluate(() => (storyFace({kind: 'text', body: 'x', style: {stk: '🔥', sx: .5, sy: .7}}).match(/class="stk"/g) || []).length === 1));
 
   await page.evaluate(() => closeDraft());
   await page.waitForTimeout(150);
