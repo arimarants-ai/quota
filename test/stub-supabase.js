@@ -41,7 +41,7 @@
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
-  self.__slikes = []; self.__sreacts = []; self.__edits = [];
+  self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -59,6 +59,7 @@
     reactions: self.__reacts,
     story_likes: self.__slikes,
     story_reactions: self.__sreacts,
+    badges: self.__badges,
     comments: self.__cmts,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
@@ -116,6 +117,8 @@
       if (t === 'reactions') self.__reacts.push({ ...row });
       if (t === 'story_likes') self.__slikes.push({ ...row });
       if (t === 'story_reactions') self.__sreacts.push({ ...row });
+      // Badges go up as a set, so this is the one write that can arrive as an array.
+      if (t === 'badges') for (const r of [].concat(row)) self.__badges.push({ earned_at: new Date().toISOString(), ...r });
       if (t === 'comments') self.__cmts.push({ id: 700 + self.__cmts.length, created_at: new Date().toISOString(), ...row });
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
