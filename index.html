@@ -445,6 +445,28 @@ button.rg{border:0;font:inherit}
   50%{transform:translate(calc(var(--x,0px) + 4px),-9px) scale(1.06)}
 }
 @media (prefers-reduced-motion:reduce){.reel .reacts button{animation:none}}
+/* A long run leaves a mark. Small beside a name, three times the size in the dialog that
+   explains it — one drawing, two sizes, so they cannot disagree. */
+#metals{position:absolute;width:0;height:0;overflow:hidden}
+.bdg{width:17px;height:17px;display:block;flex:none}
+.bdg.big{width:58px;height:58px}
+.bchip{background:none;padding:0 0 0 5px;display:inline-flex;vertical-align:-3px;border-radius:0}
+.bchip:active{opacity:1;transform:scale(.86)}
+.post .head .who{display:flex;align-items:center;gap:0}
+/* Every one they have, on the profile, in the order they were earned. */
+.bshelf{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.bshelf button{background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bshelf .bdg{width:30px;height:30px}
+.bshelf span{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* The dialog: the mark, the number, and what the number means. */
+.bwin{text-align:center;padding:4px 0 2px}
+.bwin .bdg.big{margin:0 auto 14px}
+.bwin .num{display:block;font-size:52px;line-height:.9;letter-spacing:-.02em;color:var(--mkt)}
+.bwin .days{display:block;font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.bwin h2{font-size:20px;margin-top:14px}
+.bwin p{margin-top:8px;line-height:1.45}
+.bwin .who{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--muted)}
+
 /* What you do about a post, under the clip and directly above what people said. */
 .acts{position:relative;display:flex;align-items:center;gap:18px;padding:10px 14px 2px}
 .acts button{background:none;padding:0;display:flex;align-items:center;gap:6px;color:var(--text);font-size:13.5px;font-weight:800}
@@ -718,6 +740,14 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
 <div id="party" hidden role="dialog" aria-live="polite"></div>
+<svg id="metals" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="bgGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fd36f"/><stop offset=".55" stop-color="#12934f"/><stop offset="1" stop-color="#0b5a34"/></linearGradient>
+  <linearGradient id="bgBronze" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#f0c39c"/><stop offset=".45" stop-color="#b8763f"/><stop offset="1" stop-color="#7d4520"/></linearGradient>
+  <linearGradient id="bgSilver" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#cdd6da"/><stop offset="1" stop-color="#868f95"/></linearGradient>
+  <linearGradient id="bgGold" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".45" stop-color="#e8bb45"/><stop offset="1" stop-color="#a2740d"/></linearGradient>
+  <linearGradient id="bgRoyal" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#7a63d8"/><stop offset=".5" stop-color="#3f2f86"/><stop offset="1" stop-color="#1d1440"/></linearGradient>
+  <linearGradient id="bgGem" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2c0"/><stop offset="1" stop-color="#e0a92c"/></linearGradient>
+</defs></svg>
 <div id="story" hidden role="dialog" aria-label="Story"></div>
 <div id="make" hidden role="dialog" aria-label="New story"></div>
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
@@ -779,7 +809,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v51';
+const BUILD = 'quota-v52';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -824,7 +854,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -997,7 +1027,7 @@ async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -1015,6 +1045,7 @@ async function fetchAll() {
     q(sb.from('story_views').select('story_id,user_id,seen_at')),
     q(sb.from('story_likes').select('story_id,user_id')),
     q(sb.from('story_reactions').select('story_id,user_id,emoji')),
+    q(sb.from('badges').select('user_id,streak,earned_at')),
   ]);
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
@@ -1034,6 +1065,7 @@ async function fetchAll() {
   S.views = (seen || []).map(v => ({s: v.story_id, u: v.user_id, ts: Date.parse(v.seen_at)}));
   S.slikes = (slikes || []).map(l => ({s: l.story_id, u: l.user_id}));
   S.sreacts = (sreacts || []).map(r => ({s: r.story_id, u: r.user_id, e: r.emoji}));
+  S.badges = (badges || []).map(b => ({u: b.user_id, n: b.streak, ts: Date.parse(b.earned_at)}));
   S.seen = S.views.filter(v => v.u === uid).map(v => v.s);
   // Signed one round trip for the lot, the way proof is. A story with no file is a card of
   // text and needs nothing.
@@ -1043,6 +1075,7 @@ async function fetchAll() {
     urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; });
   }
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
+  claimBadges();                           // anything the history says was earned but never written down
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
     members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
@@ -1852,7 +1885,7 @@ function feed(ps, showGroup) {
     // The header sits on the card above the clip, so the clip is only the clip. The
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
-      <div class="head">${avStory(u)}<div class="grow"><div class="who">${esc(name(u))}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
+      <div class="head">${avStory(u)}<div class="grow"><div class="who">${esc(name(u))}${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
         ${p.userId === me().id ? `<button type="button" class="more" onclick="delPost(${p.id})" aria-label="Delete post">⋯</button>` : ''}</div>
       <div class="reel">
       ${isPhoto(p)
@@ -2165,8 +2198,10 @@ function pushCard() {
 function profileView() {
   const m = me(), gs = myGroups();
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id))), postsN = S.totals.filter(t => t.u === m.id).length;
-  return smallHdr('Profile') + `<div class="card"><div class="row">${av(m, 'xl')}<div class="grow"><b style="font-size:20px;display:block">${esc(name(m))}</b><span class="muted">@${esc(m.username)}</span></div></div>
+  return smallHdr('Profile') + `<div class="card"><div class="row">${av(m, 'xl')}<div class="grow"><b style="font-size:20px;display:block">${esc(name(m))}${badgeChip(m.id)}</b><span class="muted">@${esc(m.username)}</span></div></div>
     <div class="stats"><div><b class="num">${cur}</b><small>streak</small></div><div><b class="num">${bst}</b><small>best</small></div><div><b class="num">${postsN}</b><small>proofs</small></div></div>
+    ${badgesOf(m.id).length ? `<div class="bshelf">${badgesOf(m.id).map(b => `<button type="button" onclick="badgeDlg('${esc(m.id)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
+      : `<p class="muted" style="margin-top:14px">Badges start at a 25 day streak.</p>`}
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="profileDlg()">Edit profile</button><button onclick="toggleTheme()">${isDark() ? 'Light mode' : 'Dark mode'}</button></div></div>
   <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Your groups</h3><button class="ghost small" onclick="go('groups')">See all ›</button></div>
   ${gs.length ? `<div class="card list">` + gs.map(g => `<div class="row"><div class="grow"><b>${esc(g.name)}</b><div class="muted">${plural(g.members.length, 'member')} · ${quotaText(g)}${streak(g, m.id) ? ` · ${streak(g, m.id)} day streak` : ''}</div></div><button class="small" onclick="openGroup(${g.id})">Open</button><button class="ghost small" onclick="leaveGroup(${g.id})">Leave</button></div>`).join('') + `</div>` : `<div class="card empty"><b>No groups yet</b></div>`}
@@ -2229,6 +2264,75 @@ const MILESTONE_LINE = {
   500: 'Five hundred days. This is just who you are now.',
   1000: 'One thousand days. Nothing left to say.',
 };
+// ---- badges
+// What a long run leaves behind. Earned once and kept: the run can break the next day and
+// the badge stays, and reaching the same number again does not produce a second one — the
+// row is already there and the database will not take another.
+//
+// Each one is a shield until the numbers stop being ordinary, and then it stops being a
+// shield: a year gets laurels, and past that it is a crown. At the size these are drawn,
+// only the silhouette and the metal carry, so that is what changes. The fine detail is for
+// the one in the dialog, which is the same drawing at three times the size.
+const BADGE_NAME = {
+  25: 'Steady', 50: 'Half century', 100: 'Century', 150: 'Unbroken',
+  250: 'Ironclad', 365: 'A full year', 500: 'Five hundred', 1000: 'A thousand days',
+};
+const SHIELD = 'M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z';
+const STAR = 'M12 7.1l1.5 3.4 3.7.35-2.8 2.45.83 3.6L12 15l-3.2 1.9.83-3.6-2.8-2.45 3.7-.35Z';
+const CROWN = 'M3.2 8.6 7 12l5-8 5 8 3.8-3.4-1.5 11.4H4.7Z';
+const LAUREL = 'M12 2.6a9.4 9.4 0 0 0-9.4 9.4 9.4 9.4 0 0 0 9.4 9.4 9.4 9.4 0 0 0 9.4-9.4A9.4 9.4 0 0 0 12 2.6Zm0 2.2a7.2 7.2 0 0 1 7.2 7.2 7.2 7.2 0 0 1-7.2 7.2A7.2 7.2 0 0 1 4.8 12 7.2 7.2 0 0 1 12 4.8Z';
+// The fill, and what sits on it. Ordered so the jump from green to metal and from metal to
+// a crown lands exactly where the number stops being something most people reach.
+function badgeMark(n, cls = '') {
+  const g = k => `url(#bg${k})`;
+  const inner = (d, fill, op = '1') => `<path d="${d}" fill="${fill}" opacity="${op}"/>`;
+  // Rank chevrons rather than bars: two bars stacked read as an equals sign, which is not
+  // what a badge should say.
+  const chev = y => `<path d="M8 ${y}l4 3.2 4-3.2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
+  const art =
+      n === 25   ? `<path d="${SHIELD}" fill="${g('Green')}"/>${chev(9.8)}`
+    : n === 50   ? `<path d="${SHIELD}" fill="${g('Green')}"/>${chev(8.2)}${chev(12)}`
+    : n === 100  ? `<path d="${SHIELD}" fill="${g('Bronze')}"/>${inner(STAR, '#4a2a12', '.85')}`
+    : n === 150  ? `<path d="${SHIELD}" fill="${g('Silver')}"/>${inner(STAR, '#3d474c', '.85')}`
+    : n === 250  ? `<path d="${SHIELD}" fill="${g('Gold')}"/>${inner(STAR, '#6b4a06', '.85')}`
+    : n === 365  ? `<path d="${LAUREL}" fill="${g('Gold')}"/><circle cx="12" cy="12" r="6" fill="${g('Gold')}" opacity=".3"/>${inner(STAR, g('Gold'))}`
+    : n === 500  ? `<path d="${CROWN}" fill="${g('Gold')}"/><rect x="4.7" y="17.4" width="14.6" height="2.4" fill="${g('Gold')}"/>`
+    : `<path d="${CROWN}" fill="${g('Royal')}"/><rect x="4.7" y="17.4" width="14.6" height="2.4" fill="${g('Royal')}"/><circle cx="12" cy="14.2" r="1.9" fill="${g('Gem')}"/>`;
+  return `<svg class="bdg ${cls}" viewBox="0 0 24 24" aria-hidden="true">${art}</svg>`;
+}
+const badgesOf = uid => S.badges.filter(b => b.u === uid).sort((a, b) => a.n - b.n);
+const topBadge = uid => badgesOf(uid).slice(-1)[0];
+// Next to a name, only the highest: a row of eight beside somebody's name is a wall, and
+// the one that matters is the last one they passed. The rest are on the profile.
+function badgeChip(uid) {
+  const b = topBadge(uid);
+  if (!b) return '';
+  return `<button type="button" class="bchip" onclick="event.stopPropagation();badgeDlg('${esc(uid)}',${b.n})"
+    aria-label="${b.n} day streak badge">${badgeMark(b.n)}</button>`;
+}
+function badgeDlg(uid, n) {
+  const u = user(uid), b = S.badges.find(x => x.u === uid && x.n === n);
+  const when = b && Number.isFinite(b.ts)
+    ? new Date(b.ts).toLocaleDateString(undefined, {day: 'numeric', month: 'long', year: 'numeric'}) : '';
+  dlg(`<div class="bwin">${badgeMark(n, 'big')}
+    <b class="num">${n}</b><span class="days">day streak</span>
+    <h2>${esc(BADGE_NAME[n] || '')}</h2>
+    <p class="muted">${esc(MILESTONE_LINE[n] || '')}</p>
+    <p class="who">${esc(name(u))}${when ? ` · earned ${when}` : ''}</p></div>`);
+}
+// Written down the first time the history says it was reached, so a run that happened
+// before badges existed still counts. The primary key is what stops a second one.
+async function claimBadges() {
+  const m = me(); if (!m) return;
+  const bst = Math.max(0, ...myGroups().map(g => best(g, m.id)));
+  const have = new Set(badgesOf(m.id).map(b => b.n));
+  const due = MILESTONES.filter(d => d <= bst && !have.has(d));
+  if (!due.length) return;
+  S.badges = [...S.badges, ...due.map(d => ({u: m.id, n: d, ts: Date.now()}))];
+  render();
+  try { await q(sb.from('badges').insert(due.map(d => ({user_id: m.id, streak: d}))), true); } catch (e) {}
+}
+
 // The milestone is for the day it was earned, so today has to be in the bag: the run is
 // counted only in groups where the quota is already done.
 function milestoneDue() {

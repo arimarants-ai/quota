@@ -1406,6 +1406,76 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// A long run leaves a mark. Earned once, kept whatever happens next, and never a second
+// time for the same number.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('a name with no long run behind it carries no badge',
+    await page.locator('.post .head .bchip').count() === 0);
+
+  // A hundred days, all of them behind us: the history is what earns it. The confetti has
+  // its own tests; here it is marked as already seen so it does not sit over the badges.
+  const claimed = await page.evaluate(async () => {
+    try { localStorage.milestone = '1000'; } catch (e) {}
+    const g = S.groups[0], d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
+    for (let i = 0; i < 120; i++) S.totals.push({g: g.id, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    S.badges = []; self.__badges = [];
+    await claimBadges();
+    return {have: badgesOf('u1').map(b => b.n), sent: self.__badges.map(b => b.streak)};
+  });
+  check('  a run of 120 days earns every milestone it passed', claimed.have.join() === '25,50,100',
+    JSON.stringify(claimed));
+  check('    and each one is written down, not worked out again later',
+    claimed.sent.slice().sort((a, b) => a - b).join() === '25,50,100', JSON.stringify(claimed.sent));
+  check('    stopping at the ones that are big enough to mean something',
+    !claimed.have.some(n => n < 25));
+
+  // Run it again: the badges are already there, so nothing new is claimed.
+  const again = await page.evaluate(async () => { await claimBadges(); return self.__badges.length; });
+  check('  asking again claims nothing', again === 3, String(again));
+
+  // The run breaks. The badge is not a reading of the current state.
+  const broken = await page.evaluate(() => {
+    S.totals = S.totals.filter(t => !(t.u === 'u1' && t.m === 'pushups'));
+    render();
+    return {streak: Math.max(0, ...myGroups().map(g => streak(g, 'u1'))), badges: badgesOf('u1').map(b => b.n)};
+  });
+  check('  and a broken run keeps every badge it earned', broken.streak === 0 && broken.badges.join() === '25,50,100',
+    JSON.stringify(broken));
+
+  // Next to a name, only the highest of them.
+  await page.evaluate(() => { S.badges = [{u: 'u2', n: 25, ts: Date.now()}, {u: 'u2', n: 365, ts: Date.now()}]; render(); });
+  await page.waitForTimeout(250);
+  const chips = await page.locator('.post .head .bchip').count();
+  check('somebody who has earned several wears the highest one beside their name', chips >= 1);
+  check('  one badge, not a row of them', await page.evaluate(() =>
+    [...document.querySelectorAll('.post[data-post] .head')].every(h => h.querySelectorAll('.bchip').length <= 1)));
+  check('    and it is the highest', await page.evaluate(() => topBadge('u2').n) === 365);
+
+  await page.locator('.post .head .bchip').first().click();
+  await page.waitForTimeout(350);
+  const win = await page.locator('#dlg .bwin').innerText();
+  check('  tapping it says what the milestone is', /365/.test(win) && /day streak/i.test(win)
+    && /full year/i.test(win), win);
+  check('    and whose it is', /Sam/.test(win), win);
+  await page.evaluate(() => $('#dlg').dispatchEvent(new MouseEvent('click', {bubbles: true})));
+  await page.waitForTimeout(300);
+  check('    and it closes', await page.locator('#dlg').isHidden());
+
+  // All of them on the profile, in the order they were earned.
+  await page.evaluate(() => { S.badges = [{u: 'u1', n: 25, ts: Date.now()}, {u: 'u1', n: 100, ts: Date.now()}, {u: 'u1', n: 1000, ts: Date.now()}]; go('profile'); });
+  await page.waitForTimeout(350);
+  check('your profile shows every badge you have', await page.locator('.bshelf button').count() === 3);
+  check('  lowest first', await page.locator('.bshelf button').first().innerText() === '25',
+    await page.locator('.bshelf button').first().innerText());
+  check('  each one drawn differently', await page.evaluate(() => {
+    const arts = [...document.querySelectorAll('.bshelf .bdg')].map(el => el.innerHTML);
+    return new Set(arts).size === arts.length;
+  }));
+  check('  and openable from there too', await page.evaluate(() =>
+    document.querySelector('.bshelf button').getAttribute('onclick').includes('badgeDlg')));
+});
+
 // A story is findable from the face on a post, not only from the row at the top: somebody
 // scrolling the feed should not have to go back up to notice one.
 await withPage(SIGNED_IN, async page => {

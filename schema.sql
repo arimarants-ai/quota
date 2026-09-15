@@ -1193,3 +1193,33 @@ drop policy if exists "reword your own story" on public.stories;
 create policy "reword your own story" on public.stories for update
   using (user_id = auth.uid() and created_at > now() - interval '24 hours')
   with check (user_id = auth.uid());
+
+-- ============================================================
+-- v21 (badges): safe to run on an existing project.
+--
+-- A badge is an award, not a reading of the current state: it is kept once it has been
+-- earned, whatever happens to the run afterwards, and reaching the same number again does
+-- not produce a second one. That is the whole reason it is a row rather than something
+-- worked out from the posts each time — a post deleted years later must not take a crown
+-- with it, and two people looking at the same profile must see the same badges.
+--
+-- Only the long runs. The list is the same one the app already celebrates with confetti,
+-- so the moment that is worth stopping the app for is the moment that leaves a mark.
+-- ============================================================
+create table if not exists public.badges (
+  user_id uuid not null references public.profiles on delete cascade,
+  streak int not null check (streak in (25, 50, 100, 150, 250, 365, 500, 1000)),
+  earned_at timestamptz not null default now(),
+  primary key (user_id, streak)
+);
+alter table public.badges enable row level security;
+
+drop policy if exists "see badges of people you know" on public.badges;
+drop policy if exists "claim your own badge" on public.badges;
+-- The same two rules stories use: anyone you share a group with, anyone you are friends
+-- with, and yourself.
+create policy "see badges of people you know" on public.badges for select
+  using (public.can_see_user(user_id));
+create policy "claim your own badge" on public.badges for insert with check (user_id = auth.uid());
+-- No update and no delete on purpose. An award is not something to take back, and a badge
+-- that could be deleted is a badge that could be re-earned.
