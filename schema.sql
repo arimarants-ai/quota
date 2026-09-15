@@ -1223,3 +1223,55 @@ create policy "see badges of people you know" on public.badges for select
 create policy "claim your own badge" on public.badges for insert with check (user_id = auth.uid());
 -- No update and no delete on purpose. An award is not something to take back, and a badge
 -- that could be deleted is a badge that could be re-earned.
+
+-- ============================================================
+-- v22 (a profile worth visiting): safe to run on an existing project.
+--
+-- Three things. A bio. Which of your groups you are willing to have on show. And, per
+-- post, whether it belongs on your profile as well as in the group — group only by
+-- default, because that is what the app was for first and nobody has ticked anything yet.
+--
+-- The column is on_profile rather than public: `public` is the schema every one of these
+-- tables lives in, and a policy that reads `public = true` is a policy nobody can skim.
+-- ============================================================
+alter table public.profiles add column if not exists bio text;
+alter table public.profiles drop constraint if exists profiles_bio_len;
+alter table public.profiles add constraint profiles_bio_len
+  check (bio is null or char_length(bio) <= 160);
+-- Empty means show none. A group you have left stops being shown because the id stops
+-- matching anything you are a member of, which is checked when it is drawn rather than
+-- tidied up here.
+alter table public.profiles add column if not exists shown_groups bigint[] not null default '{}';
+
+alter table public.posts add column if not exists on_profile boolean not null default false;
+create index if not exists posts_on_profile on public.posts (user_id, created_at desc) where on_profile;
+
+-- A post is readable by the group it was posted to, exactly as before. A post its author
+-- put on their profile is also readable by anyone who can see them — the same two rules
+-- stories use, so a profile reaches your groups and your friends and stops there. The app
+-- has no way to find strangers and this is not the place to grow one.
+drop policy if exists "members see posts" on public.posts;
+create policy "members see posts" on public.posts for select
+  using (public.is_member(group_id) or (on_profile and public.can_see_user(user_id)));
+
+-- Putting a post on your profile, or taking it off again, is an edit of your own row. No
+-- update policy existed because nothing was editable before.
+drop policy if exists "edit your own post" on public.posts;
+create policy "edit your own post" on public.posts for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create or replace function public.post_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- Only the profile flag is yours to change after the fact. The numbers, the day, the
+  -- group and the file are what the group saw.
+  new.id := old.id; new.user_id := old.user_id; new.group_id := old.group_id;
+  new.metric := old.metric; new.amount := old.amount; new.day := old.day;
+  new.caption := old.caption; new.video_path := old.video_path; new.created_at := old.created_at;
+  new.challenge := old.challenge; new.spin_id := old.spin_id;
+  return new;
+end $$;
+
+drop trigger if exists posts_edit_guard on public.posts;
+create trigger posts_edit_guard before update on public.posts
+  for each row execute function public.post_edit_guard();
