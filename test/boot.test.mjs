@@ -1222,7 +1222,7 @@ await withPage(SIGNED_IN, async page => {
   // A blank where a number goes reads as something still loading. Zero is a number.
   check('  a post nobody has liked says nought, rather than nothing',
     (await heart.innerText()).trim() === '0', await heart.innerText());
-  check('    and so does its comment count', /^0$/.test((await bubble.innerText()).trim()),
+  check('    and so does its comment count', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
   // The stub's clips cannot decode, so this post is showing its failure card — which is
@@ -1275,7 +1275,7 @@ await withPage(SIGNED_IN, async page => {
   await box.fill('nice one');
   await send.click();
   await page.waitForTimeout(250);
-  check('  a comment counts before the write comes back', /^1$/.test((await bubble.innerText()).trim()),
+  check('  a comment counts before the write comes back', /^1 comment$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
   check('    and shows under the post that soon too', /nice one/.test(await list()), await list());
   check('      with no delete on it until it is really saved',
@@ -1287,7 +1287,7 @@ await withPage(SIGNED_IN, async page => {
 
   await page.locator('.post .clist .x').first().click();
   await page.waitForTimeout(900);
-  check('  taking one back drops the count with it', /^0$/.test((await bubble.innerText()).trim()),
+  check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
   // The phone's keyboard has its own emoji key; this is the one in the box, for reaching
