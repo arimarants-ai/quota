@@ -41,7 +41,7 @@
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
-  self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__onprofile = {};
+  self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__clikes = []; self.__onprofile = {};
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -63,6 +63,7 @@
     story_likes: self.__slikes,
     story_reactions: self.__sreacts,
     badges: self.__badges,
+    comment_likes: self.__clikes,
     comments: self.__cmts,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
@@ -95,6 +96,9 @@
       if (st.op === 'delete' && (t === 'story_likes' || t === 'story_reactions')) {
         const key = t === 'story_likes' ? '__slikes' : '__sreacts';
         self[key] = self[key].filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
+      if (st.op === 'delete' && t === 'comment_likes') {
+        self.__clikes = self.__clikes.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
       if (st.op === 'delete' && t === 'likes') {
         self.__likes = self.__likes.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
@@ -134,6 +138,7 @@
       if (t === 'invites') self.__invited = { ...row };
       if (t === 'likes') self.__likes.push({ ...row });
       if (t === 'reactions') self.__reacts.push({ ...row });
+      if (t === 'comment_likes') self.__clikes.push({ ...row });
       if (t === 'story_likes') self.__slikes.push({ ...row });
       if (t === 'story_reactions') self.__sreacts.push({ ...row });
       // Badges go up as a set, so this is the one write that can arrive as an array.

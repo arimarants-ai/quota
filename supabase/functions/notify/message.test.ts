@@ -68,3 +68,12 @@ eq(socialFor('reaction', 'Ari'), 'Ari reacted', '  and reads properly without on
 eq(socialFor('story_like', 'Ari'), 'Ari liked your story', 'a story like says so');
 eq(socialFor('story_reaction', 'Ari', '🔥'), 'Ari reacted 🔥 to your story', '  and a story reaction carries the emoji');
 eq(socialFor('story_reaction', 'Ari'), 'Ari reacted to your story', '  reading properly without one');
+// A comment like says which comment, because "liked your comment" is no help to somebody
+// who has left twenty.
+eq(socialFor('comment_like', 'Ari', 'nice one'), 'Ari liked your comment: nice one', 'a comment like quotes the comment');
+eq(socialFor('comment_like', 'Ari'), 'Ari liked your comment', '  and reads properly with nothing to quote');
+{
+  const got = socialFor('comment_like', 'Ari', 'y'.repeat(200));
+  eq(String(got.length <= 90), 'true', '  a long one is cut rather than filling the screen');
+  eq(String(got.endsWith('…')), 'true', '  and says it was cut');
+}

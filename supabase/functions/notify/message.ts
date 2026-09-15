@@ -30,7 +30,7 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
@@ -38,6 +38,12 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'react
   // A story says so, because it is gone in a day and the post it is not is still there.
   if (kind === 'story_like') return `${name} liked your story`;
   if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
+  // Which comment, so a notification about one of several reads as being about one.
+  if (kind === 'comment_like') {
+    const said = (extra ?? '').replace(/\s+/g, ' ').trim();
+    const short = said.length > 60 ? `${said.slice(0, 59)}\u2026` : said;
+    return short ? `${name} liked your comment: ${short}` : `${name} liked your comment`;
+  }
   // A comment is worth reading in the notification itself, but a long one turns the
   // whole thing into a wall; the rest is one tap away.
   const body = (extra ?? '').replace(/\s+/g, ' ').trim();

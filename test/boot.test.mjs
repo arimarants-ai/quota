@@ -1406,6 +1406,102 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// The bar is the whole gradient, and how far along you are is how much of it shows. A
+// fill that carried the gradient itself would squeeze dark-to-light into every width, so
+// a quarter done would look the same as finished.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const bar = page.locator('.mini i').first();
+  check('the quota bar is a gradient, not a colour', await bar.evaluate(el =>
+    /linear-gradient/.test(getComputedStyle(el).backgroundImage)), await bar.evaluate(el => getComputedStyle(el).backgroundImage));
+  check('  running dark to light', await bar.evaluate(el => {
+    const g = getComputedStyle(el).backgroundImage;
+    return g.indexOf('11, 90, 52') < g.indexOf('72, 236, 139');
+  }));
+  check('  and the gradient is the bar, so the unearned part is covered rather than coloured',
+    await bar.evaluate(el => {
+      const c = getComputedStyle(el, '::after');
+      return c.marginLeft !== '0px' || c.width === '0px' || /calc/.test(c.width);
+    }));
+  // A quarter done shows a quarter of the gradient: the cover starts a quarter along. The
+  // bar animates to a new width, so this reads it once it has arrived rather than on the
+  // way, which is the old value.
+  const at = async pct => {
+    await page.evaluate(p => document.querySelector('.mini i').style.setProperty('--w', p + '%'), pct);
+    await page.waitForTimeout(550);
+    return page.evaluate(() => {
+      const el = document.querySelector('.mini i');
+      return Math.round(parseFloat(getComputedStyle(el, '::after').marginLeft) / el.getBoundingClientRect().width * 100);
+    });
+  };
+  const q25 = await at(25), q100 = await at(100), q0 = await at(0);
+  check('  a quarter done covers from a quarter along', Math.abs(q25 - 25) <= 1, String(q25));
+  check('    and finished covers nothing', Math.abs(q100 - 100) <= 1, String(q100));
+  check('    while nothing done covers all of it', q0 === 0, String(q0));
+});
+
+// A reply can be liked, and whoever wrote it is the one who hears about it.
+await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  await page.evaluate(() => {
+    S.comments = [{id: 801, postId: S.posts[0].id, userId: 'u2', body: 'strong work', ts: Date.now() - 6e5}];
+    S.clikes = []; render();
+  });
+  await page.waitForTimeout(250);
+  const heart = page.locator('.clist .c .clk').first();
+  check('a reply carries a heart', await heart.count() === 1);
+  check('  empty until somebody presses it', !await heart.evaluate(b => b.classList.contains('on'))
+    && !/\d/.test(await heart.innerText()));
+  await heart.click();
+  await page.waitForTimeout(300);
+  check('  tapping it counts at once', await heart.evaluate(b => b.classList.contains('on'))
+    && /1/.test(await heart.innerText()), await heart.innerText());
+  check('    with the like really sent', (await page.evaluate(() => self.__clikes)).length === 1,
+    JSON.stringify(await page.evaluate(() => self.__clikes)));
+  await heart.click();
+  await page.waitForTimeout(300);
+  check('  and again takes it back', !await heart.evaluate(b => b.classList.contains('on'))
+    && (await page.evaluate(() => self.__clikes)).length === 0);
+  check('  a reply still being written offers no heart', await page.evaluate(() => {
+    S.comments = [{id: -1, postId: S.posts[0].id, userId: 'u1', body: 'pending', pending: true}]; render();
+    return document.querySelectorAll('.clist .c .clk').length === 0;
+  }));
+});
+
+// A notification lands on the thing it is about, not near it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const pid = await page.evaluate(() => S.posts[0].id);
+  await page.evaluate(p => {
+    S.comments = Array.from({length: 8}, (_, i) => ({id: 810 + i, postId: p, userId: 'u2', body: 'reply ' + i, ts: Date.now() - i * 6e4}));
+    render();
+  }, pid);
+  await page.waitForTimeout(250);
+  await page.evaluate(() => { location.hash = '#comment-815'; });
+  await page.waitForTimeout(600);
+  check('a notification about a reply opens the post it is under',
+    await page.evaluate(() => S.tab) === 'feed' && await page.locator(`[data-post="${pid}"]`).count() === 1);
+  check('  and marks which reply it was', await page.locator('.clist .c[data-cmt="815"]').count() === 1);
+  check('    scrolled to, rather than left somewhere up the page', await page.evaluate(() => {
+    const el = document.querySelector('[data-cmt="815"]');
+    const b = el.getBoundingClientRect();
+    return b.top > -50 && b.top < innerHeight;
+  }));
+  check('    with the hash cleaned up behind it', await page.evaluate(() => location.hash) === '');
+  // A comment that is not there to open must not leave the app somewhere odd.
+  await page.evaluate(() => { location.hash = '#comment-99999'; });
+  await page.waitForTimeout(400);
+  check('  a reply that is not there leaves the screen alone', await page.locator('.post').count() > 0);
+
+  // And a post notification still lands on the post.
+  await page.evaluate(p => { location.hash = '#post-' + p; }, pid);
+  await page.waitForTimeout(500);
+  check('a notification about a post still lands on the post',
+    await page.evaluate(p => { const b = document.querySelector(`[data-post="${p}"]`).getBoundingClientRect();
+      return b.top > -60 && b.top < 200; }, pid));
+});
+
 // The profile is a page about somebody, and it is the same page whoever is looking.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

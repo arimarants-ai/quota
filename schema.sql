@@ -1275,3 +1275,37 @@ end $$;
 drop trigger if exists posts_edit_guard on public.posts;
 create trigger posts_edit_guard before update on public.posts
   for each row execute function public.post_edit_guard();
+
+-- ============================================================
+-- v23 (liking a comment): safe to run on an existing project. Deploy the notify function
+-- first, as with every kind before it — this adds one more for it to understand.
+--
+-- Governed by the comment, which is governed by the post, which is governed by the group.
+-- Nothing here decides who can see what; it asks the post.
+-- ============================================================
+create table if not exists public.comment_likes (
+  comment_id bigint not null references public.comments on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
+create index if not exists comment_likes_comment on public.comment_likes (comment_id);
+alter table public.comment_likes enable row level security;
+
+create or replace function public.can_see_comment(cid bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.comments c join public.posts p on p.id = c.post_id
+                  where c.id = cid and public.is_member(p.group_id));
+$$;
+
+drop policy if exists "see comment likes" on public.comment_likes;
+drop policy if exists "like a comment you can see" on public.comment_likes;
+drop policy if exists "take back your own comment like" on public.comment_likes;
+create policy "see comment likes" on public.comment_likes for select using (public.can_see_comment(comment_id));
+create policy "like a comment you can see" on public.comment_likes for insert
+  with check (user_id = auth.uid() and public.can_see_comment(comment_id));
+create policy "take back your own comment like" on public.comment_likes for delete using (user_id = auth.uid());
+
+drop trigger if exists comment_likes_notify on public.comment_likes;
+create trigger comment_likes_notify after insert on public.comment_likes
+  for each row execute function public.notify_hook('comment_like');
