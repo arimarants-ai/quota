@@ -452,7 +452,7 @@ button.rg{border:0;font:inherit}
 .bdg.big{width:58px;height:58px}
 .bchip{background:none;padding:0 0 0 5px;display:inline-flex;vertical-align:-3px;border-radius:0}
 .bchip:active{opacity:1;transform:scale(.86)}
-.post .head .who{display:flex;align-items:center;gap:0}
+.post .head .line{display:flex;align-items:center;gap:0;min-width:0}
 /* Every one they have, on the profile, in the order they were earned. */
 .bshelf{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 .bshelf button{background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -466,6 +466,77 @@ button.rg{border:0;font:inherit}
 .bwin h2{font-size:20px;margin-top:14px}
 .bwin p{margin-top:8px;line-height:1.45}
 .bwin .who{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--muted)}
+
+/* ---- a profile, which is a page about somebody rather than a settings screen ---- */
+.hdr h1.withgear{display:flex;align-items:center;justify-content:space-between}
+.gear{background:none;padding:6px;color:var(--text);display:grid;place-items:center}
+.gear svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pf{padding:16px 18px 0}
+.pf .who{display:flex;gap:14px;align-items:flex-start}
+.pf .nm{flex:1;min-width:0;padding-top:4px}
+.pf .nm b{font-size:20px;font-weight:800;display:flex;align-items:center;line-height:1.2;overflow-wrap:anywhere}
+.pf .nm span{color:var(--muted);font-weight:600;font-size:14px}
+.bio{margin:14px 0 0;font-size:14.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text}
+.pf .stats{margin-top:16px;border:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr)}
+.pf .stats div{padding:11px 4px;text-align:center;border-right:1px solid var(--line);border-bottom:0}
+.pf .stats div:last-child{border-right:0}
+.pf .stats b{display:block;font-size:26px;line-height:1}
+.pf .stats div:first-child b{color:var(--mkt)}
+.pf .stats small{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.pf .bshelf{margin-top:16px}
+.muted.pad,p.pad{padding:18px 0;font-size:13.5px;line-height:1.5}
+/* The groups somebody is willing to say they are in, each with the run inside it. */
+.gchips{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.gchip{background:none;border:1px solid var(--line);padding:6px 11px;display:flex;align-items:baseline;gap:6px;font-size:12.5px;font-weight:700;border-radius:0;white-space:normal;text-align:left}
+.gchip em{font-style:normal;color:var(--muted);font-weight:600}
+.ptabs{display:flex;margin-top:18px;border-top:1px solid var(--line)}
+.ptabs span{flex:1;text-align:center;padding:11px 0 9px;border-bottom:2px solid var(--mk);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+/* The grid. Square tiles, hairline gaps, the first frame and what the day was worth. */
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px 0 0;margin:0 -18px}
+.tile{position:relative;aspect-ratio:1;background:#0b0c0e;overflow:hidden;padding:0;border-radius:0}
+.tile .proof{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#0b0c0e}
+.tile b{position:absolute;left:5px;bottom:4px;z-index:2;color:#fff;font-family:Oswald,system-ui,sans-serif;font-weight:600;
+  font-size:11.5px;letter-spacing:.02em;text-shadow:0 1px 6px rgba(0,0,0,.85)}
+.tile .pl{position:absolute;right:5px;top:5px;z-index:2;width:13px;height:13px;fill:#fff;opacity:.92;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+.tile:active{opacity:.75;transform:none}
+/* A face with no story behind it still opens something, so it still gives under the thumb. */
+.rg.none{background:none;box-shadow:none;padding:0}
+.post .head .who{background:none;padding:0;border-radius:0;font-weight:800;font-size:14.5px;line-height:1.2;color:var(--text);display:block;text-align:left;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post .head .who:active{opacity:.5}
+/* One post on its own, because a tile can be from a group this account is not in. */
+#one{position:fixed;inset:0;z-index:65;background:var(--bg);overflow-y:auto;animation:slidein .28s cubic-bezier(.32,.72,0,1)}
+#one[hidden]{display:none}
+@keyframes slidein{from{opacity:.4;transform:translateX(26px)}}
+.onebar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);
+  padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
+.onewrap{max-width:600px;margin:0 auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+/* ---- settings ---- */
+.sec{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 18px 7px}
+/* A switch on its own does not say what it switches, so the list stays either way. */
+.pushabout{padding:12px 18px 2px}
+.pushabout .muted{font-size:12.5px;line-height:1.45}
+.pushabout .about{margin:8px 0;padding:0 0 0 18px;border-top:0}
+.list{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.li{display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border-radius:0;
+  border-bottom:1px solid var(--line);text-align:left;font:inherit;color:var(--text);white-space:normal}
+.li:last-child{border-bottom:0}
+.li svg{width:20px;height:20px;fill:none;stroke:var(--muted);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.li .t{flex:1;min-width:0}
+.li .t b{display:block;font-size:14.5px;font-weight:700}
+.li .t em{font-style:normal;display:block;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:1px;overflow-wrap:anywhere}
+.li .go{color:var(--muted);font-size:17px;flex:none}
+.li.danger{color:#d1344f}
+.li.danger svg{stroke:#d1344f}
+.sw{width:42px;height:25px;border-radius:999px;background:var(--todo);position:relative;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2.5px;left:2.5px;width:20px;height:20px;border-radius:50%;background:#fff;
+  transition:transform .22s cubic-bezier(.2,.8,.2,1);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--mk)}
+.sw.on::after{transform:translateX(17px)}
+/* The one new line on the post form reads as a choice, not fine print. */
+.chk{display:flex;gap:11px;align-items:flex-start;padding:13px;border:1px solid var(--line)}
+.chk .t b{display:block;font-size:14px;font-weight:800;color:var(--text)}
+.chk .t em{font-style:normal;display:block;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;line-height:1.4}
 
 /* What you do about a post, under the clip and directly above what people said. */
 .acts{position:relative;display:flex;align-items:center;gap:18px;padding:10px 14px 2px}
@@ -739,6 +810,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <main id="app"></main>
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
+<div id="one" hidden role="dialog" aria-label="One post"></div>
 <div id="party" hidden role="dialog" aria-live="polite"></div>
 <svg id="metals" aria-hidden="true" focusable="false"><defs>
   <linearGradient id="bgGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fd36f"/><stop offset=".55" stop-color="#12934f"/><stop offset="1" stop-color="#0b5a34"/></linearGradient>
@@ -809,7 +881,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v52';
+const BUILD = 'quota-v53';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -854,7 +926,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1080,7 +1152,7 @@ async function fetchAll() {
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
     members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
   S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
-  S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id}));
+  S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
   // A path that could not be signed — the file is gone, or storage said no — comes back
   // with no URL. Left as null it becomes src="null" and a player that silently does
   // nothing; empty, the post renders as a clip that could not be loaded, and says so.
@@ -1182,7 +1254,10 @@ function render() {
     const keep = new Map([...document.querySelectorAll('#app .post[data-post] .reel')].map(r => [r.parentNode.dataset.post, r]));
     const typed = new Map([...document.querySelectorAll('#app .post[data-post] .cin input')].filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
     const trays = [...document.querySelectorAll('#app .post[data-post] .emoji:not([hidden])')].map(t => t.closest('.post').dataset.post);
-    $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+    $('#app').innerHTML = S.settings ? settingsView()
+      : S.who ? personView(S.who)
+      : g ? groupView(g)
+      : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
     document.querySelectorAll('#app .post[data-post] .reel').forEach(r => {
       const old = keep.get(r.parentNode.dataset.post); if (!old) return;
       const np = r.querySelector('.proof'), op = old.querySelector('.proof');
@@ -1211,7 +1286,7 @@ function render() {
   // underline's position, so the underline can slide rather than be redrawn.
   const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
   if (bar.dataset.html !== html) { bar.innerHTML = html + '<i class="ind"></i>'; bar.dataset.html = html; }
-  bar.querySelectorAll('button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab && !S.open));
+  bar.querySelectorAll('button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab && !S.open && !S.who && !S.settings));
   const on = bar.querySelector('button.on'), ind = bar.querySelector('.ind');
   ind.style.setProperty('--o', on ? 1 : 0);
   if (on) ind.style.setProperty('--x', (on.offsetLeft + on.offsetWidth / 2 - 11) + 'px');
@@ -1332,11 +1407,15 @@ const unseenOf = id => storiesOf(id).filter(x => !S.seen.includes(x.id));
 // been watched, quiet once it has. It is the ring that makes a story findable at all —
 // somebody scrolling the feed should not have to go back to the top to notice one — so it
 // travels with the face rather than living only in the row. Tapping it opens the story.
-const avStory = (u, cls = '') => {
-  if (!u || !u.id || !storiesOf(u.id).length) return av(u, cls);
-  return `<button type="button" class="rg ${unseenOf(u.id).length ? 'new' : 'old'}"
-    onclick="event.stopPropagation();openStory('${esc(u.id)}')"
-    aria-label="${esc(name(u))}'s story">${av(u, cls)}</button>`;
+// A face with a story behind it opens the story. A face with none opens the profile, where
+// asked for, which is how every app carrying both settles the argument over one tap.
+const avStory = (u, cls = '', toProfile = false) => {
+  const has = u && u.id && storiesOf(u.id).length;
+  if (!has && !(toProfile && u && u.id)) return av(u, cls);
+  const go = has ? `openStory('${esc(u.id)}')` : `openWho('${esc(u.id)}')`;
+  return `<button type="button" class="rg ${has ? (unseenOf(u.id).length ? 'new' : 'old') : 'none'}"
+    onclick="event.stopPropagation();${go}"
+    aria-label="${esc(name(u))}${has ? "'s story" : "'s profile"}">${av(u, cls)}</button>`;
 };
 // Ways for a card of text to look. The app's own greens first, then a couple that are just
 // for fun, because a story is allowed to be.
@@ -1885,8 +1964,8 @@ function feed(ps, showGroup) {
     // The header sits on the card above the clip, so the clip is only the clip. The
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
-      <div class="head">${avStory(u)}<div class="grow"><div class="who">${esc(name(u))}${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
-        ${p.userId === me().id ? `<button type="button" class="more" onclick="delPost(${p.id})" aria-label="Delete post">⋯</button>` : ''}</div>
+      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
+        ${p.userId === me().id ? `<button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button>` : ''}</div>
       <div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
@@ -1931,7 +2010,7 @@ function releaseClip(v) {
 }
 function watchClips() {
   if (clipObs) clipObs.disconnect();
-  const vs = [...document.querySelectorAll('.reel .proof')];
+  const vs = [...document.querySelectorAll('.reel .proof, .tile .proof')];
   // Without an observer there is no way to tell what is on screen, so load them all and
   // accept the old behaviour rather than showing nothing.
   if (!self.IntersectionObserver) return vs.forEach(attachClip);
@@ -2196,24 +2275,153 @@ function pushCard() {
 }
 
 function profileView() {
-  const m = me(), gs = myGroups();
-  const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id))), postsN = S.totals.filter(t => t.u === m.id).length;
-  return smallHdr('Profile') + `<div class="card"><div class="row">${av(m, 'xl')}<div class="grow"><b style="font-size:20px;display:block">${esc(name(m))}${badgeChip(m.id)}</b><span class="muted">@${esc(m.username)}</span></div></div>
-    <div class="stats"><div><b class="num">${cur}</b><small>streak</small></div><div><b class="num">${bst}</b><small>best</small></div><div><b class="num">${postsN}</b><small>proofs</small></div></div>
-    ${badgesOf(m.id).length ? `<div class="bshelf">${badgesOf(m.id).map(b => `<button type="button" onclick="badgeDlg('${esc(m.id)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
-      : `<p class="muted" style="margin-top:14px">Badges start at a 25 day streak.</p>`}
-    <div class="row" style="margin-top:14px"><button class="teal grow" onclick="profileDlg()">Edit profile</button><button onclick="toggleTheme()">${isDark() ? 'Light mode' : 'Dark mode'}</button></div></div>
-  <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Your groups</h3><button class="ghost small" onclick="go('groups')">See all ›</button></div>
-  ${gs.length ? `<div class="card list">` + gs.map(g => `<div class="row"><div class="grow"><b>${esc(g.name)}</b><div class="muted">${plural(g.members.length, 'member')} · ${quotaText(g)}${streak(g, m.id) ? ` · ${streak(g, m.id)} day streak` : ''}</div></div><button class="small" onclick="openGroup(${g.id})">Open</button><button class="ghost small" onclick="leaveGroup(${g.id})">Leave</button></div>`).join('') + `</div>` : `<div class="card empty"><b>No groups yet</b></div>`}
-  <div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">Friends</h3><button class="ghost small" onclick="go('friends')">Manage ›</button></div>
-  <div class="card row wrap" style="gap:6px">${S.friends.length ? S.friends.map(id => `<span class="chip row" style="gap:6px;padding:4px 10px 4px 4px">${av(user(id))}${esc(name(user(id)))}</span>`).join('') : `<span class="muted">No friends yet</span>`}</div>
-  <h3>Notifications</h3>${pushCard()}
-  <h3>Recovery codes</h3>
-  <div class="card"><p class="muted">The only way back in if you forget your password \u2014 there is no reset email, because accounts have no email address. Getting a new set replaces any unused codes you still have.</p>
-  <button class="small" style="margin-top:10px" onclick="newCodes()">Get new recovery codes</button></div>
-  <div class="card row between"><span class="muted">Signed in as @${esc(m.username)}</span><button class="small" onclick="logout()">Log out</button></div>
-  <p class="muted" style="text-align:center;margin:14px 0 0;font-size:12px">${BUILD}</p>`;
+  const m = me();
+  if (!S.pro[m.id]) loadProfile(m.id);
+  return personView(m.id);
 }
+// Everything the profile used to be carrying, now that the profile is a profile. One row
+// per thing, the two that are a yes or a no switching in place, the rest opening a sheet.
+const SICON = {
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',
+  people: '<circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  bell: '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 0 1-3.4 0"/>',
+  lock: '<rect x="4" y="10.5" width="16" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>',
+  shield: '<path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9.5 12.2l1.8 1.8 3.4-3.6"/>',
+  out: '<path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/>',
+};
+const srow = (icon, title, sub, right, click, cls = '') =>
+  `<button type="button" class="li ${cls}" ${click ? `onclick="${click}"` : ''}>
+    <svg viewBox="0 0 24 24">${SICON[icon]}</svg>
+    <span class="t"><b>${title}</b>${sub ? `<em>${sub}</em>` : ''}</span>${right}</button>`;
+const sw = on => `<span class="sw${on ? ' on' : ''}"></span>`;
+const PUSHSUB = {on: 'On for this phone', off: 'Off. You will only find out by opening the app.',
+  denied: 'Turned off for Quota on this phone. Settings \u2192 Quota \u2192 Notifications puts them back.',
+  install: 'Add Quota to your home screen first', unsupported: 'This browser cannot do notifications'};
+function settingsView() {
+  const m = me(), shown = shownGroups(m.id).length, gs = myGroups();
+  const pushOn = S.push === 'on', pushable = S.push === 'on' || S.push === 'off';
+  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div><h1>Settings</h1></div>
+    <button class="ghost back" onclick="closeSettings()">\u2039 Profile</button>
+    <p class="sec">Your profile</p>
+    <div class="list">
+      ${srow('person', 'Name, picture and bio', `${esc(name(m))} \u00b7 @${esc(m.username)}`, '<span class="go">\u203a</span>', 'profileDlg()')}
+      ${srow('people', 'Groups on your profile', gs.length ? `${shown} of ${plural(gs.length, 'group')} shown` : 'No groups yet', '<span class="go">\u203a</span>', 'groupsShownDlg()')}
+    </div>
+    <p class="sec">Preferences</p>
+    <div class="list">
+      ${srow('moon', 'Dark mode', isDark() ? 'On' : 'Off', sw(isDark()), 'toggleTheme()')}
+      ${srow('bell', 'Notifications', PUSHSUB[S.push] || '', pushable ? sw(pushOn) : '<span class="go"></span>',
+        pushable ? (pushOn ? 'disablePush()' : 'enablePush()') : '')}
+    </div>
+    ${pushable ? `<div class="pushabout"><p class="muted">A switch covering five different things has to say which five. You will hear about:</p>
+      <ul class="about">${PUSHABOUT.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="muted">And anything left on your stories.</p></div>` : ''}
+    <p class="sec">Account</p>
+    <div class="list">
+      ${srow('lock', 'Change password', '', '<span class="go">\u203a</span>', 'passwordDlg()')}
+      ${srow('shield', 'Recovery codes', 'The only way back in if you forget', '<span class="go">\u203a</span>', 'newCodes()')}
+      ${srow('out', 'Log out', `Signed in as @${esc(m.username)}`, '', 'logout()', 'danger')}
+    </div>
+    <p class="muted pad" style="text-align:center">${BUILD}</p>`;
+}
+function groupsShownDlg() {
+  const m = me(), gs = myGroups(), want = m.shown_groups || [];
+  dlg(`<h2>Groups on your profile</h2><p class="muted">Whichever you tick shows as a chip with your streak in it. Nobody sees a group they are not already in.</p>
+    <form onsubmit="event.preventDefault();saveShownGroups(this)">
+      ${gs.length ? gs.map(g => `<label class="check" style="margin-top:14px"><input type="checkbox" name="g" value="${g.id}" ${want.includes(g.id) ? 'checked' : ''}><span>${esc(g.name)}</span></label>`).join('')
+        : '<p class="muted" style="margin-top:12px">You are not in any groups yet.</p>'}
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
+}
+async function saveShownGroups(f) {
+  const ids = [...f.querySelectorAll('input[name=g]:checked')].map(x => +x.value);
+  working(f, 'Saving\u2026');
+  try { await q(sb.from('profiles').update({shown_groups: ids}).eq('id', me().id)); }
+  catch (e) { return working(f, 'Save'), showErr('That did not save.', String(e && e.message || e)); }
+  dlg(); await load();
+}
+function passwordDlg() {
+  dlg(`<h2>Change password</h2><p class="muted">There is no reset email, because accounts have no email address. If you forget this one, a recovery code is the way back.</p>
+    <form onsubmit="event.preventDefault();savePassword(this)">
+      <label>New password</label><input name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="at least 6 characters">
+      <label>Again</label><input name="again" type="password" required minlength="6" autocomplete="new-password" placeholder="the same one">
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Change it</button></div></form>`);
+}
+async function savePassword(f) {
+  if (f.password.value !== f.again.value) return alert('Those two do not match.');
+  working(f, 'Changing\u2026');
+  const {error} = await sb.auth.updateUser({password: f.password.value});
+  if (error) return working(f, 'Change it'), alert(error.message);
+  dlg();
+  alert('Password changed.');
+}
+// ---- a profile, which is the same screen whoever is looking
+// Your own adds the gear and the grid's own count; somebody else's adds the way back. One
+// function, because two that had to be kept in step would drift by the second feature.
+const GEAR = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.2a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4z"/></svg>';
+// The groups somebody is willing to have on show, and that they are still in. A group left
+// stops appearing because the id stops matching a membership, not because anything tidied
+// the list up.
+const shownGroups = uid => {
+  const want = user(uid).shown_groups || [];
+  return S.groups.filter(g => g.members.includes(uid) && want.includes(g.id));
+};
+// Worked out from the groups you two share, because that is the history you are allowed to
+// read. Share none and there is no number to show rather than a zero that reads as a lapse.
+const seenTogether = uid => S.groups.filter(g => g.members.includes(uid) && g.members.includes(me().id));
+function personView(uid) {
+  const u = user(uid), own = uid === me().id;
+  const mine = seenTogether(uid);
+  const cur = mine.length ? Math.max(0, ...mine.map(g => streak(g, uid))) : null;
+  const bst = mine.length ? Math.max(0, ...mine.map(g => best(g, uid))) : null;
+  const pro = S.pro[uid] || {loading: true, posts: []};
+  const grid = pro.posts;
+  const chips = shownGroups(uid);
+  const stat = (v, l) => `<div><b class="num">${v === null ? '—' : num(v)}</b><small>${l}</small></div>`;
+  return (own
+    ? `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div>
+        <h1 class="withgear">Profile<button type="button" class="gear" onclick="openSettings()" aria-label="Settings">${GEAR}</button></h1></div>`
+    : `<button class="ghost back" onclick="closeWho()">‹ Back</button>`)
+  + `<div class="pf">
+    <div class="who">${av(u, 'xl')}
+      <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
+    ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
+    <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(grid.length, 'on show')}</div>
+    ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
+      : own ? `<p class="muted pad">Badges start at a 25 day streak.</p>` : ''}
+    ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
+      mine.includes(g) && streak(g, uid) ? `<em>${streak(g, uid)} day streak</em>` : ''}</button>`).join('')}</div>` : ''}
+    <div class="ptabs"><span class="on">Proof${grid.length ? ` · ${grid.length}` : ''}</span></div>
+    ${pro.loading ? `<p class="muted pad">Loading…</p>`
+      : grid.length ? `<div class="pgrid">${grid.map(p => tile(p)).join('')}</div>`
+      : `<p class="muted pad">${own ? 'Nothing here yet. When you post, tick “Also show this on my profile” and it lands in this grid.'
+        : `Only what ${esc(name(u))} chose to show here.`}</p>`}
+  </div>`;
+}
+// A tile is the first frame and what it was worth. The same lazy loading the feed uses, so
+// a grid of sixty does not ask the network for sixty files at once.
+function tile(p) {
+  const pic = isPhoto(p);
+  return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}">
+    ${pic ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''}>`
+      : `<video class="proof" playsinline preload="metadata" muted${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}
+    ${pic ? '' : `<svg class="pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`}
+    <b>+${num(p.amount)}</b></button>`;
+}
+// One post on its own, with everything a post has. A tile can be a post from a group this
+// account is not in, so sending you to the feed to find it would send you nowhere.
+function openPost(id) {
+  const p = S.posts.find(x => x.id === id) || Object.values(S.pro).flatMap(x => x.posts).find(x => x.id === id);
+  if (!p) return;
+  S.one = id;
+  const box = $('#one');
+  box.innerHTML = `<div class="onebar"><button type="button" class="ghost" onclick="closePost()">‹ Back</button></div>
+    <div class="onewrap">${feed([p], true)}</div>`;
+  box.hidden = false;
+  watchClips();
+}
+function closePost() { S.one = null; $('#one').hidden = true; $('#one').innerHTML = ''; watchClips(); }
+
 function welcomeView() {
   return `<div class="welcome"><div class="mark">${LOGO(false)}</div>
     <h1>Your friends will know if you skip.</h1>
@@ -2689,6 +2897,8 @@ function submitDlg(gid) {
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     ${challengeBlock(g)}
+    <label class="check chk" style="margin-top:16px"><input type="checkbox" name="onprofile">
+      <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label>
     <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag" maxlength="200">
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
@@ -2718,6 +2928,7 @@ function profileDlg() {
   dlg(`<h2>Edit profile</h2><form onsubmit="event.preventDefault();saveProfile(this)">
     <div class="row" style="margin-top:12px">${av(m, 'xl')}<div class="grow"><label style="margin-top:0">Profile picture</label><input name="photo" type="file" accept="image/*"></div></div>
     <label>Display name</label><input name="display_name" value="${esc(m.display_name || '')}" placeholder="${esc(m.username)}" maxlength="40">
+    <label>Bio</label><textarea name="bio" rows="3" maxlength="160" placeholder="What you are doing this for.">${esc(m.bio || '')}</textarea>
     <p class="muted" style="margin-top:8px">Your username @${esc(m.username)} stays the same. That's what friends use to find you.</p>
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
@@ -2741,7 +2952,38 @@ function vidPick(input) {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
-function go(tab) { const back = !!S.open; S.tab = tab; S.open = null; render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
+function go(tab) { const back = !!(S.open || S.who || S.settings); S.tab = tab; S.open = S.who = null; S.settings = false;
+  render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
+// A profile lives inside whichever screen you opened it from: it slides in over the feed
+// and the way back is where you were, not the Profile tab.
+function openWho(uid) {
+  if (!uid || uid === S.who) return;
+  S.who = uid; S.settings = false; render(); scrollTo(0, 0); slide(1);
+  loadProfile(uid);
+}
+function closeWho() { S.who = null; render(); scrollTo(0, 0); slide(-1); }
+function openSettings() { S.settings = true; render(); scrollTo(0, 0); slide(1); refreshPush().then(render); }
+function closeSettings() { S.settings = false; render(); scrollTo(0, 0); slide(-1); }
+// The posts somebody chose to show. Fetched when their profile is opened rather than with
+// everything else: most of them are outside the two hundred the feed carries, and some are
+// in groups this account is not in at all.
+async function loadProfile(uid) {
+  if (S.pro[uid]) return;
+  S.pro[uid] = {loading: true, posts: []};
+  try {
+    const rows = await q(sb.from('posts').select('*').eq('user_id', uid).eq('on_profile', true)
+      .order('created_at', {ascending: false}).limit(60));
+    const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
+      amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
+      challenge: p.challenge, spinId: p.spin_id, onProfile: true}));
+    if (list.length) {
+      const urls = await q(sb.storage.from('proof').createSignedUrls(list.map(x => x.path), 3600));
+      urls.forEach((u, i) => { list[i].url = u.signedUrl; });
+    }
+    S.pro[uid] = {loading: false, posts: list};
+  } catch (e) { S.pro[uid] = {loading: false, posts: [], err: true}; }
+  if (S.who === uid) render();
+}
 const slide = dir => { if (matchMedia('(prefers-reduced-motion: reduce)').matches || !$('#app').animate) return;
   $('#app').animate([{opacity: .4, transform: `translateX(${dir * 28}px)`}, {opacity: 1, transform: 'none'}], {duration: 280, easing: 'cubic-bezier(.32,.72,0,1)'}); };
 function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); slide(1); }
@@ -2870,7 +3112,8 @@ async function saveGroup(f, id) {
   dlg(); await load(); openGroup(gid);
 }
 async function saveProfile(f) {
-  const fd = new FormData(f), photo = fd.get('photo'), display_name = fd.get('display_name').trim() || null, patch = {display_name};
+  const fd = new FormData(f), photo = fd.get('photo'), display_name = fd.get('display_name').trim() || null;
+  const patch = {display_name, bio: (fd.get('bio') || '').trim().slice(0, 160) || null};
   working(f, 'Saving…');
   try {
     if (photo && photo.size) {
@@ -3516,6 +3759,7 @@ async function addPost(f, gid) {
     const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
     await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
       caption: fd.get('caption').trim(), video_path: path, day: today(),
+      on_profile: !!fd.get('onprofile'),
       challenge: chalText || null, spin_id: spinId ? +spinId : null}));
   } catch (e) {
     if (bar) bar.hidden = true;
@@ -3531,6 +3775,28 @@ async function addPost(f, gid) {
   const freshIn = fresh && myGroups().find(x => myChallenges(x).some(sp => sp.id === fresh));
   if (freshIn) suggestAfterChallenge(freshIn, myChallenges(freshIn).find(sp => sp.id === fresh));
   else if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g, +fd.get('amount'), String(fd.get('metric') || ''));
+}
+// What you can do to a post of your own. Showing it on your profile is a decision you can
+// change later, which is the only way anything posted before today gets into the grid.
+function postMenu(id) {
+  const p = S.posts.find(x => x.id === id) || Object.values(S.pro).flatMap(x => x.posts).find(x => x.id === id);
+  if (!p) return;
+  dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
+    <div class="menu">
+      <button type="button" onclick="dlg();showOnProfile(${id},${p.onProfile ? 'false' : 'true'})">${
+        p.onProfile ? 'Take this off my profile' : 'Show this on my profile'}</button>
+      <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete this post</button>
+    </div>`);
+}
+async function showOnProfile(id, on) {
+  const touch = list => list.map(x => x.id === id ? {...x, onProfile: on} : x);
+  S.posts = touch(S.posts);
+  for (const k of Object.keys(S.pro)) S.pro[k] = {...S.pro[k], posts: touch(S.pro[k].posts)};
+  delete S.pro[me().id];                   // the grid is fetched, so it has to be asked again
+  render();
+  try { await q(sb.from('posts').update({on_profile: on}).eq('id', id)); }
+  catch (e) { return showErr('That did not save.', String(e && e.message || e)); }
+  loadProfile(me().id);
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;

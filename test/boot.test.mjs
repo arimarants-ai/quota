@@ -1086,8 +1086,8 @@ await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
   check('  and the whole thing can be copied out', /boom/.test(copied) && /quota-v/.test(copied) && /Mozilla/.test(copied),
     JSON.stringify(copied));
   check('  including where it happened', copied.split('\n').length > 3, JSON.stringify(copied));
-  check('  and the build is on the profile too', await page.evaluate(() => {
-    S.me = S.me || {username: 'ari'}; go('profile');
+  check('  and the build is at the foot of settings', await page.evaluate(() => {
+    S.me = S.me || {username: 'ari'}; go('profile'); openSettings();
     return $('#app').innerText.includes(BUILD);
   }));
 });
@@ -1406,6 +1406,164 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// The profile is a page about somebody, and it is the same page whoever is looking.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { go('profile'); });
+  await page.waitForTimeout(500);
+  check('your own profile reads as a profile, not a settings screen',
+    await page.locator('.pf .nm b').count() === 1
+    && /ari/i.test(await page.locator('.pf .nm span').innerText())
+    && await page.locator('.pf .stats div').count() === 3);
+  check('  with a way into settings rather than the settings themselves',
+    await page.locator('.hdr .gear').count() === 1
+    && !/Recovery codes/i.test(await page.innerText('#app')));
+
+  // Group only unless you say otherwise, so the grid starts empty.
+  check('  and an empty grid, because nothing has been put on it',
+    await page.locator('.pgrid').count() === 0
+    && /tick/i.test(await page.locator('.pf .muted.pad').last().innerText()),
+    await page.locator('.pf').innerText());
+
+  // A bio, once there is one.
+  await page.evaluate(() => { S.profiles.u1.bio = 'Mornings before work.'; render(); });
+  await page.waitForTimeout(200);
+  check('  a bio shows where one is written', /Mornings before work/.test(await page.locator('.pf .bio').innerText()));
+
+  // Settings is its own screen, and everything that was on the old profile is on it.
+  await page.locator('.hdr .gear').click();
+  await page.waitForTimeout(400);
+  const set = await page.innerText('#app');
+  check('the gear opens settings', await page.evaluate(() => S.settings) === true
+    && await page.locator('.list').count() === 3);
+  check('  carrying everything the profile used to', /bio/i.test(set) && /Groups on your profile/i.test(set)
+    && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
+    && /Recovery codes/i.test(set) && /Log out/i.test(set), set);
+  // Notifications only get a switch where the browser can do them at all, which a headless
+  // one cannot; dark mode always can, and the notifications row has its own test.
+  check('  with the ones that are a yes or a no as switches',
+    await page.locator('.li:has-text("Dark mode") .sw').count() === 1);
+  await page.locator('.li:has-text("Dark mode")').click();
+  await page.waitForTimeout(300);
+  check('  and dark mode switching in place rather than opening anything',
+    await page.evaluate(() => isDark()) && await page.evaluate(() => S.settings) === true
+    && await page.locator('#dlg[open]').count() === 0);
+  await page.evaluate(() => setTheme('light'));
+  await page.locator('.back').click();
+  await page.waitForTimeout(400);
+  check('  the way back is the profile', await page.evaluate(() => S.settings) === false
+    && await page.locator('.pf').count() === 1);
+});
+
+// Opening somebody from the feed, without leaving the feed.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('a name on a post is the way to their profile',
+    await page.locator('.post .head .who').first().evaluate(b => b.tagName === 'BUTTON'));
+  await page.locator('.post .head .who').nth(1).click();
+  await page.waitForTimeout(500);
+  check('  tapping it opens them', await page.locator('.pf').count() === 1
+    && await page.evaluate(() => S.who) !== null);
+  check('    still in the feed, not the profile tab', await page.evaluate(() => S.tab) === 'feed');
+  check('    with no settings offered on somebody else', await page.locator('.hdr .gear').count() === 0);
+  check('    and a way back', await page.locator('.back').count() === 1);
+  await page.locator('.back').click();
+  await page.waitForTimeout(400);
+  check('  which returns to the feed', await page.evaluate(() => S.who) === null
+    && await page.locator('.post').count() > 0);
+
+  // A face with no story behind it opens the profile rather than doing nothing.
+  await page.evaluate(() => { S.stories = []; render(); });
+  await page.waitForTimeout(200);
+  await page.locator('.post .head .rg.none').nth(1).click();
+  await page.waitForTimeout(450);
+  check('  a face with no story behind it opens the profile too', await page.locator('.pf').count() === 1);
+  await page.evaluate(() => closeWho());
+
+  // With a story, the face is the story and the name is still the profile.
+  await page.evaluate(() => { S.stories = [{id: 60, u: 'u2', kind: 'text', body: 'out early', ts: Date.now() - 36e5, style: {}}]; S.seen = []; render(); });
+  await page.waitForTimeout(250);
+  await page.locator('.post .head .rg.new').first().click();
+  await page.waitForTimeout(350);
+  check('    and a face with one opens the story instead', await page.locator('#story').isVisible());
+  await page.locator('#story .who .x').click();
+});
+
+// A clip goes to the group. Putting it on your profile is a separate, deliberate tick.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(400);
+  const box = page.locator('#dlg input[name=onprofile]');
+  check('the post form offers the profile as a choice', await box.count() === 1);
+  check('  which is off to begin with', !await box.isChecked());
+  check('    and says what the difference is',
+    /group sees it either way/i.test(await page.locator('#dlg .chk').innerText()),
+    await page.locator('#dlg .chk').innerText());
+  await page.evaluate(() => dlg());
+  await page.waitForTimeout(300);
+
+  // The post's own menu is how anything posted before today gets onto the grid.
+  await page.locator('.post .head .more').first().click();
+  await page.waitForTimeout(350);
+  check("a post of your own offers to show itself on your profile",
+    /show this on my profile/i.test(await page.locator('#dlg .menu').innerText()),
+    await page.locator('#dlg .menu').innerText());
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(700);
+  const sent = (await page.evaluate(() => self.__edits)).filter(e => e.table === 'posts');
+  check('  and ticking it saves that against the post',
+    sent.length === 1 && sent[0].on_profile === true, JSON.stringify(sent));
+  check('    which is what the grid is built from',
+    await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === true);
+  await page.evaluate(() => { go('profile'); });
+  await page.waitForTimeout(700);
+  check('  so it turns up in the grid', await page.locator('.pgrid .tile').count() === 1,
+    String(await page.locator('.pgrid .tile').count()));
+  check('    as a tile carrying what the day was worth',
+    /50/.test(await page.locator('.pgrid .tile b').first().innerText()));
+  await page.locator('.pgrid .tile').first().click();
+  await page.waitForTimeout(450);
+  check('  and tapping the tile opens that one post on its own',
+    await page.locator('#one').isVisible() && await page.locator('#one .post').count() === 1);
+  await page.locator('#one .ghost').click();
+  await page.waitForTimeout(300);
+  check('    with a way back out', await page.locator('#one').isHidden());
+
+  // And taking it off again.
+  await page.locator('.pgrid .tile').first().click();
+  await page.waitForTimeout(400);
+  await page.locator('#one .post .head .more').click();
+  await page.waitForTimeout(350);
+  check('  a post already on the profile offers to come off',
+    /take this off my profile/i.test(await page.locator('#dlg .menu').innerText()),
+    await page.locator('#dlg .menu').innerText());
+  await page.evaluate(() => { dlg(); closePost(); });
+});
+
+// Which groups you are willing to have on show.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { go('profile'); });
+  await page.waitForTimeout(500);
+  check('a profile shows no groups until you pick some', await page.locator('.gchips').count() === 0);
+  await page.evaluate(() => { S.profiles.u1.shown_groups = [S.groups[0].id]; render(); });
+  await page.waitForTimeout(250);
+  check('  one picked shows as a chip', await page.locator('.gchip').count() === 1
+    && /Mornings/.test(await page.locator('.gchip').innerText()));
+  check('    carrying your run in that group', /day streak/.test(await page.locator('.gchip').innerText()),
+    await page.locator('.gchip').innerText());
+  await page.evaluate(() => { S.profiles.u1.shown_groups = [9999]; render(); });
+  await page.waitForTimeout(250);
+  check('  a group you are not in is never shown, whatever the list says',
+    await page.locator('.gchip').count() === 0);
+  await page.evaluate(() => { openSettings(); });
+  await page.waitForTimeout(400);
+  await page.locator('.li:has-text("Groups on your profile")').click();
+  await page.waitForTimeout(350);
+  check('  and settings is where you choose', await page.locator('#dlg input[name=g]').count() === 1);
+});
+
 // A long run leaves a mark. Earned once, kept whatever happens next, and never a second
 // time for the same number.
 await withPage(SIGNED_IN, async page => {
@@ -1480,9 +1638,11 @@ await withPage(SIGNED_IN, async page => {
 // scrolling the feed should not have to go back up to notice one.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
-  const ring = () => page.locator('.post .head .rg').first();
+  const ring = () => page.locator('.post .head .rg.new').first();
+  // Every face is a button now, because one with no story behind it opens the profile.
+  // What a ring means is the lit or quiet state, not the presence of the button.
   check('a face on a post carries no ring when there is no story behind it',
-    await page.locator('.post .head .rg').count() === 0
+    await page.locator('.post .head .rg.new, .post .head .rg.old').count() === 0
     && await page.locator('.post .head .av').count() > 0);
 
   await page.evaluate(() => {
@@ -1491,9 +1651,9 @@ await withPage(SIGNED_IN, async page => {
   });
   await page.waitForTimeout(250);
   check('  a story lights the ring on every post of theirs', await page.locator('.post .head .rg.new').count() >= 1);
-  check('    and leaves your own face alone', await page.evaluate(() => {
+  check('    and leaves your own face unlit', await page.evaluate(() => {
     const mine = [...document.querySelectorAll('.post[data-post]')].filter(el => /@ari/.test(el.querySelector('.head').innerText));
-    return mine.length > 0 && mine.every(el => !el.querySelector('.head .rg'));
+    return mine.length > 0 && mine.every(el => !el.querySelector('.head .rg.new, .head .rg.old'));
   }));
   await ring().click();
   await page.waitForTimeout(300);
@@ -1509,7 +1669,8 @@ await withPage(SIGNED_IN, async page => {
   // A day old and it is nobody's ring any more.
   await page.evaluate(() => { S.stories = S.stories.map(x => ({...x, ts: Date.now() - 25 * 36e5})); render(); });
   await page.waitForTimeout(250);
-  check('  a story that has expired takes its ring with it', await page.locator('.post .head .rg').count() === 0);
+  check('  a story that has expired takes its ring with it',
+    await page.locator('.post .head .rg.new, .post .head .rg.old').count() === 0);
 });
 
 // Every sheet has a way back out of it.
@@ -2052,22 +2213,24 @@ await withPage(SIGNED_IN, async page => {
 // covers five different things has to say which five.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
-  // go('profile') asks the browser what the real state is and overwrites whatever was set,
-  // so land on the tab first and say what to draw after.
-  await page.evaluate(() => { S.tab = 'profile'; S.open = null; S.push = 'on'; render(); });
+  // openSettings() asks the browser what the real state is and overwrites whatever was
+  // set, so land on the screen first and say what to draw after.
+  await page.evaluate(() => { S.tab = 'profile'; S.open = null; S.settings = true; S.push = 'on'; render(); });
   await page.waitForTimeout(300);
-  const card = page.locator('#app .card:has(.about)');
-  check('Profile can turn notifications off without leaving the app',
-    await card.locator('button:has-text("Turn off")').count() === 1);
-  const txt = await card.innerText();
+  const row = page.locator('#app .li:has-text("Notifications")');
+  check('Settings can turn notifications off without leaving the app',
+    await row.locator('.sw.on').count() === 1 && /disablePush/.test(await row.getAttribute('onclick') || ''));
+  const txt = await page.locator('#app .pushabout').innerText();
   check('  saying what it covers rather than just "on"',
     /friend request/i.test(txt) && /comment on your proof/i.test(txt) && /like on your proof/i.test(txt), txt);
 
   await page.evaluate(() => { S.push = 'off'; render(); });
   await page.waitForTimeout(200);
-  const off = await page.locator('#app .card:has(.about)').innerText();
+  const off = await page.locator('#app .pushabout').innerText();
+  const offRow = page.locator('#app .li:has-text("Notifications")');
   check('  and still saying it when they are off, so you know what you are missing',
-    /friend request/i.test(off) && /Turn on/i.test(off), off);
+    /friend request/i.test(off) && await offRow.locator('.sw:not(.on)').count() === 1
+    && /enablePush/.test(await offRow.getAttribute('onclick') || ''), off);
 
   await page.evaluate(() => { S.push = 'denied'; render(); });
   await page.waitForTimeout(200);

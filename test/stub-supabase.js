@@ -41,7 +41,7 @@
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
-  self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = [];
+  self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__onprofile = {};
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -50,7 +50,10 @@
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts],
+    // on_profile is the one thing about a post that can change after it is posted, so it
+    // is read back through whatever the page last set rather than off the fixture.
+    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
+      .map(p => ({ on_profile: false, ...p, ...(p.id in self.__onprofile ? { on_profile: self.__onprofile[p.id] } : {}) })),
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,
@@ -99,18 +102,34 @@
       if (st.op === 'delete' && t === 'comments') {
         self.__cmts = self.__cmts.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
+      // update().eq() puts the row before the filter, so which post to touch is not known
+      // until the query is actually run.
+      if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
+        self.__onprofile[st.filters.id] = st.row.on_profile;
+      }
       if (st.or != null) return { data: matches(rows(t), st.or), error: null };
-      return st.op ? { data: null, error: null } : result(t);
+      if (st.op) return { data: null, error: null };
+      const out = result(t);
+      // A read with eq() on it means it: the profile grid asks for one person's posts that
+      // they put on their profile, and a stub that handed back everything would be
+      // answering a different question than the app asked.
+      if (out.data && Object.keys(st.filters).length) {
+        out.data = out.data.filter(r => Object.entries(st.filters).every(([k, v]) => r[k] === v));
+      }
+      return out;
     };
     // A test can hold a write open (self.__stall) to see what the page shows while it is
     // still in flight, rather than only after the round trip has landed.
     const p = { then: (res, rej) => Promise.resolve(
       self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
     for (const k of ['select', 'order', 'limit', 'in', 'upsert']) p[k] = () => chain(t, st);
-    // An edit is worth seeing land: the page sends one for a story whose wording changed.
-    p.update = row => { self.__edits.push({ table: t, ...row }); return chain(t, { ...st, op: 'update' }); };
+
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
+    p.update = row => {
+      self.__edits.push({ table: t, ...row });
+      return chain(t, { ...st, op: 'update', row });
+    };
     p.insert = row => {
       if (t === 'invites') self.__invited = { ...row };
       if (t === 'likes') self.__likes.push({ ...row });
