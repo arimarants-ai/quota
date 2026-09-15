@@ -64,3 +64,7 @@ console.log(`\nall ${n} message checks passed`);
 }
 eq(socialFor('reaction', 'Ari', '🔥'), 'Ari reacted 🔥', 'a reaction carries the emoji');
 eq(socialFor('reaction', 'Ari'), 'Ari reacted', '  and reads properly without one');
+// A story says it is a story: it will not be there tomorrow, and the post it is not still is.
+eq(socialFor('story_like', 'Ari'), 'Ari liked your story', 'a story like says so');
+eq(socialFor('story_reaction', 'Ari', '🔥'), 'Ari reacted 🔥 to your story', '  and a story reaction carries the emoji');
+eq(socialFor('story_reaction', 'Ari'), 'Ari reacted to your story', '  reading properly without one');

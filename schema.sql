@@ -1103,3 +1103,93 @@ drop policy if exists "your own views" on public.story_views;
 create policy "your own views" on public.story_views for select
   using (user_id = auth.uid()
       or exists (select 1 from public.stories s where s.id = story_id and s.user_id = auth.uid()));
+
+-- ============================================================
+-- v19 (story likes and reactions): safe to run on an existing project. Deploy the notify
+-- function first, as with v14 and v15 — this adds two more kinds for it to understand.
+--
+-- A story can be answered the same two ways a post can: one heart, and as many emoji as
+-- you like. Both are governed by the story, so both expire with it: a like on a story
+-- nobody can read any more is not readable either.
+-- ============================================================
+
+create table if not exists public.story_likes (
+  story_id bigint not null references public.stories on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (story_id, user_id)
+);
+create index if not exists story_likes_story on public.story_likes (story_id);
+alter table public.story_likes enable row level security;
+
+-- One row per person per emoji, exactly as reactions on a post are.
+create table if not exists public.story_reactions (
+  story_id bigint not null references public.stories on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  emoji text not null check (char_length(emoji) between 1 and 8),
+  created_at timestamptz not null default now(),
+  primary key (story_id, user_id, emoji)
+);
+create index if not exists story_reactions_story on public.story_reactions (story_id);
+alter table public.story_reactions enable row level security;
+
+-- Readable exactly when the story is: the same two rules and the same day, read off the
+-- story rather than repeated here, so there is one answer to who can see what.
+create or replace function public.can_see_story(sid bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.stories s
+                  where s.id = sid and public.can_see_user(s.user_id)
+                    and s.created_at > now() - interval '24 hours');
+$$;
+
+drop policy if exists "see story likes" on public.story_likes;
+drop policy if exists "like a story you can see" on public.story_likes;
+drop policy if exists "take back your own story like" on public.story_likes;
+create policy "see story likes" on public.story_likes for select using (public.can_see_story(story_id));
+create policy "like a story you can see" on public.story_likes for insert
+  with check (user_id = auth.uid() and public.can_see_story(story_id));
+create policy "take back your own story like" on public.story_likes for delete using (user_id = auth.uid());
+
+drop policy if exists "see story reactions" on public.story_reactions;
+drop policy if exists "react to a story you can see" on public.story_reactions;
+drop policy if exists "take back your own story reaction" on public.story_reactions;
+create policy "see story reactions" on public.story_reactions for select using (public.can_see_story(story_id));
+create policy "react to a story you can see" on public.story_reactions for insert
+  with check (user_id = auth.uid() and public.can_see_story(story_id));
+create policy "take back your own story reaction" on public.story_reactions for delete using (user_id = auth.uid());
+
+drop trigger if exists story_likes_notify on public.story_likes;
+create trigger story_likes_notify after insert on public.story_likes
+  for each row execute function public.notify_hook('story_like');
+
+drop trigger if exists story_reactions_notify on public.story_reactions;
+create trigger story_reactions_notify after insert on public.story_reactions
+  for each row execute function public.notify_hook('story_reaction');
+
+-- ============================================================
+-- v20 (editing a story you posted): safe to run on an existing project.
+--
+-- Wording and colours are the only things an edit can change. Which story it is, whose it
+-- is, what file it points at and when it was posted are all fixed — an edit that could
+-- move the file would be a way to point a story at somebody else's, and one that could
+-- move the clock would be a way to make a story that never expires.
+-- ============================================================
+create or replace function public.story_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.user_id    := old.user_id;
+  new.kind       := old.kind;
+  new.media_path := old.media_path;
+  new.created_at := old.created_at;
+  return new;
+end $$;
+
+drop trigger if exists stories_edit_guard on public.stories;
+create trigger stories_edit_guard before update on public.stories
+  for each row execute function public.story_edit_guard();
+
+drop policy if exists "reword your own story" on public.stories;
+-- The same day limit as reading one: a story nobody can see any more is not one to edit.
+create policy "reword your own story" on public.stories for update
+  using (user_id = auth.uid() and created_at > now() - interval '24 hours')
+  with check (user_id = auth.uid());

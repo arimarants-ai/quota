@@ -30,11 +30,14 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
+  // A story says so, because it is gone in a day and the post it is not is still there.
+  if (kind === 'story_like') return `${name} liked your story`;
+  if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
   // A comment is worth reading in the notification itself, but a long one turns the
   // whole thing into a wall; the rest is one tap away.
   const body = (extra ?? '').replace(/\s+/g, ' ').trim();

@@ -860,7 +860,14 @@ await withPage(NO_WHEEL, async page => {
   check('  stopping keeps the recording', rec && rec.size > 1024, JSON.stringify(rec));
   check('  marked as ours, so it is never re-encoded', rec && rec.cam === true, JSON.stringify(rec));
   check('  and it is offered back to watch before it goes anywhere', await page.locator('#camrev').isVisible());
-  check('  with the camera let go of while you watch', await page.evaluate(() => camStream === null));
+  // Parked rather than stopped: letting every track end is what made the phone ask for
+  // the camera again on the very next open. Nothing is being watched or heard while it
+  // waits, and it goes out on its own.
+  check('  with the preview let go of while you watch', await page.evaluate(() => $('#campre').srcObject === null));
+  check('    and nothing listening', await page.evaluate(() => camStream.getAudioTracks().every(t => !t.enabled)));
+  check('    but the camera not handed back, so it is not asked for twice',
+    await page.evaluate(() => camStream.getVideoTracks().some(t => t.readyState === 'live')));
+  check('    and it goes out when the app does', await page.evaluate(() => { dropCam(); return camStream === null; }));
   check('  and the form says what it has', /Recorded/.test(await page.locator('#vsize').innerText()),
     await page.locator('#vsize').innerText());
   await page.locator('#camrev button:has-text("Use this")').click({ timeout: 8000 }).catch(() => {});
@@ -1008,7 +1015,7 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(900);
   const rec = await page.evaluate(() => recorded && recorded.size);
   check('closing mid-recording keeps what was filmed', rec > 1024, `recorded: ${rec}`);
-  check('  and still lets the camera go', await page.evaluate(() => camStream === null));
+  check('  and still lets the preview go', await page.evaluate(() => $('#campre').srcObject === null));
   check('  and hands it back to watch rather than binning it', await page.locator('#camrev').isVisible());
 });
 
@@ -1302,6 +1309,20 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('.post .cmts .emoji button').first().click();
   await page.waitForTimeout(200);
   check('    putting one where the caret was', /great./.test(await box.inputValue()), await box.inputValue());
+  // A redraw lands between the tap and the insert often enough to matter: the tray that
+  // was tapped is then a branch that has been thrown away, and walking up from it reaches
+  // a box nobody can see. It goes into the one on screen.
+  await box.fill('again');
+  await page.evaluate(() => {
+    const t = document.querySelector('.post .cmts .emoji button');
+    render();                                        // the whole screen, out from under it
+    putEmoji(t, '\u2705');
+  });
+  await page.waitForTimeout(200);
+  check('      even when the screen is redrawn under the tap',
+    /again\u2705/.test(await box.inputValue()), await box.inputValue());
+  check('      and the tray is still open after a redraw',
+    await page.locator('.post .cmts .emoji').first().isVisible());
 
   // Every post carries its own box and its own tray, so the one you opened is the one that
   // answers — the second post must not have taken the first one's emoji.
@@ -1385,6 +1406,33 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// What happened today, and only today. Yesterday is not news by the morning.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  // Noon rather than "an hour ago": a test that runs just after midnight would otherwise
+  // be asking whether an hour ago was yesterday, and sometimes it is.
+  await page.evaluate(() => {
+    const noon = n => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - n); return d.getTime(); };
+    S.comments = [{id: 901, postId: S.posts[0].id, userId: 'u2', body: 'strong', ts: noon(0)},
+                  {id: 902, postId: S.posts[0].id, userId: 'u2', body: 'yesterday', ts: noon(1)}];
+    S.posts = S.posts.map(p => ({...p, ts: noon(4)}));            // only the comments are news
+    render();
+  });
+  await page.waitForTimeout(200);
+  const box = page.locator('.act');
+  check('the activity line is about today', /today/i.test(await box.locator('summary').innerText()),
+    await box.locator('summary').innerText());
+  check('  and leaves yesterday out of it', await page.locator('.act .e').count() === 1, await box.innerText());
+  check('    counting only what it lists', /\b1\b/.test(await box.locator('summary').innerText()),
+    await box.locator('summary').innerText());
+  await page.evaluate(() => {
+    const noon = n => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - n); return d.getTime(); };
+    S.comments = S.comments.map(c => ({...c, ts: noon(2)})); render();
+  });
+  await page.waitForTimeout(200);
+  check('  with nothing today, there is no line at all', await page.locator('.act').count() === 0);
+});
+
 // Stories. Only people with one running are in the row, unseen first, and somebody you
 // share a group with who has posted nothing is simply not in it.
 await withPage(SIGNED_IN, async page => {
@@ -1458,7 +1506,73 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => openStory('u2'));
   await page.waitForTimeout(200);
   check("somebody else's story has no such count", await page.locator('#story .eye').count() === 0);
+
+  // Answering one: a heart, and as many emoji as you like, drifting up the side.
+  check('  it can be liked instead', await page.locator('#story .answer .lk').count() === 1);
+  check('    starting empty', !await page.locator('#story .answer .lk').evaluate(b => b.classList.contains('on')));
+  await page.locator('#story .answer .lk').click();
+  await page.waitForTimeout(250);
+  check('    tapping it goes red at once', await page.locator('#story .answer .lk').evaluate(b => b.classList.contains('on')));
+  check('      with the like really sent', (await page.evaluate(() => self.__slikes)).length === 1,
+    JSON.stringify(await page.evaluate(() => self.__slikes)));
+  check('      and the story is still open', await page.locator('#story').isVisible());
+  await page.locator('#story .answer .lk').click();
+  await page.waitForTimeout(250);
+  check('    and again takes it back', !await page.locator('#story .answer .lk').evaluate(b => b.classList.contains('on'))
+    && (await page.evaluate(() => self.__slikes)).length === 0);
+
+  await page.locator('#story .answer .rx').click();
+  await page.waitForTimeout(200);
+  check('  and reacted to', await page.locator('#story .reactpick button').count() >= 5);
+  await page.locator('#story .reactpick button').first().click();
+  await page.waitForTimeout(300);
+  check('    the reaction floats up the side of it', await page.locator('#story .reacts span').count() === 1);
+  check('      and was really sent', (await page.evaluate(() => self.__sreacts)).length === 1);
   await page.locator('#story .who .x').click();
+  await page.waitForTimeout(250);
+
+  // Your own story says what it got, and offers no heart to press on yourself.
+  await page.evaluate(() => { S.slikes = [{s: 20, u: 'u2'}, {s: 20, u: 'u3'}]; S.sreacts = [{s: 20, u: 'u2', e: '\ud83d\udd25'}]; openStory('u1'); });
+  await page.waitForTimeout(300);
+  check('your own story counts the hearts it got', /2/.test(await page.locator('#story .tally').innerText()));
+  check('  shows what people left on it', await page.locator('#story .reacts span').count() === 1);
+  check('  and offers nothing to press on yourself', await page.locator('#story .answer').count() === 0);
+
+  // Who watched and who liked are the same sheet read two ways.
+  await page.locator('#story .tally').click();
+  await page.waitForTimeout(200);
+  const liked = await page.locator('#story .seenby').innerText();
+  check('  tapping the count says who liked it', /Liked by 2/.test(liked) && /Sam/.test(liked) && /Kit/.test(liked), liked);
+  check('    marking what each of them left', await page.locator('#story .seenby .hrt').count() === 2
+    && await page.locator('#story .seenby .em').count() === 1);
+  // The sheet covers the buttons that opened it, so it carries both lists itself.
+  await page.locator('#story .seenby .tabs button').first().click();
+  await page.waitForTimeout(200);
+  check('    and the other list is one tap away, inside the sheet',
+    await page.locator('#story .seenby .tabs button.on').innerText().then(t => /Seen by/.test(t)));
+
+  // A story of your own opens a menu, not a bin, and nothing in the app is an emoji you press.
+  check('your own story has no bin on it', !/[\u{1F300}-\u{1FAFF}]/u.test(
+    await page.locator('#story .who .bin').innerText() || 'x'));
+  await page.locator('#story .who .bin').click();
+  await page.waitForTimeout(300);
+  const menu = await page.locator('#dlg .menu').innerText();
+  check('  it offers more than deleting', /edit/i.test(menu) && /liked/i.test(menu) && /watched/i.test(menu), menu);
+  check('    with deleting last', /delete/i.test((await page.locator('#dlg .menu button').last().innerText())));
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(350);
+  check('  editing reopens the editor on that story', await page.locator('#make').isVisible()
+    && await page.evaluate(() => S.draft.editing) === 20);
+  check('    saving rather than sharing', /save/i.test(await page.locator('#make .go').innerText()),
+    await page.locator('#make .go').innerText());
+  await page.evaluate(() => { S.draft.body = 'reworded'; });
+  await page.locator('#make .go').click();
+  await page.waitForTimeout(400);
+  const edits = (await page.evaluate(() => self.__edits)).filter(e => e.table === 'stories');
+  check('    and it goes back to the story it came from, not up as a new one',
+    edits.length === 1 && edits[0].body === 'reworded'
+    && await page.evaluate(() => S.stories.filter(x => x.body === 'reworded').length) === 0,
+    JSON.stringify(edits));
 });
 
 // Making one. The words are typed onto the card itself and every control changes the
@@ -1562,6 +1676,50 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => closeDraft());
   await page.waitForTimeout(150);
   check('  and closing it throws the draft away', await page.evaluate(() => S.draft) === null);
+});
+
+// An emoji is something people leave on each other's things, never a control.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const emoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+  await page.evaluate(() => newStory());
+  await page.waitForTimeout(250);
+  check('the sticker button is drawn, not an emoji',
+    !emoji.test(await page.locator('#make .tb[aria-label=Sticker]').innerText())
+    && await page.locator('#make .tb[aria-label=Sticker] svg').count() === 1,
+    await page.locator('#make .tb[aria-label=Sticker]').innerText());
+  check('  and what it opens is all emoji, which is the point of it',
+    await page.evaluate(() => { draftTray('stk'); return true; }));
+  await page.evaluate(() => closeDraft());
+  await page.waitForTimeout(200);
+  check('the emoji button on a comment box is drawn too',
+    !emoji.test(await page.locator('.post .cin .emo').first().innerText())
+    && await page.locator('.post .cin .emo svg').count() >= 1,
+    await page.locator('.post .cin .emo').first().innerText());
+});
+
+// Finishing the whole challenge is worth saying out loud, and is rarer than finishing a day.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const chal = await page.evaluate(() => {
+    const g = S.groups[0], w = S.wheels[0];
+    const sp = {id: 91, wheel_id: w.id, user_id: 'u1', cycle: cycleOf(w), sat_out: false, days_required: 1,
+      results: [{seq: 0, kind: 'challenge', label: 'Your challenge', value: 'Cold shower'}]};
+    S.spins = [...S.spins.filter(x => x.user_id !== 'u1'), sp];
+    S.totals = [...S.totals, {g: g.id, u: 'u1', d: today(), m: 'pushups', n: 50, sp: sp.id, ch: 'Cold shower'}];
+    return {done: [...doneChallengeIds()], text: effChallenge(sp)};
+  });
+  check('a challenge is finished when its days are in', chal.done.includes(91) && chal.text === 'Cold shower',
+    JSON.stringify(chal));
+  await page.evaluate(() => suggestAfterChallenge(S.groups[0], S.spins.find(x => x.id === 91)));
+  await page.waitForTimeout(300);
+  check('  and offers a story that says which challenge', await page.locator('#make').isVisible()
+    && /cold shower/i.test(await page.locator('#make .face .hero .word').innerText()),
+    await page.locator('#make .face').innerText());
+  check('    saying it is the challenge that is done, not the day',
+    /challenge done/i.test(await page.locator('#make .face .hero .tag').innerText()));
+  check('    it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
+  await page.evaluate(() => closeDraft());
 });
 
 // The one it writes for you. Built, never sent on its own.
@@ -1834,7 +1992,8 @@ await withPage(NO_WHEEL, async page => {
     && await page.locator('#camplay').isHidden());
   check('    and the form says it has one', /Photo/.test(await page.locator('#vsize').innerText()),
     await page.locator('#vsize').innerText());
-  check('  with the camera let go of', await page.evaluate(() => camStream === null));
+  check('  with the camera parked rather than handed back, so it is not asked for twice',
+    await page.evaluate(() => $('#campre').srcObject === null && camLive()));
 });
 
 // A picture posts with nothing to compress and nothing to wait for.

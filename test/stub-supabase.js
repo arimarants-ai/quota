@@ -41,6 +41,7 @@
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
+  self.__slikes = []; self.__sreacts = []; self.__edits = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -56,6 +57,8 @@
     wheel_days: self.__ticks,
     likes: self.__likes,
     reactions: self.__reacts,
+    story_likes: self.__slikes,
+    story_reactions: self.__sreacts,
     comments: self.__cmts,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
@@ -85,6 +88,10 @@
       if (st.op === 'delete' && t === 'reactions') {
         self.__reacts = self.__reacts.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
+      if (st.op === 'delete' && (t === 'story_likes' || t === 'story_reactions')) {
+        const key = t === 'story_likes' ? '__slikes' : '__sreacts';
+        self[key] = self[key].filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
       if (st.op === 'delete' && t === 'likes') {
         self.__likes = self.__likes.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
@@ -98,13 +105,17 @@
     // still in flight, rather than only after the round trip has landed.
     const p = { then: (res, rej) => Promise.resolve(
       self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
-    for (const k of ['select', 'order', 'limit', 'in', 'upsert', 'update']) p[k] = () => chain(t, st);
+    for (const k of ['select', 'order', 'limit', 'in', 'upsert']) p[k] = () => chain(t, st);
+    // An edit is worth seeing land: the page sends one for a story whose wording changed.
+    p.update = row => { self.__edits.push({ table: t, ...row }); return chain(t, { ...st, op: 'update' }); };
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
     p.insert = row => {
       if (t === 'invites') self.__invited = { ...row };
       if (t === 'likes') self.__likes.push({ ...row });
       if (t === 'reactions') self.__reacts.push({ ...row });
+      if (t === 'story_likes') self.__slikes.push({ ...row });
+      if (t === 'story_reactions') self.__sreacts.push({ ...row });
       if (t === 'comments') self.__cmts.push({ id: 700 + self.__cmts.length, created_at: new Date().toISOString(), ...row });
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
