@@ -996,3 +996,99 @@ select cron.schedule('wheel-reminders', '0 * * * *', $cron$
     body    := '{}'::jsonb
   ) where exists (select 1 from private.config where key = 'hook_secret' and value <> '');
 $cron$);
+
+-- ============================================================
+-- v17 (stories): safe to run on an existing project.
+--
+-- A story is a photo, a clip of up to ten seconds, or a card of text, and it is gone after
+-- a day. Two things make that true: nothing older than 24 hours is readable in the first
+-- place, so expiry does not wait on a job, and an hourly job then clears the rows and the
+-- files so the bucket does not grow forever.
+-- ============================================================
+
+-- Who is allowed to see you at all: anyone you share a group with, anyone you are friends
+-- with, and yourself. Stories are the first thing in the app to use both rules at once.
+create or replace function public.can_see_user(other uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select other = auth.uid()
+      or exists (select 1 from public.group_members a
+                  join public.group_members b on a.group_id = b.group_id
+                 where a.user_id = auth.uid() and b.user_id = other)
+      or exists (select 1 from public.friendships f
+                 where (f.a = auth.uid() and f.b = other)
+                    or (f.b = auth.uid() and f.a = other));
+$$;
+
+create table if not exists public.stories (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles on delete cascade,
+  kind text not null check (kind in ('photo', 'video', 'text')),
+  media_path text,
+  body text check (body is null or char_length(body) <= 280),
+  -- Whatever the editor was set to: colours, the typeface, where the words sit, an emoji.
+  -- Kept as one column because it is the story's own look and nothing else reads it.
+  style jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  -- A card of text has no file; a photo or a clip has nothing to show without one.
+  constraint story_has_what_it_needs check ((kind = 'text') = (media_path is null))
+);
+create index if not exists stories_fresh on public.stories (created_at desc);
+alter table public.stories enable row level security;
+
+drop policy if exists "see stories from people you know" on public.stories;
+drop policy if exists "post your own stories" on public.stories;
+drop policy if exists "take down your own story" on public.stories;
+-- The day is in the policy, not just in the query: an old story is not readable at all,
+-- however it is asked for.
+create policy "see stories from people you know" on public.stories for select
+  using (public.can_see_user(user_id) and created_at > now() - interval '24 hours');
+create policy "post your own stories" on public.stories for insert
+  with check (user_id = auth.uid());
+create policy "take down your own story" on public.stories for delete
+  using (user_id = auth.uid());
+
+-- What you have already seen, which is the whole difference between a ring that is lit and
+-- one that is not. Only your own rows are yours to read: who watched is not on offer here.
+create table if not exists public.story_views (
+  story_id bigint not null references public.stories on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  seen_at timestamptz not null default now(),
+  primary key (story_id, user_id)
+);
+alter table public.story_views enable row level security;
+
+drop policy if exists "your own views" on public.story_views;
+drop policy if exists "mark what you have seen" on public.story_views;
+create policy "your own views" on public.story_views for select using (user_id = auth.uid());
+create policy "mark what you have seen" on public.story_views for insert
+  with check (user_id = auth.uid());
+
+-- 25 MB is far more than ten seconds of video needs, and small enough that nothing silly
+-- gets through. Private, like proof: everything is served by signed URL.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('stories', 'stories', false, 26214400,
+          array['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/webm'])
+  on conflict (id) do update
+    set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "watch stories you can see" on storage.objects;
+drop policy if exists "upload your own story" on storage.objects;
+drop policy if exists "delete your own story file" on storage.objects;
+-- Read through the story rather than the path: the row already says who it belongs to and
+-- whether it has expired, so the file answers exactly when the story does.
+create policy "watch stories you can see" on storage.objects for select
+  using (bucket_id = 'stories' and exists (
+    select 1 from public.stories s where s.media_path = name and public.can_see_user(s.user_id)
+      and s.created_at > now() - interval '24 hours'));
+create policy "upload your own story" on storage.objects for insert
+  with check (bucket_id = 'stories' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "delete your own story file" on storage.objects for delete
+  using (bucket_id = 'stories' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- pg_cron runs it every hour, a few minutes past, to clear what has expired. The rows go
+-- first so nothing is left pointing at a file that has gone.
+select cron.unschedule('stories-expire') where exists (select 1 from cron.job where jobname = 'stories-expire');
+select cron.schedule('stories-expire', '7 * * * *', $cron$
+  delete from public.stories where created_at < now() - interval '24 hours';
+  delete from storage.objects where bucket_id = 'stories' and created_at < now() - interval '25 hours';
+$cron$);
