@@ -1511,6 +1511,29 @@ await withPage(SIGNED_IN, async page => {
   check('with nobody posting, the row is just your own circle',
     await page.locator('.stories .s').count() === 1);
   check('  which offers to add one', /Add story/.test(await page.locator('.stories .s.me').innerText()));
+
+  // A day is not one story. Having posted one must not be the thing that stops the next.
+  await put([{id: 50, u: 'u1', kind: 'text', body: 'first of the day'}]);
+  check('  your own circle keeps offering another once you have posted one',
+    await page.locator('.stories .s.me .plus').count() === 1);
+  await page.locator('.stories .s.me .plus').click();
+  await page.waitForTimeout(300);
+  check('    and it asks what kind, rather than opening the one you have',
+    /New story/.test(await page.locator('#dlg').innerText()) && await page.locator('#story').isHidden(),
+    await page.locator('#dlg').innerText());
+  await page.locator('#dlg button:has-text("Just words")').click();
+  await page.waitForTimeout(300);
+  check('    on a blank card, not the one already up',
+    await page.locator('#make').isVisible() && await page.evaluate(() => S.draft.body) === ''
+    && await page.evaluate(() => S.draft.editing) === undefined);
+  await page.evaluate(() => closeDraft());
+  await page.locator('.stories .s.me .own').click();
+  await page.waitForTimeout(300);
+  check('    while the ring itself still watches back what is there',
+    await page.locator('#story').isVisible() && /first of the day/i.test(await page.locator('#story .face').innerText()));
+  await page.locator('#story .who .x').click();
+  await page.waitForTimeout(250);
+  await put([]);
   check('    and somebody you share a group with but who has posted nothing is not in it',
     await page.locator('.stories .s').count() === 1);
 
