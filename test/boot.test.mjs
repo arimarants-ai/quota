@@ -1406,6 +1406,71 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// A story is findable from the face on a post, not only from the row at the top: somebody
+// scrolling the feed should not have to go back up to notice one.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const ring = () => page.locator('.post .head .rg').first();
+  check('a face on a post carries no ring when there is no story behind it',
+    await page.locator('.post .head .rg').count() === 0
+    && await page.locator('.post .head .av').count() > 0);
+
+  await page.evaluate(() => {
+    S.stories = [{id: 40, u: 'u2', kind: 'text', body: 'out early', ts: Date.now() - 36e5, style: {}}];
+    S.seen = []; render();
+  });
+  await page.waitForTimeout(250);
+  check('  a story lights the ring on every post of theirs', await page.locator('.post .head .rg.new').count() >= 1);
+  check('    and leaves your own face alone', await page.evaluate(() => {
+    const mine = [...document.querySelectorAll('.post[data-post]')].filter(el => /@ari/.test(el.querySelector('.head').innerText));
+    return mine.length > 0 && mine.every(el => !el.querySelector('.head .rg'));
+  }));
+  await ring().click();
+  await page.waitForTimeout(300);
+  check('  tapping it opens their story', await page.locator('#story').isVisible()
+    && /out early/i.test(await page.locator('#story .face').innerText()));
+  await page.locator('#story .who .x').click();
+  await page.waitForTimeout(350);
+  check('  and once watched the ring goes quiet, on the post as well as the row',
+    await page.locator('.post .head .rg.old').count() >= 1
+    && await page.locator('.post .head .rg.new').count() === 0
+    && await page.locator('.stories .s:not(.me) .rg.old').count() === 1);
+  check('    with the face still there', await page.locator('.post .head .rg .av').count() >= 1);
+  // A day old and it is nobody's ring any more.
+  await page.evaluate(() => { S.stories = S.stories.map(x => ({...x, ts: Date.now() - 25 * 36e5})); render(); });
+  await page.waitForTimeout(250);
+  check('  a story that has expired takes its ring with it', await page.locator('.post .head .rg').count() === 0);
+});
+
+// Every sheet has a way back out of it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => storyKind());
+  await page.waitForTimeout(300);
+  check('the new-story sheet offers a way out', /cancel/i.test(await page.locator('#dlg').innerText()),
+    await page.locator('#dlg').innerText());
+  await page.locator('#dlg button:has-text("Cancel")').click();
+  await page.waitForTimeout(350);
+  check('  and taking it leaves nothing behind', await page.locator('#dlg').isHidden()
+    && await page.evaluate(() => S.draft) === null
+    && await page.locator('#make').isHidden());
+
+  // The dark part of the screen is the other way out, on a sheet that is only choices.
+  await page.evaluate(() => storyKind());
+  await page.waitForTimeout(300);
+  await page.evaluate(() => $('#dlg').dispatchEvent(new MouseEvent('click', {bubbles: true})));
+  await page.waitForTimeout(350);
+  check('  tapping beside it closes it too', await page.locator('#dlg').isHidden());
+
+  // But not on one holding something typed or chosen.
+  await page.evaluate(() => groupDlg());
+  await page.waitForTimeout(400);
+  check('    a sheet with a form in it is holding something', await page.locator('#dlg form').count() === 1);
+  await page.evaluate(() => $('#dlg').dispatchEvent(new MouseEvent('click', {bubbles: true})));
+  await page.waitForTimeout(350);
+  check('      so a stray tap beside it does not throw that away', await page.locator('#dlg').isVisible());
+});
+
 // What happened today, and only today. Yesterday is not news by the morning.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
