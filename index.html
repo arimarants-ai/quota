@@ -1449,7 +1449,8 @@ function draftTray(k) { S.draft.tray = S.draft.tray === k ? null : k; paintDraft
 // A sticker lands near the middle, a little off so two do not sit on top of each other.
 function draftSticker(e) {
   const y = styleOf(S.draft), n = stickersOf(y).length;
-  S.draft.style = {...y, stk: null, stks: [...stickersOf(y), {e, x: +(.5 + ((n * 7) % 5 - 2) * .05).toFixed(3), y: +(.66 - (n % 4) * .05).toFixed(3)}]};
+  const dx = [0, .17, -.17, .3, -.3][n % 5];
+  S.draft.style = {...y, stk: null, stks: [...stickersOf(y), {e, x: +(.5 + dx).toFixed(3), y: +(.66 - Math.floor(n / 5) * .12 - (n % 5) * .03).toFixed(3)}]};
   S.draft.tray = null; paintDraft();
 }
 function draftStk(i, patch) {
