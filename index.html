@@ -297,6 +297,10 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .cin{display:flex;gap:8px;margin-top:4px;align-items:center}
 .cin input{padding:10px 12px}          /* 16px, like every field: smaller and iOS zooms in */
 .cin button{padding:0 14px}
+/* A word, not a button. The box around it was doing nothing the word was not already
+   doing, and the padding is what keeps the tap target the size of a thumb without it. */
+.cin button.primary{background:none;color:var(--mkt);padding:9px 6px;font-size:17px;line-height:1.3}
+.cin button.primary:active{opacity:.55;transform:none}
 .cin .emo{background:var(--soft);padding:0;width:38px;height:38px;flex:none;font-size:19px;line-height:1;border-radius:0}
 /* bubble bar */
 /* iOS keeps a fixed element pinned to the layout viewport, which is not what is on
@@ -449,6 +453,26 @@ dialog h2{font-size:20px;margin-bottom:2px}
   font-size:12px;font-weight:700;color:var(--muted)}
 .tick.on{background:var(--mktint);border-color:var(--mk);color:var(--mkt)}
 
+/* Hitting a long run is the whole point of the app, so it is worth stopping for. Sits over
+   everything, waits to be dismissed, and is the one place in here that is allowed to be
+   loud. */
+#party{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;
+  background:rgba(8,12,10,.55);backdrop-filter:blur(3px)}
+#party[hidden]{display:none}
+#party canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#party .card{position:relative;background:var(--card);border:1px solid var(--line);padding:30px 26px 24px;
+  max-width:330px;width:100%;text-align:center;box-shadow:0 30px 60px -20px rgba(8,12,10,.5)}
+#party .n{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:76px;line-height:.82;
+  letter-spacing:-.02em;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em 0;
+  background:linear-gradient(to top,var(--g1) 0,var(--g1) var(--fill),var(--g2) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+#party .days{display:block;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin-top:10px}
+#party h2{font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:16px}
+#party p{color:var(--muted);font-weight:600;font-size:14.5px;line-height:1.45;margin-top:8px}
+#party button{width:100%;margin-top:22px;padding:14px;background:var(--mk);color:var(--onmk);
+  font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+
 /* the splash while the first load runs, and the banner when it fails */
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
 .splash svg{width:64px;height:64px;border-radius:16px}
@@ -473,6 +497,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <main id="app"></main>
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
+<div id="party" hidden role="dialog" aria-live="polite"></div>
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" onclick="load()">Retry</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
@@ -531,7 +556,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v43';
+const BUILD = 'quota-v44';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -875,6 +900,10 @@ function render() {
   // on screen — the splash, on a cold start — with a Retry that fails the same way.
   try {
     $('#app').innerHTML = g ? groupView(g) : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+  // After the screen is drawn, not before: the celebration sits over whatever you were
+  // looking at. Cheap enough to ask on every render, and it answers once.
+  const mile = milestoneDue();
+  if (mile && $('#party').hidden) party(mile);
   } catch (e) {
     console.error(e);
     showErr(`This screen could not be drawn: ${e.message}`, e.stack);
@@ -1409,6 +1438,73 @@ function resetView() {
     <button class="primary">Set new password</button></form></div>
     <p class="muted" style="margin:14px 18px">No codes saved? They can't be recovered, and no one can reset an account without one \u2014 that is what stops someone taking a username that is already in use. Ask whoever runs the app to reset it for you.</p>
     <div><button class="ghost" onclick="S.auth='login';render()">\u2039 Back to log in</button></div></div>`;
+}
+
+// ---- a run worth stopping for
+// Only the long ones. A run of five is a good week, not a thing to interrupt somebody for,
+// and a celebration that arrives every few days stops meaning anything at all.
+const MILESTONES = [25, 50, 100, 150, 250, 365, 500, 1000];
+const MILESTONE_LINE = {
+  25: 'Three and a half weeks without missing one.',
+  50: 'Fifty days. Most people never see the far side of a fortnight.',
+  100: 'Three figures. This is the one people remember.',
+  150: 'Five months of showing up, whatever the day looked like.',
+  250: 'Two hundred and fifty. There is no luck left in this number.',
+  365: 'A full year. Every single day.',
+  500: 'Five hundred days. This is just who you are now.',
+  1000: 'One thousand days. Nothing left to say.',
+};
+// The milestone is for the day it was earned, so today has to be in the bag: the run is
+// counted only in groups where the quota is already done.
+function milestoneDue() {
+  const m = me(); if (!m) return 0;
+  const done = myGroups().filter(g => hit(g, m.id));
+  if (!done.length) return 0;
+  const best = Math.max(0, ...done.map(g => streak(g, m.id)));
+  let seen = 0; try { seen = +(localStorage.milestone || 0); } catch (e) {}
+  // The highest one newly passed, so arriving at 100 having never opened the app at 50
+  // celebrates the 100 rather than walking up through every number below it.
+  return MILESTONES.filter(d => d <= best && d > seen).pop() || 0;
+}
+function party(d) {
+  try { localStorage.milestone = String(d); } catch (e) {}
+  const box = $('#party');
+  box.innerHTML = `<canvas></canvas><div class="card">
+    <div class="n num">${d}</div><span class="days">day streak</span>
+    <h2>${d >= 365 ? 'A year of this' : 'Still going'}</h2>
+    <p>${MILESTONE_LINE[d] || 'Not one missed.'}</p>
+    <button type="button" onclick="$('#party').hidden = true">Keep going</button></div>`;
+  box.hidden = false;
+  confetti(box.querySelector('canvas'));
+}
+// Canvas rather than a heap of divs: it is a few hundred moving things for two seconds and
+// then nothing at all.
+function confetti(cv) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const dpr = Math.min(2, devicePixelRatio || 1), W = cv.offsetWidth, H = cv.offsetHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const cols = ['#0b5a34', '#12934f', '#1db061', '#2fd36f', '#48ec8b', '#0b0c0e'];
+  const bits = Array.from({length: 140}, () => ({
+    x: Math.random() * W, y: -20 - Math.random() * H * .6,
+    w: 5 + Math.random() * 6, h: 8 + Math.random() * 8,
+    vy: 2 + Math.random() * 3.4, vx: -1.2 + Math.random() * 2.4,
+    a: Math.random() * 6.3, va: -.18 + Math.random() * .36,
+    c: cols[(Math.random() * cols.length) | 0],
+  }));
+  const t0 = performance.now();
+  (function frame(t) {
+    const life = t - t0;
+    if (life > 3200 || $('#party').hidden) return g.clearRect(0, 0, W, H);
+    g.clearRect(0, 0, W, H);
+    g.globalAlpha = life > 2200 ? Math.max(0, 1 - (life - 2200) / 1000) : 1;
+    for (const b of bits) {
+      b.x += b.vx; b.y += b.vy; b.a += b.va; b.vy += .045;
+      g.save(); g.translate(b.x, b.y); g.rotate(b.a);
+      g.fillStyle = b.c; g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore();
+    }
+    requestAnimationFrame(frame);
+  })(t0);
 }
 
 // ---- the wheel
