@@ -1158,6 +1158,50 @@ await withPage({ ...SIGNED_IN, manyPosts: 12 }, async page => {
     `${await loaded()} of ${n} still loaded`);
 });
 
+// Proof is a clip or a picture, and letting go of one is not the same as letting go of the
+// other. This is the fault that was actually reported: a bar across the bottom of a working
+// app saying "v.load is not a function", back on every scroll, with no way to clear it.
+await withPage({ ...SIGNED_IN, manyPosts: 12, photos: true }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const errs = [];
+  page.on('pageerror', e => errs.push(e.message));
+  const shot = page.locator('.reel img.proof').first();
+  check('a picture in the feed is an <img>, not a <video>', await shot.count() === 1);
+  // A real picture, or it fails to decode, the reel shows its failure, and the observer
+  // skips it on purpose — "a hidden element reports as off screen too" — so nothing would
+  // ever be let go of and this would pass without touching the thing it is about.
+  await page.evaluate(() => {
+    const GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    document.querySelectorAll('.reel img.proof').forEach(i => {
+      i.removeAttribute('src'); i.dataset.src = GIF; delete i.dataset.retried;
+    });
+    document.querySelectorAll('.reel').forEach(r => r.classList.remove('bust'));
+    watchClips();
+  });
+  await page.waitForTimeout(500);
+  check('  and it really is drawn, or nothing below tests anything',
+    await page.evaluate(() => document.querySelector('.reel img.proof').getBoundingClientRect().width > 0));
+  check('  and is given its source when it is on screen',
+    await shot.getAttribute('src') !== null);
+
+  // Scrolling it well off the screen is what used to throw: <img> has no load().
+  await page.locator('.reel').last().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(700);
+  check('  scrolling past it lets go of it without throwing',
+    errs.length === 0, errs.join(' | '));
+  check('    and puts nothing on the bar', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err span').innerText());
+  check('    having really let go of it', await shot.getAttribute('src') === null);
+
+  // And back again, because a picture that is released and never given back is a hole.
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(700);
+  check('  and gives it back when you scroll to it again',
+    await shot.getAttribute('src') !== null);
+  check('    still with nothing on the bar', await page.isHidden('#err'));
+});
+
 // ---- clips that will not play
 // A signed URL lasts an hour, and a post whose file is gone never gets one at all. Both
 // used to render as a black rectangle with a play button that did nothing, which is
