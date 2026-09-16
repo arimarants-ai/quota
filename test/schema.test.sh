@@ -35,6 +35,14 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' RETURN 2>/dev/null || true
 
 # Stand-ins for the pieces Supabase provides, matching how the real ones behave.
 cat > "$WORK/shim.sql" <<'EOF'
+-- The two roles PostgREST connects as. Supabase creates them; a plain Postgres has
+-- neither, so a grant naming one is an error rather than a no-op. Only 'authenticated'
+-- is granted anything today, but both exist on the real thing and a shim that is half
+-- the truth is worse than one that is all of it.
+do $r$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+end $r$;
 create schema if not exists auth;
 create table auth.users (id uuid primary key);
 create function auth.uid() returns uuid language sql stable as
