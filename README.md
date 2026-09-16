@@ -339,12 +339,72 @@ too big for the bucket now usually gets through anyway rather than being turned 
 - Accounts are username + password only. Reset uses recovery codes, not email — see below.
 - "Today" is whatever the poster's phone says.
 
+## Signing up with an email
+
+**Nothing in this section works until the two things below are set up. Do not run the
+v24 block or deploy `signin` before they are.**
+
+Signing up is an email and a password. The username, the name, the date of birth and the
+gender are the next screen, and the app draws nothing else until they are filled in: a
+person with no username cannot be found, invited or named on a post, so letting them into
+the app would be letting them into a broken version of it. A null username is what "not
+finished" means, and `is_set_up()` is how the database says the same thing.
+
+Logging in takes an email **or** a username. Supabase signs people in by email, so a
+username has to be turned into one first — and a database function that handed back the
+address behind a name would let anybody who can guess a name read the email behind it.
+So the swap happens in an edge function with the service key, and what comes back is a
+session or the same refusal either way. A wrong password and a username nobody has look
+identical from outside.
+
+Forgetting the password sends a real reset link. The form asks for the email and not the
+username on purpose: sending a reset to an address the app told you was yours would be a
+way of finding out whose it is. Recovery codes stay as the way back when the inbox is
+gone too.
+
+### What has to be set up first
+
+1. **A domain you own.** No provider will let you send mail from a `vercel.app`
+   subdomain. This is the only unavoidable purchase, about £10 a year.
+2. **An SMTP provider.** Supabase's built-in mailer is rate limited to a handful an hour
+   and documented as development only, so real signups need your own. Resend is the
+   least work: add its DNS records to the domain, then put the host, port, user and
+   password into Supabase under *Authentication → SMTP Settings*.
+3. **Turn confirmation on** at *Authentication → Providers → Email → Confirm email*. It
+   is off today, which is why the old signup could hand out a session immediately.
+4. **Allow the redirect.** Add the app's origin under *Authentication → URL
+   Configuration → Redirect URLs*, or the link in the email is refused when it lands.
+5. **Deploy `signin` with JWT verification off.** It is called before anybody has a
+   token, so the gateway has to let it through — the same switch `notify` and `wheelday`
+   need. It takes no new secrets: `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are
+   already in every function's environment.
+
+```bash
+supabase functions deploy signin --no-verify-jwt
+```
+
+Then run the v24 block.
+
+### Accounts that already exist
+
+They were given `username@users.quota.local`, which no reset email can reach. The app
+notices (`FAKEMAIL`), and asks for a real address on the feed until there is one. Adding
+it sends a confirmation link; the address is not on the account until that is clicked.
+Nothing is forced and nothing breaks in the meantime — those accounts still have their
+recovery codes.
+
+| Where | What |
+| ----- | ---- |
+| `schema.sql` v24 | username nullable, `birthday`, `gender`, `is_set_up()`, and a guard so a username cannot be swapped once taken |
+| `supabase/functions/signin/` | username to email, server-side, so the address never leaves |
+| `index.html` | signup, login by either, the confirmation wait, the reset screens, the setup screen, and the prompt for old accounts |
+
 ## Password recovery
 
-Accounts have no real email address (`emailFor` makes `you@users.quota.local`), so
-Supabase's own reset email can never arrive. Recovery codes take its place.
+Recovery codes are the way back when the inbox is gone too, and they were the only way
+back before there were real addresses at all — see the section above.
 
-At signup the app issues **8 single-use codes** and shows them once. To reset, the
+A set of **8 single-use codes** is issued once the account is finished and shown once. To reset, the
 user gives their username, one unused code, and a new password. That's it — no email,
 no phone, no third-party service.
 

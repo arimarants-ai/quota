@@ -373,6 +373,12 @@ button.rg{border:0;font:inherit}
 .chalpick{margin-top:8px}
 .chalpick[hidden]{display:none}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
+/* Something the app needs from you before it can do its job. Marked, not alarming. */
+.warn-card{border-left:3px solid var(--mk)}
+.warn-card b{font-size:15px}
+.warn-card p{margin-top:5px;line-height:1.45}
+/* The setup form's two extra fields, which are the only select and date input in the app. */
+.auth select,.auth input[type=date]{font:inherit;font-size:16px}
 .prog{display:block;height:3px;background:var(--line);border-radius:0;overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--mk);width:var(--w,0%);transition:width .25s}
 .prog[hidden]{display:none}
@@ -897,7 +903,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v54';
+const BUILD = 'quota-v55';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -907,7 +913,6 @@ const MAX_MB = 50;
 // Username-only login. Supabase Auth wants an email, so each account gets a synthetic one.
 // Those addresses go nowhere, so password reset runs on recovery codes instead: see
 // supabase/functions/recovery/ and the v5 block in schema.sql.
-const emailFor = u => `${u}@users.quota.local`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // quiet is raised while load() is running. A failure there is handled by load() itself
 // and reported in the banner, so it must not also throw a modal alert in the way.
@@ -921,6 +926,7 @@ const q = async p => { const {data, error} = await p; if (error) { if (!quiet) {
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t;
   document.querySelector('#tc')?.setAttribute('content', t === 'dark' ? '#0a0b0c' : '#ffffff'); };
 setTheme(localStorage.theme || 'light');
+const FAKEMAIL = /@users\.quota\.local$/i;   // what the old accounts were given in place of an address
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 
@@ -942,7 +948,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], needEmail: false, sentTo: '', who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1165,6 +1171,10 @@ async function fetchAll() {
     urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; });
   }
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
+  // An account from before there were real addresses has a made-up one. Worth asking
+  // about, because the reset email is the way back and it cannot reach that.
+  try { const {data} = await sb.auth.getUser(); S.needEmail = !data?.user?.email || FAKEMAIL.test(data.user.email); }
+  catch (e) {}
   claimBadges();                           // anything the history says was earned but never written down
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
@@ -1247,6 +1257,7 @@ async function runLoad() {
     // Whether notifications are on is only known by asking the browser, and until it has
     // been asked the feed cannot tell whether to offer them. Once per launch is enough.
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
+    if (location.hash && authHash()) return;
     if (me() && location.hash) goToHash();
   }
 }
@@ -1258,7 +1269,17 @@ function render() {
   $('#bar').hidden = !m; $('#app').classList.toggle('out', !m);
   // Until the first load lands we do not know whether there is a session, and guessing
   // means flashing the sign-in screen at someone who is already signed in.
-  if (!m) return $('#app').innerHTML = S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
+  if (!m) return $('#app').innerHTML = S.booting ? splashView()
+    : S.auth === 'welcome' ? welcomeView()
+    : S.auth === 'sent' ? sentView()
+    : S.auth === 'newpass' ? newPassView()
+    : S.auth === 'forgot' ? forgotView()
+    : S.auth === 'reset' ? resetView()
+    : authView(S.auth);
+  // Signed in with the account still half made. Nothing else is drawn until it is
+  // finished: a person with no username cannot be found, invited or named on a post, so
+  // letting them into the app would be letting them into a version of it that is broken.
+  if (!m.username) { $('#bar').hidden = true; return $('#app').innerHTML = setupView(); }
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
   // One screen that cannot be drawn must not take the app with it. This runs inside
@@ -1408,6 +1429,7 @@ function feedView() {
     ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}</b></div>`).join('')
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
     + storyRow()
+    + emailPrompt()
     + pushPrompt()
     + spinPrompt()
     + activityBox()
@@ -2452,19 +2474,71 @@ function welcomeView() {
 function authView(mode) {
   const signup = mode === 'signup';
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>${signup ? 'Create your account' : 'Welcome back'}</h2><p>${signup ? 'Pick a username your friends can find you by.' : 'Log in with your username.'}</p>
+    <h2>${signup ? 'Create your account' : 'Welcome back'}</h2>
+    <p>${signup ? 'An email and a password. You pick a username next.' : 'Your email or your username, and your password.'}</p>
     <div class="card"><form onsubmit="event.preventDefault();auth(this,'${mode}')">
-    <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
+    ${signup
+      ? `<label>Email</label><input name="id" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`
+      : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`}
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
     <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
     <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
-    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='reset';render()">Use a recovery code</button></div>`}
+    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='forgot';render()">Send me a reset link</button></div>`}
     <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
+}
+// Signed up, and now waiting on a link. Nothing else can happen until it is clicked, so
+// the screen says so rather than leaving somebody on a login form that will refuse them.
+function sentView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Check your email</h2>
+    <p>We have sent a link to <b>${esc(S.sentTo || 'your inbox')}</b>. Open it on this phone and it brings you straight back here.</p>
+    <div class="card"><p class="muted">Nothing arrived? Look in spam first — that is where it usually is. The link lasts an hour.</p>
+      <button class="small" style="margin-top:12px" onclick="resendConfirm(this)">Send it again</button></div>
+    <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
+}
+function forgotView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Reset your password</h2><p>We will email you a link that lets you set a new one.</p>
+    <div class="card"><form onsubmit="event.preventDefault();sendReset(this)">
+      <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
+      <button class="primary">Send the link</button></form></div>
+    <p class="muted" style="margin:14px 18px">It has to be the email, not the username: sending a reset to an address we told you was yours would be a way of finding out whose it is.</p>
+    <div class="switch">No longer have that inbox? <button onclick="S.auth='reset';render()">Use a recovery code</button></div>
+    <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
+}
+// Arrived from the link in the reset email. supabase-js has already turned the token in
+// the URL into a session by the time this is drawn; all that is left is the new password.
+function newPassView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Set a new password</h2><p>This is the last step. The link you used is now spent.</p>
+    <div class="card"><form onsubmit="event.preventDefault();finishReset(this)">
+      <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
+      <label>Again</label><input name="again" type="password" required autocomplete="new-password" minlength="6" placeholder="the same one">
+      <button class="primary">Save it and log in</button></form></div></div>`;
+}
+// The rest of the account. Asked for after signing up rather than during it, because an
+// email and a password is as much as anybody should have to type before they are let in
+// far enough to see what they are signing up to.
+const GENDERS = [['woman', 'Woman'], ['man', 'Man'], ['other', 'Something else'], ['unsaid', 'Rather not say']];
+function setupView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Finish your account</h2><p>Your friends find you by your username, and it cannot be changed later.</p>
+    <div class="card"><form onsubmit="event.preventDefault();saveSetup(this)">
+      <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" spellcheck="false"
+        pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" placeholder="yourname">
+      <p class="muted" id="unick" style="margin-top:6px">Lowercase letters, numbers and underscores.</p>
+      <label>Your name</label><input name="display_name" required maxlength="40" placeholder="Ari Marants">
+      <label>Date of birth</label><input name="birthday" type="date" required max="${today()}" min="1900-01-02">
+      <label>Gender</label><select name="gender" required>
+        <option value="">Choose one</option>
+        ${GENDERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+      <button class="primary">Into the app</button></form></div>
+    <div><button class="ghost" onclick="logout()">Log out instead</button></div></div>`;
 }
 
 function resetView() {
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>Reset your password</h2><p>Use one of the recovery codes you saved when you signed up. Each code works once.</p>
+    <h2>Use a recovery code</h2><p>One of the codes you saved when you signed up. Each works once. This is the way in when the inbox is gone too.</p>
     <div class="card"><form onsubmit="event.preventDefault();resetPassword(this)">
     <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" placeholder="yourname">
     <label>Recovery code</label><input name="code" required autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCDE-FGHJK">
@@ -2773,8 +2847,10 @@ async function resetPassword(f) {
   working(f, '\u2026');
   try {
     const {remaining} = await callRecovery('redeem', {username, code, password});
-    // Sign straight in rather than making them type the new password again.
-    const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
+    // Sign straight in rather than making them type the new password again. Through the
+    // same function the login box uses, because a recovery code is presented with a
+    // username and the address behind it is not something this page gets to know.
+    const {error} = await signIn(username, password);
     if (error) { S.auth = 'login'; alert('Password changed. Log in with your new password.'); }
     else { S.tab = 'feed'; await load(); alert(`Password changed. ${remaining} recovery ${remaining === 1 ? 'code' : 'codes'} left.`); }
   } catch (e) { alert(e.message); } finally { render(); }
@@ -3008,28 +3084,124 @@ const slide = dir => { if (matchMedia('(prefers-reduced-motion: reduce)').matche
   $('#app').animate([{opacity: .4, transform: `translateX(${dir * 28}px)`}, {opacity: 1, transform: 'none'}], {duration: 280, easing: 'cubic-bezier(.32,.72,0,1)'}); };
 function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); slide(1); }
 async function auth(f, mode) {
-  const username = f.username.value.trim().toLowerCase(), password = f.password.value;
+  const id = f.id.value.trim(), password = f.password.value;
   working(f, '…');
   let fresh = null;
   try {
     if (mode === 'signup') {
-      if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) return alert('That username is taken');
-      const {data, error} = await sb.auth.signUp({email: emailFor(username), password, options: {data: {username}}});
+      const {data, error} = await sb.auth.signUp({email: id, password,
+        options: {emailRedirectTo: `${location.origin}/`}});
       if (error) return alert(error.message);
-      if (!data.session) return alert('Account created but email confirmation is still on. In Supabase: Authentication → Providers → Email → turn off "Confirm email", then log in.');
-      // Issue recovery codes now: there is no reset email, so this is the only way back
-      // in later. A failure here is not fatal — the profile has a button for it.
-      try { fresh = (await callRecovery('issue')).codes; }
-      catch (e) { alert(`Account created, but recovery codes could not be issued: ${e.message} You can get a set from your profile.`); }
+      // Confirmation is on, so there is no session yet and nothing to do but wait for the
+      // link. The recovery codes are issued after they are let in, since issuing them
+      // needs a session.
+      if (!data.session) { S.sentTo = id; S.auth = 'sent'; return; }
+      try { fresh = (await callRecovery('issue')).codes; } catch (e) {}
     } else {
-      const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
-      // Only a 400 means the credentials were genuinely wrong. Reporting every failure
-      // — offline, rate limited, project paused — as a bad password sends people hunting
-      // for the wrong problem.
-      if (error) return alert(error.status === 400 ? 'Wrong username or password' : `Could not log in: ${error.message}`);
+      // Email or username, and the app cannot tell which is which without asking a
+      // function that will not say. See supabase/functions/signin.
+      const out = await signIn(id, password);
+      if (out.error) {
+        if (out.unconfirmed) { S.sentTo = id.includes('@') ? id : ''; S.auth = 'sent'; return; }
+        return alert(out.error);
+      }
     }
     S.tab = 'feed'; await load();
   } finally { render(); if (fresh) codesDlg(fresh, true); }
+}
+// The username-to-email swap happens on the server so the address never comes back here.
+async function signIn(id, password) {
+  if (id.includes('@')) {
+    const {error} = await sb.auth.signInWithPassword({email: id, password});
+    if (!error) return {};
+    if (/not confirmed/i.test(error.message)) return {error: error.message, unconfirmed: true};
+    return {error: error.status === 400 ? 'Wrong email, username or password' : `Could not log in: ${error.message}`};
+  }
+  let out;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/signin`, {
+      method: 'POST', headers: {'Content-Type': 'application/json', apikey: SUPABASE_KEY},
+      body: JSON.stringify({id, password}),
+    });
+    out = await res.json();
+  } catch (e) { return {error: 'Could not reach the server. Check your connection.'}; }
+  if (out.error) return out;
+  const {error} = await sb.auth.setSession({access_token: out.access_token, refresh_token: out.refresh_token});
+  return error ? {error: error.message} : {};
+}
+async function resendConfirm(btn) {
+  if (!S.sentTo) return alert('Type your email on the log in screen and we will send it again.');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const {error} = await sb.auth.resend({type: 'signup', email: S.sentTo,
+    options: {emailRedirectTo: `${location.origin}/`}});
+  btn.disabled = false; btn.textContent = 'Send it again';
+  alert(error ? error.message : 'Sent. Check your inbox, and spam.');
+}
+async function sendReset(f) {
+  const email = f.email.value.trim();
+  working(f, 'Sending…');
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: `${location.origin}/`});
+  // An address nobody has is answered the same as one somebody does: saying which is
+  // which would turn this box into a way of asking who has an account here.
+  if (error && !/rate|many/i.test(error.message)) console.warn(error.message);
+  working(f, 'Send the link');
+  f.querySelectorAll('button').forEach(b => b.disabled = false);
+  alert(error && /rate|many/i.test(error.message)
+    ? 'That is a lot of tries in a row. Wait a minute and ask again.'
+    : 'If that address has an account, the link is on its way. Check spam too.');
+}
+async function finishReset(f) {
+  if (f.password.value !== f.again.value) return alert('Those two do not match.');
+  working(f, 'Saving…');
+  const {error} = await sb.auth.updateUser({password: f.password.value});
+  if (error) { working(f, 'Save it and log in'); f.querySelectorAll('button').forEach(b => b.disabled = false); return alert(error.message); }
+  S.auth = 'login'; S.tab = 'feed';
+  await load(); render();
+}
+// The rest of the account, written in one go. The username is checked here for a friendly
+// answer and by a unique index underneath for a true one: two people claiming the same
+// name in the same second both pass the check and only one passes the index.
+async function saveSetup(f) {
+  const fd = new FormData(f), username = String(fd.get('username') || '').trim().toLowerCase();
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) return alert('A username is 3 to 20 letters, numbers or underscores.');
+  working(f, 'Saving…');
+  const done = () => { working(f, 'Into the app'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
+  try {
+    if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) { done(); return alert('That username is taken. Try another.'); }
+  } catch (e) { done(); return; }
+  const patch = {username, display_name: String(fd.get('display_name') || '').trim() || null,
+    birthday: fd.get('birthday') || null, gender: fd.get('gender') || null};
+  const {error} = await sb.from('profiles').update(patch).eq('id', me().id);
+  if (error) { done(); return alert(/duplicate|unique/i.test(error.message) ? 'That username was taken a moment ago. Try another.' : error.message); }
+  // Codes are issued now rather than at signup, because signing up no longer ends with a
+  // session: this is the first moment there is an account to bind them to.
+  let fresh = null;
+  try { fresh = (await callRecovery('issue')).codes; } catch (e) {}
+  $('#bar').hidden = false;
+  await load(); render();
+  if (fresh) codesDlg(fresh, true);
+}
+// An account made before there were real addresses. Asked for, every time, until it is
+// there — the reset email is worthless without it and recovery codes run out.
+function emailPrompt() {
+  if (!S.needEmail) return '';
+  return `<div class="card warn-card"><b>Add your email</b>
+    <p class="muted">This account has no address on it, so a forgotten password can only be fixed with a recovery code. One email and that stops being true.</p>
+    <button class="teal small" style="margin-top:12px" onclick="emailDlg()">Add an email</button></div>`;
+}
+function emailDlg() {
+  dlg(`<h2>Add your email</h2><p class="muted">We send one link to confirm it. Nothing else, unless you turn notifications on.</p>
+    <form onsubmit="event.preventDefault();saveEmail(this)">
+      <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Not now</button><button class="primary grow">Send the link</button></div></form>`);
+}
+async function saveEmail(f) {
+  working(f, 'Sending…');
+  const {error} = await sb.auth.updateUser({email: f.email.value.trim()},
+    {emailRedirectTo: `${location.origin}/`});
+  if (error) { working(f, 'Send the link'); f.querySelectorAll('button').forEach(b => b.disabled = false); return alert(error.message); }
+  dlg();
+  alert('Check that inbox and click the link. The address is not on the account until you do.');
 }
 async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.open = null; S.tab = 'feed'; S.auth = 'welcome'; render(); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
@@ -3930,7 +4102,10 @@ async function disablePush() {
 // in another tab. Without this the screen kept showing a signed-in app that no longer was.
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'INITIAL_SESSION') return;              // the first load() below covers this
-  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); render(); }
+  if (!session) {
+    if (S.auth === 'newpass' || S.auth === 'sent') return;   // mid-flow, not signed out
+    S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); render();
+  }
   else if (!me()) load();                               // signed in, or a refresh recovered while we sat on the welcome screen
 });
 
@@ -3998,6 +4173,19 @@ fitBar();
 
 // A notification is worth tapping only if it arrives somewhere. The service worker sends
 // the app to /#post-<id>; this is the other half, run once the feed has something in it.
+//
+// Confirmation and reset links come back on the same hash, carrying tokens rather than a
+// route. supabase-js has already taken those and put a session behind them by the time
+// this runs, so all that is left is to clear them off the address bar and, for a reset,
+// ask for the new password.
+function authHash() {
+  const h = location.hash || '';
+  if (!/access_token=|[?&]code=|error_code=|type=recovery/.test(h) && !/[?&]code=/.test(location.search)) return false;
+  const recovery = /type=recovery/.test(h);
+  history.replaceState(null, '', location.pathname);
+  if (recovery) { S.me = null; S.auth = 'newpass'; S.booting = false; render(); }
+  return true;
+}
 function goToHash() {
   const m = /^#post-(\d+)$/.exec(location.hash || '');
   if (m) {
