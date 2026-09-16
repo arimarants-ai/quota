@@ -542,7 +542,8 @@ end $$;
 
 -- v25: one row per person, and it had better not be an endpoint.
 do $$
-declare uid uuid := '55555555-5555-5555-5555-555555555555';
+declare full_id uuid := '55555555-5555-5555-5555-555555555555';
+        half_id uuid := '66666666-6666-6666-6666-666666666666';
         got record;
 begin
   -- The whole point of putting it in `private`: PostgREST serves public, so a view of
@@ -554,25 +555,32 @@ begin
     raise exception 'private.people is missing';
   end if;
 
-  insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
-    values (uid, 'nobody@example.com', now(), '{}'::jsonb);
-  update public.profiles
-     set username = 'viewtest', display_name = 'View Test',
-         birthday = current_date - interval '30 years', gender = 'unsaid'
-   where id = uid;
+  -- The profile row is inserted rather than left to the signup trigger: this harness
+  -- applies the tables without it, so an update here would quietly touch nothing.
+  insert into auth.users (id, email, email_confirmed_at) values (full_id, 'nobody@example.com', now());
+  insert into public.profiles (id, username, display_name, birthday, gender)
+    values (full_id, 'viewtest', 'View Test', current_date - interval '30 years', 'unsaid');
 
-  select * into got from private.people where id = uid;
+  select * into got from private.people where id = full_id;
+  if got is null then raise exception 'the view has no row for somebody who exists'; end if;
   if got.email is distinct from 'nobody@example.com' then raise exception 'the address did not come through'; end if;
   if got.full_name is distinct from 'View Test' then raise exception 'the name did not come through'; end if;
   if got.username is distinct from 'viewtest' then raise exception 'the username did not come through'; end if;
+  if got.gender is distinct from 'unsaid' then raise exception 'the gender did not come through'; end if;
   if got.confirmed is not true then raise exception 'confirmed should be true'; end if;
   if got.finished_setup is not true then raise exception 'a row with a username is finished'; end if;
   -- Worked out rather than stored, so it cannot go stale.
   if got.age is distinct from 30 then raise exception 'age should be 30, got %', got.age; end if;
 
-  -- And an account that signed up but never finished shows as such rather than vanishing.
-  update public.profiles set username = null, display_name = null where id = uid;
-  select * into got from private.people where id = uid;
+  -- Somebody who signed up and never finished. A second account rather than unpicking the
+  -- first, because v24 refuses to let a username be changed once it is taken.
+  insert into auth.users (id, email) values (half_id, 'halfway@example.com');
+  insert into public.profiles (id) values (half_id);
+
+  select * into got from private.people where id = half_id;
+  if got is null then raise exception 'an unfinished account should still be in the view'; end if;
   if got.finished_setup is not false then raise exception 'a row with no username is not finished'; end if;
-  if got.email is distinct from 'nobody@example.com' then raise exception 'the address is there either way'; end if;
+  if got.confirmed is not false then raise exception 'an unconfirmed address is not confirmed'; end if;
+  if got.email is distinct from 'halfway@example.com' then raise exception 'the address is there either way'; end if;
+  if got.age is not null then raise exception 'no birthday means no age'; end if;
 end $$;
