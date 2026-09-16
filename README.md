@@ -173,6 +173,37 @@ so nothing in the load path is allowed to leave an empty page behind:
   what the old behaviour amounted to.
 - `onAuthStateChange` keeps the UI honest when the library ends the session on its own.
 
+## The profile picture
+
+Both ways in — **Camera** and **Choose a file** — end at the same circular crop sheet
+(`#crop` in `index.html`), and nothing is uploaded until Save. The circle you frame it in
+is the circle it ends up in, so it is the preview as well; there is no second confirmation
+screen after it.
+
+Drag to move, pinch or scroll or use the slider to zoom. Panning is clamped so an edge can
+never be dragged inside the circle. What is saved is a **512px square JPEG**, not a circle:
+`.av` is round in CSS, and a picture with transparent corners is a PNG several times the
+size for something nobody ever sees.
+
+The camera is the same one the rest of the app uses, opened with `openCam('avatar')`. For a
+profile picture it opens on the front camera (without changing which way the camera opens
+for a post, which is remembered separately), the video/photo switch is hidden because a
+profile picture is never a clip, and the shutter goes straight to the crop rather than to
+the camera's own review.
+
+**It does not flip your face.** The front camera preview is mirrored, the way every phone
+camera shows it. Proof and stories are saved unmirrored — that picture is of the world. A
+profile picture is of you, and what you framed it against was the mirror, so the flip is
+kept and the face that lands is the one you were looking at. `mirrorShot()` is the one line
+that decides this.
+
+`test/crop.test.mjs` lifts the maths out of `index.html` between the `crop:start` and
+`crop:end` markers and runs it: the source rectangle for square, landscape and portrait
+pictures, dragging, the zoom floor, the mirror rule, and a property check over awkward
+shapes and zooms that the drawn rectangle is always inside the picture. A rectangle that
+reads off the edge puts a transparent band down the side of somebody's avatar, and nothing
+on screen would say so. `test/boot.test.mjs` drives the whole thing against a real camera.
+
 ## What people agree to, and what they cannot type
 
 Three documents live in `index.html` as the `LEGAL` object — a privacy policy, a note on
