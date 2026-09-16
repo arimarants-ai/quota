@@ -218,7 +218,7 @@ set role app2;
 
 -- Who may raise one, and who decides when it ends.
 do $$
-declare n int; fid bigint; shuts timestamptz; zone text;
+declare n int; fid bigint; shuts timestamptz; zone text; raiser uuid;
 begin
   perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000003', true);
   if not pg_temp.blocked($q$insert into public.flags (post_id, by_user, reason)
@@ -235,16 +235,20 @@ begin
   end if;
 
   perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
-  if not pg_temp.blocked($q$insert into public.flags (post_id, by_user, reason)
-      values (901, 'aaaaaaaa-0000-0000-0000-000000000001', 'not mine to raise')$q$) then
-    raise exception 'a flag was raised in somebody else''s name';
-  end if;
-
-  -- closes_at is sent deliberately wrong. The database is supposed to throw it away and
-  -- work out its own, or the clock is one the browser can move.
+  -- Two things are sent deliberately wrong here, and neither is supposed to survive.
+  --
+  -- by_user names somebody else. That does not get refused, it gets overwritten: the guard
+  -- puts auth.uid() there before the policy is even looked at. Refusing would be fine too —
+  -- what must never happen is a row carrying the name of somebody who did not raise it.
+  --
+  -- closes_at is 400 days out. The database is supposed to throw it away and work out its
+  -- own, or the clock is one the browser can move.
   insert into public.flags (post_id, by_user, reason, closes_at)
-    values (901, 'aaaaaaaa-0000-0000-0000-000000000002', 'elbows barely bent', now() + interval '400 days')
-    returning id, closes_at into fid, shuts;
+    values (901, 'aaaaaaaa-0000-0000-0000-000000000001', 'elbows barely bent', now() + interval '400 days')
+    returning id, closes_at, by_user into fid, shuts, raiser;
+  if raiser <> 'aaaaaaaa-0000-0000-0000-000000000002' then
+    raise exception 'a flag was stored against somebody who did not raise it: %', raiser;
+  end if;
   if shuts > now() + interval '2 days' then
     raise exception 'the browser set when the flag closes: %', shuts;
   end if;
@@ -259,8 +263,10 @@ begin
       (shuts at time zone zone)::time;
   end if;
 
-  -- Raising one is a vote, or "everybody has voted" could never be reached in a pair.
-  select count(*) into n from public.flag_votes where flag_id = fid and agree;
+  -- Raising one is a vote, or "everybody has voted" could never be reached in a pair. And
+  -- it is a vote by whoever really raised it, not by the name that was sent.
+  select count(*) into n from public.flag_votes where flag_id = fid and agree
+    and user_id = 'aaaaaaaa-0000-0000-0000-000000000002';
   if n <> 1 then raise exception 'raising a flag did not count as agreeing with it, saw %', n; end if;
 
   -- One per post, ever: a post the group already stood behind is not asked about twice.
