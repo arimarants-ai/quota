@@ -165,6 +165,21 @@ button.rg{border:0;font:inherit}
   filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));user-select:none}
 /* The two it writes for you. The ring and the sparks are drawn in the ink colour, so
    picking a colour recolours the whole card, not just the words. */
+/* Proof lifted from the feed onto a story. A card with an edge and a shadow, sitting a
+   little off square, so it reads as something stuck on rather than something shot for
+   this. Above the tap zones, which are z-index 2, or a tap on it would step the story on
+   instead of opening what it is a picture of. */
+.face .pcard{position:absolute;transform:translate(-50%,-50%) rotate(-2.4deg);width:68%;max-width:272px;z-index:3;
+  padding:0;border:0;border-radius:14px;overflow:hidden;background:#0b0c0e;color:#fff;text-align:left;
+  box-shadow:0 18px 44px -12px rgba(0,0,0,.6),0 0 0 3px rgba(255,255,255,.9);touch-action:none;cursor:pointer}
+.face .pcard .shot{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;background:#0b0c0e}
+.face .pcard .foot{display:flex;align-items:center;gap:7px;padding:8px 10px;background:#0b0c0e;min-width:0}
+.face .pcard .foot b{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.face .pcard .foot em{margin-left:auto;font-style:normal;font-family:Oswald,system-ui,sans-serif;font-weight:600;
+  font-size:12px;color:#2fd36f;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;flex:none}
+.face .pcard .foot .av{width:20px;height:20px;font-size:9px;flex:none}
+.face .pcard .gone{padding:34px 16px;text-align:center;font-size:13.5px;font-weight:700;color:rgba(255,255,255,.72)}
+.face .pcard:active{transform:translate(-50%,-50%) rotate(-2.4deg) scale(.97)}
 .face .deco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .face .hero{position:absolute;left:0;right:0;top:11%;display:flex;flex-direction:column;align-items:center;gap:4px;
   pointer-events:none;color:inherit}
@@ -992,7 +1007,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v60';
+const BUILD = 'quota-v61';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1037,7 +1052,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true, legal: null};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1270,13 +1285,43 @@ async function fetchAll() {
   // with no URL. Left as null it becomes src="null" and a player that silently does
   // nothing; empty, the post renders as a clip that could not be loaded, and says so.
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
+  // After S.posts, because a story pointing at a post the feed already carries needs no
+  // second fetch, and before the profiles below, because whoever made that post has to be
+  // one of the names asked for or the card on the story has nobody on it.
+  await storyPosts();
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at)}));
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
   else keepTz();
+}
+
+// Proof somebody put on a story, fetched as itself. The feed carries the last two hundred
+// posts in groups this account is in, and a story can point at neither — somebody's own
+// older post, or one in a group shared with them but not with you. Asked for only when a
+// story on screen actually points at one, so the ordinary load is unchanged.
+//
+// What comes back is whatever the policy allows, which for a shared post is everyone who
+// can see the story, so in practice all of them. One that is missing draws as a card
+// saying the post has gone rather than as a hole.
+async function storyPosts() {
+  const want = [...new Set(S.stories.map(x => (x.style || {}).post)
+    .filter(id => Number.isFinite(+id) && +id > 0).map(Number))]
+    .filter(id => !S.posts.some(p => p.id === id));
+  if (!want.length) { S.spost = {}; return; }
+  try {
+    const rows = await q(sb.from('posts').select('*').in('id', want));
+    const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
+      amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
+      challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
+    if (list.length) {
+      const urls = await q(sb.storage.from('proof').createSignedUrls(list.map(x => x.path), 3600));
+      urls.forEach((u, i) => { list[i].url = u.signedUrl; });
+    }
+    S.spost = Object.fromEntries(list.map(p => [p.id, p]));
+  } catch (e) { S.spost = {}; }            // a card that says the post has gone beats no stories at all
 }
 
 // The spin-day reminder has to go out in the morning, and the server has no idea when
@@ -1701,8 +1746,12 @@ const STICKER_MORE = ['🎉', '⭐', '🌟', '💯', '🥇', '🏅', '👑', '�
 // What goes behind words when they are boxed: the ink itself, with whichever of black or
 // white reads on it.
 const onInk = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); return (r * .299 + g * .587 + b * .114) > 150 ? '#0b0c0e' : '#ffffff'; };
+// post/px/py are a post of yours shared onto the card and where it was dragged to. They
+// live in style rather than in a column of their own because style is already the jsonb
+// holding everything that is about how one story looks, and nothing outside the story
+// reads any of it.
 const styleOf = st => ({bg: 0, font: 0, ink: 0, size: 1, box: 0, align: 'center', x: .5, y: .5,
-  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, ...(st.style || {})});
+  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, post: null, px: .5, py: .46, ...(st.style || {})});
 // Every sticker on a card. The single one older stories carry is folded in.
 const stickersOf = y => [...(Array.isArray(y.stks) ? y.stks : []), ...(y.stk ? [{e: y.stk, x: y.sx, y: y.sy}] : [])];
 // The effect as inline style, so the words and the chip that previews them agree.
@@ -1746,6 +1795,32 @@ function tplFace(y) {
     <span class="stamp">Done</span></div>`;
 }
 
+// Proof you already posted, put on a story as a card rather than as the whole screen. It
+// is a card because that is what it is: a thing lifted from somewhere else and stuck on,
+// which is why it sits at an angle with a border round it and the story's own background
+// showing past its edges. Filling the screen with it would say it was shot for the story.
+//
+// The clip is the post's own file, not a copy of it. Copying would double what a minute of
+// video costs against a 1 GB bucket for something that is gone in a day. What makes that
+// safe is that sharing puts the post on your profile, and a post on your profile is
+// readable by exactly the people a story is — can_see_user() decides both — so there is
+// nobody who can be shown this card and cannot be shown what is on it.
+function postCard(y, live, editing) {
+  const p = postById(y.post);
+  const inner = !p
+    ? `<div class="gone">This post is no longer here.</div>`
+    : `${isPhoto(p)
+        ? `<img class="shot" alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
+        : `<video class="shot" playsinline muted loop${live ? ' autoplay' : ''}${p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
+      <div class="foot">${av(user(p.userId), 'sm')}<b>${esc(name(user(p.userId)))}</b><em>${esc(effort(p))}</em></div>`;
+  const at = `left:${(y.px ?? .5) * 100}%;top:${(y.py ?? .46) * 100}%`;
+  // A tap on it in the viewer is a way through to the post. In the editor it is a thing
+  // being dragged about the card, so it is not a button at all.
+  return editing
+    ? `<div class="pcard" style="${at}">${inner}</div>`
+    : `<button type="button" class="pcard" style="${at}" onclick="openPostFromStory(${+y.post})"
+        aria-label="${p ? `Open ${esc(effort(p))} by ${esc(name(user(p.userId)))}` : 'This post is no longer here'}">${inner}</button>`;
+}
 // One drawing used by the editor and the viewer alike.
 function storyFace(st, live, editing) {
   const y = styleOf(st), bg = st.kind === 'text' ? STORY_BG[y.bg] || STORY_BG[0] : '#000';
@@ -1753,7 +1828,8 @@ function storyFace(st, live, editing) {
     : st.kind === 'photo' ? `<img class="fill" alt=""${st.url ? ` src="${esc(st.url)}"` : ''}>`
     : `<video class="fill" playsinline ${live ? 'autoplay' : ''} muted="${live ? 'false' : 'true'}"${st.url ? ` src="${esc(st.url)}"` : ''}></video>`;
   const stk = stickersOf(y).map((k, i) => `<span class="stk" data-i="${i}" style="left:${k.x * 100}%;top:${k.y * 100}%">${esc(k.e)}</span>`).join('');
-  return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${wordsOf(st, editing)}${stk}</div>`;
+  return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${
+    y.post ? postCard(y, live, editing) : ''}${wordsOf(st, editing)}${stk}</div>`;
 }
 
 // The line stories are watched in, and the order the row shows them in, which have to be
@@ -2010,6 +2086,7 @@ const HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6
 // does the leaving, and never a button that deletes anything: a picture of a face carries
 // a feeling, and a control should not.
 const SMILEY = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>';
+const BIN = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
 const DOTS = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>';
 // Who watched, or who liked — the same sheet, because they are the same list read two
 // ways, and what each person left is shown beside their name either way.
@@ -2164,6 +2241,7 @@ function paintDraft() {
       <button type="button" class="x" onclick="closeDraft()" aria-label="Close">✕</button>
       <div class="tools">
         ${d.kind === 'text' ? `<button type="button" class="bgbtn${t === 'bg' ? ' on' : ''}" style="background:${STORY_BG[y.bg]}" onclick="draftTray('bg')" aria-label="Background"></button>` : ''}
+        ${y.post ? `<button type="button" class="tb" onclick="draftSet('post',null)" aria-label="Take the post off">${BIN}</button>` : ''}
         <button type="button" class="fontpill${t === 'font' ? ' on' : ''}" onclick="draftTray('font')" style="font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'}">${f.name}<i>▾</i></button>
         <button type="button" class="tb inkbtn${t === 'ink' ? ' on' : ''}" onclick="draftTray('ink')" aria-label="Text colour"><span style="background:${ink}"></span></button>
         <button type="button" class="tb${t === 'fx' ? ' on' : ''}" onclick="draftTray('fx')" aria-label="Text effect"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 17l.8 2.2L8 20l-2.2.8L5 23l-.8-2.2L2 20l2.2-.8z"/></svg></button>
@@ -2184,6 +2262,11 @@ function paintDraft() {
   }
   // Stickers drag; a tap on one takes it off the card.
   box.querySelectorAll('.stk').forEach(el => { const i = +el.dataset.i; dragify(el, (x, yy) => draftStk(i, {x, y: yy}), () => draftStk(i)); });
+  // And so does a post shared onto it, by the same handful of lines. Nothing happens on a
+  // tap: in here it is a thing being arranged, and the way through to the post is what it
+  // does once it is up.
+  const card = box.querySelector('.pcard');
+  if (card) dragify(card, (x, yy) => { S.draft.style = {...styleOf(S.draft), px: x, py: yy}; });
 }
 
 // Drag a thing about the card. A press that does not move is a tap, and a tap on the words
@@ -2442,7 +2525,8 @@ function putEmoji(btn, e) {
 // has to look in both, or it works in the feed and quietly fails everywhere else — which
 // is what left a clip on somebody's profile with a play button that did nothing.
 const postById = id => S.posts.find(x => x.id === id)
-  || Object.values(S.pro).flatMap(x => x.posts || []).find(x => x.id === id);
+  || Object.values(S.pro).flatMap(x => x.posts || []).find(x => x.id === id)
+  || S.spost[id];
 
 const reelOf = v => v.closest('.reel');
 function bustMsg(v, msg) {
@@ -4782,10 +4866,36 @@ function postMenu(id) {
   if (!p) return;
   dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <div class="menu">
+      <button type="button" onclick="dlg();sharePost(${id})">Share this to my story</button>
       <button type="button" onclick="dlg();showOnProfile(${id},${p.onProfile ? 'false' : 'true'})">${
         p.onProfile ? 'Take this off my profile' : 'Show this on my profile'}</button>
       <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete this post</button>
     </div>`);
+}
+// Proof you already posted, put on a story. The story points at the post rather than
+// carrying a copy of it, so the people who can watch the story have to be people who can
+// open the post: on your profile is exactly that set — can_see_user() decides both — which
+// is why sharing puts it there, and says so first rather than quietly.
+async function sharePost(id) {
+  const p = postById(id);
+  if (!p || p.userId !== me().id) return;
+  const open = () => newStory({kind: 'text', body: '',
+    style: {post: id, bg: 3, ink: 0, font: 0, size: 0, box: 2, y: .87, px: .5, py: .44}});
+  if (p.onProfile) return open();
+  dlg(`<h2>Share to your story</h2>
+    <p class="muted">Anyone who can watch your story can watch what is on it, so this goes
+      on your profile too. The same menu takes it off again.</p>
+    <div class="row" style="margin-top:18px">
+      <button type="button" class="grow" onclick="dlg()">Cancel</button>
+      <button type="button" class="teal grow" onclick="dlg();showOnProfile(${id},true).then(ok=>ok&&sharePost(${id}))">Share it</button>
+    </div>`);
+}
+// A card on a story is a way through to the post it is a picture of. The story closes
+// first: it sits at a higher layer than a post opened on its own, so leaving it up would
+// put the post behind it, and going somewhere is the whole point of the tap.
+function openPostFromStory(id) {
+  closeStory();
+  if (postById(id)) openPost(id);
 }
 async function showOnProfile(id, on) {
   const touch = list => list.map(x => x.id === id ? {...x, onProfile: on} : x);
@@ -4794,8 +4904,9 @@ async function showOnProfile(id, on) {
   delete S.pro[me().id];                   // the grid is fetched, so it has to be asked again
   render();
   try { await q(sb.from('posts').update({on_profile: on}).eq('id', id)); }
-  catch (e) { return showErr('That did not save.', String(e && e.message || e)); }
+  catch (e) { showErr('That did not save.', String(e && e.message || e)); return false; }
   loadProfile(me().id);
+  return true;                             // sharing to a story waits on this having worked
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;

@@ -1760,7 +1760,8 @@ await withPage(NO_WHEEL, async page => {
   check("a post of your own offers to show itself on your profile",
     /show this on my profile/i.test(await page.locator('#dlg .menu').innerText()),
     await page.locator('#dlg .menu').innerText());
-  await page.locator('#dlg .menu button').first().click();
+  // By what it says rather than by where it sits: the menu has more on it than it used to.
+  await page.locator('#dlg .menu button', { hasText: /show this on my profile/i }).click();
   await page.waitForTimeout(700);
   const sent = (await page.evaluate(() => self.__edits)).filter(e => e.table === 'posts');
   check('  and ticking it saves that against the post',
@@ -1879,6 +1880,99 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(250);
   check('  a post deleted while it is open closes rather than emptying',
     await page.locator('#one').isHidden() && await page.evaluate(() => S.one) === null);
+});
+
+// Proof already posted, put on a story. It goes on as a card rather than as the whole
+// screen, because that is what it is: a thing lifted from somewhere else and stuck on.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.post .head .more').first().click();
+  await page.waitForTimeout(350);
+  check('a post of your own offers to go on your story',
+    /share this to my story/i.test(await page.locator('#dlg .menu').innerText()),
+    await page.locator('#dlg .menu').innerText());
+
+  // The story points at the post rather than carrying a copy, so the people who can watch
+  // the story have to be people who can open the post. On your profile is that exact set.
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(350);
+  check('  and says first that it also goes on your profile',
+    /profile/i.test(await page.locator('#dlg').innerText()), await page.locator('#dlg').innerText());
+  check('    with a way to back out', await page.locator('#dlg .row button').count() === 2);
+  await page.locator('#dlg .row button').first().click();       // Cancel
+  await page.waitForTimeout(300);
+  check('    and backing out shares nothing and changes nothing',
+    await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === false
+    && await page.locator('#make').isHidden());
+
+  await page.locator('.post .head .more').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg .row button.teal').click();
+  await page.waitForTimeout(800);
+  check('  going ahead puts it on the profile and opens the editor',
+    await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === true
+    && await page.locator('#make').isVisible());
+  check('    with the post on the card, not filling it',
+    await page.locator('#make .face .pcard').count() === 1
+    && await page.evaluate(() => {
+      const c = document.querySelector('#make .face .pcard'), f = document.querySelector('#make .face');
+      return c.getBoundingClientRect().width < f.getBoundingClientRect().width * 0.92;
+    }));
+  check('    carrying what the post was worth',
+    /50/.test(await page.locator('#make .pcard .foot em').innerText()),
+    await page.locator('#make .pcard .foot').innerText());
+  check('    and it is not a button in here, because in here it is being arranged',
+    await page.evaluate(() => document.querySelector('#make .pcard').tagName) === 'DIV');
+
+  // It drags about the card like the words and the stickers do.
+  const box = await page.locator('#make .pcard').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 90, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  check('    and it can be dragged where you want it',
+    await page.evaluate(() => styleOf(S.draft).py) < 0.44,
+    String(await page.evaluate(() => styleOf(S.draft).py)));
+
+  await page.locator('#make .go').click();
+  await page.waitForTimeout(900);
+  const story = await page.evaluate(() => self.__stories.at(-1));
+  check('  sharing writes the post it points at into the story',
+    story && story.style && story.style.post === 1, JSON.stringify(story));
+  check('    and nothing is uploaded, because the clip is already up',
+    story && story.media_path === null && story.kind === 'text', JSON.stringify(story));
+
+  // And in the viewer it is the way through to the post.
+  await page.evaluate(() => openStory(S.me.id));
+  await page.waitForTimeout(600);
+  check('  the card is on the story when it is watched',
+    await page.locator('#story .pcard').count() === 1);
+  check('    as a button, above the zones that step the story on',
+    await page.evaluate(() => {
+      const c = document.querySelector('#story .pcard');
+      return c.tagName === 'BUTTON' && +getComputedStyle(c).zIndex
+        > +getComputedStyle(document.querySelector('#story .tap')).zIndex;
+    }));
+  await page.locator('#story .pcard').click();
+  await page.waitForTimeout(600);
+  check('  and tapping it opens that post rather than stepping the story on',
+    await page.locator('#story').isHidden() && await page.locator('#one .post').count() === 1,
+    `story hidden ${await page.locator('#story').isHidden()}, posts ${await page.locator('#one .post').count()}`);
+  await page.evaluate(() => closePost());
+
+  // A post that has gone since must not leave a hole on somebody's story.
+  await page.evaluate(() => {
+    S.stories = [{ id: 999, u: S.me.id, kind: 'text', body: '', style: { post: 123456 }, ts: Date.now() }];
+    S.spost = {}; openStory(S.me.id);
+  });
+  await page.waitForTimeout(500);
+  check('  a post that has gone says so rather than leaving a hole',
+    /no longer here/i.test(await page.locator('#story .pcard').innerText()),
+    await page.locator('#story .pcard').innerText());
+  await page.evaluate(() => closeStory());
 });
 
 // Which groups you are willing to have on show.

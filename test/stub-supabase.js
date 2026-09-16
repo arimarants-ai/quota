@@ -42,6 +42,10 @@
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
   self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__clikes = []; self.__onprofile = {};
+  // Stories were only ever pushed into S by hand from a test, which was enough while
+  // nothing about one had to survive a round trip. Sharing proof onto a story does: what
+  // the card points at is written into the row and read back out of it.
+  self.__stories = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -65,6 +69,7 @@
     badges: self.__badges,
     comment_likes: self.__clikes,
     comments: self.__cmts,
+    stories: self.__stories,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
   // column can be null, and a row can be missing what a newer column would have had.
@@ -146,6 +151,7 @@
       if (t === 'comments') self.__cmts.push({ id: 700 + self.__cmts.length, created_at: new Date().toISOString(), ...row });
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
+      if (t === 'stories') self.__stories.push({ id: 600 + self.__stories.length, created_at: new Date().toISOString(), body: null, media_path: null, style: {}, ...row });
       return chain(t, { ...st, op: 'insert' });
     };
     p.delete = () => chain(t, { ...st, op: 'delete' });
