@@ -2093,6 +2093,77 @@ await withPage(SIGNED_IN, async page => {
   check('  and closing it throws the draft away', await page.evaluate(() => S.draft) === null);
 });
 
+// An icon drawn at nothing by nothing is an icon nobody can press. This is the check that
+// was missing when the emoji on two buttons was swapped for a drawing: the swap was tested
+// for the absence of the emoji and not for the presence of anything in its place, so both
+// buttons went invisible and stayed that way for three versions.
+const drawn = async (page, sel) => page.evaluate(s => {
+  const el = document.querySelector(s);
+  if (!el) return 'missing';
+  const svg = el.tagName === 'svg' ? el : el.querySelector('svg');
+  if (!svg) return 'no svg';
+  const r = svg.getBoundingClientRect();
+  return r.width >= 12 && r.height >= 12 ? 'ok' : `${Math.round(r.width)}x${Math.round(r.height)}`;
+}, sel);
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('the menu on your own post is drawn, not nothing', await drawn(page, '.post .head .more') === 'ok',
+    await drawn(page, '.post .head .more'));
+  check('  and so is the emoji button on a reply box', await drawn(page, '.post .cin .emo') === 'ok',
+    await drawn(page, '.post .cin .emo'));
+  check('  and the heart on a reply', await page.evaluate(() => {
+    S.comments = [{id: 880, postId: S.posts[0].id, userId: 'u2', body: 'x', ts: Date.now()}]; render(); return true;
+  }) && await drawn(page, '.c .clk') === 'ok', await drawn(page, '.c .clk'));
+
+  // Every icon on a button, across the screens, at a size a thumb can find.
+  const tiny = await page.evaluate(() => {
+    const bad = [];
+    for (const b of document.querySelectorAll('button')) {
+      if (!b.offsetParent && b.offsetWidth === 0) continue;         // not on screen
+      for (const svg of b.querySelectorAll('svg')) {
+        const r = svg.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) bad.push(`${b.className || b.getAttribute('aria-label') || '?'} ${Math.round(r.width)}x${Math.round(r.height)}`);
+      }
+    }
+    return bad;
+  });
+  check('no button on the feed carries an icon too small to see', tiny.length === 0, tiny.join(' | '));
+});
+
+// The three dots on your own story: under the ✕, and only on your own.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    S.stories = [{id: 70, u: 'u1', kind: 'text', body: 'mine', ts: Date.now() - 36e5, style: {}},
+                 {id: 71, u: 'u2', kind: 'text', body: 'theirs', ts: Date.now() - 18e5, style: {}}];
+    S.seen = []; render(); openStory('u1');
+  });
+  await page.waitForTimeout(400);
+  check('your own story carries three dots', await page.locator('#story .who .bin').count() === 1);
+  check('  drawn at a size worth pressing', await drawn(page, '#story .who .bin') === 'ok',
+    await drawn(page, '#story .who .bin'));
+  const place = await page.evaluate(() => {
+    const d = document.querySelector('#story .who .bin').getBoundingClientRect();
+    const x = document.querySelector('#story .who .x').getBoundingClientRect();
+    return {below: d.top >= x.bottom - 2, aligned: Math.abs((innerWidth - d.right) - (innerWidth - x.right)) <= 8};
+  });
+  check('    under the ✕, not beside it', place.below, JSON.stringify(place));
+  check('    and lined up with it', place.aligned, JSON.stringify(place));
+  await page.locator('#story .who .bin').click();
+  await page.waitForTimeout(400);
+  const menu = await page.locator('#dlg .menu').innerText();
+  check('  and it opens the menu', /edit/i.test(menu) && /delete/i.test(menu), menu);
+  await page.evaluate(() => dlg());
+  await page.locator('#story .who .x').click();
+  await page.waitForTimeout(300);
+
+  await page.evaluate(() => openStory('u2'));
+  await page.waitForTimeout(400);
+  check("somebody else's story has no dots on it", await page.locator('#story .who .bin').count() === 0);
+  check('  but still has the way out', await page.locator('#story .who .x').count() === 1);
+});
+
 // An emoji is something people leave on each other's things, never a control.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
