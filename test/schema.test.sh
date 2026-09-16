@@ -84,7 +84,11 @@ open(f'{w}/base.sql', 'w').write(
 # below. Anything after them still has to be applied, or a later block would be silently
 # skipped. All of them, not just the first: a second one was added in v16, and cutting only
 # the first left it in to fail on a plain Postgres.
-CRON = '-- pg_cron runs it every hour'
+#
+# Cut on the statement rather than on the comment above it. Every scheduling block happened
+# to open with the same sentence, so that is what this matched on, and the first one worded
+# differently would have been left in to fail here for a reason nothing said out loud.
+CRON = 'select cron.unschedule('
 body = s[s.index('-- v6 (wheels)'):]
 while CRON in body:
     cut = body.index(CRON)

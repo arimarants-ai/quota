@@ -186,3 +186,195 @@ begin
 end $$;
 
 \echo 'PASS: like policies'
+
+
+-- ---- questioning somebody's proof (v27)
+--
+-- Almost all of this feature is a rule about who may do what and when, so almost all of it
+-- is policy. A line dropped here fails nowhere else: it lets somebody flag their own post,
+-- or vote on the flag against it, or move the clock until they like the answer, and nothing
+-- on screen would say a thing.
+--
+-- The group is four: the author and three who may vote on them.
+reset role;
+insert into auth.users values
+  ('aaaaaaaa-0000-0000-0000-000000000004'),
+  ('aaaaaaaa-0000-0000-0000-000000000005');
+insert into public.profiles (id, username) values
+  ('aaaaaaaa-0000-0000-0000-000000000004', 'polkit'),
+  ('aaaaaaaa-0000-0000-0000-000000000005', 'polrose');
+-- The author's own clock is what a flag closes against, so it is deliberately nowhere near
+-- whatever this database is set to.
+update public.profiles set tz = 'Pacific/Auckland' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+insert into public.group_members values
+  (90, 'aaaaaaaa-0000-0000-0000-000000000004'),
+  (90, 'aaaaaaaa-0000-0000-0000-000000000005');
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, day) overriding system value
+  values (901, 90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 20, 'ari2.mp4', current_date),
+         (903, 90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 30, 'ari4.mp4', current_date),
+         (904, 90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 30, 'ari5.mp4', current_date),
+         (905, 90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 30, 'ari6.mp4', current_date);
+set role app2;
+
+-- Who may raise one, and who decides when it ends.
+do $$
+declare n int; fid bigint; shuts timestamptz; zone text;
+begin
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000003', true);
+  if not pg_temp.blocked($q$insert into public.flags (post_id, by_user, reason)
+      values (901, 'aaaaaaaa-0000-0000-0000-000000000003', 'nope')$q$) then
+    raise exception 'an outsider flagged a post in a group they are not in';
+  end if;
+  select count(*) into n from public.flags;
+  if n <> 0 then raise exception 'an outsider can read % flags', n; end if;
+
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000001', true);
+  if not pg_temp.blocked($q$insert into public.flags (post_id, by_user, reason)
+      values (901, 'aaaaaaaa-0000-0000-0000-000000000001', 'flagging myself')$q$) then
+    raise exception 'somebody flagged their own post';
+  end if;
+
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  if not pg_temp.blocked($q$insert into public.flags (post_id, by_user, reason)
+      values (901, 'aaaaaaaa-0000-0000-0000-000000000001', 'not mine to raise')$q$) then
+    raise exception 'a flag was raised in somebody else''s name';
+  end if;
+
+  -- closes_at is sent deliberately wrong. The database is supposed to throw it away and
+  -- work out its own, or the clock is one the browser can move.
+  insert into public.flags (post_id, by_user, reason, closes_at)
+    values (901, 'aaaaaaaa-0000-0000-0000-000000000002', 'elbows barely bent', now() + interval '400 days')
+    returning id, closes_at into fid, shuts;
+  if shuts > now() + interval '2 days' then
+    raise exception 'the browser set when the flag closes: %', shuts;
+  end if;
+  if shuts <= now() then raise exception 'a flag opened already closed'; end if;
+  -- Three hours before the flagged person's own midnight, wherever in the world they are.
+  -- Unless that hour has already gone, in which case half an hour, which is the other arm.
+  select coalesce(nullif(tz, ''), 'UTC') into zone from public.profiles
+    where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  if (shuts at time zone zone)::time <> time '21:00'
+     and shuts > now() + interval '31 minutes' then
+    raise exception 'a flag with time on the clock closes at % local, not 21:00',
+      (shuts at time zone zone)::time;
+  end if;
+
+  -- Raising one is a vote, or "everybody has voted" could never be reached in a pair.
+  select count(*) into n from public.flag_votes where flag_id = fid and agree;
+  if n <> 1 then raise exception 'raising a flag did not count as agreeing with it, saw %', n; end if;
+
+  -- One per post, ever: a post the group already stood behind is not asked about twice.
+  if not pg_temp.blocked($q$insert into public.flags (post_id, by_user, reason)
+      values (901, 'aaaaaaaa-0000-0000-0000-000000000002', 'again')$q$) then
+    raise exception 'the same post was flagged twice';
+  end if;
+
+  -- Nobody writes an outcome or a deadline by hand: flags has no update policy at all.
+  if not pg_temp.blocked(format($q$update public.flags set outcome = 'dismissed' where id = %s$q$, fid)) then
+    raise exception 'somebody decided a flag by writing the answer straight in';
+  end if;
+  if not pg_temp.blocked(format($q$update public.flags set closes_at = now() - interval '1 hour' where id = %s$q$, fid)) then
+    raise exception 'somebody moved the clock on a flag';
+  end if;
+
+  -- The person being flagged gets no vote, but does get to see it and read what was said.
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000001', true);
+  if not pg_temp.blocked(format($q$insert into public.flag_votes (flag_id, user_id, agree)
+      values (%s, 'aaaaaaaa-0000-0000-0000-000000000001', false)$q$, fid)) then
+    raise exception 'the flagged person voted on their own flag';
+  end if;
+  select count(*) into n from public.flags where id = fid;
+  if n <> 1 then raise exception 'the flagged person cannot see the flag against them'; end if;
+
+  -- Voting in somebody else's name is not a thing either.
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  if not pg_temp.blocked(format($q$insert into public.flag_votes (flag_id, user_id, agree)
+      values (%s, 'aaaaaaaa-0000-0000-0000-000000000002', false)$q$, fid)) then
+    raise exception 'somebody voted in another person''s name';
+  end if;
+
+  -- One vote each is the primary key's job; changing it before the result is out is not a
+  -- second vote, and a mis-tap nobody can undo is not a decision anyone wants to live with.
+  insert into public.flag_votes (flag_id, user_id, agree) values (fid, auth.uid(), false);
+  update public.flag_votes set agree = true where flag_id = fid and user_id = auth.uid();
+  if not (select agree from public.flag_votes where flag_id = fid and user_id = auth.uid()) then
+    raise exception 'nobody could change their mind before it closed';
+  end if;
+
+  -- Three eligible, three voted, two of them agreeing: it ends early and it is upheld.
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000005', true);
+  insert into public.flag_votes (flag_id, user_id, agree) values (fid, auth.uid(), false);
+  perform public.close_due_flags();
+  if (select outcome from public.flags where id = fid) <> 'upheld' then
+    raise exception 'everybody voting did not end it, or 2 against 1 did not uphold it: %',
+      (select coalesce(outcome, 'still open') from public.flags where id = fid);
+  end if;
+  if (select closed_at from public.flags where id = fid) is null then
+    raise exception 'a closed flag carries no closing time';
+  end if;
+
+  -- And once it is decided, it is decided.
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  if not pg_temp.blocked(format($q$update public.flag_votes set agree = false
+      where flag_id = %s and user_id = auth.uid()$q$, fid)) then
+    raise exception 'somebody changed their vote after the result was out';
+  end if;
+end $$;
+
+-- More against than for: the post stands.
+do $$
+declare fid bigint;
+begin
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  insert into public.flags (post_id, by_user, reason) values (905, auth.uid(), 'looks short') returning id into fid;
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  insert into public.flag_votes (flag_id, user_id, agree) values (fid, auth.uid(), false);
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000005', true);
+  insert into public.flag_votes (flag_id, user_id, agree) values (fid, auth.uid(), false);
+  perform public.close_due_flags();
+  if (select outcome from public.flags where id = fid) <> 'dismissed' then
+    raise exception 'one for and two against should leave the post standing, got %',
+      (select coalesce(outcome, 'still open') from public.flags where id = fid);
+  end if;
+end $$;
+
+-- An open one, still waiting on people, with time left on the clock, is left alone.
+do $$
+declare fid bigint;
+begin
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  insert into public.flags (post_id, by_user, reason) values (904, auth.uid(), 'still thinking') returning id into fid;
+  perform public.close_due_flags();
+  if (select outcome from public.flags where id = fid) is not null then
+    raise exception 'a flag still open and still waiting on people was closed early';
+  end if;
+end $$;
+
+-- An even split is the case the rule is really about: a push, and the post stands. One of
+-- the three never voted, so it is the clock that ends this one rather than a full house —
+-- and the clock is wound back from outside, because no policy lets anybody move it.
+do $$
+begin
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  insert into public.flags (post_id, by_user, reason) values (903, auth.uid(), 'not sure about these');
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  insert into public.flag_votes (flag_id, user_id, agree)
+    values ((select id from public.flags where post_id = 903), auth.uid(), false);
+end $$;
+
+reset role;
+update public.flags set closes_at = now() - interval '1 minute' where post_id = 903;
+set role app2;
+
+do $$
+begin
+  perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  perform public.close_due_flags();
+  if (select outcome from public.flags where post_id = 903) <> 'dismissed' then
+    raise exception 'one each way is a push and the post stands, got %',
+      (select coalesce(outcome, 'still open') from public.flags where post_id = 903);
+  end if;
+  if (select closed_at from public.flags where post_id = 903) is null then
+    raise exception 'the clock running out did not close it';
+  end if;
+end $$;

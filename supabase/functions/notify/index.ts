@@ -1,7 +1,7 @@
 // Fan out a push notification to a group when someone posts proof.
 // Called by the posts_notify trigger in schema.sql (v4).
 import { send, type Subscription } from './push.ts';
-import { messageFor, socialFor, who } from './message.ts';
+import { flagFor, messageFor, socialFor, verdictFor, who } from './message.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -107,6 +107,32 @@ Deno.serve(async (req) => {
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
     }));
+  }
+
+  // Somebody questioned a post, or the group finished deciding about one. Everyone in the
+  // group hears either way, and the person it is about hears a different sentence: they are
+  // being told, not asked, because they do not get a vote on their own.
+  if (kind === 'flag' || kind === 'flag_closed') {
+    const { id, post_id, by_user, outcome } = record ?? {};
+    if (!post_id) return new Response('ignored', { status: 200 });
+    const [[post], [raiser]] = await Promise.all([
+      rest(`posts?id=eq.${post_id}&select=user_id,group_id,metric,amount,challenge`),
+      by_user ? rest(`profiles?id=eq.${by_user}&select=username,display_name`) : Promise.resolve([{}]),
+    ]);
+    if (!post) return new Response('ignored', { status: 200 });
+    const members = await rest(`group_members?group_id=eq.${post.group_id}&select=user_id`);
+    const what = `${post.amount} ${post.challenge ? `${post.challenge} ` : ''}${post.metric}`;
+    const url = id ? `${SITE_URL}/#flag-${id}` : atPost(post_id);
+    // The owner is told about their own; everyone else is asked. Two blasts rather than
+    // one, because the same words cannot be right for both.
+    const others = members.map((m: { user_id: string }) => m.user_id)
+      .filter((u: string) => u !== post.user_id && (kind === 'flag_closed' || u !== by_user));
+    const line = (mine: boolean) => kind === 'flag'
+      ? flagFor(raiser?.username ? who(raiser) : 'Someone', what, mine)
+      : verdictFor(what, outcome === 'upheld', mine);
+    const tag = `flag-${id ?? post_id}${kind === 'flag_closed' ? '-done' : ''}`;
+    await blast([post.user_id], JSON.stringify({ title: 'Quota', body: line(true), url, tag }));
+    return blast(others, JSON.stringify({ title: 'Quota', body: line(false), url, tag }));
   }
 
   if (kind === 'comment' || kind === 'like' || kind === 'reaction') {

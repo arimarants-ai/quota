@@ -46,6 +46,10 @@
   // nothing about one had to survive a round trip. Sharing proof onto a story does: what
   // the card points at is written into the row and read back out of it.
   self.__stories = [];
+  // Questioning a post. The database seeds the flagger's own vote and works out when it
+  // closes; both are done here too, or the page would be driven against a shape the real
+  // thing never produces.
+  self.__flags = []; self.__fvotes = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -70,6 +74,8 @@
     comment_likes: self.__clikes,
     comments: self.__cmts,
     stories: self.__stories,
+    flags: self.__flags,
+    flag_votes: self.__fvotes,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
   // column can be null, and a row can be missing what a newer column would have had.
@@ -77,6 +83,11 @@
   const result = t => {
     const m = M();
     if (t === 'friendships') self.__calls.loads++;         // one per load(): the first query it runs
+    // A project where the v27 block has not been run: the tables are simply not there. The
+    // app has to draw itself without the feature rather than refuse to draw at all.
+    if (m.noFlagTables && (t === 'flags' || t === 'flag_votes')) {
+      return { data: null, error: err('relation "public.flags" does not exist') };
+    }
     return m.queryError ? { data: null, error: err(m.queryError) } : { data: rows(t).map(mangle), error: null };
   };
   // Writes are only tracked where a test needs to see the effect; everything else just
@@ -113,6 +124,10 @@
       }
       // update().eq() puts the row before the filter, so which post to touch is not known
       // until the query is actually run.
+      if (st.op === 'update' && t === 'flag_votes' && st.row) {
+        self.__fvotes = self.__fvotes.map(v =>
+          Object.entries(st.filters).every(([k, x]) => v[k] === x) ? { ...v, ...st.row } : v);
+      }
       if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
         self.__onprofile[st.filters.id] = st.row.on_profile;
       }
@@ -152,6 +167,15 @@
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
       if (t === 'stories') self.__stories.push({ id: 600 + self.__stories.length, created_at: new Date().toISOString(), body: null, media_path: null, style: {}, ...row });
+      if (t === 'flags') {
+        const id = 800 + self.__flags.length;
+        // Four hours off, standing in for three before the flagged person's midnight, and
+        // ignoring whatever the page sent, the same as the trigger does.
+        self.__flags.push({ ...row, id, created_at: new Date().toISOString(),
+          closes_at: new Date(Date.now() + 4 * 3600e3).toISOString(), outcome: null, closed_at: null });
+        self.__fvotes.push({ flag_id: id, user_id: row.by_user, agree: true });   // raising one is a vote
+      }
+      if (t === 'flag_votes') self.__fvotes.push({ ...row });
       return chain(t, { ...st, op: 'insert' });
     };
     p.delete = () => chain(t, { ...st, op: 'delete' });

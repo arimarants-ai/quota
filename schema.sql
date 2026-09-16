@@ -1344,3 +1344,185 @@ alter table public.profiles add column if not exists terms_version text;
 drop policy if exists "members see posts" on public.posts;
 create policy "members see posts" on public.posts for select
   using (user_id = auth.uid() or public.is_member(group_id) or (on_profile and public.can_see_user(user_id)));
+
+-- ============================================================
+-- v27 (questioning somebody's proof): safe to run on an existing project.
+--
+-- A flag is one person saying a post does not meet the challenge, and the group deciding.
+-- It is deliberately not a report to a moderator: there is no moderator, and the people who
+-- know whether twenty pushups were twenty pushups are the people in the group.
+--
+-- Three rules are in here rather than in the app, because all three are the kind that stop
+-- being true the moment somebody writes their own request:
+--
+--   * You cannot flag your own post, and you cannot vote on a flag against it.
+--   * One flag per post, ever. A post the group already stood behind is not re-litigated.
+--   * When it closes is the database's, not the browser's. It is three hours before the
+--     flagged person's own midnight, wherever in the world they are, worked out from
+--     profiles.tz — the same column the spin-day reminder runs on. A flag raised after that
+--     hour has already passed gets half an hour instead, so a late one still decides today
+--     rather than expiring on the spot or running past the day it is about.
+--
+-- Nothing here writes to posts. Whether an upheld flag has taken a post out of its day is
+-- read off the flag, by the app, from rows it already loads — a column on posts would have
+-- to be written by something, and the only things allowed to write a post are its author
+-- and post_edit_guard(), which exists precisely to stop a post changing after the group
+-- saw it. So the post is left exactly as it was and the flag carries the verdict.
+-- ============================================================
+create table if not exists public.flags (
+  id bigint generated always as identity primary key,
+  -- One per post, ever: unique rather than an index, so a second one is refused by the
+  -- database rather than by remembering to check.
+  post_id bigint not null unique references public.posts on delete cascade,
+  by_user uuid not null references public.profiles on delete cascade,
+  reason text not null check (char_length(btrim(reason)) between 1 and 300),
+  created_at timestamptz not null default now(),
+  closes_at timestamptz not null default now(),
+  outcome text check (outcome in ('upheld', 'dismissed')),
+  closed_at timestamptz
+);
+create index if not exists flags_open on public.flags (closes_at) where outcome is null;
+alter table public.flags enable row level security;
+
+create table if not exists public.flag_votes (
+  flag_id bigint not null references public.flags on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  -- true agrees with the flag: this needs redoing.
+  agree boolean not null,
+  created_at timestamptz not null default now(),
+  primary key (flag_id, user_id)   -- one vote each, by the key rather than by checking
+);
+alter table public.flag_votes enable row level security;
+
+-- Which group a flag belongs to, and whose post it is. Both are one join away and every
+-- policy below wants one of them, so they are functions rather than a subquery written out
+-- five times slightly differently.
+create or replace function public.flag_group(fid bigint) returns bigint
+language sql stable security definer set search_path = public as $$
+  select p.group_id from public.flags f join public.posts p on p.id = f.post_id where f.id = fid;
+$$;
+create or replace function public.flag_owner(fid bigint) returns uuid
+language sql stable security definer set search_path = public as $$
+  select p.user_id from public.flags f join public.posts p on p.id = f.post_id where f.id = fid;
+$$;
+
+drop policy if exists "see flags in your groups" on public.flags;
+drop policy if exists "question a post you can see" on public.flags;
+create policy "see flags in your groups" on public.flags for select
+  using (public.is_member((select group_id from public.posts where id = post_id)));
+create policy "question a post you can see" on public.flags for insert
+  with check (by_user = auth.uid()
+    and public.is_member((select group_id from public.posts where id = post_id))
+    and auth.uid() <> (select user_id from public.posts where id = post_id));
+-- No update and no delete: a flag is a thing that happened. Only close_due_flags() below
+-- writes an outcome, and it runs as the owner rather than as whoever called it.
+
+-- When it closes, and who it says raised it, are settled here rather than sent up by the
+-- browser — a closes_at the client picks is a clock the client can move.
+create or replace function public.flag_open_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare zone text; nine timestamptz;
+begin
+  select coalesce(nullif(pr.tz, ''), 'UTC') into zone
+    from public.posts p join public.profiles pr on pr.id = p.user_id where p.id = new.post_id;
+  -- An unrecognised zone is not worth failing a flag over; UTC is what the reminder falls
+  -- back to as well.
+  begin
+    nine := ((now() at time zone zone)::date + time '21:00') at time zone zone;
+  exception when others then
+    nine := ((now() at time zone 'UTC')::date + time '21:00') at time zone 'UTC';
+  end;
+  new.by_user := auth.uid();
+  new.created_at := now();
+  new.outcome := null; new.closed_at := null;
+  -- Three hours before their midnight, or half an hour, whichever is later.
+  new.closes_at := greatest(nine, now() + interval '30 minutes');
+  return new;
+end $$;
+drop trigger if exists flags_open_guard on public.flags;
+create trigger flags_open_guard before insert on public.flags
+  for each row execute function public.flag_open_guard();
+
+-- Raising one is a vote. Without this a flag opens with nobody on it, and "everybody has
+-- voted" could never be reached in a group of two.
+create or replace function public.flag_seed_vote() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.flag_votes (flag_id, user_id, agree) values (new.id, new.by_user, true)
+    on conflict do nothing;
+  return new;
+end $$;
+drop trigger if exists flags_seed_vote on public.flags;
+create trigger flags_seed_vote after insert on public.flags
+  for each row execute function public.flag_seed_vote();
+
+drop policy if exists "see votes on a flag you can see" on public.flag_votes;
+drop policy if exists "vote once on an open flag" on public.flag_votes;
+drop policy if exists "change your mind while it is open" on public.flag_votes;
+create policy "see votes on a flag you can see" on public.flag_votes for select
+  using (public.is_member(public.flag_group(flag_id)));
+create policy "vote once on an open flag" on public.flag_votes for insert
+  with check (user_id = auth.uid()
+    and public.is_member(public.flag_group(flag_id))
+    and auth.uid() <> public.flag_owner(flag_id)
+    and exists (select 1 from public.flags f where f.id = flag_id and f.outcome is null and f.closes_at > now()));
+-- One vote each is the primary key's job. Changing your mind before it closes is not a
+-- second vote, and a mis-tap that can never be undone is not a decision anybody wants to
+-- live with for the rest of the day.
+create policy "change your mind while it is open" on public.flag_votes for update
+  using (user_id = auth.uid()
+    and exists (select 1 from public.flags f where f.id = flag_id and f.outcome is null and f.closes_at > now()))
+  with check (user_id = auth.uid());
+
+-- Every flag whose time is up, or that everybody eligible has already voted on. Runs as the
+-- owner, so it can write an outcome no policy above allows anybody else to write, and it
+-- decides by the same rule however it was reached: from the app on a load, or from cron.
+--
+-- More agreeing than not is upheld; anything else, a tie included, is dismissed. A tie is
+-- deliberately not a coin toss — the post stands, and the day it counted towards stays
+-- counted, exactly as if the flag had never been raised.
+create or replace function public.close_due_flags() returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer := 0;
+begin
+  with t as (
+    select f.id, f.closes_at,
+           coalesce(sum(case when v.agree then 1 else 0 end), 0) as yes,
+           coalesce(sum(case when v.agree then 0 else 1 end), 0) as no,
+           count(v.*) as cast_,
+           -- Everyone in the group except whoever is being flagged.
+           greatest(0, (select count(*) from public.group_members gm where gm.group_id = p.group_id) - 1) as eligible
+      from public.flags f
+      join public.posts p on p.id = f.post_id
+      left join public.flag_votes v on v.flag_id = f.id
+     where f.outcome is null
+     group by f.id, f.closes_at, p.group_id
+  ), due as (
+    select * from t where closes_at <= now() or (eligible > 0 and cast_ >= eligible)
+  )
+  update public.flags f
+     set outcome = case when d.yes > d.no then 'upheld' else 'dismissed' end,
+         closed_at = now()
+    from due d where d.id = f.id;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.close_due_flags() from public;
+grant execute on function public.close_due_flags() to authenticated;
+
+-- The group hears when one is raised, and again when it is decided. The second one fires
+-- off the update close_due_flags() makes, so a result reaches people whether the app was
+-- open when the clock ran out or not.
+drop trigger if exists flags_notify on public.flags;
+create trigger flags_notify after insert on public.flags
+  for each row execute function public.notify_hook('flag');
+drop trigger if exists flags_closed_notify on public.flags;
+create trigger flags_closed_notify after update of outcome on public.flags
+  for each row when (old.outcome is null and new.outcome is not null)
+  execute function public.notify_hook('flag_closed');
+
+-- Ten minutes rather than the hour the wheel reminder runs on: a flag closes at whatever
+-- minute its half hour lands on, and a result that arrives fifty minutes late is a result
+-- that arrives after the person could have done anything about it.
+select cron.unschedule('close-flags') where exists (select 1 from cron.job where jobname = 'close-flags');
+select cron.schedule('close-flags', '*/10 * * * *', $cron$ select public.close_due_flags(); $cron$);
