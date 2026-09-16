@@ -85,11 +85,15 @@ open(f'{w}/base.sql', 'w').write(
 # skipped. All of them, not just the first: a second one was added in v16, and cutting only
 # the first left it in to fail on a plain Postgres.
 #
-# Cut on the statement rather than on the comment above it. Every scheduling block happened
-# to open with the same sentence, so that is what this matched on, and the first one worded
-# differently would have been left in to fail here for a reason nothing said out loud.
-CRON = 'select cron.unschedule('
+# Cut on the statements rather than on the comment above them. Every scheduling block
+# happened to open with the same sentence, so that is what this matched on, and the first
+# one worded differently would have been left in to fail here for a reason nothing said out
+# loud. Two things go: the extension itself, which is not installable on a plain Postgres,
+# and each scheduling call, which needs it. The comment used to carry the extension line out
+# with it by accident, which is exactly the kind of thing a marker made of prose does.
 body = s[s.index('-- v6 (wheels)'):]
+body = body.replace('create extension if not exists pg_cron;\n', '')
+CRON = 'select cron.unschedule('
 while CRON in body:
     cut = body.index(CRON)
     body = body[:cut] + body[body.index('$cron$);', cut) + len('$cron$);'):]
