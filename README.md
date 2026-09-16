@@ -173,6 +173,52 @@ so nothing in the load path is allowed to leave an empty page behind:
   what the old behaviour amounted to.
 - `onAuthStateChange` keeps the UI honest when the library ends the session on its own.
 
+## What people agree to, and what they cannot type
+
+Three documents live in `index.html` as the `LEGAL` object — a privacy policy, a note on
+cookies and local storage, and community guidelines. They are in the page rather than on
+pages of their own because the app is one file behind a service worker: a separate page
+would be another thing to precache, style, and get wrong offline.
+
+They are reachable from the welcome screen, from the signup form, and from Settings.
+Signing up requires ticking a box, and the tick is written to `profiles.terms_accepted_at`
+along with `terms_version`, so it is always possible to say which wording somebody agreed
+to. **This needs the v25 block of `schema.sql`.** Until it is run the columns do not exist,
+and the app deliberately treats that as nobody being held to anything rather than putting
+an accept screen nobody can dismiss in front of every account.
+
+Anyone who signed up before v25 ran has `null` there and meets a one-time accept screen on
+their next open. If a document changes in a way that matters, bump `TERMS_VERSION` in
+`index.html`.
+
+### The word filter
+
+`badWords()` in `index.html` refuses slurs, sexually explicit words and strong swearing
+anywhere text is typed — captions, comments, stories, group names, metrics, bios,
+usernames. Mild swearing (damn, hell, crap) is deliberately allowed.
+
+It is enforced in **one** place: a `submit` listener on `document` in the capture phase,
+which runs before any form's own `onsubmit` and stops it ever being reached. Adding a form
+does not mean remembering to add a check. The story editor is the only text box that is not
+in a form, so `postStory()` calls the check itself.
+
+Two kinds of match, because one rule cannot serve both. The `any` lists are looked for
+anywhere inside what was typed, which is what catches a username like `fuckyou123`; every
+word in them is a string no ordinary English word contains. The `word` lists are matched
+whole, because each entry sits inside something innocent — assess, raccoon, analysis,
+Pakistan, peacock, flame retardant. `NOTBAD` is the short list of place names that contain
+a banned word outright, Scunthorpe being the famous one.
+
+`test/language.test.mjs` lifts the filter straight out of `index.html` — between the
+`filter:start` and `filter:end` markers — and runs it, so the list and the test cannot
+drift. Half the cases are sentences that must **not** be caught; a filter that blocks
+"assess" is worse than no filter at all. If you move the filter, move the markers with it.
+
+The filter runs in the browser, which is where the typing is. It is not a server-side
+guard, and somebody writing their own requests to Supabase can still put anything they like
+in a row. Making it airtight means a trigger on `posts`, `comments`, `stories`, `groups`
+and `profiles`; worth doing the first time somebody bothers.
+
 ## Tests
 
 ```bash

@@ -1309,3 +1309,22 @@ create policy "take back your own comment like" on public.comment_likes for dele
 drop trigger if exists comment_likes_notify on public.comment_likes;
 create trigger comment_likes_notify after insert on public.comment_likes
   for each row execute function public.notify_hook('comment_like');
+
+-- ============================================================
+-- v25 (agreeing to the documents): safe to run on an existing project.
+--
+-- The privacy policy, the note on cookies and storage, and the community guidelines are
+-- shown at signup and have to be ticked. This is where that tick is written down, with the
+-- wording it was ticked against, so it is always possible to say what somebody agreed to
+-- rather than only that they agreed to something.
+--
+-- Everyone who signed up before this ran has null here, and the app puts the accept screen
+-- in front of them on their next open. Until this block is run the columns do not exist at
+-- all, and the app treats that as nobody being held to anything — a document that cannot
+-- be accepted must not lock people out of their own accounts.
+--
+-- No policy is needed: the existing "edit own profile" policy already lets you write your
+-- own row and nothing else, and the column is public the same way a username is.
+-- ============================================================
+alter table public.profiles add column if not exists terms_accepted_at timestamptz;
+alter table public.profiles add column if not exists terms_version text;

@@ -529,6 +529,17 @@ button.rg{border:0;font:inherit}
 .pushabout{padding:12px 18px 2px}
 .pushabout .muted{font-size:12.5px;line-height:1.45}
 .pushabout .about{margin:8px 0;padding:0 0 0 18px;border-top:0}
+.legal{padding:0 18px 34px;max-width:42rem;text-align:left}
+.legal h3{font-size:15px;margin:22px 0 2px}
+.legal p,.legal li{color:var(--muted);font-weight:600;font-size:13.5px;line-height:1.55;margin:8px 0}
+.legal ul{margin:8px 0;padding:0 0 0 18px}
+.legal b{color:var(--text)}
+.legal a{color:var(--mkt)}
+.legal .stamp{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:0}
+.legallinks{text-align:center;margin-top:16px}
+.legallinks button{background:none;color:var(--muted);font-weight:800;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:4px 7px}
+.agree{text-align:left;margin-top:18px;align-items:flex-start}
+.agree span{font-weight:600;font-size:13px;line-height:1.45;color:var(--muted)}
 .list{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .li{display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border-radius:0;
   border-bottom:1px solid var(--line);text-align:left;font:inherit;color:var(--text);white-space:normal}
@@ -903,7 +914,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v55';
+const BUILD = 'quota-v56';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -948,7 +959,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1261,10 +1272,15 @@ function render() {
   // One number decides the green everywhere: the best run going across your groups. Set on
   // the root so the tokens, the figure in the header and the arc in the mark all agree.
   document.documentElement.dataset.stage = String(stageOf(myStreak()));
-  $('#bar').hidden = !m; $('#app').classList.toggle('out', !m);
+  // A document being read, and an account that has agreed to none of them, are both
+  // whole-screen states: there is no tab bar over either, signed in or not.
+  const held = !m || !!S.legal || needsTerms(m);
+  $('#bar').hidden = held; $('#app').classList.toggle('out', held);
+  if (S.legal) return $('#app').innerHTML = legalView(S.legal);
   // Until the first load lands we do not know whether there is a session, and guessing
   // means flashing the sign-in screen at someone who is already signed in.
   if (!m) return $('#app').innerHTML = S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
+  if (needsTerms(m)) return $('#app').innerHTML = acceptView();
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
   // One screen that cannot be drawn must not take the app with it. This runs inside
@@ -1315,6 +1331,100 @@ function render() {
   ind.style.setProperty('--o', on ? 1 : 0);
   if (on) ind.style.setProperty('--x', (on.offsetLeft + on.offsetWidth / 2 - 11) + 'px');
 }
+
+// ---- words that do not go on Quota
+// filter:start  (test/language.test.mjs lifts everything down to filter:end and runs it)
+//
+// One list, checked in one place. Every form on the page goes through the submit guard at
+// the bottom of this file, in the capture phase, so it runs before the form's own
+// onsubmit and nothing is sent and nothing is written. The story editor is the only text
+// box that is not in a form, and postStory() calls the same check itself. Adding a screen
+// does not mean remembering to add a check to it.
+//
+// Two ways of matching, because one rule cannot serve both. ANY words are looked for
+// anywhere inside what was typed, so fuckyou123 is caught as a username; every word in
+// those lists is a string no ordinary English word contains. WORD words are only matched
+// whole, because each one sits inside something innocent: raccoon, analysis, suspicion,
+// peacock, pussycat, flame retardant, Pakistan. NOTBAD, below, covers the other direction.
+const BAD = {
+  slur: {
+    any: ['nigger', 'nigga', 'niglet', 'faggot', 'kike', 'chingchong', 'tranny', 'shemale',
+      'ladyboy', 'wetback', 'towelhead', 'raghead', 'beaner', 'jigaboo', 'porchmonkey',
+      'mudslime', 'darkie', 'poofter', 'mongoloid', 'midget', 'retarded', 'hitler', 'nazi'],
+    word: ['coon', 'spic', 'chink', 'gook', 'wop', 'dago', 'paki', 'jap', 'homo', 'fag',
+      'fags', 'dyke', 'tard', 'spaz', 'spastic', 'poof'],
+  },
+  sexual: {
+    any: ['blowjob', 'handjob', 'dildo', 'cumshot', 'deepthroat', 'bukkake', 'creampie',
+      'gangbang', 'hentai', 'porn', 'whore', 'slut', 'milf', 'jizz', 'wank', 'titties',
+      'rapist', 'pedophile', 'paedophile', 'pedophilia', 'molest'],
+    word: ['pussy', 'cock', 'dick', 'tits', 'anal', 'boner', 'rape', 'cum', 'pedo'],
+  },
+  swear: {
+    any: ['fuck', 'shit', 'cunt', 'bitch', 'asshole', 'arsehole', 'twat', 'bastard',
+      'bollocks', 'bellend', 'douchebag', 'dumbass', 'dickhead', 'cocksucker'],
+    word: ['prick'],
+  },
+};
+// Why it was stopped. A refusal that does not say which rule it is cannot be argued with,
+// and half of these are words somebody typed without thinking.
+const BADWHY = {
+  slur: 'That is a slur. There is no context on Quota where it is all right.',
+  sexual: 'That is sexually explicit, and none of that goes on Quota.',
+  swear: 'That is a swear word. Quota keeps them off posts, comments and names.',
+};
+const BADANY = Object.entries(BAD).flatMap(([why, t]) => t.any.map(w => [w, why]));
+const BADWORD = new Map(Object.entries(BAD).flatMap(([why, t]) => t.word.map(w => [w, why])));
+// Accents dropped, invisible characters dropped, the usual number-for-letter swaps undone,
+// and a letter held down (fuuuuuck) cut back to one. Three of the same letter or more, not
+// two: collapsing every double turns coon into con, and con is a word somebody may mean.
+// ponytail: this does not see f.u.c.k or f u c k. Catching those means matching across
+// separators, which is where a filter starts eating innocent sentences whole.
+const LEET = {'4': 'a', '@': 'a', '8': 'b', '(': 'c', '3': 'e', '6': 'g', '9': 'g',
+  '1': 'i', '!': 'i', '|': 'i', '0': 'o', '5': 's', '$': 's', '7': 't', '+': 't'};
+// Names that happen to contain one of the ANY words, taken out before anything is looked
+// for. There is no rule that tells Scunthorpe apart from what is inside it, so the only
+// honest answer is a list, and the list is short.
+const NOTBAD = /scunthorpe|shitterton|penistone|clitheroe|cockburn|assington|twatt/g;
+const flatten = v => String(v ?? '').toLowerCase()
+  .normalize('NFKD').replace(/[\u0300-\u036f\u200b-\u200f\u2060\ufeff]/g, '')
+  .replace(/[4@8(3691!|05$7+]/g, c => LEET[c])
+  .replace(/(.)\1{2,}/g, '$1')
+  .replace(NOTBAD, ' ');
+// Every distinct word found, worst first, so what gets quoted back is the slur rather than
+// whichever swear happened to come earlier in the sentence.
+function badWords(v) {
+  const flat = flatten(v), hits = new Map();
+  for (const [w, why] of BADANY) if (flat.includes(w)) hits.set(w, why);
+  for (const t of flat.split(/[^a-z]+/)) if (BADWORD.has(t)) hits.set(t, BADWORD.get(t));
+  const rank = {slur: 0, sexual: 1, swear: 2};
+  return [...hits].map(([word, why]) => ({word, why})).sort((a, b) => rank[a.why] - rank[b.why]);
+}
+// filter:end
+// Typed text only. A password is never read here, and neither is a recovery code: its
+// alphabet can spell a short word by accident, and being locked out of your own account by
+// a coincidence is worse than the word.
+const TYPED = 'input:not([type]):not([data-raw]),input[type=text]:not([data-raw]),input[type=search],textarea';
+function refuse(hits, el) {
+  const {word, why} = hits[0];
+  if (el) { el.focus(); try { el.setSelectionRange(0, el.value.length); } catch (e) {} }
+  alert(`"${word}" cannot go on Quota.\n\n${BADWHY[why]}\n\nTake it out and the rest goes through.`);
+  return false;
+}
+function clean(f) {
+  for (const el of f.querySelectorAll(TYPED)) {
+    const hits = badWords(el.value);
+    if (hits.length) return refuse(hits, el);
+  }
+  return true;
+}
+// Capture, on the document: it runs before the form's own onsubmit, and stopping
+// propagation here means that handler is never reached at all.
+document.addEventListener('submit', e => {
+  if (clean(e.target)) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
 
 // ---- views
 const splashView = () => `<div class="splash">${LOGO(true)}<i></i></div>`;
@@ -1872,6 +1982,9 @@ function dragify(el, set, onTap) {
 async function postStory() {
   const d = S.draft, m = me();
   if (!d) return;
+  // The editor is a contenteditable, not a form, so the submit guard never sees it.
+  const bad = badWords(d.body || '');
+  if (bad.length) return refuse(bad, null);
   const go = $('#make .go');
   if (go) { go.disabled = true; go.textContent = d.editing ? 'Saving…' : 'Sharing…'; }
   try {
@@ -2314,6 +2427,7 @@ const SICON = {
   bell: '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 0 1-3.4 0"/>',
   lock: '<rect x="4" y="10.5" width="16" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>',
   shield: '<path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9.5 12.2l1.8 1.8 3.4-3.6"/>',
+  doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
   out: '<path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/>',
 };
 const srow = (icon, title, sub, right, click, cls = '') =>
@@ -2343,6 +2457,10 @@ function settingsView() {
     ${pushable ? `<div class="pushabout"><p class="muted">A switch covering five different things has to say which five. You will hear about:</p>
       <ul class="about">${PUSHABOUT.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <p class="muted">And anything left on your stories.</p></div>` : ''}
+    <p class="sec">Legal</p>
+    <div class="list">
+      ${Object.entries(LEGAL).map(([k, d]) => srow('doc', d.title, d.sub, '<span class="go">\u203a</span>', `openLegal('${k}')`)).join('')}
+    </div>
     <p class="sec">Account</p>
     <div class="list">
       ${srow('lock', 'Change password', '', '<span class="go">\u203a</span>', 'passwordDlg()')}
@@ -2453,7 +2571,8 @@ function welcomeView() {
     <h1>Your friends will know if you skip.</h1>
     <p>Set a daily goal with a group. Post a video proof before midnight. Every day.</p>
     <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">Get started</button>
-    <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button></div>`;
+    <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button>
+    ${legalLinks()}</div>`;
 }
 function authView(mode) {
   const signup = mode === 'signup';
@@ -2462,7 +2581,10 @@ function authView(mode) {
     <div class="card"><form onsubmit="event.preventDefault();auth(this,'${mode}')">
     <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
+    ${signup ? `<label class="check agree"><input type="checkbox" name="agree" required>
+      <span>I am 13 or over, and I agree to Quota's privacy policy, its note on cookies and storage, and its community guidelines.</span></label>` : ''}
     <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
+    ${signup ? legalLinks() : ''}
     <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
     ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='reset';render()">Use a recovery code</button></div>`}
     <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
@@ -2473,11 +2595,142 @@ function resetView() {
     <h2>Reset your password</h2><p>Use one of the recovery codes you saved when you signed up. Each code works once.</p>
     <div class="card"><form onsubmit="event.preventDefault();resetPassword(this)">
     <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" placeholder="yourname">
-    <label>Recovery code</label><input name="code" required autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCDE-FGHJK">
+    <label>Recovery code</label><input name="code" data-raw required autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCDE-FGHJK">
     <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
     <button class="primary">Set new password</button></form></div>
     <p class="muted" style="margin:14px 18px">No codes saved? They can't be recovered, and no one can reset an account without one \u2014 that is what stops someone taking a username that is already in use. Ask whoever runs the app to reset it for you.</p>
     <div><button class="ghost" onclick="S.auth='login';render()">\u2039 Back to log in</button></div></div>`;
+}
+
+// ---- what you agree to
+// Three documents, kept here rather than as separate pages: the app is one file with a
+// service worker in front of it, so a page of its own would be another thing to precache,
+// another thing to style, and another thing to get wrong offline. Written out in full
+// because a policy nobody can read on the screen they are agreeing on is not a policy.
+//
+// Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
+// against each account, so it is always possible to say which wording somebody agreed to.
+const TERMS_VERSION = '2026-09-15';
+const LEGAL = {
+  privacy: {title: 'Privacy policy', sub: 'What Quota keeps, and who can see it', body: `
+<p>Quota is run by one person. Contact: <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a>. This says what Quota holds about you, why it holds it, and who else can see it.</p>
+<h3>What Quota keeps</h3>
+<ul>
+<li><b>Your account.</b> A username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Recovery codes are stored the same way.</li>
+<li><b>Your profile.</b> A display name, a bio and a picture, if you add them, and which of your groups you have chosen to show on it.</li>
+<li><b>What you post.</b> Proof clips and pictures, the amount and the metric, the caption, the day, and whether you put it on your profile.</li>
+<li><b>What you write.</b> Comments, stories, and the words on them.</li>
+<li><b>What you tap.</b> Likes, reactions, and which stories you have watched.</li>
+<li><b>Your groups.</b> Names, goals, quotas, active days, wheels, spins and results.</li>
+<li><b>Friends and invites.</b> Who you are friends with, and invitations sent or received.</li>
+<li><b>Your time zone</b>, so that a spin-day reminder arrives in your morning and not somebody else's.</li>
+<li><b>A push subscription</b>, only if you turn notifications on. Turning them off deletes it.</li>
+</ul>
+<h3>What Quota does not do</h3>
+<p>There are no adverts, no analytics, no tracking pixels and no third-party trackers of any kind. Nothing here is sold, and nothing is handed to anyone for marketing. No profile of you is built for any purpose other than showing you the app.</p>
+<h3>Who can see it</h3>
+<ul>
+<li>Your proof, captions, comments and results are visible to the members of the group you posted them in, and to nobody else.</li>
+<li>Anything you tick onto your profile is visible to anyone who can open your profile.</li>
+<li>Your stories are visible for 24 hours to the people you share a group with. Whoever posted a story is shown who watched it.</li>
+<li>Your username, display name and picture are visible to anyone searching for somebody to add.</li>
+<li>Your password is visible to nobody.</li>
+</ul>
+<h3>Who else handles it</h3>
+<p>Two companies hold the data on Quota's behalf and are not allowed to use it for anything else:</p>
+<ul>
+<li><b>Supabase</b> — the database, the sign-in, and the storage your clips and pictures sit in.</li>
+<li><b>Vercel</b> — serves the app itself, and keeps ordinary server logs (an address, a time, a page) for a short period.</li>
+</ul>
+<p>If you turn notifications on, the message is delivered by your browser's own push service — Apple, Google or Mozilla, depending on the phone. They see that a message is going to your device.</p>
+<h3>How long it is kept</h3>
+<p>Posts, comments and profiles are kept until you delete them or ask for the account to go. Deleting a post deletes its file. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
+<h3>What you can ask for</h3>
+<p>You can ask for a copy of everything held about you, ask for it to be corrected, or ask for the account and everything in it to be deleted. Email <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a> and it will be done within 30 days.</p>
+<h3>Age</h3>
+<p>Quota is not for anyone under 13. If you know of an account belonging to someone younger, email the address above and it will be removed.</p>
+<h3>Where it is</h3>
+<p>The database and the files are on Supabase's servers and the app is served from Vercel's. Both operate internationally, so your data may be stored or processed outside your own country.</p>
+<h3>Changes</h3>
+<p>If this changes in a way that matters you will be asked to read and agree to it again before carrying on. The date at the top says when it last changed.</p>`},
+
+  cookies: {title: 'Cookies and storage', sub: 'No cookies. What is kept on this phone', body: `
+<h3>Quota does not use cookies</h3>
+<p>No cookies are set by Quota, for any purpose, and there are no third-party cookies either — nothing on this page is loaded from an advertising or analytics company. That is why there is no banner asking you to accept any.</p>
+<h3>What is kept on your phone instead</h3>
+<p>A few things are held in your browser's own local storage. None of it is sent anywhere, and none of it identifies you to anybody:</p>
+<ul>
+<li><b>Your sign-in.</b> A token that keeps you logged in, so the app does not ask for your password every time. Logging out removes it.</li>
+<li><b>Dark mode</b>, so the app opens the way you left it.</li>
+<li><b>Which camera you used last</b>, front or back.</li>
+<li><b>How fast your last upload went</b>, so the next progress bar can estimate itself.</li>
+<li><b>Whether you have already been asked</b> about notifications, about the camera, and about adding Quota to your home screen — so you are not asked twice.</li>
+<li><b>Which milestones have already been celebrated</b>, so the same run is not celebrated twice.</li>
+</ul>
+<h3>The offline copy</h3>
+<p>Quota installs a service worker, which keeps a copy of the app itself — the page, the code, the icons — on your phone so that it opens without a connection. It holds the app, not your data.</p>
+<h3>Clearing it</h3>
+<p>Clearing your browser's site data for Quota removes all of it. You will be signed out and the app will open on its defaults. Nothing you have posted is affected.</p>`},
+
+  guidelines: {title: 'Community guidelines', sub: 'What goes on Quota, and what does not', body: `
+<p>Quota is for showing your friends you did the thing. Everything below follows from that.</p>
+<h3>The proof is yours, and it is real</h3>
+<ul>
+<li>Post your own effort, filmed by you. Not a clip from last year, not somebody else's, not something off the internet.</li>
+<li>Say the number you actually did. A group only works if the number means something.</li>
+<li>Film other people only if they are happy to be filmed.</li>
+</ul>
+<h3>How people are treated</h3>
+<ul>
+<li>No harassment, no pile-ons, no going after somebody for missing a day. Pressure is the point of the app. Cruelty is not.</li>
+<li>No slurs and no hate — about race, religion, nationality, disability, sex, gender or sexuality. This is the line there is no version of.</li>
+<li>No threats of violence, and nothing encouraging anybody to hurt themselves.</li>
+<li>No posting somebody else's private information.</li>
+<li>No pretending to be someone you are not, in a username, a display name or anywhere else.</li>
+</ul>
+<h3>What does not go on Quota</h3>
+<ul>
+<li>Nudity and sexual content.</li>
+<li>Illegal activity, or anything encouraging it.</li>
+<li>Spam, scams, and accounts set up to advertise something.</li>
+<li>Anything you do not have the right to post.</li>
+</ul>
+<h3>Language</h3>
+<p>Quota checks what you type before it saves it. Slurs, sexually explicit words and strong swearing are refused in captions, comments, stories, group names, bios and usernames, and you are told which word stopped it and why. It is a word list, not a reading of what you meant — take the word out and the rest goes through.</p>
+<p>The list is not exhaustive. Getting something past it does not make it allowed; the rest of this page still applies.</p>
+<h3>Age</h3>
+<p>You have to be 13 or older to use Quota.</p>
+<h3>If these are broken</h3>
+<p>Posts, comments and stories that break these guidelines are taken down. An account that keeps breaking them is removed, and for slurs, threats, or sexual content involving anybody under 18 it goes on the first time. To report something, email <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a> with enough detail to find it.</p>`},
+};
+const legalLinks = () => `<p class="legallinks">${Object.entries(LEGAL).map(([k, d]) =>
+  `<button type="button" onclick="openLegal('${k}')">${esc(d.title)}</button>`).join('')}</p>`;
+function legalView(k) {
+  const d = LEGAL[k];
+  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div><h1>${esc(d.title)}</h1></div>
+    <button class="ghost back" onclick="closeLegal()">‹ Back</button>
+    <div class="legal"><p class="stamp muted">Last updated ${TERMS_VERSION}</p>${d.body}</div>`;
+}
+function openLegal(k) { S.legal = k; render(); scrollTo(0, 0); }
+function closeLegal() { S.legal = null; render(); scrollTo(0, 0); }
+// An account made before any of this existed has agreed to none of it, and a record of
+// consent with holes in it is not a record. null means the column is there and nothing has
+// been agreed; undefined means the v25 block has not been run yet, and in that case nobody
+// is held anywhere — a document that cannot be accepted must not lock the app.
+const needsTerms = m => m.terms_accepted_at === null;
+function acceptView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Before you carry on</h2><p>Quota now writes down what it keeps, what it stores on your phone, and what goes on it. Have a read, then agree once.</p>
+    <div class="list" style="text-align:left">${Object.entries(LEGAL).map(([k, d]) =>
+      srow('doc', esc(d.title), esc(d.sub), '<span class="go">›</span>', `openLegal('${k}')`)).join('')}</div>
+    <button class="primary" style="width:100%;margin-top:20px;padding:14px" onclick="acceptTerms(this)">I agree</button>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="logout()">Log out</button></div>`;
+}
+async function acceptTerms(btn) {
+  btn.disabled = true; btn.textContent = '…';
+  const {error} = await sb.from('profiles').update({terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION}).eq('id', me().id);
+  if (error) { btn.disabled = false; btn.textContent = 'I agree'; return showErr('That did not save.', error.message); }
+  await load();
 }
 
 // ---- a run worth stopping for
@@ -3023,6 +3276,10 @@ async function auth(f, mode) {
       const {data, error} = await sb.auth.signUp({email: emailFor(username), password, options: {data: {username}}});
       if (error) return alert(error.message);
       if (!data.session) return alert('Account created but email confirmation is still on. In Supabase: Authentication → Providers → Email → turn off "Confirm email", then log in.');
+      // The box was ticked to get here. Written down with the wording it was ticked
+      // against, so it is always possible to say what somebody agreed to. A failure is not
+      // fatal: the column stays null and the accept screen asks again on the next open.
+      try { await sb.from('profiles').update({terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION}).eq('id', data.user.id); } catch (e) {}
       // Issue recovery codes now: there is no reset email, so this is the only way back
       // in later. A failure here is not fatal — the profile has a button for it.
       try { fresh = (await callRecovery('issue')).codes; }

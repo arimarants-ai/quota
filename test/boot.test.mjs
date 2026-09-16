@@ -1531,10 +1531,23 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(400);
   const set = await page.innerText('#app');
   check('the gear opens settings', await page.evaluate(() => S.settings) === true
-    && await page.locator('.list').count() === 3);
+    && await page.locator('.list').count() === 4);
   check('  carrying everything the profile used to', /bio/i.test(set) && /Groups on your profile/i.test(set)
     && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
     && /Recovery codes/i.test(set) && /Log out/i.test(set), set);
+  // Whatever somebody agreed to at signup has to stay readable afterwards, or agreeing to
+  // it was a box they ticked once and can never look at again.
+  check('  and the documents, which have to stay reachable', /Privacy policy/i.test(set)
+    && /Cookies and storage/i.test(set) && /Community guidelines/i.test(set), set);
+  await page.locator('.li:has-text("Privacy policy")').click();
+  await page.waitForTimeout(300);
+  check('  one of which opens on its own screen', await page.evaluate(() => S.legal) === 'privacy'
+    && await page.locator('.legal').count() === 1
+    && await page.locator('#bar[hidden]').count() === 1);
+  await page.locator('.back').click();
+  await page.waitForTimeout(300);
+  check('    and comes back to settings, not to the feed',
+    await page.evaluate(() => S.legal) === null && await page.evaluate(() => S.settings) === true);
   // Notifications only get a switch where the browser can do them at all, which a headless
   // one cannot; dark mode always can, and the notifications row has its own test.
   check('  with the ones that are a yes or a no as switches',

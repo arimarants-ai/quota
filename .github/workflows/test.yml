@@ -22,6 +22,11 @@ jobs:
       # and get the cheap failures out of the way.
       - run: node test/static.test.mjs
 
+      # The word filter is pure logic lifted straight out of index.html, and the way it
+      # fails is silent: a list that stops matching lets everything through and nothing
+      # on screen says so. Needs nothing installed.
+      - run: node test/language.test.mjs
+
       # The worker runs where nothing else does, and the way it fails is invisible until
       # somebody's installed app will not start. Needs nothing installed either.
       - run: node test/sw.test.mjs
