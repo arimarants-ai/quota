@@ -42,11 +42,12 @@
   }] : [];
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
   self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__clikes = []; self.__onprofile = {};
+  self.__signups = []; self.__logins = []; self.__sessions = []; self.__resends = []; self.__resets = []; self.__userEdits = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
   const rows = t => ({
-    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
+    profiles: [{ id: 'u1', username: M().noUsername ? null : 'ari', display_name: M().noUsername ? null : 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
@@ -127,6 +128,12 @@
     const p = { then: (res, rej) => Promise.resolve(
       self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
     for (const k of ['select', 'order', 'limit', 'in', 'upsert']) p[k] = () => chain(t, st);
+    // One row or none, which is how the page asks whether a username is taken. Without
+    // this the ask threw, and a throw there reads as "free" to anybody not looking.
+    const one = () => ({ then: (res, rej) => Promise.resolve(run()).then(r =>
+      r.error ? r : { data: (r.data && r.data[0]) || null, error: null }).then(res, rej) });
+    p.maybeSingle = one;
+    p.single = one;
 
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
@@ -163,6 +170,25 @@
         },
         onAuthStateChange: cb => { self.__authCb = cb; return { data: { subscription: { unsubscribe() {} } } }; },
         signOut: async () => ({ error: null }),
+        // Signing up, confirming and resetting, recorded so a test can see what the page
+        // asked for rather than only what it drew afterwards.
+        getUser: async () => ({ data: { user: { id: 'u1', email: M().email ?? 'ari@users.quota.local' } }, error: null }),
+        signUp: async (args) => {
+          self.__signups.push({ ...args });
+          if (M().signUpError) return { data: {}, error: err(M().signUpError) };
+          // Confirmation is on, so a fresh signup has no session behind it.
+          return { data: { session: M().confirmOff ? { user: { id: 'u1' } } : null, user: { id: 'u1' } }, error: null };
+        },
+        signInWithPassword: async (args) => {
+          self.__logins.push({ ...args });
+          if (M().unconfirmed) return { data: {}, error: err('Email not confirmed') };
+          if (M().loginError) return { data: {}, error: Object.assign(err('Invalid login credentials'), { status: 400 }) };
+          return { data: { session: { user: { id: 'u1' } } }, error: null };
+        },
+        setSession: async (args) => { self.__sessions.push({ ...args }); return { data: {}, error: null }; },
+        resend: async (args) => { self.__resends.push({ ...args }); return { data: {}, error: null }; },
+        resetPasswordForEmail: async (email, opts) => { self.__resets.push({ email, ...opts }); return { data: {}, error: null }; },
+        updateUser: async (args) => { self.__userEdits.push({ ...args }); return { data: {}, error: M().updateError ? err(M().updateError) : null }; },
       },
       from: t => chain(t),
       // The database picks the slice and writes the row before anything is shown; calling

@@ -1309,3 +1309,70 @@ create policy "take back your own comment like" on public.comment_likes for dele
 drop trigger if exists comment_likes_notify on public.comment_likes;
 create trigger comment_likes_notify after insert on public.comment_likes
   for each row execute function public.notify_hook('comment_like');
+
+-- ============================================================
+-- v24 (real email, and a username chosen after signing up): safe to run on an existing
+-- project, but DO NOT run it until the app on main is the one that expects it — an
+-- account created between the two is an account with no username and no screen asking
+-- for one.
+--
+-- Signing up becomes email and a password. The username, the name and the rest are the
+-- next step rather than part of it, so a profile exists before it is filled in: a null
+-- username is what "not set up yet" means, and the app will not let anybody past that
+-- screen until it is not null.
+-- ============================================================
+
+-- The check only applied to a value, so it already tolerates null; the NOT NULL is what
+-- has to go. Unique still holds, and Postgres lets any number of rows be null under it.
+alter table public.profiles alter column username drop not null;
+
+alter table public.profiles add column if not exists birthday date;
+alter table public.profiles add column if not exists gender text;
+alter table public.profiles drop constraint if exists profiles_gender_ok;
+alter table public.profiles add constraint profiles_gender_ok
+  check (gender is null or gender in ('woman', 'man', 'other', 'unsaid'));
+-- A birthday in the future is a typo, and one before 1900 is a different typo. Neither is
+-- worth a screen of its own, and both are worth refusing.
+alter table public.profiles drop constraint if exists profiles_birthday_sane;
+alter table public.profiles add constraint profiles_birthday_sane
+  check (birthday is null or (birthday > date '1900-01-01' and birthday < current_date));
+
+-- A signup no longer carries a username, so the row is created without one. Written to
+-- cope with either, because accounts made by the old app still arrive with one.
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, username)
+    values (new.id, nullif(lower(coalesce(new.raw_user_meta_data->>'username', '')), ''));
+  return new;
+end $$;
+
+-- Whether somebody has finished setting up. Used by the app to decide what to draw, and
+-- by the policy below so half-made accounts cannot be found or invited.
+create or replace function public.is_set_up(uid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = uid and username is not null);
+$$;
+
+-- Usernames stay readable — that is how anybody is found — but a row with no username on
+-- it yet is nobody's business but its owner's.
+drop policy if exists "usernames are public" on public.profiles;
+create policy "usernames are public" on public.profiles for select
+  using (username is not null or id = auth.uid());
+
+-- Claiming a username is an edit of your own row, which was already allowed. What was not
+-- checked is that it only happens once: a username people have learned is not a thing to
+-- swap out from under them, and the app offers no way to.
+create or replace function public.profile_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.username is not null and new.username is distinct from old.username then
+    raise exception 'a username cannot be changed once it is taken';
+  end if;
+  new.id := old.id;
+  return new;
+end $$;
+
+drop trigger if exists profiles_edit_guard on public.profiles;
+create trigger profiles_edit_guard before update on public.profiles
+  for each row execute function public.profile_edit_guard();
