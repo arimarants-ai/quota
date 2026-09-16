@@ -2527,7 +2527,7 @@ function setupView() {
       <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" spellcheck="false"
         pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" placeholder="yourname">
       <p class="muted" id="unick" style="margin-top:6px">Lowercase letters, numbers and underscores.</p>
-      <label>Your name</label><input name="display_name" required maxlength="40" placeholder="Ari Marants">
+      <label>Full name</label><input name="display_name" required maxlength="40" autocomplete="name" placeholder="Ari Marants">
       <label>Date of birth</label><input name="birthday" type="date" required max="${today()}" min="1900-01-02">
       <label>Gender</label><select name="gender" required>
         <option value="">Choose one</option>
