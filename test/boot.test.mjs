@@ -1581,6 +1581,46 @@ await withPage(SIGNED_IN, async page => {
   check('  which returns to the feed', await page.evaluate(() => S.who) === null
     && await page.locator('.post').count() > 0);
 
+  // And returns to where you were in it. A profile opened from twenty posts down used to
+  // come back to the top, which is the whole feed to scroll through again to find your
+  // place. The page is made tall enough to have a place to lose.
+  await page.evaluate(() => { document.documentElement.style.minHeight = '3000px'; });
+  await page.evaluate(() => scrollTo(0, 800));
+  await page.waitForTimeout(150);
+  await page.locator('.post .head .who').nth(1).click();
+  await page.waitForTimeout(400);
+  check('  a profile opened part way down remembers where that was',
+    await page.evaluate(() => backY[backY.length - 1]) === 800,
+    String(await page.evaluate(() => backY.slice())));
+  check('    and opens at the top of itself, not part way down',
+    await page.evaluate(() => scrollY) === 0);
+  await page.locator('.back').click();
+  await page.waitForTimeout(400);
+  check('    and coming back puts you there', await page.evaluate(() => scrollY) === 800,
+    String(await page.evaluate(() => scrollY)));
+  check('      with nothing left on the stack to go back to',
+    await page.evaluate(() => backY.length) === 0);
+
+  // Your own face in the feed is a way in too, and it used to be a way in with no way out:
+  // the header with the gear belongs to the Profile tab, not to every look at yourself.
+  await page.evaluate(() => scrollTo(0, 400));
+  await page.evaluate(() => openWho(me().id));
+  await page.waitForTimeout(400);
+  check('  your own profile opened from the feed has a way back',
+    await page.locator('.back').count() === 1 && await page.locator('.hdr .gear').count() === 0);
+  await page.locator('.back').click();
+  await page.waitForTimeout(400);
+  check('    which also puts you back where you were',
+    await page.evaluate(() => S.who) === null && await page.evaluate(() => scrollY) === 400);
+
+  // The tab itself is the one that still carries the gear, and it is not a way back.
+  await page.evaluate(() => go('profile'));
+  await page.waitForTimeout(400);
+  check('  the Profile tab keeps its gear and offers no way back',
+    await page.locator('.hdr .gear').count() === 1 && await page.locator('.back').count() === 0);
+  await page.evaluate(() => { go('feed'); document.documentElement.style.minHeight = ''; });
+  await page.waitForTimeout(300);
+
   // A face with no story behind it opens the profile rather than doing nothing.
   await page.evaluate(() => { S.stories = []; render(); });
   await page.waitForTimeout(200);
@@ -1909,6 +1949,90 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.stories .s:not(.me)').first().innerText());
   check('  and it is the lit one', await page.evaluate(() =>
     document.querySelectorAll('.stories .s:not(.me)')[0].querySelector('.rg').classList.contains('new')));
+
+  // Swiping, which is one line through everybody rather than one person at a time. The
+  // line is the row: yours, then anyone unseen, then everyone already caught up with —
+  // and being able to swipe back to one you have watched is the point of it.
+  await page.evaluate(() => {
+    S.profiles.u3 = {id: 'u3', username: 'kit', display_name: 'Kit'};
+    S.groups[0].members = [...new Set([...S.groups[0].members, 'u3'])];
+  });
+  await put([
+    {id: 101, u: 'u1', kind: 'text', body: 'mine one'}, {id: 102, u: 'u1', kind: 'text', body: 'mine two'},
+    {id: 201, u: 'u2', kind: 'text', body: 'theirs one'}, {id: 202, u: 'u2', kind: 'text', body: 'theirs two'},
+    {id: 301, u: 'u3', kind: 'text', body: 'kit only'},
+  ]);
+  await page.evaluate(() => { S.seen = [201, 202]; render(); });
+  await page.waitForTimeout(150);
+  check('the line is yours, then unseen, then already watched',
+    (await page.evaluate(() => storyPeople())).join(' ') === 'u1 u3 u2',
+    (await page.evaluate(() => storyPeople())).join(' '));
+  check('  and somebody already watched is still in it, to be swiped back to',
+    (await page.evaluate(() => storyPeople())).includes('u2'));
+
+  // A real drag, not a call to stepStory: the tap zones cover the whole face, so this is
+  // also the check that a swipe does not step twice by leaving a click behind it.
+  const swipe = async dir => {
+    await page.mouse.move(dir < 0 ? 300 : 90, 400);
+    await page.mouse.down();
+    await page.mouse.move(dir < 0 ? 90 : 300, 402, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(220);
+  };
+  const where = () => page.evaluate(() => S.story && {uid: S.story.uid, i: S.story.i, p: S.story.p});
+
+  await page.evaluate(() => openStory('u1'));
+  await page.waitForTimeout(200);
+  check('opening your own starts at the front of the line', JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}',
+    JSON.stringify(await where()));
+  await swipe(-1);
+  check('  a swipe across moves on by one, and only one',
+    JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
+  await swipe(-1);
+  check('  past the last of yours it goes on to the next person',
+    JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}', JSON.stringify(await where()));
+  check('    showing theirs, not yours', /kit only/i.test(await page.locator('#story .face').innerText()));
+  await swipe(-1);
+  check('  and on again into somebody whose stories were all watched',
+    JSON.stringify(await where()) === '{"uid":"u2","i":0,"p":2}', JSON.stringify(await where()));
+  await swipe(1);
+  check('  swiping back goes to the last of the one before, not the first',
+    JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}', JSON.stringify(await where()));
+  await swipe(1);
+  check('    and back again lands on the last of yours',
+    JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
+  await swipe(1);
+  await swipe(1);
+  check('  at the front of the line there is nothing before it, and it stays open',
+    await page.locator('#story').isVisible()
+    && JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}', JSON.stringify(await where()));
+
+  // Tapping still steps, because a swipe was added rather than a tap taken away.
+  await page.locator('#story .tap.fwd').click();
+  await page.waitForTimeout(200);
+  check('  tapping forward still steps by one',
+    JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
+
+  // Off the end of the line is the way out, which is what it always was off the end of
+  // one person's.
+  await swipe(-1); await swipe(-1); await swipe(-1); await swipe(-1);
+  check('  off the end of the line it closes',
+    await page.locator('#story').isHidden() && await page.evaluate(() => S.story) === null);
+
+  // Opened part way along, the line is still the whole line in both directions. Watching
+  // all of that moved everybody into the seen half, so the line is put back the way it was
+  // first: this is about where you come in, not about what the order does as you go.
+  await page.evaluate(() => { S.seen = [201, 202]; render(); });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => openStory('u2'));
+  await page.waitForTimeout(200);
+  check('opening somebody already watched starts on their first',
+    JSON.stringify(await where()) === '{"uid":"u2","i":0,"p":2}', JSON.stringify(await where()));
+  await swipe(1);
+  check('  and swiping back from them reaches the person before',
+    JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}', JSON.stringify(await where()));
+  await page.locator('#story .who .x').click();
+  await page.waitForTimeout(250);
 
   // A day old is gone, and the policy says the same thing on the server.
   await put([{id: 9, u: 'u2', kind: 'text', body: 'yesterday', agoMins: 60 * 25}]);

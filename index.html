@@ -202,6 +202,9 @@ button.rg{border:0;font:inherit}
 #story .who .bin svg{width:20px;height:20px;display:block;fill:currentColor;
   filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))}
 #story .face{flex:1;aspect-ratio:auto;min-height:0}
+/* Sideways is ours, so a swipe across is not taken as a page gesture first. Up and down
+   is left alone, because the list of who watched scrolls. */
+#story{touch-action:pan-y}
 /* Half each, under everything: forward on the right the way every app does it. */
 #story .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
 #story .tap.back{left:0}
@@ -944,7 +947,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v57';
+const BUILD = 'quota-v58';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1668,12 +1671,23 @@ function storyFace(st, live, editing) {
   return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${wordsOf(st, editing)}${stk}</div>`;
 }
 
-function storyRow() {
+// The line stories are watched in, and the order the row shows them in, which have to be
+// the same thing: swiping along is the same walk as tapping across the row. Yours first,
+// then anyone with something you have not seen, then everyone you are already caught up
+// with — still in the line, because being able to go back to one you have watched is the
+// point of being able to swipe at all.
+function storyPeople() {
   const m = me();
   // Everyone you can see, which is both rules at once: your groups and your friends.
   const near = [...new Set([...myGroups().flatMap(g => g.members), ...S.friends])].filter(id => id !== m.id);
   const withOne = near.filter(id => storiesOf(id).length);
-  const order = [...withOne.filter(id => unseenOf(id).length), ...withOne.filter(id => !unseenOf(id).length)];
+  return [...(storiesOf(m.id).length ? [m.id] : []),
+    ...withOne.filter(id => unseenOf(id).length),
+    ...withOne.filter(id => !unseenOf(id).length)];
+}
+function storyRow() {
+  const m = me();
+  const order = storyPeople().filter(id => id !== m.id);
   const mine = storiesOf(m.id).length;
   return `<div class="stories">
     ${mine ? `<div class="s me has">
@@ -1696,19 +1710,62 @@ let storyTimer = null;
 function openStory(uid) {
   const all = storiesOf(uid);
   if (!all.length) return;
-  // Straight to the first one you have not seen, so opening somebody twice does not make
-  // you sit through the ones you have.
+  // The line is taken once, here, and held for as long as the viewer is open. Working it
+  // out again on every step would reshuffle it underneath you: watching somebody moves
+  // them out of the unseen half, and the next swipe would land on a stranger.
+  let q = storyPeople();
+  if (!q.includes(uid)) q = [uid];         // opened from a notification, by somebody no longer in the row
   const from = all.findIndex(x => !S.seen.includes(x.id));
-  S.story = {uid, i: from < 0 ? 0 : from, at: Date.now()};
+  S.story = {q, p: q.indexOf(uid), uid, i: from < 0 ? 0 : from, at: Date.now()};
   paintStory();
 }
 function closeStory() { clearTimeout(storyTimer); S.story = null; $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
+// One step through everything there is to watch. Off the end of somebody's stories is the
+// next person's first, off the front is the one before's last, and off the end of the line
+// is the way out. It used to stop dead at whichever person you happened to open.
 function stepStory(d) {
-  const all = storiesOf(S.story.uid), i = S.story.i + d;
-  if (i < 0) return;
-  if (i >= all.length) return closeStory();
-  S.story.i = i; S.story.at = Date.now(); paintStory();
+  const s = S.story, all = storiesOf(s.uid), i = s.i + d;
+  if (i >= 0 && i < all.length) { s.i = i; s.at = Date.now(); return paintStory(); }
+  return jumpStory(d);
 }
+function jumpStory(d) {
+  const s = S.story, p = s.p + d;
+  if (p < 0) return;                       // the front of the line; there is nothing before it
+  if (p >= s.q.length) return closeStory();
+  s.p = p;
+  const next = storiesOf(s.q[p]);
+  if (!next.length) return jumpStory(d);   // theirs ran out of the day while you were watching
+  s.uid = s.q[p];
+  // Forward lands on the first you have not seen, the same rule as opening somebody from
+  // the row. Back lands on their last, because that is the one you just swiped away from.
+  const un = next.findIndex(x => !S.seen.includes(x.id));
+  s.i = d > 0 ? (un < 0 ? 0 : un) : next.length - 1;
+  s.at = Date.now();
+  paintStory();
+}
+// Swiping, which is the same step as tapping — across the person you are on, then on to
+// the next one. The tap zones cover the whole face, so a swipe that starts and ends inside
+// one would step twice: once here, and again as the click the browser sends afterwards.
+// The click is swallowed rather than the zones made smaller, because tapping to step is
+// how a story has always worked and is not worth taking away to get swiping.
+const SWIPE = 45;                          // px across before a drag counts as one
+let swipeAt = null, swiped = false;
+$('#story').addEventListener('pointerdown', e => { swipeAt = {x: e.clientX, y: e.clientY}; swiped = false; });
+$('#story').addEventListener('pointercancel', () => { swipeAt = null; });
+$('#story').addEventListener('pointerup', e => {
+  const from = swipeAt; swipeAt = null;
+  if (!from || !S.story) return;
+  const dx = e.clientX - from.x, dy = e.clientY - from.y;
+  if (Math.abs(dx) < SWIPE || Math.abs(dx) <= Math.abs(dy)) return;   // a tap, or a drag down the list
+  swiped = true;
+  stepStory(dx < 0 ? 1 : -1);
+});
+$('#story').addEventListener('click', e => {
+  if (!swiped) return;
+  swiped = false;
+  e.stopPropagation(); e.preventDefault();
+}, true);
+
 function paintStory() {
   const box = $('#story'), all = storiesOf(S.story.uid), st = all[S.story.i];
   if (!st) return closeStory();
@@ -2109,7 +2166,7 @@ function groupsView() {
 }
 function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
-  return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="S.open=null;render();slide(-1)">‹ Groups</button>
+  return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="closeGroup()">‹ Groups</button>
   <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
       everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
@@ -2552,7 +2609,10 @@ function personView(uid) {
   const grid = pro.posts;
   const chips = shownGroups(uid);
   const stat = (v, l) => `<div><b class="num">${v === null ? '—' : num(v)}</b><small>${l}</small></div>`;
-  return (own
+  // S.who is only set when this was opened over something else — the Profile tab draws
+  // the same screen with nothing behind it. Your own face in the feed is still a way in,
+  // and it used to leave you on a screen with a gear and no way back.
+  return (own && !S.who
     ? `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div>
         <h1 class="withgear">Profile<button type="button" class="gear" onclick="openSettings()" aria-label="Settings">${GEAR}</button></h1></div>`
     : `<button class="ghost back" onclick="closeWho()">‹ Back</button>`)
@@ -2741,8 +2801,8 @@ function legalView(k) {
     <button class="ghost back" onclick="closeLegal()">‹ Back</button>
     <div class="legal"><p class="stamp muted">Last updated ${TERMS_VERSION}</p>${d.body}</div>`;
 }
-function openLegal(k) { S.legal = k; render(); scrollTo(0, 0); }
-function closeLegal() { S.legal = null; render(); scrollTo(0, 0); }
+function openLegal(k) { S.legal = k; stackOn(); }
+function closeLegal() { S.legal = null; stackOff(); }
 // An account made before any of this existed has agreed to none of it, and a record of
 // consent with holes in it is not a record. null means the column is there and nothing has
 // been agreed; undefined means the v25 block has not been run yet, and in that case nobody
@@ -3267,17 +3327,34 @@ const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disa
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
 function go(tab) { const back = !!(S.open || S.who || S.settings); S.tab = tab; S.open = S.who = null; S.settings = false;
+  backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
+
+// Where each screen was when the next one opened over the top of it. Coming back off a
+// profile used to land at the top of the feed, and after twenty posts the top of the feed
+// is nowhere near where you were when you tapped somebody's name.
+let backY = [];
+// The position is read before the screen is redrawn: rebuilding #app changes how tall the
+// page is, and the browser clamps the scroll to fit before anything here could read it.
+function stackOn() { backY.push(scrollY); render(); scrollTo(0, 0); slide(1); }
+// And put back twice: the first lands before the feed has laid itself back out, so on a
+// long one it stops short. The second runs once it has.
+function stackOff() {
+  const y = backY.pop() || 0;
+  render(); scrollTo(0, y); slide(-1);
+  requestAnimationFrame(() => scrollTo(0, y));
+}
+
 // A profile lives inside whichever screen you opened it from: it slides in over the feed
 // and the way back is where you were, not the Profile tab.
 function openWho(uid) {
   if (!uid || uid === S.who) return;
-  S.who = uid; S.settings = false; render(); scrollTo(0, 0); slide(1);
+  S.who = uid; S.settings = false; stackOn();
   loadProfile(uid);
 }
-function closeWho() { S.who = null; render(); scrollTo(0, 0); slide(-1); }
-function openSettings() { S.settings = true; render(); scrollTo(0, 0); slide(1); refreshPush().then(render); }
-function closeSettings() { S.settings = false; render(); scrollTo(0, 0); slide(-1); }
+function closeWho() { S.who = null; stackOff(); }
+function openSettings() { S.settings = true; stackOn(); refreshPush().then(render); }
+function closeSettings() { S.settings = false; stackOff(); }
 // The posts somebody chose to show. Fetched when their profile is opened rather than with
 // everything else: most of them are outside the two hundred the feed carries, and some are
 // in groups this account is not in at all.
@@ -3300,7 +3377,10 @@ async function loadProfile(uid) {
 }
 const slide = dir => { if (matchMedia('(prefers-reduced-motion: reduce)').matches || !$('#app').animate) return;
   $('#app').animate([{opacity: .4, transform: `translateX(${dir * 28}px)`}, {opacity: 1, transform: 'none'}], {duration: 280, easing: 'cubic-bezier(.32,.72,0,1)'}); };
-function openGroup(id) { S.open = id; S.tab = 'groups'; render(); scrollTo(0, 0); slide(1); }
+// A group chip on somebody's profile used to set S.open behind a profile that was still
+// on screen, so the button did nothing at all: the profile is what render draws first.
+function openGroup(id) { S.open = id; S.who = null; S.tab = 'groups'; stackOn(); }
+function closeGroup() { S.open = null; stackOff(); }
 async function auth(f, mode) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
   working(f, '…');
@@ -4494,7 +4574,7 @@ function goToHash() {
     const id = +m[1];
     if (!S.posts.some(p => p.id === id)) return;
     history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; render();
+    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0; render();
     const el = document.querySelector(`[data-post="${id}"]`);
     if (el) el.scrollIntoView({block: 'start'});
     return;
@@ -4506,7 +4586,7 @@ function goToHash() {
     const cid = +cm[1], c = S.comments.find(x => x.id === cid);
     if (!c || !S.posts.some(p => p.id === c.postId)) return;
     history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; render();
+    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0; render();
     const el = document.querySelector(`[data-cmt="${cid}"]`);
     if (el) {
       el.scrollIntoView({block: 'center'});

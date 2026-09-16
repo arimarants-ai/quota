@@ -173,6 +173,41 @@ so nothing in the load path is allowed to leave an empty page behind:
   what the old behaviour amounted to.
 - `onAuthStateChange` keeps the UI honest when the library ends the session on its own.
 
+## Going into something, and coming back out
+
+A profile, a group, Settings and the three legal documents all open *over* whatever screen
+you were on rather than replacing it, so every one of them needs a way back that returns
+you to where you were. That is one pair of functions, `stackOn()` and `stackOff()` in
+`index.html`: going in pushes the scroll position onto `backY` and slides the new screen
+in, coming out pops it, slides back, and puts you where you were. Switching tabs empties
+the stack, because a tab is not a way back out of anything.
+
+The position is read *before* the screen is redrawn — rebuilding `#app` changes how tall
+the page is, and the browser clamps the scroll to fit before anything could read it — and
+put back twice, once immediately and once on the next frame, because a long feed has not
+finished laying itself out when the first one runs.
+
+`personView()` draws the same screen for the Profile tab and for a profile opened over
+something else. `S.who` is what tells them apart: set means it was opened over something,
+so it gets a back button instead of the header with the gear.
+
+## Stories are one line, not one person
+
+`storyPeople()` decides the order once and both the row and the viewer use it: yours
+first, then anyone with something unseen, then everyone you are already caught up with.
+Somebody already watched stays in the line — being able to go back to them is the point.
+
+The viewer takes a snapshot of that line when it opens and holds it. Working it out again
+on every step would reshuffle it underneath you, because watching somebody moves them out
+of the unseen half and the next swipe would land on a stranger.
+
+`stepStory()` walks it end to end: off the last of somebody's stories is the next person's
+first unseen, off the front is the one before's last, off the end of the line is the way
+out. Swiping and tapping are the same step. The tap zones cover the whole face, so a swipe
+that starts and ends inside one would step twice — once on the swipe and again on the click
+the browser sends afterwards — and the click is swallowed rather than the zones made
+smaller, because tapping to step is how a story has always worked.
+
 ## The profile picture
 
 Both ways in — **Camera** and **Choose a file** — end at the same circular crop sheet
