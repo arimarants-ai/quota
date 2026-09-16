@@ -1328,3 +1328,19 @@ create trigger comment_likes_notify after insert on public.comment_likes
 -- ============================================================
 alter table public.profiles add column if not exists terms_accepted_at timestamptz;
 alter table public.profiles add column if not exists terms_version text;
+
+-- ============================================================
+-- v26 (your own profile holds everything you posted): safe to run on an existing project.
+--
+-- Your profile is where you go to find your own work, so it shows every post you ever made
+-- whether or not you put it on show. Other people still see only what you marked, which is
+-- what the on_profile half of this policy has always said.
+--
+-- Without this line the app can still ask for them and get nothing back: a post in a group
+-- you have since left is yours, but is_member() is false and on_profile may be false too,
+-- so the row is invisible to the person who made it. Reading your own rows is the least a
+-- policy can allow, and nothing else here changes.
+-- ============================================================
+drop policy if exists "members see posts" on public.posts;
+create policy "members see posts" on public.posts for select
+  using (user_id = auth.uid() or public.is_member(group_id) or (on_profile and public.can_see_user(user_id)));

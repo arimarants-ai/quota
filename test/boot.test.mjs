@@ -148,6 +148,41 @@ await withPage({ ...SIGNED_IN, queryError: 'network is down' }, async (page, ale
   check('a failed load explains itself in the banner', (await page.innerText('#err')).includes('network is down'));
   check('  with a retry', await page.isVisible('#err button'));
   check('  and no modal', alerts.length === 0, alerts.join(' | '));
+  // There was no way to put this bar away at all. A load that keeps failing shows it
+  // again on every attempt, so "it never goes away" was the literal truth.
+  check('  and a way to put it away', await page.isVisible('#err .dis'));
+  await page.locator('#err .dis').click();
+  await page.waitForTimeout(150);
+  check('    which puts it away', await page.isHidden('#err'));
+});
+
+// The bar carries two different things. A load that failed has a Retry on it and the app
+// is showing stale data until that is pressed, so it stays. A report of something that has
+// already happened has nothing to press, and one that repeats used to mean a bar parked
+// over a working app for the rest of the session.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { self.__softMs = SOFT_MS; showErr('Something went wrong: boom', 'stack', true); });
+  await page.waitForTimeout(150);
+  check('a fault with nothing to retry still says so', await page.isVisible('#err')
+    && /boom/.test(await page.innerText('#err')));
+  check('  but offers no Retry, because there is nothing to retry',
+    await page.isHidden('#err .rty'));
+  check('    and goes on its own rather than staying for the session',
+    await page.evaluate(() => self.__softMs) <= 10000 && await page.evaluate(() => self.__softMs) > 0,
+    String(await page.evaluate(() => self.__softMs)));
+  await page.evaluate(() => hideErr());
+
+  // A clip swapped out while it was starting, and a browser that will not start one
+  // unprompted, both reject. Neither is a fault anybody can act on.
+  const quiet = await page.evaluate(() => {
+    const ab = new Error('The play() request was interrupted'); ab.name = 'AbortError';
+    const na = new Error('play() failed'); na.name = 'NotAllowedError';
+    return [noise(ab), noise(na), noise(undefined), noise(new Error('a real one'))];
+  });
+  check('  the noise a player makes is not put on the bar',
+    quiet[0] && quiet[1] && quiet[2] && !quiet[3], JSON.stringify(quiet));
+  check('    and the bar is still hidden after all that', await page.isHidden('#err'));
 });
 
 // No session at all: the sign-in screen, and not the splash it started on.
@@ -1288,9 +1323,17 @@ await withPage(SIGNED_IN, async page => {
   check('    and shows under the post that soon too', /nice one/.test(await list()), await list());
   check('      with no delete on it until it is really saved',
     await page.locator('.post .clist .x').count() === 0);
+  // The box is emptied before the redraw, not after. render() carries a half-typed reply
+  // across a rebuild so a like elsewhere on the page cannot eat it, and a box still
+  // holding what it had just sent looked exactly like one being carried across — so it
+  // was put straight back, and the comment read as having been typed twice.
+  check('      and the box it was typed into is empty again', await box.inputValue() === '',
+    JSON.stringify(await box.inputValue()));
   await page.evaluate(() => { const g = self.__go; self.__stall = null; g(); });
   await page.waitForTimeout(900);
   check('  a comment written there stays there', /nice one/.test(await list()), await list());
+  check('    and the box is still empty once it has really saved', await box.inputValue() === '',
+    JSON.stringify(await box.inputValue()));
   check('    and it can be taken back once it is saved', await page.locator('.post .clist .x').count() === 1);
 
   await page.locator('.post .clist .x').first().click();
@@ -1516,11 +1559,19 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.hdr .gear').count() === 1
     && !/Recovery codes/i.test(await page.innerText('#app')));
 
-  // Group only unless you say otherwise, so the grid starts empty.
-  check('  and an empty grid, because nothing has been put on it',
-    await page.locator('.pgrid').count() === 0
-    && /tick/i.test(await page.locator('.pf .muted.pad').last().innerText()),
+  // Your own profile is where you go to find your own work, so everything you posted is
+  // on it whether or not anybody else can see it.
+  check('  your own grid holds a post nobody else can see',
+    await page.locator('.pgrid .tile').count() === 1,
     await page.locator('.pf').innerText());
+  check('    unmarked, because it is not on show',
+    await page.locator('.pgrid .tile .seen').count() === 0);
+  check('    and none counted as on show', /^0$/.test(
+    (await page.locator('.pf .stats div').last().innerText()).split('\n')[0].trim()),
+    await page.locator('.pf .stats div').last().innerText());
+  check('    and it says which of the two kinds a tile is',
+    /only you can see/i.test(await page.locator('.pgrid .tile').first().getAttribute('aria-label')),
+    await page.locator('.pgrid .tile').first().getAttribute('aria-label'));
 
   // A bio, once there is one.
   await page.evaluate(() => { S.profiles.u1.bio = 'Mornings before work.'; render(); });
@@ -1722,11 +1773,20 @@ await withPage(NO_WHEEL, async page => {
     String(await page.locator('.pgrid .tile').count()));
   check('    as a tile carrying what the day was worth',
     /50/.test(await page.locator('.pgrid .tile b').first().innerText()));
+  // The same tile as before, now wearing the mark that says other people can see it.
+  check('    and now marked as on show', await page.locator('.pgrid .tile .seen').count() === 1);
+  check('      which the count above the grid agrees with', /^1$/.test(
+    (await page.locator('.pf .stats div').last().innerText()).split('\n')[0].trim()));
   await page.locator('.pgrid .tile').first().click();
   await page.waitForTimeout(450);
   check('  and tapping the tile opens that one post on its own',
     await page.locator('#one').isVisible() && await page.locator('#one .post').count() === 1);
-  await page.locator('#one .ghost').click();
+  // The clip in that layer used to be the one element on the page that never got its
+  // source: watchClips() looked only inside #app, so it sat there black and a tap on it
+  // had to fetch, attach and start it all at once.
+  check('    with the clip given its source rather than left black',
+    await page.evaluate(() => !!document.querySelector('#one video.proof')?.getAttribute('src')));
+  await page.locator('#one .backx').click();
   await page.waitForTimeout(300);
   check('    with a way back out', await page.locator('#one').isHidden());
 
@@ -1739,6 +1799,86 @@ await withPage(NO_WHEEL, async page => {
     /take this off my profile/i.test(await page.locator('#dlg .menu').innerText()),
     await page.locator('#dlg .menu').innerText());
   await page.evaluate(() => { dlg(); closePost(); });
+});
+
+// A post opened on its own sits in a layer of its own over the screen, and everything that
+// is true of a screen has to be true of it: it moves when it is dragged, it comes back when
+// the drag falls short, and what is on it keeps up with the rest of the app.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => openPost(S.posts[0].id));
+  await page.waitForTimeout(450);
+  check('a post on its own opens over the screen', await page.locator('#one .post').count() === 1);
+
+  // The screen underneath must not be the thing that moves. Its own back-drag works off
+  // #app, so without a gesture of its own a pull here slid the feed out from under it and
+  // left this sitting on top of the result.
+  await page.evaluate(() => { S.who = 'u2'; backY.push(0); });
+  await page.mouse.move(40, 500);
+  await page.mouse.down();
+  await page.mouse.move(150, 503, { steps: 5 });
+  const held = await page.evaluate(() => ({
+    one: /matrix\(1, 0, 0, 1, [1-9]/.test(getComputedStyle($('#one')).transform),
+    app: $('#app').style.transform,
+    who: S.who,
+  }));
+  check('  it is the post that follows the finger, not the screen behind it',
+    held.one && !held.app && held.who === 'u2', JSON.stringify(held));
+  await page.mouse.move(700, 505, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  check('  and a drag carried far enough closes it', await page.locator('#one').isHidden());
+  check('    leaving the screen behind it exactly as it was',
+    await page.evaluate(() => S.who) === 'u2');
+  check('    with nothing of the drag left on it',
+    await page.evaluate(() => !$('#one').style.transform && !$('#one').style.animation));
+  await page.evaluate(() => { S.who = null; backY.length = 0; });
+
+  // Falling back has to be as smooth as leaving or the gesture feels like a trap.
+  await page.evaluate(() => openPost(S.posts[0].id));
+  await page.waitForTimeout(450);
+  await page.mouse.move(40, 500);
+  await page.mouse.down();
+  for (const x of [50, 62, 74, 86]) { await page.mouse.move(x, 502); await page.waitForTimeout(60); }
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  check('  a short slow drag leaves it where it was', await page.locator('#one').isVisible()
+    && await page.evaluate(() => !$('#one').style.transform));
+
+  // It used to be drawn once and never again, so a reply written there did not appear
+  // until it was closed and opened, and a like counted up everywhere except in front of you.
+  const before = await page.locator('#one .clist .c').count();
+  await page.evaluate(() => {
+    S.comments = [...S.comments, {id: 950, postId: S.one, userId: 'u2', body: 'kept up', ts: Date.now()}];
+    render();
+  });
+  await page.waitForTimeout(250);
+  check('  and what is on it keeps up with the rest of the app',
+    await page.locator('#one .clist .c').count() === before + 1
+    && /kept up/.test(await page.locator('#one .clist').innerText()),
+    await page.locator('#one').innerText());
+  // The clip it is showing must survive that redraw, the same as one in the feed does.
+  check('    without the clip it is playing being thrown away',
+    await page.evaluate(() => !!document.querySelector('#one video.proof')?.getAttribute('src')));
+
+  // A name on a post opened on its own is a way in too, and the profile used to slide in
+  // underneath it: a screen change nobody could see, behind a layer still in the way.
+  await page.locator('#one .head .who').first().click();
+  await page.waitForTimeout(600);
+  check('  a name tapped on it opens that profile in front, not behind it',
+    await page.locator('#one').isHidden() && await page.evaluate(() => S.who) !== null
+    && await page.locator('#app .pf').count() === 1);
+  await page.locator('#app .backx').click();
+  await page.waitForTimeout(500);
+  await page.evaluate(() => openPost(S.posts[0].id));
+  await page.waitForTimeout(450);
+
+  // A post that goes while it is open must not leave an empty layer on screen.
+  await page.evaluate(() => { const id = S.one; S.posts = S.posts.filter(p => p.id !== id);
+    S.pro = {}; render(); });
+  await page.waitForTimeout(250);
+  check('  a post deleted while it is open closes rather than emptying',
+    await page.locator('#one').isHidden() && await page.evaluate(() => S.one) === null);
 });
 
 // Which groups you are willing to have on show.

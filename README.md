@@ -230,6 +230,61 @@ finished laying itself out when the first one runs.
 something else. `S.who` is what tells them apart: set means it was opened over something,
 so it gets a back button instead of the header with the gear.
 
+## Your profile holds everything; everyone else's holds what you chose
+
+Your own profile is where you go to find your own work, so every post you ever made is on
+it. The ones other people can see wear an eye in the corner of the tile, and the sentence
+above the grid says which is which. Anybody else's profile holds only what they marked,
+exactly as before.
+
+`loadProfile()` drops the `on_profile` filter for your own id and nothing else. What other
+people are served is decided by the policy in the database rather than by that line, so the
+filter coming off cannot show a private post to anyone but you. **This needs the v26 block
+of `schema.sql`**: a post in a group you have since left is yours, but `is_member()` is
+false and `on_profile` may be false too, so without `user_id = auth.uid()` on the select
+policy your own rows are invisible to you.
+
+### One post, opened on its own
+
+Tapping a tile opens that post in `#one`, a layer over the screen. It is a layer rather than
+a screen because a tile can be a post from a group this account is not in, so sending you to
+the feed to find it would send you nowhere. Three things follow from it being a layer, and
+all three were wrong:
+
+- `watchClips()` was scoped to `#app`, so the clip you had just tapped through to was the
+  one element on the page that never got its source. It sat there black and the tap had to
+  fetch, sign, attach and start it all at once. The selector now names `#one` as well.
+- It was drawn once and never again, so a reply written there did not appear until it was
+  closed and opened, and a like counted up everywhere except in front of you. `redraw()` is
+  what `render()` uses on `#app`, and it now runs over `#one` too — keeping the playing clip,
+  the half-typed reply and the open emoji tray, which is what `redraw()` was always for.
+- The screen's own back-drag works off `#app`, so a pull on this one slid the feed out from
+  under it and left it sitting on top of the result. It has the same gesture on itself now,
+  and needs no ghost: what it is covering is really there, not a photograph of it.
+
+`postById()` is the other half. The feed carries the last two hundred posts; a profile grid
+is fetched separately and reaches further back and into groups this account is not in. Any
+function taking a post id has to look in both or it works in the feed and quietly fails
+everywhere else — which is what left `freshUrl()` unable to re-sign a clip on somebody's
+profile, so the one retry that would have fixed it could never fire.
+
+## The bar at the bottom, and putting it away
+
+`showErr()` carries two different things and they want opposite treatment. A load that
+failed keeps its bar up: there is a Retry on it and the app is showing whatever it had
+before until that is pressed. Anything caught by the last-resort `error` and
+`unhandledrejection` handlers is a report of something that has already happened, with
+nothing to press — so it says its piece, offers no Retry, and goes after nine seconds.
+
+Both can be dismissed. There was no way to put the bar away at all before, so a fault that
+repeats on every load meant a bar parked across a working app for the rest of the session,
+which is exactly what "it never goes away" described.
+
+`noise()` is the short list of rejections that never reach it: a clip swapped out while it
+was starting rejects with `AbortError`, a browser that will not start one unprompted rejects
+with `NotAllowedError`, and a request dropped because the screen it belonged to has gone
+rejects with nothing worth reading. None of the three is a fault anybody can act on.
+
 ## Stories are one line, not one person
 
 `storyPeople()` decides the order once and both the row and the viewer use it: yours first,
