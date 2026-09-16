@@ -1395,7 +1395,11 @@ create trigger profiles_edit_guard before update on public.profiles
 -- ============================================================
 create schema if not exists private;
 
-create or replace view private.people as
+-- Dropped rather than replaced: CREATE OR REPLACE VIEW can only add columns on the end,
+-- so a version of this that was run before v24 and had no birthday in it could never be
+-- replaced by this one.
+drop view if exists private.people;
+create view private.people as
   select
     p.id,
     u.email,
