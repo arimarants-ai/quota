@@ -539,3 +539,40 @@ begin
     raise exception 'the proof bucket should take both';
   end if;
 end $$;
+
+-- v25: one row per person, and it had better not be an endpoint.
+do $$
+declare uid uuid := '55555555-5555-5555-5555-555555555555';
+        got record;
+begin
+  -- The whole point of putting it in `private`: PostgREST serves public, so a view of
+  -- email addresses there would be a URL that hands them out.
+  if exists (select 1 from information_schema.views where table_schema = 'public' and table_name = 'people') then
+    raise exception 'private.people must not have a twin in the public schema';
+  end if;
+  if not exists (select 1 from information_schema.views where table_schema = 'private' and table_name = 'people') then
+    raise exception 'private.people is missing';
+  end if;
+
+  insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
+    values (uid, 'nobody@example.com', now(), '{}'::jsonb);
+  update public.profiles
+     set username = 'viewtest', display_name = 'View Test',
+         birthday = current_date - interval '30 years', gender = 'unsaid'
+   where id = uid;
+
+  select * into got from private.people where id = uid;
+  if got.email is distinct from 'nobody@example.com' then raise exception 'the address did not come through'; end if;
+  if got.full_name is distinct from 'View Test' then raise exception 'the name did not come through'; end if;
+  if got.username is distinct from 'viewtest' then raise exception 'the username did not come through'; end if;
+  if got.confirmed is not true then raise exception 'confirmed should be true'; end if;
+  if got.finished_setup is not true then raise exception 'a row with a username is finished'; end if;
+  -- Worked out rather than stored, so it cannot go stale.
+  if got.age is distinct from 30 then raise exception 'age should be 30, got %', got.age; end if;
+
+  -- And an account that signed up but never finished shows as such rather than vanishing.
+  update public.profiles set username = null, display_name = null where id = uid;
+  select * into got from private.people where id = uid;
+  if got.finished_setup is not false then raise exception 'a row with no username is not finished'; end if;
+  if got.email is distinct from 'nobody@example.com' then raise exception 'the address is there either way'; end if;
+end $$;

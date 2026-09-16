@@ -1376,3 +1376,43 @@ end $$;
 drop trigger if exists profiles_edit_guard on public.profiles;
 create trigger profiles_edit_guard before update on public.profiles
   for each row execute function public.profile_edit_guard();
+
+-- ============================================================
+-- v25 (one row per person, for you rather than for the app): run it after v24.
+--
+-- The app keeps a person in two places because Supabase does: the address and whether it
+-- has been confirmed live in auth.users, and everything they chose about themselves lives
+-- in public.profiles. Looking somebody up therefore means two screens in the dashboard.
+--
+-- This is the join, and it lives in `private` on purpose. PostgREST serves the schemas it
+-- is told to, which are public and graphql_public; a view of email addresses in public
+-- would be an endpoint handing them out. Nothing is granted on `private`, so only the
+-- owner reaches it — which is what the SQL editor runs as.
+--
+--   select * from private.people;
+--   select * from private.people where email ilike '%@gmail.com';
+--   select * from private.people where not confirmed;
+-- ============================================================
+create schema if not exists private;
+
+create or replace view private.people as
+  select
+    p.id,
+    u.email,
+    u.email_confirmed_at is not null           as confirmed,
+    p.username,
+    p.display_name                             as full_name,
+    p.birthday,
+    -- Worked out rather than stored, because an age written down is wrong within a year.
+    case when p.birthday is null then null
+         else extract(year from age(p.birthday))::int end as age,
+    p.gender,
+    p.bio,
+    p.username is not null                     as finished_setup,
+    u.created_at                               as signed_up,
+    u.last_sign_in_at                          as last_seen
+  from public.profiles p
+  join auth.users u on u.id = p.id;
+
+comment on view private.people is
+  'Everything about one person in one row: the address from auth.users, the rest from public.profiles. Private on purpose — a view of email addresses in the public schema would be served by the API.';
