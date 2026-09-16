@@ -186,6 +186,14 @@ button.rg{border:0;font:inherit}
 #story[hidden],#make[hidden]{display:none}
 #story .pane,#make .pane{position:relative;width:min(100%,430px);height:100%;display:flex;flex-direction:column;
   padding:calc(8px + env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))}
+/* A strip rather than a single card, so the one you are heading for is already beside the
+   one you are on and the whole thing can move with your finger. */
+#story{overflow:hidden}
+#story .track{position:relative;width:min(100%,430px);height:100%;display:flex;
+  transform:translateX(calc(var(--base,0px) + var(--dx,0px)));
+  transition:transform 280ms cubic-bezier(.32,.72,0,1)}
+#story .track.grab{transition:none}
+#story .track > .pane{flex:0 0 100%;width:100%}
 #story .bars{display:flex;gap:4px;padding:0 10px}
 #story .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
 #story .bars i.done{background:rgba(255,255,255,.85)}
@@ -624,6 +632,22 @@ button.rg{border:0;font:inherit}
    screen: while the URL bar collapses or a keyboard comes up the two differ, and the bar
    slides around on its own. --vvb is the gap between them, kept up to date from
    visualViewport, so the bar stays put against the bottom edge people can actually see. */
+/* Moving between screens. Both layers are position:fixed, so a screen sliding a whole
+   width sideways can never widen the page or move where the document is scrolled to. The
+   ghost is a still photograph of a screen — its innerHTML copied into a fixed box, pulled
+   up by however far the real one was scrolled, so it shows the slice that was on screen.
+   Nothing in it is live for the third of a second it exists. */
+#ghost,#dim{position:fixed;inset:0;pointer-events:none}
+#ghost[hidden],#dim[hidden]{display:none}
+#ghost{overflow:hidden;background:var(--bg);will-change:transform}
+#ghost .inner{position:absolute;left:0;right:0;max-width:600px;margin:0 auto}
+#dim{background:#06100b;opacity:0;will-change:opacity}
+:root.moving #app{position:relative}
+:root.moving,:root.moving body{overflow-x:clip}
+/* Sideways belongs to the app, so a drag back to the feed is not eaten as a page gesture.
+   The one strip that scrolls sideways of its own accord keeps that. */
+#app{touch-action:pan-y}
+.stories{touch-action:pan-x}
 .bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb, 0px));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
 .bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:999px}
 .bar button{transition:color .2s,transform .12s cubic-bezier(.2,.7,.2,1)}
@@ -691,6 +715,12 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
 .auth .switch button{padding:0 4px;background:none;color:var(--mkt)}
 .back{margin:12px 18px 0}
+/* The old one was a muted text link in the corner and people did not find it. This is a
+   button shaped like a button, with the arrow pointing the way it goes. */
+.backx{margin:12px 0 0 14px;width:38px;height:38px;padding:0;border-radius:50%;display:grid;place-items:center;
+  background:var(--sheet);color:var(--text);border:1px solid var(--line);box-shadow:0 2px 10px -2px rgba(11,12,14,.22)}
+.backx svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.backx:active{transform:scale(.93)}
 /* recording in the app */
 #cam{position:fixed;inset:0;width:100%;max-width:100%;height:100%;max-height:100%;margin:0;padding:0;
   border:0;border-radius:0;background:#000;box-shadow:none;display:flex;flex-direction:column;overflow:hidden}
@@ -861,6 +891,8 @@ dialog h2{font-size:20px;margin-bottom:2px}
 </head>
 <body>
 <main id="app"></main>
+<div id="ghost" hidden inert aria-hidden="true"></div>
+<div id="dim" hidden aria-hidden="true"></div>
 <nav class="bar" id="bar" hidden></nav>
 <dialog id="dlg"></dialog>
 <div id="one" hidden role="dialog" aria-label="One post"></div>
@@ -947,7 +979,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v58';
+const BUILD = 'quota-v59';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1300,6 +1332,24 @@ async function runLoad() {
     if (me() && location.hash) goToHash();
   }
 }
+// Which screen this is, as markup, without putting it anywhere. render() uses it to draw,
+// and a swipe uses it to build the screen you are dragging towards before you have
+// committed to going there — which is the whole reason it is a function of its own.
+// The order is the order render() draws in, and the two must not drift.
+function screenHTML() {
+  const m = me();
+  if (S.legal) return legalView(S.legal);
+  // Until the first load lands we do not know whether there is a session, and guessing
+  // means flashing the sign-in screen at someone who is already signed in.
+  if (!m) return S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
+  if (needsTerms(m)) return acceptView();
+  const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
+  return S.settings ? settingsView()
+    : S.who ? personView(S.who)
+    : g ? groupView(g)
+    : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+}
+
 function render() {
   const m = me();
   // One number decides the green everywhere: the best run going across your groups. Set on
@@ -1309,11 +1359,8 @@ function render() {
   // whole-screen states: there is no tab bar over either, signed in or not.
   const held = !m || !!S.legal || needsTerms(m);
   $('#bar').hidden = held; $('#app').classList.toggle('out', held);
-  if (S.legal) return $('#app').innerHTML = legalView(S.legal);
-  // Until the first load lands we do not know whether there is a session, and guessing
-  // means flashing the sign-in screen at someone who is already signed in.
-  if (!m) return $('#app').innerHTML = S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
-  if (needsTerms(m)) return $('#app').innerHTML = acceptView();
+  if (held) return $('#app').innerHTML = screenHTML();
+  // Still needed down at the tab bar, which offers the + for whichever group you are in.
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
   // One screen that cannot be drawn must not take the app with it. This runs inside
@@ -1327,10 +1374,7 @@ function render() {
     const keep = new Map([...document.querySelectorAll('#app .post[data-post] .reel')].map(r => [r.parentNode.dataset.post, r]));
     const typed = new Map([...document.querySelectorAll('#app .post[data-post] .cin input')].filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
     const trays = [...document.querySelectorAll('#app .post[data-post] .emoji:not([hidden])')].map(t => t.closest('.post').dataset.post);
-    $('#app').innerHTML = S.settings ? settingsView()
-      : S.who ? personView(S.who)
-      : g ? groupView(g)
-      : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+    $('#app').innerHTML = screenHTML();
     document.querySelectorAll('#app .post[data-post] .reel').forEach(r => {
       const old = keep.get(r.parentNode.dataset.post); if (!old) return;
       const np = r.querySelector('.proof'), op = old.querySelector('.proof');
@@ -1720,63 +1764,125 @@ function openStory(uid) {
   paintStory();
 }
 function closeStory() { clearTimeout(storyTimer); S.story = null; $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
-// One step through everything there is to watch. Off the end of somebody's stories is the
-// next person's first, off the front is the one before's last, and off the end of the line
-// is the way out. It used to stop dead at whichever person you happened to open.
-function stepStory(d) {
+// What is one step along the line, without going there. Off the end of somebody's stories
+// is the next person's, off the front is the one before's last, and off either end of the
+// line there is nothing. Asking rather than doing is what lets a swipe put the answer on
+// screen beside the story you are still holding.
+function neighbour(d) {
   const s = S.story, all = storiesOf(s.uid), i = s.i + d;
-  if (i >= 0 && i < all.length) { s.i = i; s.at = Date.now(); return paintStory(); }
-  return jumpStory(d);
+  if (i >= 0 && i < all.length) return {uid: s.uid, all, i};
+  for (let p = s.p + d; p >= 0 && p < s.q.length; p += d) {
+    const next = storiesOf(s.q[p]);
+    if (!next.length) continue;            // theirs ran out of the day while you were watching
+    // Forward lands on the first you have not seen, the same rule as opening somebody from
+    // the row. Back lands on their last, because that is the one you swiped away from.
+    const un = next.findIndex(x => !S.seen.includes(x.id));
+    return {uid: s.q[p], all: next, i: d > 0 ? (un < 0 ? 0 : un) : next.length - 1, p};
+  }
+  return null;
 }
-function jumpStory(d) {
-  const s = S.story, p = s.p + d;
-  if (p < 0) return;                       // the front of the line; there is nothing before it
-  if (p >= s.q.length) return closeStory();
-  s.p = p;
-  const next = storiesOf(s.q[p]);
-  if (!next.length) return jumpStory(d);   // theirs ran out of the day while you were watching
-  s.uid = s.q[p];
-  // Forward lands on the first you have not seen, the same rule as opening somebody from
-  // the row. Back lands on their last, because that is the one you just swiped away from.
-  const un = next.findIndex(x => !S.seen.includes(x.id));
-  s.i = d > 0 ? (un < 0 ? 0 : un) : next.length - 1;
-  s.at = Date.now();
+// And going there. Off the end of the line forward is the way out; off the front there is
+// nothing, so it stays where it is.
+function stepStory(d) {
+  const n = neighbour(d);
+  if (!n) return d > 0 ? closeStory() : undefined;
+  const s = S.story;
+  if (n.p !== undefined) s.p = n.p;
+  s.uid = n.uid; s.i = n.i; s.at = Date.now();
   paintStory();
 }
-// Swiping, which is the same step as tapping — across the person you are on, then on to
-// the next one. The tap zones cover the whole face, so a swipe that starts and ends inside
-// one would step twice: once here, and again as the click the browser sends afterwards.
-// The click is swallowed rather than the zones made smaller, because tapping to step is
-// how a story has always worked and is not worth taking away to get swiping.
-const SWIPE = 45;                          // px across before a drag counts as one
-let swipeAt = null, swiped = false;
-$('#story').addEventListener('pointerdown', e => { swipeAt = {x: e.clientX, y: e.clientY}; swiped = false; });
-$('#story').addEventListener('pointercancel', () => { swipeAt = null; });
-$('#story').addEventListener('pointerup', e => {
-  const from = swipeAt; swipeAt = null;
-  if (!from || !S.story) return;
-  const dx = e.clientX - from.x, dy = e.clientY - from.y;
-  if (Math.abs(dx) < SWIPE || Math.abs(dx) <= Math.abs(dy)) return;   // a tap, or a drag down the list
-  swiped = true;
-  stepStory(dx < 0 ? 1 : -1);
+// Swiping, which is the same step as tapping, except that you can see it happen. The one
+// you are heading for is built and put beside the one you are on the moment the drag turns
+// out to be sideways, and then the pair of them move with your finger.
+//
+// The tap zones cover the whole face, so a swipe that starts and ends inside one would step
+// twice: once here and again as the click the browser sends afterwards. The click is
+// swallowed rather than the zones made smaller, because tapping to step is how a story has
+// always worked and is not worth taking away to get swiping.
+let sdrag = null, swiped = false;
+const strack = () => $('#strack');
+// Nothing that way: it pulls against you at a third of the distance and lets go, instead
+// of tearing off the edge of the line.
+const resist = (dx, armed) => ((armed > 0 && dx < 0) || (armed < 0 && dx > 0)) ? dx : dx / 3;
+function armSlide(d) {
+  const t = strack();
+  if (!t || t.dataset.armed) return;
+  const n = neighbour(d);
+  if (!n) return;
+  const html = paneHTML(n.uid, n.all, n.i, false);
+  if (d > 0) t.insertAdjacentHTML('beforeend', html);
+  else { t.insertAdjacentHTML('afterbegin', html); t.style.setProperty('--base', '-100%'); }
+  t.dataset.armed = String(d);
+}
+$('#story').addEventListener('pointerdown', e => {
+  if (e.target.closest('.seenby, .reactpick')) return;
+  sdrag = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
+  swiped = false;
 });
+$('#story').addEventListener('pointermove', e => {
+  if (!sdrag || !S.story) return;
+  const dx = e.clientX - sdrag.x, dy = e.clientY - sdrag.y;
+  if (!sdrag.live) {
+    if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+    if (Math.abs(dx) <= Math.abs(dy)) { sdrag = null; return; }       // down the screen: not this
+    sdrag.live = true;
+    clearTimeout(storyTimer);              // it must not step out from under the finger
+    armSlide(dx < 0 ? 1 : -1);
+    const t = strack(); if (t) t.classList.add('grab');
+    try { $('#story').setPointerCapture(e.pointerId); } catch (x) {}
+  }
+  sdrag.v = (e.clientX - sdrag.last) / Math.max(1, performance.now() - sdrag.lt);
+  sdrag.last = e.clientX; sdrag.lt = performance.now();
+  const t = strack();
+  if (t) t.style.setProperty('--dx', `${resist(dx, +(t.dataset.armed || 0))}px`);
+  e.preventDefault();
+});
+function endSwipe(e) {
+  const d = sdrag; sdrag = null;
+  const t = strack();
+  if (!d || !d.live || !t) return;
+  t.classList.remove('grab');
+  swiped = true;
+  const dx = e.clientX - d.x, armed = +(t.dataset.armed || 0), dir = dx < 0 ? 1 : -1;
+  const going = (armed > 0 && dx < 0) || (armed < 0 && dx > 0);
+  const far = Math.abs(dx) > (t.offsetWidth || innerWidth) / 3 || Math.abs(d.v) > FLICK;
+  if (going && far) {
+    // Carry it the rest of the way, then redraw on the far side. The strip is already
+    // showing the story it lands on, so the redraw is a change nobody can see.
+    t.style.setProperty('--dx', `${armed > 0 ? -t.offsetWidth : t.offsetWidth}px`);
+    setTimeout(() => S.story && stepStory(armed), 280);
+    return;
+  }
+  // It falls back, which has to be as smooth as leaving or the gesture feels like a trap.
+  // Redrawn at the end to put the clock back and take the neighbour away again.
+  t.style.setProperty('--dx', '0px');
+  setTimeout(() => {
+    if (!S.story) return;
+    // Except off the end of the line, where there was never anything to fall back to.
+    // Thrown past the last story is the way out, the same as tapping past it.
+    if (far && dir > 0 && !neighbour(1)) return closeStory();
+    paintStory();
+  }, 240);
+}
+$('#story').addEventListener('pointerup', endSwipe);
+$('#story').addEventListener('pointercancel', e => { if (sdrag && sdrag.live) endSwipe(e); else sdrag = null; });
 $('#story').addEventListener('click', e => {
   if (!swiped) return;
   swiped = false;
   e.stopPropagation(); e.preventDefault();
 }, true);
 
-function paintStory() {
-  const box = $('#story'), all = storiesOf(S.story.uid), st = all[S.story.i];
-  if (!st) return closeStory();
-  const u = user(st.uid || S.story.uid), mine = st.u === me().id, likes = storyLikes(st.id).length;
-  box.hidden = false;
-  box.innerHTML = `<div class="pane">
-    <div class="bars">${all.map((x, i) => `<i class="${i < S.story.i ? 'done' : i === S.story.i ? 'now' : ''}"></i>`).join('')}</div>
+// One story, drawn. Taken out of paintStory so that the one you are swiping towards can be
+// built exactly the same way — a neighbour that is drawn by different code is a neighbour
+// that looks subtly wrong for the half second it is on screen.
+function paneHTML(uid, all, at, live) {
+  const st = all[at], u = user(st.uid || uid), mine = st.u === me().id, likes = storyLikes(st.id).length;
+  return `<div class="pane">
+    <div class="bars">${all.map((x, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}"></i>`).join('')}</div>
     <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
       ${mine ? `<button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>` : ''}
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
-    ${storyFace(st, true)}
+    ${storyFace(st, live)}
     <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
     <button type="button" class="tap fwd" onclick="stepStory(1)" aria-label="Next"></button>
     ${storyBubbles(st.id)}
@@ -1789,6 +1895,13 @@ function paintStory() {
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button>
       </div>`}
   </div>`;
+}
+
+function paintStory() {
+  const box = $('#story'), all = storiesOf(S.story.uid), st = all[S.story.i];
+  if (!st) return closeStory();
+  box.hidden = false;
+  box.innerHTML = `<div class="track" id="strack">${paneHTML(S.story.uid, all, S.story.i, true)}</div>`;
   markSeen(st.id);
   clearTimeout(storyTimer);
   // A card of text is read in a few seconds; a clip runs as long as it runs. Answering one
@@ -2234,7 +2347,7 @@ function releaseClip(v) {
 }
 function watchClips() {
   if (clipObs) clipObs.disconnect();
-  const vs = [...document.querySelectorAll('.reel .proof, .tile .proof')];
+  const vs = [...document.querySelectorAll('#app .reel .proof, #app .tile .proof')];
   // Without an observer there is no way to tell what is on screen, so load them all and
   // accept the old behaviour rather than showing nothing.
   if (!self.IntersectionObserver) return vs.forEach(attachClip);
@@ -2615,7 +2728,8 @@ function personView(uid) {
   return (own && !S.who
     ? `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div>
         <h1 class="withgear">Profile<button type="button" class="gear" onclick="openSettings()" aria-label="Settings">${GEAR}</button></h1></div>`
-    : `<button class="ghost back" onclick="closeWho()">‹ Back</button>`)
+    : `<button type="button" class="backx" onclick="closeWho()" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`)
   + `<div class="pf">
     <div class="who">${av(u, 'xl')}
       <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
@@ -3334,16 +3448,180 @@ function go(tab) { const back = !!(S.open || S.who || S.settings); S.tab = tab; 
 // profile used to land at the top of the feed, and after twenty posts the top of the feed
 // is nowhere near where you were when you tapped somebody's name.
 let backY = [];
-// The position is read before the screen is redrawn: rebuilding #app changes how tall the
-// page is, and the browser clamps the scroll to fit before anything here could read it.
-function stackOn() { backY.push(scrollY); render(); scrollTo(0, 0); slide(1); }
-// And put back twice: the first lands before the feed has laid itself back out, so on a
-// long one it stops short. The second runs once it has.
-function stackOff() {
-  const y = backY.pop() || 0;
-  render(); scrollTo(0, y); slide(-1);
-  requestAnimationFrame(() => scrollTo(0, y));
+
+// ---- one screen moving over another
+// Redrawing #app in place and calling it a transition is what made every one of these
+// feel like nothing had happened. A screen coming in now travels the whole width, and the
+// one it covers eases back behind a dim, so you can see which way you went.
+const NAV_MS = 340, EASE = 'cubic-bezier(.32,.72,0,1)';
+const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches || !$('#app').animate;
+let navAnims = [];
+// A screen held still in a fixed box, pulled up by however far it was scrolled so it shows
+// exactly the slice that was on screen.
+//
+// The one being left takes the real nodes rather than a copy of their markup: a second copy
+// of a live screen means two elements with the same id and two of every class, and it is
+// the kind of duplication that is invisible until something queries the document and finds
+// the screen that is on its way out. Moving them also keeps a playing clip playing on the
+// way past, and costs nothing to parse.
+function ghostBox(y) {
+  const g = $('#ghost'), inner = document.createElement('div');
+  inner.className = 'inner';
+  inner.style.top = `${-Math.round(y)}px`;
+  g.textContent = '';
+  g.appendChild(inner);
+  g.hidden = false;
+  return inner;
 }
+function ghostTake(y) {
+  const inner = ghostBox(y), app = $('#app');
+  while (app.firstChild) inner.appendChild(app.firstChild);
+  return $('#ghost');
+}
+// The one being dragged towards has nowhere to be taken from: it does not exist yet, so
+// this one really is markup.
+function ghostDraw(html, y) { ghostBox(y).innerHTML = html; return $('#ghost'); }
+function layer(under, over) {
+  document.documentElement.classList.add('moving');
+  under.style.zIndex = '1'; $('#dim').style.zIndex = '2'; over.style.zIndex = '3';
+  $('#dim').hidden = false;
+}
+function navEnd() {
+  navAnims.forEach(a => { try { a.cancel(); } catch (e) {} });
+  navAnims = [];
+  document.documentElement.classList.remove('moving');
+  const g = $('#ghost'), d = $('#dim'), a = $('#app');
+  g.hidden = true; g.innerHTML = ''; g.style.cssText = '';
+  d.hidden = true; d.style.cssText = '';
+  a.style.transform = ''; a.style.zIndex = '';
+}
+// fill:forwards and an explicit cancel afterwards, rather than letting the effect fall
+// off on its own: a frame of the ghost snapping back over the screen is the one thing
+// worse than no animation at all.
+function playNav(steps, then) {
+  navAnims.forEach(a => { try { a.cancel(); } catch (e) {} });
+  navAnims = steps.map(([el, frames, ms]) =>
+    el.animate(frames, {duration: ms || NAV_MS, easing: EASE, fill: 'forwards'}));
+  Promise.allSettled(navAnims.map(a => a.finished)).then(() => { if (then) then(); navEnd(); });
+}
+
+// Going in. The new screen comes from the right over a photograph of the old one.
+function stackOn() {
+  const y = scrollY;
+  backY.push(y);
+  const g = still() ? null : ghostTake(y);
+  render(); scrollTo(0, 0);
+  if (!g) return;
+  layer(g, $('#app'));
+  playNav([
+    [$('#app'), [{transform: 'translateX(100vw)'}, {transform: 'translateX(0)'}]],
+    [g, [{transform: 'none'}, {transform: 'translateX(-22px)'}]],
+    [$('#dim'), [{opacity: 0}, {opacity: .22}]],
+  ]);
+}
+// And coming back out, which is the same move run backwards. The scroll is put back twice:
+// the first lands before the feed has laid itself out again, so on a long one it stops
+// short; the second runs once it has.
+function stackOff() {
+  const y = backY.pop() || 0, wasY = scrollY;
+  const g = still() ? null : ghostTake(wasY);
+  render(); scrollTo(0, y);
+  requestAnimationFrame(() => scrollTo(0, y));
+  if (!g) return;
+  layer($('#app'), g);
+  playNav([
+    [$('#app'), [{transform: 'translateX(-22px)'}, {transform: 'translateX(0)'}]],
+    [g, [{transform: 'none'}, {transform: 'translateX(100vw)'}]],
+    [$('#dim'), [{opacity: .22}, {opacity: 0}]],
+  ]);
+}
+
+// ---- dragging back
+// What a swipe means is whatever is on top, in the order render() draws them, so the two
+// cannot disagree about which screen the gesture takes off.
+function backAction() {
+  if (!backY.length) return null;
+  if (S.legal) return () => { S.legal = null; };
+  if (S.settings) return () => { S.settings = false; };
+  if (S.who) return () => { S.who = null; };
+  if (S.open) return () => { S.open = null; };
+  return null;
+}
+// The screen you are heading for, built but not shown. S is put back exactly as it was:
+// this is a look ahead, and until you let go it may come to nothing.
+function peekBack(act) {
+  const was = {legal: S.legal, settings: S.settings, who: S.who, open: S.open};
+  act();
+  try { return screenHTML(); } finally { Object.assign(S, was); }
+}
+const SWIPE_MIN = 8;                       // px before a drag is a drag and not a tap
+const FLICK = 0.35;                        // px/ms that counts as thrown rather than dragged
+let nav = null;
+function navDown(e) {
+  if (nav || $('#dlg').open || $('#cam').open || $('#crop').open) return;
+  if (!$('#story').hidden || !$('#make').hidden) return;
+  if (e.target.closest('.stories, input, textarea, [contenteditable]')) return;
+  if (still() || !backAction()) return;
+  nav = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
+}
+function navMove(e) {
+  if (!nav) return;
+  const dx = e.clientX - nav.x, dy = e.clientY - nav.y;
+  if (!nav.live) {
+    if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+    // Down the page, or the wrong way across it: they meant to scroll, not to leave.
+    if (dx <= 0 || Math.abs(dx) <= Math.abs(dy)) { nav = null; return; }
+    const act = backAction();
+    if (!act) { nav = null; return; }
+    nav.live = true; nav.act = act;
+    // Built now rather than on release, so the screen you are going back to is behind the
+    // one in your hand the whole way across. Seeing where you are going is the point.
+    const g = ghostDraw(peekBack(act), backY[backY.length - 1] || 0);
+    layer(g, $('#app'));
+    try { $('#app').setPointerCapture(e.pointerId); } catch (x) {}
+  }
+  nav.v = (e.clientX - nav.last) / Math.max(1, performance.now() - nav.lt);
+  nav.last = e.clientX; nav.lt = performance.now();
+  const w = innerWidth || 1, at = Math.max(0, dx);
+  $('#app').style.transform = `translateX(${at}px)`;
+  $('#ghost').style.transform = `translateX(${-22 * (1 - at / w)}px)`;
+  $('#dim').style.opacity = String(.22 * (1 - at / w));
+  e.preventDefault();
+}
+function navUp(e) {
+  const d = nav; nav = null;
+  if (!d || !d.live) return;
+  const dx = Math.max(0, e.clientX - d.x), w = innerWidth || 1;
+  const at = `translateX(${dx}px)`;
+  // Far enough across, or thrown hard enough: it carries on. Otherwise it falls back and
+  // nothing happened, which has to be as smooth as leaving or the gesture feels like a trap.
+  if (dx > w / 3 || d.v > FLICK) {
+    const y = backY.pop() || 0;
+    playNav([
+      [$('#app'), [{transform: at}, {transform: 'translateX(100vw)'}], 240],
+      [$('#ghost'), [{transform: $('#ghost').style.transform || 'none'}, {transform: 'none'}], 240],
+      [$('#dim'), [{opacity: $('#dim').style.opacity || '0'}, {opacity: 0}], 240],
+    ], () => {
+      // The ghost is already showing this, so swapping the real thing in underneath it is
+      // a change nobody can see.
+      d.act(); render(); scrollTo(0, y);
+      requestAnimationFrame(() => scrollTo(0, y));
+    });
+  } else {
+    backSpring(at);
+  }
+}
+function backSpring(at) {
+  playNav([
+    [$('#app'), [{transform: at}, {transform: 'translateX(0)'}], 220],
+    [$('#ghost'), [{transform: $('#ghost').style.transform || 'none'}, {transform: 'translateX(-22px)'}], 220],
+    [$('#dim'), [{opacity: $('#dim').style.opacity || '0'}, {opacity: .22}], 220],
+  ]);
+}
+addEventListener('pointerdown', navDown);
+addEventListener('pointermove', navMove);
+addEventListener('pointerup', navUp);
+addEventListener('pointercancel', e => { if (nav && nav.live) backSpring(`translateX(${Math.max(0, e.clientX - nav.x)}px)`); nav = null; });
 
 // A profile lives inside whichever screen you opened it from: it slides in over the feed
 // and the way back is where you were, not the Profile tab.

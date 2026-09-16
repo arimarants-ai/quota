@@ -137,7 +137,8 @@ await withPage({ ...SIGNED_IN, queryError: 'JWT expired', refreshOk: false }, as
 await withPage({ ...SIGNED_IN, queryError: 'JWT expired', refreshOk: true }, async (page, alerts) => {
   await settle(page);
   check('an expired token that refreshes recovers into the app', await page.isVisible('#bar'));
-  check('  with no error banner left behind', await page.isHidden('#err'));
+  check('  with no error banner left behind', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err').innerText());
   check('  and no modal', alerts.length === 0, alerts.join(' | '));
 });
 
@@ -1544,8 +1545,8 @@ await withPage(SIGNED_IN, async page => {
   check('  one of which opens on its own screen', await page.evaluate(() => S.legal) === 'privacy'
     && await page.locator('.legal').count() === 1
     && await page.locator('#bar[hidden]').count() === 1);
-  await page.locator('.back').click();
-  await page.waitForTimeout(300);
+  await page.locator('#app .back').click();
+  await page.waitForTimeout(400);
   check('    and comes back to settings, not to the feed',
     await page.evaluate(() => S.legal) === null && await page.evaluate(() => S.settings) === true);
   // Notifications only get a switch where the browser can do them at all, which a headless
@@ -1558,7 +1559,7 @@ await withPage(SIGNED_IN, async page => {
     await page.evaluate(() => isDark()) && await page.evaluate(() => S.settings) === true
     && await page.locator('#dlg[open]').count() === 0);
   await page.evaluate(() => setTheme('light'));
-  await page.locator('.back').click();
+  await page.locator('#app .back').click();
   await page.waitForTimeout(400);
   check('  the way back is the profile', await page.evaluate(() => S.settings) === false
     && await page.locator('.pf').count() === 1);
@@ -1574,9 +1575,11 @@ await withPage(SIGNED_IN, async page => {
   check('  tapping it opens them', await page.locator('.pf').count() === 1
     && await page.evaluate(() => S.who) !== null);
   check('    still in the feed, not the profile tab', await page.evaluate(() => S.tab) === 'feed');
-  check('    with no settings offered on somebody else', await page.locator('.hdr .gear').count() === 0);
-  check('    and a way back', await page.locator('.back').count() === 1);
-  await page.locator('.back').click();
+  check('    with no settings offered on somebody else', await page.locator('#app .hdr .gear').count() === 0);
+  // A button shaped like a button, with an arrow on it. The muted text link that used to
+  // be here was missed so reliably that people thought there was no way back at all.
+  check('    and a way back', await page.locator('#app .backx').count() === 1);
+  await page.locator('#app .backx').click();
   await page.waitForTimeout(400);
   check('  which returns to the feed', await page.evaluate(() => S.who) === null
     && await page.locator('.post').count() > 0);
@@ -1594,12 +1597,60 @@ await withPage(SIGNED_IN, async page => {
     String(await page.evaluate(() => backY.slice())));
   check('    and opens at the top of itself, not part way down',
     await page.evaluate(() => scrollY) === 0);
-  await page.locator('.back').click();
+  await page.locator('#app .backx').click();
   await page.waitForTimeout(400);
   check('    and coming back puts you there', await page.evaluate(() => scrollY) === 800,
     String(await page.evaluate(() => scrollY)));
   check('      with nothing left on the stack to go back to',
     await page.evaluate(() => backY.length) === 0);
+
+  // Dragged back rather than tapped back. The screen follows the finger and the feed is
+  // already behind it, which is the whole point: you can see where you are going before
+  // you have committed to going there.
+  await page.evaluate(() => scrollTo(0, 800));
+  await page.locator('.post .head .who').nth(1).click();
+  await page.waitForTimeout(450);
+  await page.mouse.move(40, 500);
+  await page.mouse.down();
+  await page.mouse.move(260, 504, { steps: 6 });
+  const mid = await page.evaluate(() => ({
+    moving: document.documentElement.classList.contains('moving'),
+    shifted: /matrix\(1, 0, 0, 1, [1-9]/.test(getComputedStyle($('#app')).transform),
+    ghostUp: !$('#ghost').hidden,
+    ghostIsFeed: $('#ghost').querySelectorAll('[data-post]').length > 0,
+    ghostAt: $('#ghost .inner').style.top,
+    dimmed: +getComputedStyle($('#dim')).opacity > 0,
+  }));
+  check('  the profile follows the finger', mid.moving && mid.shifted, JSON.stringify(mid));
+  check('    with the feed already behind it, at the place it was left',
+    mid.ghostUp && mid.ghostIsFeed && mid.ghostAt === '-800px', JSON.stringify(mid));
+  check('    and dimmed, so which one is on top is never in doubt', mid.dimmed, JSON.stringify(mid));
+  await page.mouse.move(760, 506, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+  check('  letting go past the middle of the screen leaves the profile',
+    await page.evaluate(() => S.who) === null, String(await page.evaluate(() => S.who)));
+  check('    landing where the feed was', await page.evaluate(() => scrollY) === 800,
+    String(await page.evaluate(() => scrollY)));
+  check('    with both layers put away again',
+    await page.evaluate(() => $('#ghost').hidden && $('#dim').hidden
+      && !document.documentElement.classList.contains('moving') && !$('#app').style.transform));
+
+  // A short, slow drag is somebody changing their mind, and it has to fall back as
+  // smoothly as it would have left or the gesture feels like a trap.
+  await page.locator('.post .head .who').nth(1).click();
+  await page.waitForTimeout(450);
+  await page.mouse.move(40, 500);
+  await page.mouse.down();
+  for (const x of [50, 60, 70, 80]) { await page.mouse.move(x, 502); await page.waitForTimeout(60); }
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+  check('  a short slow drag changes nothing', await page.evaluate(() => S.who) !== null
+    && await page.locator('#app .pf').count() === 1);
+  check('    and tidies up after itself',
+    await page.evaluate(() => $('#ghost').hidden && $('#dim').hidden && !$('#app').style.transform));
+  await page.locator('#app .backx').click();
+  await page.waitForTimeout(450);
 
   // Your own face in the feed is a way in too, and it used to be a way in with no way out:
   // the header with the gear belongs to the Profile tab, not to every look at yourself.
@@ -1607,8 +1658,8 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => openWho(me().id));
   await page.waitForTimeout(400);
   check('  your own profile opened from the feed has a way back',
-    await page.locator('.back').count() === 1 && await page.locator('.hdr .gear').count() === 0);
-  await page.locator('.back').click();
+    await page.locator('#app .backx').count() === 1 && await page.locator('#app .hdr .gear').count() === 0);
+  await page.locator('#app .backx').click();
   await page.waitForTimeout(400);
   check('    which also puts you back where you were',
     await page.evaluate(() => S.who) === null && await page.evaluate(() => scrollY) === 400);
@@ -1617,7 +1668,7 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => go('profile'));
   await page.waitForTimeout(400);
   check('  the Profile tab keeps its gear and offers no way back',
-    await page.locator('.hdr .gear').count() === 1 && await page.locator('.back').count() === 0);
+    await page.locator('#app .hdr .gear').count() === 1 && await page.locator('#app .backx').count() === 0);
   await page.evaluate(() => { go('feed'); document.documentElement.style.minHeight = ''; });
   await page.waitForTimeout(300);
 
@@ -1977,7 +2028,7 @@ await withPage(SIGNED_IN, async page => {
     await page.mouse.down();
     await page.mouse.move(dir < 0 ? 90 : 300, 402, { steps: 8 });
     await page.mouse.up();
-    await page.waitForTimeout(220);
+    await page.waitForTimeout(420);        // it slides the rest of the way now, then redraws
   };
   const where = () => page.evaluate(() => S.story && {uid: S.story.uid, i: S.story.i, p: S.story.p});
 

@@ -176,6 +176,45 @@ so nothing in the load path is allowed to leave an empty page behind:
 ## Going into something, and coming back out
 
 A profile, a group, Settings and the three legal documents all open *over* whatever screen
+you were on. Every one of them needs a way back that puts you where you were, and a move
+you can actually see — redrawing `#app` in place and calling it a transition is what made
+the whole thing feel like nothing had happened.
+
+**The move.** Two fixed layers, `#ghost` and `#dim`, sit either side of `#app` depending on
+which way you are going. The screen coming in travels the full width; the one it covers
+eases back 22px behind a dim. Both layers are `position: fixed`, so a screen sliding a whole
+width sideways can never widen the page or move where the document is scrolled to.
+
+The ghost holds a screen held still, pulled up by however far it was scrolled so it shows
+exactly the slice that was on screen. The screen being *left* hands over its real nodes
+rather than a copy of its markup — a second copy of a live screen means two elements with
+the same id and two of every class, and that is the kind of duplication that is invisible
+until something queries the document and finds the screen on its way out. (`watchClips()`
+did exactly that, and is now scoped to `#app`.) Moving the nodes also keeps a playing clip
+playing on the way past. The screen being dragged *towards* has nothing to hand over,
+because it does not exist yet, so that one really is markup — which is what `screenHTML()`
+is for: it builds any screen without putting it anywhere.
+
+**The drag.** Pull left-to-right from anywhere on a stacked screen and it follows your
+finger with the destination already behind it. Past a third of the width, or a flick over
+0.35px/ms, it carries on; under that it falls back, which has to be as smooth as leaving or
+the gesture feels like a trap. `backAction()` decides what the gesture takes off, in the
+order `render()` draws them, so the two cannot disagree.
+
+**The back button** is a circle with an arrow in it. The muted "‹ Back" text link that used
+to be there was missed so reliably that people thought there was no way back at all.
+
+**Where you were** is remembered on `backY` and put back twice — once immediately, once on
+the next frame, because a long feed has not finished laying itself out when the first one
+runs. The position is read *before* the screen is redrawn, since rebuilding `#app` changes
+how tall the page is and the browser clamps the scroll to fit before anything could read it.
+
+`personView()` draws the same screen for the Profile tab and for a profile opened over
+something else. `S.who` is what tells them apart: set means it was opened over something, so
+it gets the back button instead of the header with the gear.
+
+
+A profile, a group, Settings and the three legal documents all open *over* whatever screen
 you were on rather than replacing it, so every one of them needs a way back that returns
 you to where you were. That is one pair of functions, `stackOn()` and `stackOff()` in
 `index.html`: going in pushes the scroll position onto `backY` and slides the new screen
@@ -192,6 +231,31 @@ something else. `S.who` is what tells them apart: set means it was opened over s
 so it gets a back button instead of the header with the gear.
 
 ## Stories are one line, not one person
+
+`storyPeople()` decides the order once and both the row and the viewer use it: yours first,
+then anyone with something unseen, then everyone you are already caught up with. Somebody
+already watched stays in the line — being able to go back to them is the point.
+
+The viewer takes a snapshot of that line when it opens and holds it. Working it out again
+on every step would reshuffle it underneath you, because watching somebody moves them out
+of the unseen half and the next swipe would land on a stranger.
+
+`neighbour(d)` says what one step along the line *is* without going there, and `stepStory()`
+goes there. Asking rather than doing is what lets a swipe put the answer on screen beside
+the story you are still holding: the moment a drag turns out to be sideways, `armSlide()`
+builds that neighbour with the same `paneHTML()` the current one was built with — a
+neighbour drawn by different code is a neighbour that looks subtly wrong for the half second
+it is up — and drops it into the strip. Then the pair of them move with your finger.
+
+Nothing at either end of the line: it pulls back at a third of the distance and lets go,
+rather than tearing off the edge. Thrown forward past the last story is still the way out,
+the same as tapping past it.
+
+Swiping and tapping are the same step. The tap zones cover the whole face, so a swipe that
+starts and ends inside one would step twice — once on the swipe and again on the click the
+browser sends afterwards — and the click is swallowed rather than the zones made smaller,
+because tapping to step is how a story has always worked.
+
 
 `storyPeople()` decides the order once and both the row and the viewer use it: yours
 first, then anyone with something unseen, then everyone you are already caught up with.
