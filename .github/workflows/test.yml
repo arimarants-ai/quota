@@ -27,6 +27,10 @@ jobs:
       # on screen says so. Needs nothing installed.
       - run: node test/language.test.mjs
 
+      # The crop maths decides which part of a picture becomes somebody's face. A wrong
+      # rectangle saves an off-centre avatar and says nothing. Needs nothing installed.
+      - run: node test/crop.test.mjs
+
       # The worker runs where nothing else does, and the way it fails is invisible until
       # somebody's installed app will not start. Needs nothing installed either.
       - run: node test/sw.test.mjs

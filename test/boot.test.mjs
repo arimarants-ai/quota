@@ -2497,6 +2497,61 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => $('#campre').srcObject === null && camLive()));
 });
 
+// A profile picture is taken by the same camera, and goes straight into the circle it is
+// about to become. The camera's own review would be a second look at the same thing.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { go('profile'); openSettings(); });
+  await page.waitForTimeout(300);
+  await page.locator('.li:has-text("Name, picture and bio")').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Camera")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  check('the profile camera opens on the front one', await page.evaluate(() => camFacing) === 'user',
+    await page.evaluate(() => camFacing));
+  check('  with nothing to switch to, because a profile picture is never a clip',
+    await page.locator('#cammode').isHidden() && await page.evaluate(() => shooting()) === true);
+
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => document.querySelector('#crop').open, null, { timeout: 8000 }).catch(() => {});
+  check('  the shutter goes straight to the crop, not to a review',
+    await page.evaluate(() => $('#crop').open) === true && await page.locator('#camrev').isHidden());
+  const c = await page.evaluate(() => C && {w: C.natW, h: C.natH, scale: C.scale, x: C.x, y: C.y, from: C.from});
+  check('    holding the picture that was just taken', c && c.w > 0 && c.h > 0, JSON.stringify(c));
+  check('    zoomed out, centred, and knowing it can go back to the camera',
+    c && c.scale === 1 && c.x === 0 && c.y === 0 && c.from === 'cam', JSON.stringify(c));
+  check('    with Retake rather than Cancel, because the shot is what was wrong',
+    /Retake/.test(await page.locator('#cropback').innerText()));
+
+  // Dragged, zoomed, and taken: what comes out is a square the size the avatar is stored
+  // at, whatever shape went in.
+  await page.evaluate(() => { cropSet(2); cropMove(40, -20); });
+  await page.locator('#crop button:has-text("Use photo")').click();
+  await page.waitForTimeout(400);
+  const a = await page.evaluate(async () => {
+    if (!avatarFile) return null;
+    const im = await createImageBitmap(avatarFile);
+    return {name: avatarFile.name, type: avatarFile.type, size: avatarFile.size, w: im.width, h: im.height};
+  });
+  check('  and using it leaves a square ready to save', a && a.w === 512 && a.h === 512
+    && a.type === 'image/jpeg' && a.size > 1024, JSON.stringify(a));
+  check('    with the crop put away behind it', await page.evaluate(() => !$('#crop').open && C === null));
+  check('    and shown back in the form at the size it will be seen at',
+    await page.locator('#avprev .av img').count() === 1);
+
+  // The camera remembers what it was opened for. It used to be a variable somebody set
+  // beforehand, and one left saying 'avatar' would open the next post in avatar mode.
+  await page.evaluate(() => { dlg(); closeSettings(); });
+  await page.waitForTimeout(200);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Record")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 });
+  check('  and a post opened afterwards is a post again, on video',
+    await page.evaluate(() => camFor) === 'post' && await page.evaluate(() => shooting()) === false
+    && await page.locator('#cammode').isVisible());
+});
+
 // A picture posts with nothing to compress and nothing to wait for.
 await withPage(NO_WHEEL, async page => {
   await settle(page);

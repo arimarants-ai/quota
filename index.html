@@ -744,6 +744,23 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .camrev img{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
 .camrev img[hidden],.camrev video[hidden]{display:none}
 .shutter.pic{background:#fff}
+/* cropping a profile picture */
+#crop{position:fixed;inset:0;width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border:0;border-radius:0;
+  background:#0b0c0e;color:#fff;box-shadow:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding:calc(16px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));overflow:hidden}
+#crop:not([open]){display:none}
+#crop::backdrop{background:#000}
+.crophow{color:#fff;opacity:.6;font-size:13px;font-weight:700;text-align:center;margin:0;max-width:28ch}
+.cropbox{position:relative;width:min(78vw,320px);aspect-ratio:1;overflow:hidden;flex:none;touch-action:none;cursor:grab}
+.cropbox img{position:absolute;left:50%;top:50%;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none}
+/* The circle is what you get; one big shadow clipped by the box dims everything outside
+   it, so the ring needs no second element cut out of a rectangle. */
+.cropmask{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  box-shadow:0 0 0 9999px rgba(11,12,14,.72);border:2px solid rgba(255,255,255,.9)}
+.cropzoom,#crop .row{width:min(78vw,320px)}
+.cropzoom input{width:100%}
+#crop .row{gap:12px}
+#crop .row button{flex:1}
 .camzoom{position:absolute;left:0;right:0;bottom:calc(128px + env(safe-area-inset-bottom));z-index:2;padding:0 28px}
 .camzoom[hidden]{display:none}
 .camzoom input{width:100%}
@@ -895,6 +912,19 @@ dialog h2{font-size:20px;margin-bottom:2px}
   </div>
   <p id="camwhy" class="camwhy" hidden></p>
 </dialog>
+<dialog id="crop">
+  <p class="crophow">Drag to move it. Pinch, scroll or use the slider to zoom.</p>
+  <div class="cropbox" id="cropbox" onpointerdown="cropDown(event)" onpointermove="cropDrag(event)"
+       onpointerup="cropUp(event)" onpointercancel="cropUp(event)" onwheel="cropWheel(event)">
+    <img id="cropimg" alt="" draggable="false">
+    <div class="cropmask"></div>
+  </div>
+  <div class="cropzoom"><input type="range" id="cropz" min="1" max="6" step="0.01" value="1" aria-label="Zoom" oninput="cropSet(+this.value)"></div>
+  <div class="row">
+    <button type="button" id="cropback" onclick="cropBack()">Cancel</button>
+    <button type="button" class="primary" onclick="useCrop()">Use photo</button>
+  </div>
+</dialog>
 <div id="a2hs" hidden>
   <svg class="share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M12 3l-4 4M12 3l4 4"/><path d="M6 12v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-7"/></svg>
   <p><b>Add Quota to your home screen</b><span>Tap the Share button, then “Add to Home Screen”.</span></p>
@@ -914,7 +944,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v56';
+const BUILD = 'quota-v57';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1851,7 +1881,7 @@ function newStory(pre) {
 // it is opened from here.
 function storyKind() {
   dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
-    <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();camFor='story';openCam()">Camera</button>
+    <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();openCam('story')">Camera</button>
       <button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Choose a file</button></div>
     <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button></div>`);
@@ -3204,8 +3234,13 @@ function inviteDlg(gid) {
 }
 function profileDlg() {
   const m = me();
+  clearAvatar();
   dlg(`<h2>Edit profile</h2><form onsubmit="event.preventDefault();saveProfile(this)">
-    <div class="row" style="margin-top:12px">${av(m, 'xl')}<div class="grow"><label style="margin-top:0">Profile picture</label><input name="photo" type="file" accept="image/*"></div></div>
+    <div class="row" style="margin-top:12px"><span id="avprev">${av(m, 'xl')}</span>
+      <div class="grow"><label style="margin-top:0">Profile picture</label>
+        <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
+          <button type="button" class="grow" onclick="this.closest('form').photo.click()">Choose a file</button></div></div></div>
+    <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     <label>Display name</label><input name="display_name" value="${esc(m.display_name || '')}" placeholder="${esc(m.username)}" maxlength="40">
     <label>Bio</label><textarea name="bio" rows="3" maxlength="160" placeholder="What you are doing this for.">${esc(m.bio || '')}</textarea>
     <p class="muted" style="margin-top:8px">Your username @${esc(m.username)} stays the same. That's what friends use to find you.</p>
@@ -3395,19 +3430,21 @@ async function saveGroup(f, id) {
   dlg(); await load(); openGroup(gid);
 }
 async function saveProfile(f) {
-  const fd = new FormData(f), photo = fd.get('photo'), display_name = fd.get('display_name').trim() || null;
+  const fd = new FormData(f), display_name = fd.get('display_name').trim() || null;
   const patch = {display_name, bio: (fd.get('bio') || '').trim().slice(0, 160) || null};
   working(f, 'Saving…');
   try {
-    if (photo && photo.size) {
-      if (photo.size > 5 * 1024 * 1024) throw alert('Picture must be under 5 MB');
-      patch.avatar_path = `${me().id}/${Date.now()}.${(photo.name.split('.').pop() || 'jpg').toLowerCase()}`; // new file name each time so browsers don't show a cached old picture
-      await q(sb.storage.from('avatars').upload(patch.avatar_path, photo, {contentType: photo.type || 'image/jpeg'}));
+    // Whatever came out of the crop, never the raw file: the picker only exists to feed
+    // the crop, and a 512px square is a few tens of kilobytes however big the original was.
+    if (avatarFile) {
+      patch.avatar_path = `${me().id}/${Date.now()}.jpg`;   // new file name each time so browsers don't show a cached old picture
+      await q(sb.storage.from('avatars').upload(patch.avatar_path, avatarFile, {contentType: 'image/jpeg'}));
       if (me().avatar_path) sb.storage.from('avatars').remove([me().avatar_path]);
     }
     const {error} = await sb.from('profiles').update(patch).eq('id', me().id);
     if (error) throw alert(error.message.includes('column') ? 'Profile editing needs the v3 block of schema.sql. Run it in Supabase, then try again.' : error.message);
   } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
+  clearAvatar();
   dlg(); load();
 }
 // ---- recording in the app
@@ -3434,7 +3471,7 @@ const recording = () => !!camRec && camRec.state === 'recording';
 // the front one every time, and picking it again on every post is the sort of small
 // stupidity that makes a camera feel like not a camera.
 const facing = () => { try { return localStorage.getItem('quota.facing') === 'user' ? 'user' : 'environment'; } catch (e) { return 'environment'; } };
-const setFacing = f => { try { localStorage.setItem('quota.facing', f); } catch (e) {} };
+const setFacing = f => { if (camFor === 'avatar') return; try { localStorage.setItem('quota.facing', f); } catch (e) {} };
 
 // Stopping every track ends the capture session, and WebKit then asks for the camera
 // again on the next request — which is why the prompt came back on every single open,
@@ -3470,7 +3507,8 @@ function camExplained() {
   return false;
 }
 
-async function openCam() {
+async function openCam(what = 'post') {
+  camFor = what;
   if (!camSupported()) return alert('This browser cannot record video. Use "Choose a file" instead.');
   if (!camExplained()) {
     alert('Quota is about to ask for your camera.\n\nAllow it once and it stays allowed while the app is open. On iPhone, an app opened from the home screen asks again each time it is launched — that is the phone, not Quota.');
@@ -3479,7 +3517,9 @@ async function openCam() {
   why.hidden = true;
   showRev(false);
   if (!box.open) box.showModal();          // the top layer, above the submit sheet
-  await startCam(facing());
+  // A profile picture is a selfie, so it opens on the front camera — without changing
+  // which way the camera opens for a post, which is remembered separately.
+  await startCam(what === 'avatar' ? 'user' : facing());
 }
 
 // Opening the camera, and re-opening it pointing the other way, are the same job.
@@ -3561,7 +3601,9 @@ async function camOptions() {
 
 async function flipCam() {
   if (recording() || camCount) return;     // mid-take the recorder is bound to this stream
-  await startCam(facing() === 'user' ? 'environment' : 'user');
+  // Which way it is pointing now, not which way it is remembered as pointing: an avatar
+  // does not write the remembered one, so asking localStorage would flip to itself.
+  await startCam((camFor === 'avatar' ? camFacing : facing()) === 'user' ? 'environment' : 'user');
 }
 
 function toggleMic() {
@@ -3596,9 +3638,12 @@ function setMode(m) {
   camMode = m;
   paintCam();
 }
+// Whether the shutter takes a still. An avatar always does, and says so without writing
+// it down: setting camMode would leave the next post's camera opening in photo mode.
+const shooting = () => camMode === 'photo' || camFor === 'avatar';
 
 function paintCam() {
-  const rec = recording(), busy = rec || !!camCount, pic = camMode === 'photo';
+  const rec = recording(), busy = rec || !!camCount, pic = shooting();
   $('#cammic').classList.toggle('on', camMuted);
   // An SVG path is not an HTMLElement, so it has no .hidden — assigning one silently
   // makes up a property and leaves the attribute exactly where it was.
@@ -3611,7 +3656,7 @@ function paintCam() {
   $('#camgo').classList.toggle('pic', pic && !rec);
   $('#modevid').classList.toggle('on', !pic);
   $('#modepic').classList.toggle('on', pic);
-  $('#cammode').hidden = busy;             // mid-take there is nothing to switch to
+  $('#cammode').hidden = busy || camFor === 'avatar';   // mid-take, or a picture is the only thing being taken
   $('#cammic').hidden = pic;               // a picture has no sound to cut
   $('#camx').hidden = false;
 }
@@ -3652,7 +3697,7 @@ function shutter() {
   if (!camStream) return;
   if (recording()) return camRec.stop();
   if (camCount) return cancelCount(), paintCam();     // a second tap during the count-in calls it off
-  const go = camMode === 'photo' ? takePhoto : startRec;
+  const go = shooting() ? takePhoto : startRec;
   const secs = TIMERS[camTimerIdx];
   if (!secs) return go();
   let left = secs;
@@ -3708,18 +3753,27 @@ function showRev(on) {
   if (camTake) { URL.revokeObjectURL(camTake); camTake = null; }
 }
 
-// A still off the same stream, at whatever the camera is giving us. The preview is
-// mirrored for the front camera but what is drawn here is not, for the same reason a
-// recording is not: the picture is of the world, not of the mirror.
+// A still off the same stream, at whatever the camera is giving us. Proof is drawn
+// unmirrored however the preview looked, for the same reason a recording is: the picture
+// is of the world, not of the mirror.
+//
+// A profile picture is the other way round. It is of you, and what you framed it against
+// was the mirror — so the flip is kept, and the face that lands is the one you were
+// looking at. Unmirroring it here is what "it flipped my picture" was.
 async function takePhoto() {
   const v = $('#campre'), w = v.videoWidth, h = v.videoHeight;
   if (!w || !h) return alert('The camera is not ready yet.');
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
-  c.getContext('2d').drawImage(v, 0, 0, w, h);
+  const g = c.getContext('2d');
+  if (mirrorShot(camFor, v.classList.contains('mirror'))) { g.translate(w, 0); g.scale(-1, 1); }
+  g.drawImage(v, 0, 0, w, h);
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
   if (!blob || blob.size < 1024) return alert('That did not come out. Try again.');
   stopCam();
+  // The crop is the review, so there is no point doing the review twice. Everywhere else
+  // there is nothing after this screen, which is why that one exists.
+  if (camFor === 'avatar') { $('#cam').close(); return openCrop(new File([blob], 'avatar.jpg', {type: 'image/jpeg'}), 'cam'); }
   keepTake(blob, `shot.jpg`, 'image/jpeg');
 }
 
@@ -3790,6 +3844,179 @@ async function retake() {
   if (el) { el.className = 'muted'; el.textContent = ''; }
   showRev(false);
   await startCam(facing());
+}
+
+// ---- framing a profile picture
+// A picture picked or taken is never the right shape, and an avatar is a circle, so
+// whatever lands in it was cropped by something. Doing it here rather than letting
+// object-fit do it means you choose which part, and the screen you choose it on is the
+// same circle it ends up in — so it is the preview as well.
+//
+// A square is what gets saved, not a circle: .av is round in CSS, and a picture with
+// transparent corners is a PNG several times the size for something nobody ever sees.
+const CROP_OUT = 512;                      // avatars show at 76px, so this is generous
+let C = null;                              // {url, from, natW, natH, box, scale, x, y}
+
+// crop:start  (test/crop.test.mjs lifts everything down to crop:end and runs it)
+// The maths, kept apart from the dragging so it can be checked without a browser.
+//
+// base is the scale at which the picture exactly covers the box, so `scale` is a plain
+// multiplier over "as far out as it goes" and 1 always means the whole of the short side.
+// x and y are how far the middle of the picture has been pushed from the middle of the
+// box, in screen pixels.
+const cropK = (natW, natH, box, scale) => (box / Math.min(natW, natH)) * scale;
+// Where the visible square sits on the original, in the original's own pixels. This is
+// what gets drawn, so if it is wrong the saved picture is off-centre and nothing says so.
+function cropRect(natW, natH, box, scale, x, y) {
+  const k = cropK(natW, natH, box, scale), sw = box / k;
+  return {sx: natW / 2 - x / k - sw / 2, sy: natH / 2 - y / k - sw / 2, sw};
+}
+// Panning stops where the picture does, so no edge is ever dragged into the circle and
+// there is never a corner of nothing in somebody's avatar.
+function cropClamp(natW, natH, box, scale, x, y) {
+  const k = cropK(natW, natH, box, scale);
+  const mx = Math.max(0, (natW * k - box) / 2), my = Math.max(0, (natH * k - box) / 2);
+  return {x: Math.min(mx, Math.max(-mx, x)), y: Math.min(my, Math.max(-my, y))};
+}
+// Which way round a still comes out. Proof is of the world and is never mirrored, however
+// the preview looked. A profile picture is of you, and what you framed it against was the
+// mirror — so the flip stays, and the face that lands is the one you were looking at.
+// Unmirroring it is exactly what "it flipped my picture" was.
+const mirrorShot = (what, previewMirrored) => what === 'avatar' && previewMirrored;
+// crop:end
+
+function paintCrop() {
+  const img = $('#cropimg'), k = cropK(C.natW, C.natH, C.box, C.scale);
+  const w = C.natW * k, h = C.natH * k;
+  img.style.width = `${w}px`; img.style.height = `${h}px`;
+  img.style.transform = `translate(${-w / 2 + C.x}px, ${-h / 2 + C.y}px)`;
+}
+function cropSet(scale) {
+  if (!C) return;
+  C.scale = Math.min(6, Math.max(1, scale || 1));
+  Object.assign(C, cropClamp(C.natW, C.natH, C.box, C.scale, C.x, C.y));
+  $('#cropz').value = C.scale;
+  paintCrop();
+}
+function cropMove(dx, dy) {
+  Object.assign(C, cropClamp(C.natW, C.natH, C.box, C.scale, C.x + dx, C.y + dy));
+  paintCrop();
+}
+
+// One finger moves it, two pinch it, a wheel is for whoever is at a desk. Every pointer
+// is kept, so a second finger landing mid-drag becomes a pinch rather than a jump.
+const cropPts = new Map();
+let cropLast = null;                       // the pinch's last span and midpoint
+function cropDown(e) {
+  if (!C) return;
+  cropPts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {}
+  cropLast = null;
+  e.preventDefault();
+}
+function cropDrag(e) {
+  if (!C || !cropPts.has(e.pointerId)) return;
+  const was = cropPts.get(e.pointerId);
+  cropPts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  const pts = [...cropPts.values()];
+  if (pts.length < 2) return cropMove(e.clientX - was.x, e.clientY - was.y);
+  const span = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  const mid = {x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2};
+  if (cropLast) {
+    cropMove(mid.x - cropLast.mid.x, mid.y - cropLast.mid.y);
+    if (cropLast.span > 0) cropSet(C.scale * (span / cropLast.span));
+  }
+  cropLast = {span, mid};
+  e.preventDefault();
+}
+function cropUp(e) { cropPts.delete(e.pointerId); cropLast = null; }
+function cropWheel(e) {
+  if (!C) return;
+  e.preventDefault();
+  cropSet(C.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
+}
+
+// The box is measured rather than assumed, because its width is a vw and nothing here
+// knows what that came out as. Turning the phone changes it, which is the resize below.
+async function openCrop(file, from) {
+  closeCrop();
+  const url = URL.createObjectURL(file);
+  let img;
+  try {
+    img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error('unreadable'));
+      setTimeout(() => rej(new Error('timed out')), 15000);
+      i.src = url;
+    });
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    return alert('That picture could not be opened. Try another one.');
+  }
+  C = {url, from, natW: img.naturalWidth, natH: img.naturalHeight, box: 1, scale: 1, x: 0, y: 0};
+  $('#cropimg').src = url;
+  $('#cropback').textContent = from === 'cam' ? 'Retake' : 'Cancel';
+  if (!$('#crop').open) $('#crop').showModal();
+  C.box = $('#cropbox').getBoundingClientRect().width;
+  cropSet(1);
+}
+function closeCrop() {
+  cropPts.clear(); cropLast = null;
+  const el = $('#cropimg');
+  if (el) { el.removeAttribute('src'); el.removeAttribute('style'); }
+  if (C) URL.revokeObjectURL(C.url);       // after the src is gone, or the picture blanks first
+  C = null;
+  if ($('#crop').open) $('#crop').close();
+}
+// Cancel from a picked file goes back to the form. Cancel from the camera means the shot
+// was wrong, not the idea, so it goes back to the camera.
+function cropBack() {
+  const from = C && C.from;
+  closeCrop();
+  if (from === 'cam') avatarCam();
+}
+// A box that changed width under a picture already in it leaves the frame lying about
+// what will be saved.
+addEventListener('resize', () => {
+  if (!C || !$('#crop').open) return;
+  C.box = $('#cropbox').getBoundingClientRect().width;
+  cropSet(C.scale);
+});
+
+async function useCrop() {
+  const {sx, sy, sw} = cropRect(C.natW, C.natH, C.box, C.scale, C.x, C.y);
+  const c = document.createElement('canvas');
+  c.width = c.height = CROP_OUT;
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage($('#cropimg'), sx, sy, sw, sw, 0, 0, CROP_OUT, CROP_OUT);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+  if (!blob) return alert('That picture could not be saved. Try another one.');
+  clearAvatar();
+  avatarFile = new File([blob], 'avatar.jpg', {type: 'image/jpeg'});
+  avatarPrev = URL.createObjectURL(blob);
+  // Straight into the form, at the size it will actually be seen at. Nothing is uploaded
+  // until Save, so this is the last look before it is anybody else's business.
+  const prev = $('#avprev');
+  if (prev) prev.innerHTML = `<div class="av xl"><img src="${esc(avatarPrev)}" alt=""></div>`;
+  closeCrop();
+}
+
+// Held until Save, the way a recorded clip is held until Post.
+let avatarFile = null, avatarPrev = null;
+function clearAvatar() {
+  if (avatarPrev) URL.revokeObjectURL(avatarPrev);
+  avatarFile = null; avatarPrev = null;
+}
+function avatarCam() { openCam('avatar'); }
+function pickAvatar(input) {
+  const f = input.files && input.files[0];
+  input.value = '';                        // or choosing the same file twice does nothing
+  if (!f) return;
+  if (!/^image\//.test(f.type)) return alert('That is not a picture.');
+  if (f.size > 25 * 1048576) return alert(`That picture is ${mb(f.size)} MB, which is too big to open. Pick a smaller one.`);
+  openCrop(f, 'file');
 }
 
 // ---- shrinking a clip before it goes over the wire
