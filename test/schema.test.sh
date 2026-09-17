@@ -35,6 +35,14 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' RETURN 2>/dev/null || true
 
 # Stand-ins for the pieces Supabase provides, matching how the real ones behave.
 cat > "$WORK/shim.sql" <<'EOF'
+-- The two roles PostgREST connects as. Supabase creates them; a plain Postgres has
+-- neither, so a grant naming one is an error rather than a no-op. Only 'authenticated'
+-- is granted anything today, but both exist on the real thing and a shim that is half
+-- the truth is worse than one that is all of it.
+do $r$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+end $r$;
 create schema if not exists auth;
 create table auth.users (id uuid primary key);
 create function auth.uid() returns uuid language sql stable as
@@ -84,8 +92,16 @@ open(f'{w}/base.sql', 'w').write(
 # below. Anything after them still has to be applied, or a later block would be silently
 # skipped. All of them, not just the first: a second one was added in v16, and cutting only
 # the first left it in to fail on a plain Postgres.
-CRON = '-- pg_cron runs it every hour'
+#
+# Cut on the statements rather than on the comment above them. Every scheduling block
+# happened to open with the same sentence, so that is what this matched on, and the first
+# one worded differently would have been left in to fail here for a reason nothing said out
+# loud. Two things go: the extension itself, which is not installable on a plain Postgres,
+# and each scheduling call, which needs it. The comment used to carry the extension line out
+# with it by accident, which is exactly the kind of thing a marker made of prose does.
 body = s[s.index('-- v6 (wheels)'):]
+body = body.replace('create extension if not exists pg_cron;\n', '')
+CRON = 'select cron.unschedule('
 while CRON in body:
     cut = body.index(CRON)
     body = body[:cut] + body[body.index('$cron$);', cut) + len('$cron$);'):]

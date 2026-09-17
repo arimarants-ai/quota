@@ -307,6 +307,64 @@ was starting rejects with `AbortError`, a browser that will not start one unprom
 with `NotAllowedError`, and a request dropped because the screen it belonged to has gone
 rejects with nothing worth reading. None of the three is a fault anybody can act on.
 
+## Questioning somebody's proof
+
+A flag is one person saying a post does not meet the challenge, and the group deciding. It
+is deliberately not a report to a moderator: there is no moderator, and the people who know
+whether twenty pushups were twenty pushups are the people in the group.
+
+The outline beside the like and the reaction opens a sheet asking why — the reason is what
+everybody else votes on, so there is no flagging without one. It fills in once a flag exists,
+and a line across the bottom of the post says where the question got to, on your own post
+too, which carries no flag button at all.
+
+**What an upheld flag does** is stop the post counting towards its day. The clip is not
+deleted and nothing on it is rewritten — the group can still watch what it decided about.
+The day simply goes back to what it was without it, and every rule already written on top
+of the totals follows on its own: the chips, the streak, the completion rate, whether a
+challenge is finished. None of them know flags exist. A flagged day that is never redone is
+an ordinary missed day, with no special case anywhere.
+
+That is also why nothing here writes to `posts`. A column there would have to be written by
+something, and the only things allowed to write a post are its author and
+`post_edit_guard()`, which exists precisely to stop a post changing after the group saw it.
+So the post is left alone and the flag carries the verdict, which the app reads off rows it
+already loads.
+
+**Three rules are in the database** rather than in the page, because all three stop being
+true the moment somebody writes their own request: you cannot flag your own post or vote on
+the flag against it; one flag per post, ever, so a post the group already stood behind is
+not re-litigated; and **when it closes is the database's**, not the browser's — a `closes_at`
+the client picks is a clock the client can move.
+
+It closes **three hours before the flagged person's own midnight**, wherever in the world
+they are, worked out from `profiles.tz` — the same column the spin-day reminder runs on —
+so there is still time to redo it. A flag raised after that hour has already gone gets half
+an hour instead, so a late one still decides today rather than expiring on the spot or
+running past the day it is about. Everybody eligible having voted closes it early.
+
+**More agreeing than not upholds it; anything else, a tie included, leaves the post
+standing.** A tie is not a coin toss — the post stands and its day stays counted, exactly as
+if nothing had been said.
+
+`close_due_flags()` is the one thing that writes an outcome, runs as the owner, and decides
+by the same rule however it was reached: from the app at the top of every load, so whoever
+is looking sees a result rather than a dead clock, and from `pg_cron` every ten minutes for
+everybody who is not. Ten rather than the hour the wheel reminder uses, because a flag
+closes at whatever minute its half hour lands on and a result fifty minutes late is one that
+arrives after the person could have done anything about it.
+
+`leftOf()` and `keepClocks()` are the running clock. One interval for every clock on the
+page, started when there is one and stopped the moment there is not, because `render()`
+calls it after it draws — a timer running on a screen with no clock on it is a wake-up every
+second for nothing. A clock reaching zero asks the server for the answer rather than working
+one out, throttled on `lastLoad`.
+
+**This needs the v27 block of `schema.sql`.** Until it is run the two tables do not exist,
+and the app loads them softly and draws itself without the feature — the same way comments
+have worked since v2. A feature that is not switched on must not be a page that will not
+come up. It also wants the `notify` function redeployed, which adds `flag` and `flag_closed`.
+
 ## Stories are one line, not one person
 
 `storyPeople()` decides the order once and both the row and the viewer use it: yours first,

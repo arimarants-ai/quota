@@ -131,6 +131,26 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
   return justFinished ? `${name} completed the day's goal` : `${name} did ${what}`;
 }
 
+/**
+ * Text for a flag: one person questioning whether a post met the challenge, and the group
+ * deciding. Four different people want four different sentences out of the same two events,
+ * so who is being told is an argument rather than something guessed from the row.
+ *
+ * `mine` is true when the post being questioned is the reader's own. Everyone else in the
+ * group is being asked to vote; the person it is about is being told, and has no vote.
+ */
+export function flagFor(name: string, what: string, mine: boolean): string {
+  return mine ? `${name} questioned your ${what}. The group is deciding.`
+              : `${name} questioned ${what}. Have your say.`;
+}
+export function verdictFor(what: string, upheld: boolean, mine: boolean): string {
+  if (mine) {
+    return upheld ? `The group says your ${what} needs redoing. There is still time today.`
+                  : `The group let your ${what} stand.`;
+  }
+  return upheld ? `The group says ${what} needs redoing.` : `The group let ${what} stand.`;
+}
+
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
 export type Who = { username: string; display_name?: string | null };
 export const who = (p: Who) => p.display_name || p.username;
@@ -267,6 +287,32 @@ Deno.serve(async (req) => {
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
     }));
+  }
+
+  // Somebody questioned a post, or the group finished deciding about one. Everyone in the
+  // group hears either way, and the person it is about hears a different sentence: they are
+  // being told, not asked, because they do not get a vote on their own.
+  if (kind === 'flag' || kind === 'flag_closed') {
+    const { id, post_id, by_user, outcome } = record ?? {};
+    if (!post_id) return new Response('ignored', { status: 200 });
+    const [[post], [raiser]] = await Promise.all([
+      rest(`posts?id=eq.${post_id}&select=user_id,group_id,metric,amount,challenge`),
+      by_user ? rest(`profiles?id=eq.${by_user}&select=username,display_name`) : Promise.resolve([{}]),
+    ]);
+    if (!post) return new Response('ignored', { status: 200 });
+    const members = await rest(`group_members?group_id=eq.${post.group_id}&select=user_id`);
+    const what = `${post.amount} ${post.challenge ? `${post.challenge} ` : ''}${post.metric}`;
+    const url = id ? `${SITE_URL}/#flag-${id}` : atPost(post_id);
+    // The owner is told about their own; everyone else is asked. Two blasts rather than
+    // one, because the same words cannot be right for both.
+    const others = members.map((m: { user_id: string }) => m.user_id)
+      .filter((u: string) => u !== post.user_id && (kind === 'flag_closed' || u !== by_user));
+    const line = (mine: boolean) => kind === 'flag'
+      ? flagFor(raiser?.username ? who(raiser) : 'Someone', what, mine)
+      : verdictFor(what, outcome === 'upheld', mine);
+    const tag = `flag-${id ?? post_id}${kind === 'flag_closed' ? '-done' : ''}`;
+    await blast([post.user_id], JSON.stringify({ title: 'Quota', body: line(true), url, tag }));
+    return blast(others, JSON.stringify({ title: 'Quota', body: line(false), url, tag }));
   }
 
   if (kind === 'comment' || kind === 'like' || kind === 'reaction') {

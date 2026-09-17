@@ -2019,6 +2019,199 @@ await withPage(NO_WHEEL, async page => {
   await page.evaluate(() => closeStory());
 });
 
+// ---- questioning somebody's proof
+//
+// The rules themselves live in the database and are checked there (test/policies.test.sql).
+// What is checked here is that the app never offers what the database would refuse, and
+// that an upheld flag really does take the day back — that last one is the whole point of
+// the feature and it is worked out entirely in the browser.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  // Sam's post is the one that is not yours. HISTORY in the stub is all u2's.
+  const other = await page.evaluate(() => S.posts.find(p => p.userId !== S.me.id).id);
+  const own = await page.evaluate(() => S.posts.find(p => p.userId === S.me.id).id);
+  check('the flag is on somebody else’s post',
+    await page.locator(`.post[data-post="${other}"] .acts .flg`).count() === 1);
+  check('  and not on your own, because you cannot question yourself',
+    await page.locator(`.post[data-post="${own}"] .acts .flg`).count() === 0);
+  check('  drawn as an outline until somebody uses it',
+    await page.evaluate(o => {
+      const s = document.querySelector(`.post[data-post="${o}"] .acts .flg svg`);
+      return getComputedStyle(s).fill === 'none';
+    }, other));
+
+  await page.locator(`.post[data-post="${other}"] .acts .flg`).click();
+  await page.waitForTimeout(350);
+  check('  tapping it asks what is wrong rather than flagging on the spot',
+    await page.locator('#dlg textarea').count() === 1);
+  check('    and says the group decides', /group decides/i.test(await page.locator('#dlg').innerText()),
+    await page.locator('#dlg').innerText());
+  check('    and that the person it is about does not get a vote',
+    /does not get a vote/i.test(await page.locator('#dlg').innerText()));
+
+  // Cancel has to actually cancel. A half-written flag that goes up anyway is the worst
+  // possible failure for a feature whose whole job is being fair.
+  await page.locator('#dlg textarea').fill('elbows barely bent');
+  await page.locator('#dlg .row button', { hasText: /cancel/i }).click();
+  await page.waitForTimeout(400);
+  check('  cancelling raises nothing at all',
+    await page.evaluate(() => self.__flags.length) === 0
+    && await page.evaluate(() => S.flags.length) === 0);
+
+  // And an empty one is not a flag either: the reason is what everybody else votes on.
+  await page.locator(`.post[data-post="${other}"] .acts .flg`).click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(400);
+  check('  and one with no reason on it does not go up either',
+    await page.evaluate(() => self.__flags.length) === 0);
+
+  await page.locator('#dlg textarea').fill('not full range, elbows barely bent');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(1100);
+  const raised = await page.evaluate(() => self.__flags.at(-1));
+  check('  submitting raises it against that post, with the reason on it',
+    raised && raised.post_id === other && /elbows/.test(raised.reason), JSON.stringify(raised));
+  check('    and takes you straight to the thing you just started',
+    await page.evaluate(() => typeof S.flag) === 'number'
+    && await page.locator('#app .fbar').count() === 1);
+  check('    with a clock on it, because how long is left is the whole question',
+    /\d+:\d\d/.test(await page.locator('#app .fbar .clock b').innerText()),
+    await page.locator('#app .fbar').innerText());
+  check('    the reason the group is being asked to read',
+    /elbows/.test(await page.locator('#app .why p').innerText()));
+  check('    and the clip it is about', await page.locator('#app .post .reel').count() === 1);
+
+  // Raising one is a vote, or a pair could never reach "everybody has voted".
+  check('  raising it counted as agreeing with it',
+    await page.evaluate(() => myVote(S.flag)?.yes) === true);
+  check('    and that shows as the one you picked',
+    await page.locator('#app .votes button.on').count() === 1
+    && /needs redoing/i.test(await page.locator('#app .votes button.on').innerText()));
+
+  // Changing your mind before the result is out is not a second vote.
+  await page.locator('#app .votes button', { hasText: /it counts/i }).click();
+  await page.waitForTimeout(900);
+  check('  you can change it while the clock is running',
+    await page.evaluate(() => myVote(S.flag)?.yes) === false
+    && await page.evaluate(() => self.__fvotes.filter(v => v.user_id === 'u1').length) === 1,
+    JSON.stringify(await page.evaluate(() => self.__fvotes)));
+
+  // Back out, and the post now says a question has been asked about it.
+  await page.locator('#app .fbar .backx').click();
+  await page.waitForTimeout(500);
+  check('  the post itself says it is being questioned',
+    await page.locator(`.post[data-post="${other}"] .fstrip`).count() === 1
+    && /deciding/i.test(await page.locator(`.post[data-post="${other}"] .fstrip`).innerText()),
+    await page.locator(`.post[data-post="${other}"] .fstrip`).innerText());
+  check('    and the flag on it is filled in now, and goes to the decision',
+    await page.evaluate(o => {
+      const s = document.querySelector(`.post[data-post="${o}"] .acts .flg svg`);
+      return getComputedStyle(s).fill !== 'none';
+    }, other));
+  check('  and the feed carries the way back to it',
+    await page.locator('.fbar-chip').count() === 1
+    && /\d+:\d\d/.test(await page.locator('.fbar-chip em').innerText()),
+    await page.locator('.fbar-chip').innerText());
+});
+
+// What an upheld flag actually does, which is the whole point of the feature and is worked
+// out in the browser: the amount stops counting towards the day it was posted on, so the
+// day reopens and every rule written on top of the totals follows without knowing flags
+// exist. Driven through a load rather than by poking S, because the filtering happens while
+// the totals are being read.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const before = await page.evaluate(() => {
+    const g = myGroups()[0], p = S.posts.find(x => x.userId === 'u2');
+    return { g: g.id, post: p.id, day: p.day, u: p.userId,
+             did: done(g, p.userId, p.metric, p.day), streak: streak(g, p.userId) };
+  });
+  check('a day counts what was posted on it', before.did > 0, JSON.stringify(before));
+
+  await page.evaluate(b => {
+    self.__flags.push({ id: 700, post_id: b.post, by_user: 'u1', reason: 'not full range',
+      created_at: new Date().toISOString(), closes_at: new Date(Date.now() - 6e4).toISOString(),
+      outcome: 'upheld', closed_at: new Date().toISOString() });
+    return load();
+  }, before);
+  await page.waitForTimeout(900);
+  const after = await page.evaluate(b => ({
+    did: done(S.groups.find(g => g.id === b.g), b.u, 'pushups', b.day),
+    streak: streak(S.groups.find(g => g.id === b.g), b.u),
+    flagged: S.flags.length,
+  }), before);
+  check('  and an upheld flag takes that amount back off it',
+    after.did === before.did - (await page.evaluate(b => S.posts.find(p => p.id === b.post)?.amount ?? 0, before)),
+    `${before.did} -> ${after.did}`);
+  check('    which is what reopens the day rather than anything special-casing a streak',
+    after.streak <= before.streak, `${before.streak} -> ${after.streak}`);
+  check('  the post is not deleted: the group can still watch what it decided about',
+    await page.locator(`.post[data-post="${before.post}"] .reel`).count() === 1);
+  check('    and it says what was decided',
+    /needs redoing/i.test(await page.locator(`.post[data-post="${before.post}"] .fstrip`).innerText()),
+    await page.locator(`.post[data-post="${before.post}"] .fstrip`).innerText());
+
+  // A decision reached is not a clock any more.
+  await page.locator(`.post[data-post="${before.post}"] .fstrip`).click();
+  await page.waitForTimeout(500);
+  check('  opening it shows the verdict rather than a vote',
+    await page.locator('#app .verdict').count() === 1
+    && await page.locator('#app .votes').count() === 0,
+    await page.locator('#app').innerText().then(t => t.slice(0, 200)));
+  check('    with no clock left running on it',
+    await page.evaluate(() => !!tickTimer) === false);
+});
+
+// A flag against you: you are told, and you do not get a vote on your own.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    const p = S.posts.find(x => x.userId === S.me.id);
+    self.__flags.push({ id: 701, post_id: p.id, by_user: 'u2', reason: 'looked short to me',
+      created_at: new Date().toISOString(), closes_at: new Date(Date.now() + 3 * 3600e3).toISOString(),
+      outcome: null, closed_at: null });
+    self.__fvotes.push({ flag_id: 701, user_id: 'u2', agree: true });
+    return load();
+  });
+  await page.waitForTimeout(900);
+  check('a flag against your own post says so in the feed',
+    await page.locator('.fbar-chip.mine').count() === 1
+    && /your proof is being questioned/i.test(await page.locator('.fbar-chip').innerText()),
+    await page.locator('.fbar-chip').innerText());
+  await page.locator('.fbar-chip').click();
+  await page.waitForTimeout(600);
+  check('  and opening it offers no vote, because you do not get one',
+    await page.locator('#app .votes').count() === 0
+    && /do not get a vote/i.test(await page.innerText('#app')),
+    await page.innerText('#app'));
+  check('    but does show what was said about it',
+    /looked short to me/.test(await page.locator('#app .why p').innerText()));
+
+  // A notification about one lands on it, not near it.
+  await page.evaluate(() => { S.flag = null; render(); location.hash = '#flag-701'; });
+  await page.waitForTimeout(600);
+  check('  a notification about a flag opens that flag',
+    await page.evaluate(() => S.flag) === 701 && await page.locator('#app .why').count() === 1);
+  check('    and leaves a way back out of it',
+    await page.locator('#app .fbar .backx').count() === 1);
+  await page.locator('#app .fbar .backx').click();
+  await page.waitForTimeout(500);
+  check('    which goes back to the feed', await page.evaluate(() => S.flag) === null);
+});
+
+// A project where the v27 block has not been run. The tables are not there, and the app has
+// to come up without the feature rather than not come up.
+await withPage({ ...NO_WHEEL, noFlagTables: true }, async page => {
+  await settle(page);
+  check('without the schema block the app still loads', await page.isVisible('#bar')
+    && await page.locator('.post').count() > 0);
+  check('  with no error banner over it', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err').innerText());
+  check('  and no flag offered on anything', await page.locator('.acts .flg').count() === 0);
+  check('  and nothing in the feed about it', await page.locator('.fbar-chip').count() === 0);
+});
+
 // Which groups you are willing to have on show.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

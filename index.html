@@ -557,6 +557,93 @@ button.rg{border:0;font:inherit}
   padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
 .onebar .backx{margin:0 0 0 6px}           /* the bar already has the padding the screen version needs */
 .onewrap{max-width:600px;margin:0 auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+/* ---- questioning somebody's proof ----
+   The flag is an outline until somebody uses it, and then it is filled: the post itself
+   says a question has been asked about it rather than hiding that on a page of its own. */
+.acts .flg svg{fill:none}
+.acts .flg.on{color:var(--mkt)}
+.acts .flg.on svg{fill:currentColor;stroke:currentColor}
+/* A line across the bottom of the post saying where that question got to. Your own post
+   carries no flag button and very much needs this. */
+.fstrip{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 14px;background:var(--soft);
+  color:var(--text);border-top:1px solid var(--line);font-size:13px;line-height:1.35;border-radius:0}
+.fstrip svg{width:17px;height:17px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.fstrip span{flex:1;min-width:0;font-weight:600}
+.fstrip b{font-weight:800}
+.fstrip em{font-style:normal;flex:none;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fstrip.bad{background:#fdeef0;color:#8a1f30}
+.fstrip.good{background:var(--mktint);color:var(--mkt)}
+:root[data-theme=dark] .fstrip.bad{background:#2a1418;color:#ff8ea0}
+/* The way in, in the feed, because it is a thing with a clock on it rather than a place
+   to browse. Not there at all when nothing is running, which is most days. */
+.fbar-chip{display:flex;align-items:center;gap:10px;width:calc(100% - 28px);margin:12px 14px 0;padding:12px 13px;
+  background:var(--text);color:var(--bg);text-align:left;font-size:13.5px;font-weight:700;border-radius:0}
+.fbar-chip svg{width:19px;height:19px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.fbar-chip span{flex:1;min-width:0}
+.fbar-chip em{font-style:normal;flex:none;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:13.5px;
+  font-variant-numeric:tabular-nums;color:var(--g2)}
+.fbar-chip.mine{background:#8a1f30;color:#fff}
+.fbar-chip.mine em{color:#ffc9d2}
+/* The screen. A bar with the clock in it, because how long is left is the whole question. */
+.fbar{display:flex;align-items:center;gap:12px;padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.fbar h2{margin:0;font-size:17px;font-weight:800}
+.fbar .backx{margin:0}
+.fbar .clock{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--text);color:var(--bg);padding:6px 10px}
+.fbar .clock svg{width:15px;height:15px;stroke:var(--g2);fill:none;stroke-width:2.2;stroke-linecap:round}
+.fbar .clock b{font-size:14px;font-variant-numeric:tabular-nums}
+.fbar .shut{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.verdict{padding:24px 18px 20px;background:var(--text);color:var(--bg)}
+.verdict .sec{margin:0 0 6px;color:var(--muted)}
+.verdict b{display:block;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:38px;line-height:1.05;
+  letter-spacing:-.01em;text-transform:uppercase;margin-bottom:8px}
+.verdict p{font-size:14px;line-height:1.5;opacity:.72}
+.verdict.bad{background:#8a1f30;color:#fff}
+/* On this one screen the clip is evidence rather than the thing you came to watch, so it
+   is capped: the reason and the two answers have to be reachable without hunting for them,
+   and a 4:5 card plus a verdict is already more than a phone shows at once. */
+.fbar ~ .post .reel,.verdict + .post .reel{aspect-ratio:auto;height:min(42vh,340px)}
+.why{padding:14px;border-bottom:1px solid var(--line)}
+.why .head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.why .head b{font-size:13.5px;font-weight:800}
+.why .head span{font-size:12px;color:var(--muted)}
+.why p{font-size:15px;line-height:1.5}
+.ask{padding:16px 14px 8px}
+.ask b{display:block;font-size:16px;font-weight:800;margin-bottom:3px}
+.ask span{font-size:13px;color:var(--muted)}
+.votes{display:flex;gap:10px;padding:12px 14px 14px}
+.votes button{flex:1;padding:15px 8px;font-size:14.5px;font-weight:800;background:var(--soft);color:var(--text);
+  display:flex;flex-direction:column;align-items:center;gap:7px;line-height:1.2;border-radius:0}
+.votes button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.votes button.on{background:var(--mk);color:var(--onmk)}
+.tally{padding:0 14px calc(28px + env(safe-area-inset-bottom))}
+.tally .track{height:6px;background:var(--line);overflow:hidden}
+.tally .track i{display:block;height:100%;background:var(--mk)}
+.tally .rows{padding:4px 0}
+.tally .rw{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)}
+.tally .rw:last-child{border-bottom:0}
+.tally .rw b{font-size:14px;font-weight:700;flex:1;min-width:0}
+.tally .rw em{font-style:normal;font-size:12.5px;font-weight:800;color:var(--mkt);flex:none}
+.tally .rw em.no{color:var(--muted)}
+.fine{font-size:12px;line-height:1.45;margin-top:10px}
+/* The list, when more than one is running. */
+.flist{padding:2px 0}
+.frow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 14px;background:none;
+  color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
+.frow .th{width:44px;height:55px;flex:none;background:#0b0c0e;overflow:hidden;display:block}
+.frow .th img,.frow .th video{width:100%;height:100%;object-fit:cover;display:block}
+.frow .gr{flex:1;min-width:0}
+.frow b{display:block;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow em{display:block;font-style:normal;font-size:12.5px;color:var(--muted);margin-top:2px}
+.frow .tag{flex:none;font-size:11.5px;font-weight:800;padding:5px 8px;background:var(--soft);color:var(--muted)}
+.frow .tag.live{color:var(--text);font-variant-numeric:tabular-nums}
+.frow .tag.bad{background:#fdeef0;color:#8a1f30}
+.frow .tag.good{background:var(--mktint);color:var(--mkt)}
+/* The chip naming the post in the sheet that asks why. */
+.fchip{display:flex;align-items:center;gap:9px;margin:16px 0 14px;padding:9px 10px;background:var(--soft)}
+.fchip b{display:block;font-size:13px;font-weight:800}
+.fchip em{font-style:normal;font-size:12px;color:var(--muted)}
+#dlg textarea{width:100%;padding:12px;border:1px solid var(--line);background:var(--card);color:var(--text);
+  font:inherit;font-size:16px;resize:none;border-radius:0}
 /* ---- settings ---- */
 .sec{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 18px 7px}
 /* A switch on its own does not say what it switches, so the list stays either way. */
@@ -1007,7 +1094,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v61';
+const BUILD = 'quota-v62';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1052,7 +1139,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true, legal: null};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1066,6 +1153,14 @@ const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.i
 const doneWith = (g, uid, metric, sp, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day
   && t.sp === sp.id && t.ch === effChallenge(sp)).reduce((a, t) => a + t.n, 0);
 const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
+// ---- flags: one person saying a post does not meet the challenge, and the group deciding
+const flagOf = postId => S.flags.find(f => f.post === postId);
+const votesOn = fid => S.fvotes.filter(v => v.f === fid);
+const myVote = fid => S.fvotes.find(v => v.f === fid && v.u === me().id);
+// Upheld is the only outcome that changes anything. The post is not deleted and nothing on
+// it is rewritten — the group can still watch what it decided about.
+const voidedPosts = () => new Set(S.flags.filter(f => f.outcome === 'upheld').map(f => f.post));
+const openFlags = () => S.flags.filter(f => !f.outcome);
 // Proof is a clip or a picture. Which one is read off the file, so nothing new had to be
 // stored and every post that already exists is a clip, as it was.
 const IMAGE = /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i;
@@ -1221,17 +1316,28 @@ function num(n) {
 }
 const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(user(id))); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
+// A query whose table may not be there yet. null means the feature is not switched on, and
+// the app draws itself without it rather than refusing to draw at all.
+const soft = async p => { const {data, error} = await p; return error ? null : data; };
+
 async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes] = await Promise.all([
+  // Anything whose time is up is closed before it is read, so nobody is shown a dead clock
+  // or asked to vote on something that is over. Cron does the same every ten minutes for
+  // the sake of people who are not looking, and this does nothing at all on a project where
+  // the v27 block has not been run.
+  await sb.rpc('close_due_flags').catch(() => {});
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
     q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
-    q(sb.from('posts').select('group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
+    // id, because a post the group decided did not count has to be left out of the day it
+    // was posted on, and the flag names the post rather than the total.
+    q(sb.from('posts').select('id,group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
     q(sb.from('wheels').select('*')),
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
@@ -1245,7 +1351,13 @@ async function fetchAll() {
     q(sb.from('story_reactions').select('story_id,user_id,emoji')),
     q(sb.from('badges').select('user_id,streak,earned_at')),
     q(sb.from('comment_likes').select('comment_id,user_id')),
+    // Softly: until the v27 block has been run these two tables do not exist, and a hard
+    // failure here would take the whole load — and with it the whole app — down over a
+    // feature that is simply not switched on yet. Comments have worked this way since v2.
+    soft(sb.from('flags').select('*')),
+    soft(sb.from('flag_votes').select('*')),
   ]);
+  S.noFlags = flags === null;
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
   // view as a missing array and take the whole screen down with it — and since render()
@@ -1279,7 +1391,18 @@ async function fetchAll() {
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
     members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
-  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
+  S.flags = (flags || []).map(f => ({id: f.id, post: f.post_id, by: f.by_user, reason: f.reason,
+    ts: Date.parse(f.created_at), closes: Date.parse(f.closes_at),
+    outcome: f.outcome || null, closedAt: f.closed_at ? Date.parse(f.closed_at) : null}));
+  S.fvotes = (fvotes || []).map(v => ({f: v.flag_id, u: v.user_id, yes: !!v.agree}));
+  if (S.flag && !S.flags.some(f => f.id === S.flag)) S.flag = null;   // gone while it was open
+  // A post the group decided did not count is left out of the day it was posted on, which
+  // is the whole consequence of an upheld flag: the day goes back to what it was without
+  // it, and every rule already written on top of the totals — the chips, the streak, the
+  // completion rate, whether a challenge is finished — follows on its own without knowing
+  // flags exist at all.
+  const gone = voidedPosts();
+  S.totals = totals.filter(t => !gone.has(t.id)).map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
   S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
   // A path that could not be signed — the file is gone, or storage said no — comes back
   // with no URL. Left as null it becomes src="null" and a player that silently does
@@ -1418,7 +1541,8 @@ function screenHTML() {
   if (!m) return S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
   if (needsTerms(m)) return acceptView();
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
-  return S.settings ? settingsView()
+  return S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
+    : S.settings ? settingsView()
     : S.who ? personView(S.who)
     : g ? groupView(g)
     : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
@@ -1485,6 +1609,7 @@ function render() {
   const ico = {feed: '<path d="M4 6h16M4 12h16M4 18h10"/>', groups: '<circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/>', friends: '<circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/>', profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'};
   const tab = (t, l) => `<button data-tab="${t}" onclick="go('${t}')"><svg viewBox="0 0 24 24">${ico[t]}</svg>${l}</button>`;
   watchClips();
+  keepClocks();
   // The bar is only rebuilt when its markup changes; which tab is on is a class and the
   // underline's position, so the underline can slide rather than be redrawn.
   const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
@@ -1687,11 +1812,34 @@ function feedView() {
     ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}</b></div>`).join('')
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
     + storyRow()
+    + flagsBar()
     + pushPrompt()
     + spinPrompt()
     + activityBox()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
+// The way to everything being questioned right now. It is in the feed rather than behind a
+// tab because it is a thing with a clock on it: something you have hours to answer, not a
+// place to browse. It is not there at all when nothing is running, which is most days.
+function flagsBar() {
+  if (S.noFlags) return '';
+  const list = flagList();
+  if (!list.length) return '';
+  const live = list.filter(f => !f.outcome);
+  const mine = live.filter(f => { const p = postById(f.post); return p && p.userId === me().id; });
+  const todo = live.filter(f => { const p = postById(f.post); return p && p.userId !== me().id && !myVote(f.id); });
+  const say = mine.length ? `${mine.length === 1 ? 'Your proof is' : `${mine.length} of your posts are`} being questioned`
+    : todo.length ? `${todo.length === 1 ? 'A post needs' : `${todo.length} posts need`} your vote`
+    : live.length ? `${live.length === 1 ? 'One post is' : `${live.length} posts are`} still being decided`
+    : 'A decision came in';
+  const soon = live.length ? live.reduce((a, f) => Math.min(a, f.closes), Infinity) : 0;
+  return `<button type="button" class="fbar-chip${mine.length ? ' mine' : ''}"
+      onclick="openFlag(${live.length === 1 ? live[0].id : "'all'"})">
+    <svg viewBox="0 0 24 24" aria-hidden="true">${FLAG_PATH}</svg>
+    <span>${say}</span>
+    ${soon ? `<em class="num" data-until="${soon}">${esc(leftOf(soon))}</em>` : '<em>Closed</em>'}</button>`;
+}
+
 // ---- stories
 // Only people with something running appear, unseen first, the way every app that has
 // these does it. Somebody in your groups who has posted nothing is not a gap in the row —
@@ -2416,7 +2564,10 @@ function groupView(g) {
   ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
   <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
-function feed(ps, showGroup) {
+// bare is the flag screen: the post, and nothing you do to a post. What is being asked
+// there is one question with two answers, and putting the reel, the reason and the vote on
+// one screen is the difference between deciding and scrolling to find where to.
+function feed(ps, showGroup, bare) {
   if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
   let day = '';
   return ps.map(p => {
@@ -2437,9 +2588,9 @@ function feed(ps, showGroup) {
       <div class="prg"><b></b></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
       ${reactBubbles(p.id)}</div>
-      ${acts(p, cs.length)}
+      ${bare ? '' : acts(p, cs.length)}
       ${p.caption ? `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>` : ''}
-      ${commentsFor(p, cs)}</div>`;
+      ${bare ? '' : commentsFor(p, cs)}</div>`;
   }).join('');
 }
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
@@ -2615,8 +2766,66 @@ function acts(p, comments) {
     <button type="button" class="react" onclick="pickReact(event,${p.id})" aria-label="React">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>
     </button>
+    ${flagButton(p)}
     <span class="cc">${num(comments)} ${comments === 1 ? 'comment' : 'comments'}</span>
-  </div>`;
+  </div>${flagStrip(p)}`;
+}
+// ---- the clock on a flag
+// A running one, because the whole question is how long is left. Under an hour it drops the
+// hours rather than showing a leading zero nobody reads.
+const two = n => String(n).padStart(2, '0');
+function leftOf(at) {
+  const s = Math.max(0, Math.round((at - Date.now()) / 1000));
+  if (!s) return 'time up';
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h}:${two(m)}:${two(s % 60)}` : `${m}:${two(s % 60)}`;
+}
+// One interval for every clock on the page, started when there is one and stopped the
+// moment there is not: a timer running on a screen with no clock on it is a wake-up every
+// second for nothing. render() calls this after it draws, so it follows the screen about
+// without anything having to remember to switch it off.
+let tickTimer = null;
+function tickClocks() {
+  const els = [...document.querySelectorAll('[data-until]')];
+  if (!els.length) { clearInterval(tickTimer); tickTimer = null; return; }
+  let out = false;
+  els.forEach(el => { const at = +el.dataset.until; el.textContent = leftOf(at); if (at <= Date.now()) out = true; });
+  // A clock reaching zero is not the result. The database decides — close_due_flags() runs
+  // at the top of every load — so this asks for the answer rather than working one out.
+  // Throttled on lastLoad, or a flag the server cannot close would be asked about every
+  // second for as long as the screen was open.
+  if (out && Date.now() - lastLoad > 5000) load();
+}
+function keepClocks() {
+  if (document.querySelector('[data-until]')) { if (!tickTimer) tickTimer = setInterval(tickClocks, 1000); }
+  else if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+}
+
+// An outline beside the like and the reaction, on everybody's post but your own. Filled in
+// once somebody has raised one, so the post itself says a question has been asked about it
+// rather than hiding that away on a page of its own.
+const FLAG_PATH = '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>';
+function flagButton(p) {
+  if (S.noFlags || p.userId === me().id) return '';
+  const f = flagOf(p.id);
+  if (f) return `<button type="button" class="flg on" onclick="openFlag(${f.id})" aria-label="Questioned — see what the group said">
+    <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
+  return `<button type="button" class="flg" onclick="flagDlg(${p.id})" aria-label="Question this one">
+    <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
+}
+// And a line across the post saying where that question got to. Your own post has no flag
+// button on it but very much needs this one.
+function flagStrip(p) {
+  const f = S.noFlags ? null : flagOf(p.id);
+  if (!f || S.flag === f.id) return '';    // not on the screen that is already about it
+  const mine = p.userId === me().id;
+  const what = f.outcome === 'upheld' ? `<b>The group said this needs redoing.</b> It no longer counts towards ${mine ? 'your' : 'the'} day.`
+    : f.outcome ? `<b>The group let this stand.</b> It counts as it always did.`
+    : `<b>${esc(name(user(f.by)))} questioned this.</b> The group is deciding.`;
+  return `<button type="button" class="fstrip${f.outcome === 'upheld' ? ' bad' : f.outcome ? ' good' : ''}" onclick="openFlag(${f.id})">
+    <svg viewBox="0 0 24 24" aria-hidden="true">${FLAG_PATH}</svg>
+    <span>${what}</span>
+    ${f.outcome ? '' : `<em class="num" data-until="${f.closes}">${esc(leftOf(f.closes))}</em>`}</button>`;
 }
 
 // The replies, and a box that is always there to type in. No sheet to open: on a post you
@@ -2635,6 +2844,137 @@ function commentsFor(p, cs) {
     </form>
     <div class="emoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putEmoji(this,'${e}')">${e}</button>`).join('')}</div>
   </div>`;
+}
+
+// ---- raising one
+function flagDlg(postId) {
+  const p = postById(postId);
+  if (!p || S.noFlags || p.userId === me().id || flagOf(postId)) return;
+  const u = user(p.userId);
+  dlg(`<h2>Question this one</h2>
+    <p class="muted">The group decides, not you and not us. Say what is wrong with it — everyone voting reads this.</p>
+    <div class="fchip">${av(u, 'sm')}<span><b>${esc(name(u))} · ${esc(effort(p))}</b><em>${esc(dayLabel(p.day))}</em></span></div>
+    <form onsubmit="event.preventDefault();submitFlag(this,${postId})">
+      <textarea name="reason" maxlength="300" required rows="3" autocomplete="off"
+        placeholder="Not full range — elbows barely bent on most of them."></textarea>
+      <div class="row" style="margin-top:16px">
+        <button type="button" class="grow" onclick="dlg()">Cancel</button>
+        <button class="teal grow primary">Submit flag</button>
+      </div>
+    </form>
+    <p class="muted fine">${esc(name(u))} is told straight away and does not get a vote. It closes three hours
+      before their own midnight, wherever they are, so there is still time to redo it.</p>`);
+}
+// The word filter runs on a submit listener at the document, in the capture phase, so this
+// is never reached with a slur in it and nothing here has to remember to check.
+async function submitFlag(f, postId) {
+  const reason = f.reason.value.trim();
+  if (!reason) return;
+  working(f, '…');
+  try { await q(sb.from('flags').insert({post_id: postId, by_user: me().id, reason})); }
+  catch (e) { dlg(); return showErr('That flag did not go up.', String(e && e.message || e)); }
+  dlg();
+  await load();
+  const fl = flagOf(postId);
+  if (fl) openFlag(fl.id);                 // straight to the thing you just started
+}
+
+// ---- the screen it opens
+function openFlag(id) { if (S.noFlags) return; S.flag = id; S.settings = false; stackOn(); }
+function closeFlag() { S.flag = null; stackOff(); }
+// Everything still running, plus anything decided today, newest first. A flag whose post is
+// further back than the feed reaches is left out rather than drawn as a blank: they last
+// hours, so the post is always recent enough in practice.
+const flagList = () => S.flags.filter(f => postById(f.post))
+  .filter(f => !f.outcome || Date.now() - (f.closedAt || f.ts) < 864e5)
+  .sort((a, b) => (a.outcome ? 1 : 0) - (b.outcome ? 1 : 0) || b.ts - a.ts);
+
+function flagsView() {
+  const list = flagList();
+  return `<button type="button" class="backx" onclick="closeFlag()" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="hdr"><h1>Flagged</h1></div>
+    ${!list.length ? `<div class="card empty"><b>Nothing is being questioned</b>
+      <p class="muted">The flag on somebody's post is how one starts.</p></div>`
+    : `<div class="flist">${list.map(f => {
+      const p = postById(f.post), u = user(p.userId), v = votesOn(f.id);
+      const yes = v.filter(x => x.yes).length;
+      return `<button type="button" class="frow" onclick="openFlag(${f.id})">
+        <span class="th">${isPhoto(p) ? `<img alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
+          : `<video muted playsinline preload="metadata"${p.url ? ` src="${esc(p.url)}"` : ''}></video>`}</span>
+        <span class="gr"><b>${esc(name(u))} · ${esc(effort(p))}</b>
+          <em>${f.outcome === 'upheld' ? 'Needs redoing' : f.outcome ? 'Stands' : `${yes} of ${v.length} say redo`}</em></span>
+        ${f.outcome ? `<span class="tag ${f.outcome === 'upheld' ? 'bad' : 'good'}">${f.outcome === 'upheld' ? 'Redo' : 'Stands'}</span>`
+          : `<span class="tag live num" data-until="${f.closes}">${esc(leftOf(f.closes))}</span>`}</button>`;
+    }).join('')}</div>`}`;
+}
+
+function flagView(id) {
+  const f = S.flags.find(x => x.id === id);
+  if (!f) return flagsView();
+  const p = postById(f.post);
+  if (!p) return flagsView();
+  const mine = p.userId === me().id, v = votesOn(f.id), mv = myVote(f.id);
+  const yes = v.filter(x => x.yes).length, no = v.length - yes;
+  const g = S.groups.find(x => x.id === p.groupId);
+  const eligible = Math.max(0, (g ? g.members.length : v.length + 1) - 1);
+  const open = !f.outcome;
+  return `<div class="fbar">
+      <button type="button" class="backx" onclick="closeFlag()" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h2>Flagged</h2>
+      ${open ? `<span class="clock"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <b class="num" data-until="${f.closes}">${esc(leftOf(f.closes))}</b></span>`
+      : `<span class="shut">Closed</span>`}
+    </div>
+    ${f.outcome ? `<div class="verdict${f.outcome === 'upheld' ? ' bad' : ''}">
+      <span class="sec">The group decided</span>
+      <b>${f.outcome === 'upheld' ? 'Needs redoing' : 'It stands'}</b>
+      <p>${f.outcome === 'upheld'
+        ? `${esc(mine ? 'Your' : name(user(p.userId)) + '’s')} ${esc(effort(p))} no longer counts towards ${esc(dayLabel(p.day))}.`
+        : `${esc(effort(p))} counts, exactly as it did before.`}</p></div>` : ''}
+    ${feed([p], true, true)}
+    <div class="why">
+      <div class="head">${av(user(f.by), 'sm')}<b>${esc(name(user(f.by)))} questioned this</b><span>${esc(ago(f.ts))}</span></div>
+      <p>${esc(f.reason)}</p>
+    </div>
+    ${open ? (mine
+      ? `<div class="card empty"><b>This one is about you</b>
+          <p class="muted">You do not get a vote on it. Redoing it is the answer you get to give.</p></div>`
+      : `<div class="ask"><b>Does this count?</b><span>One vote each. You can change it until the clock runs out.</span></div>
+        <div class="votes">
+          <button type="button" class="${mv && !mv.yes ? 'on' : ''}" onclick="castVote(${f.id},false)">
+            <svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-8a2.5 2.5 0 0 1 3 2.5V9h4.5a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 17 19H7"/></svg>It counts</button>
+          <button type="button" class="${mv && mv.yes ? 'on' : ''}" onclick="castVote(${f.id},true)">
+            <svg viewBox="0 0 24 24"><path d="M17 13V4h3v9zM17 13l-4 8a2.5 2.5 0 0 1-3-2.5V15H5.5a2 2 0 0 1-2-2.4l1.4-6A2 2 0 0 1 7 5h10"/></svg>Needs redoing</button>
+        </div>`) : ''}
+    <div class="tally">
+      <span class="sec">${open ? `${v.length} of ${eligible} voted` : 'How it went'}</span>
+      <div class="track"><i style="width:${eligible ? Math.min(100, Math.round(v.length / eligible * 100)) : 100}%"></i></div>
+      <div class="rows">${v.map(x => `<div class="rw">${av(user(x.u), 'sm')}<b>${esc(name(user(x.u)))}</b>
+        <em class="${x.yes ? '' : 'no'}">${x.yes ? 'Needs redoing' : 'It counts'}</em></div>`).join('')}</div>
+      <p class="muted fine">${yes} ${yes === 1 ? 'says' : 'say'} redo · ${no} ${no === 1 ? 'says' : 'say'} it counts.
+        ${open ? 'An even split leaves the post standing.' : ''}</p>
+    </div>`;
+}
+// One vote each, and changing it before the result is out is not a second one. Shown first
+// and written after, the way a like is: a tap that waits on a round trip reads as a tap
+// that did nothing.
+async function castVote(fid, yes) {
+  const m = me(), had = myVote(fid);
+  if (had && had.yes === yes) return;
+  const before = S.fvotes;
+  S.fvotes = had ? S.fvotes.map(v => v === had ? {...v, yes} : v) : [...S.fvotes, {f: fid, u: m.id, yes}];
+  render();
+  try {
+    if (had) await q(sb.from('flag_votes').update({agree: yes}).eq('flag_id', fid).eq('user_id', m.id));
+    else await q(sb.from('flag_votes').insert({flag_id: fid, user_id: m.id, agree: yes}));
+  } catch (e) {
+    S.fvotes = before; render();
+    return showErr('That vote did not go through.', String(e && e.message || e));
+  }
+  // Everybody having voted ends it early, and that is the database's call, not this one's.
+  await load();
 }
 
 // What people have left on a post, drifting up the side of it the way likes drift up a
@@ -3594,7 +3934,7 @@ function vidPick(input) {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
-function go(tab) { const back = !!(S.open || S.who || S.settings); S.tab = tab; S.open = S.who = null; S.settings = false;
+function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag); S.tab = tab; S.open = S.who = S.flag = null; S.settings = false;
   backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
 
@@ -3696,6 +4036,7 @@ function stackOff() {
 function backAction() {
   if (!backY.length) return null;
   if (S.legal) return () => { S.legal = null; };
+  if (S.flag) return () => { S.flag = null; };
   if (S.settings) return () => { S.settings = false; };
   if (S.who) return () => { S.who = null; };
   if (S.open) return () => { S.open = null; };
@@ -3704,7 +4045,7 @@ function backAction() {
 // The screen you are heading for, built but not shown. S is put back exactly as it was:
 // this is a look ahead, and until you let go it may come to nothing.
 function peekBack(act) {
-  const was = {legal: S.legal, settings: S.settings, who: S.who, open: S.open};
+  const was = {legal: S.legal, flag: S.flag, settings: S.settings, who: S.who, open: S.open};
   act();
   try { return screenHTML(); } finally { Object.assign(S, was); }
 }
@@ -5132,6 +5473,18 @@ function goToHash() {
   if (sm) {
     history.replaceState(null, '', location.pathname);
     if (storiesOf(sm[1]).length) { S.tab = 'feed'; S.open = null; render(); openStory(sm[1]); }
+    return;
+  }
+  // A flag lands on the flag, which is the only place its clock, its reason and its vote
+  // all are. Straight there, not near it.
+  const fm = /^#flag-(\d+)$/.exec(location.hash || '');
+  if (fm) {
+    const id = +fm[1];
+    history.replaceState(null, '', location.pathname);
+    if (!S.flags.some(f => f.id === id)) return;
+    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0;
+    S.flag = null; render();               // out of whatever was open, then in, so back works
+    openFlag(id);
     return;
   }
   if (location.hash === '#friends' || location.hash === '#groups') {
