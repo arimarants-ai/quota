@@ -3025,65 +3025,99 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(200);
   check('opening your own starts at the front of the line', JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}',
     JSON.stringify(await where()));
+  // Sideways leaves this person. You have two of your own up and a swipe goes past both,
+  // because that is what a sideways drag means in a story viewer: the rest of somebody's
+  // is not something you drag through one at a time — that is what tapping is for.
   await swipe(-1);
-  check('  a swipe across moves on by one, and only one',
-    JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
-  await swipe(-1);
-  check('  past the last of yours it goes on to the next person',
+  check('  a swipe across leaves this person, whatever else they posted',
     JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}', JSON.stringify(await where()));
   check('    showing theirs, not yours', /kit only/i.test(await page.locator('#story .face').innerText()));
   await swipe(-1);
   check('  and on again into somebody whose stories were all watched',
     JSON.stringify(await where()) === '{"uid":"u2","i":0,"p":2}', JSON.stringify(await where()));
   await swipe(1);
-  check('  swiping back goes to the last of the one before, not the first',
+  check('  swiping back reaches the person before',
     JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}', JSON.stringify(await where()));
   await swipe(1);
   check('    and back again lands on the last of yours',
     JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
   await swipe(1);
-  await swipe(1);
   check('  at the front of the line there is nothing before it, and it stays open',
     await page.locator('#story').isVisible()
-    && JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}', JSON.stringify(await where()));
+    && JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
+  // Tapping is the thing that walks within a person, so it is what gets back to the front.
+  await page.locator('#story .tap.back').first().click();
+  await page.waitForTimeout(200);
+  check('    which a tap backwards walks into',
+    JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}', JSON.stringify(await where()));
 
-  // Tapping still steps, because a swipe was added rather than a tap taken away — and it
-  // is the same move now, not a redraw in place: the neighbour is built beside the one you
-  // are on and the pair slide across, exactly as they would under a finger.
-  await page.locator('#story .tap.fwd').click();
-  await page.waitForTimeout(60);
-  const mid = await page.evaluate(() => ({
+  // Another of the same person's arrives with nothing in between: no second pane, no
+  // slide, no wait. Two of somebody's own stories are not two people, and sliding between
+  // them said they were.
+  await page.locator('#story .tap.fwd').first().click();
+  await page.waitForTimeout(50);
+  const within = await page.evaluate(() => ({
     panes: document.querySelectorAll('#strack .pane').length,
+    armed: document.querySelector('#strack').dataset.armed || null,
     dx: getComputedStyle(document.querySelector('#strack')).getPropertyValue('--dx').trim(),
-    armed: document.querySelector('#strack').dataset.armed,
-    i: S.story.i,
+    at: S.story && { uid: S.story.uid, i: S.story.i },
   }));
-  check('  a tap builds the next one beside this one and moves the pair',
-    mid.panes === 2 && mid.armed === '1' && /^-\d+px$/.test(mid.dx), JSON.stringify(mid));
-  check('    without having arrived yet', mid.i === 0, JSON.stringify(mid));
-  // A second tap while it is still moving would land on the wrong story. Dispatched
-  // straight to the handler rather than through a click: a Playwright click waits for the
-  // thing under it to stop moving first, which is the one moment this is about.
-  await page.evaluate(() => stepStory(1));
+  check('  another of the same person’s arrives at once, with nothing sliding',
+    within.panes === 1 && !within.armed && JSON.stringify(within.at) === '{"uid":"u1","i":1}',
+    JSON.stringify(within));
+
+  // Crossing to somebody else is the one that moves, because that really is a journey.
+  await page.locator('#story .tap.fwd').first().click();
+  await page.waitForTimeout(60);
+  const across = await page.evaluate(() => ({
+    panes: document.querySelectorAll('#strack .pane').length,
+    armed: document.querySelector('#strack').dataset.armed,
+    dx: getComputedStyle(document.querySelector('#strack')).getPropertyValue('--dx').trim(),
+    i: S.story.i, uid: S.story.uid,
+  }));
+  check('    but leaving them for the next person builds the pair and moves them',
+    across.panes === 2 && across.armed === '1' && /^-\d+px$/.test(across.dx), JSON.stringify(across));
+  check('      without having arrived yet', across.uid === 'u1', JSON.stringify(across));
+  await page.evaluate(() => stepStory(1));   // a second tap mid-slide must not double-step
   await page.waitForTimeout(450);
-  check('  and it arrives on the next one, once, however many taps landed on the way',
+  check('      and it arrives once, however many taps landed on the way',
+    JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}'
+    && await page.evaluate(() => document.querySelectorAll('#strack .pane').length) === 1,
+    JSON.stringify(await where()));
+
+  // Motion turned off goes straight to the far side even across people.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('#story .tap.back').first().click();
+  await page.waitForTimeout(60);
+  check('  with motion turned off even that lands at once',
     JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}'
     && await page.evaluate(() => document.querySelectorAll('#strack .pane').length) === 1,
     JSON.stringify(await where()));
-
-  // Motion turned off in the phone's settings goes straight to the far side.
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.locator('#story .tap.back').click();
-  await page.waitForTimeout(60);
-  check('  with motion turned off a tap lands at once',
-    JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}'
-    && await page.evaluate(() => document.querySelectorAll('#strack .pane').length) === 1,
-    JSON.stringify(await where()));
   await page.emulateMedia({ reducedMotion: null });
-  await page.locator('#story .tap.fwd').click();
-  await page.waitForTimeout(450);
-  check('  tapping forward still steps by one',
-    JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
+
+  // The bar is what moves when nothing else does, so it has to really run.
+  const bar = await page.evaluate(() => {
+    const b = document.querySelector('#story .bars i.now b');
+    return b && { run: getComputedStyle(b).animationName, dur: b.style.getPropertyValue('--run') };
+  });
+  check('  and the bar on the one being watched fills as it runs',
+    bar && bar.run === 'barfill' && /^\d+ms$/.test(bar.dur), JSON.stringify(bar));
+
+  // Press and hold and it waits for you, which is the reason a card of text is not a race.
+  await page.mouse.move(195, 400);
+  await page.mouse.down();
+  await page.waitForTimeout(320);
+  const heldNow = await page.evaluate(() => ({ cls: $('#story').classList.contains('held'),
+    play: getComputedStyle(document.querySelector('#story .bars i.now b')).animationPlayState }));
+  check('  holding it stops the clock and the bar with it',
+    heldNow.cls && heldNow.play === 'paused', JSON.stringify(heldNow));
+  const wasAt = await where();
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  check('    letting go starts it again, and the hold was not also a tap',
+    JSON.stringify(await where()) === JSON.stringify(wasAt)
+    && await page.evaluate(() => !$('#story').classList.contains('held')),
+    `${JSON.stringify(wasAt)} -> ${JSON.stringify(await where())}`);
 
   // Off the end of the line is the way out, which is what it always was off the end of
   // one person's.
