@@ -582,7 +582,7 @@ button.rg{border:0;font:inherit}
    runs under it, so a bar at top:0 with 12px of padding puts the name and the way back
    under the clock. Sticky, so it is there however far up the conversation you have read. */
 .cbar{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);
-  position:sticky;top:0;z-index:4;background:var(--bg)}
+  flex:none;background:var(--bg)}
 .cbar .backx{margin:0}
 .cbar .av.gav{background:var(--mk);color:var(--onmk)}
 .cbar .nm{min-width:0}
@@ -590,8 +590,17 @@ button.rg{border:0;font:inherit}
 .cbar .nm span{font-size:11.5px;color:var(--muted)}
 /* A conversation is read from the bottom, so a short one sits at the bottom rather than
    floating at the top of an empty screen. */
-.msgs{padding:14px 12px 0;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;
-  min-height:calc(100vh - 150px)}
+/* The one thing on this screen that scrolls. A conversation is a column the height of the
+   screen — the bar, the lines, the box — and only the lines move, which is how every chat
+   is built and the reason none of it needs to be sticky or fixed: nothing here has to hold
+   still against a page that is moving, because the page does not move. That matters most on
+   the way out — a sticky bar stops sticking the moment its screen is transformed or lifted
+   into the ghost, and jumps to wherever it sits in the flow. margin-top:auto on the first
+   line keeps a short conversation at the bottom without justify-content:flex-end, which
+   would make the top of a long one unreachable. */
+.msgs{padding:14px 12px 12px;display:flex;flex-direction:column;gap:3px;flex:1;min-height:0;
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.msgs > :first-child{margin-top:auto}
 .cday{align-self:center;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
 .cwho{font-size:11.5px;font-weight:800;color:var(--muted);margin:12px 0 3px 6px;align-self:flex-start}
 .m{position:relative;max-width:78%;display:flex;align-items:flex-end;gap:4px}
@@ -623,18 +632,19 @@ button.rg{border:0;font:inherit}
    expression, with nothing in it that flips on focus alone: a box that moves the moment a
    field is blurred moves out from under the finger that is pressing Send, and a press and
    a release on two different places is not a click. */
-.csend{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb,0px) + var(--kb,0px));
-  max-width:576px;margin:0 auto;z-index:22;display:flex;align-items:center;gap:8px;padding:8px;
-  background:var(--barbg);border:1px solid var(--line);backdrop-filter:blur(12px)}
+/* In the flow at the foot of the column rather than pinned over it. The column is the
+   height of the screen less the keyboard, so the box sits above the keyboard because the
+   column ends there, not because anything worked out where the keyboard is. */
+.csend{flex:none;margin:8px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;padding:8px;
+  background:var(--card);border:1px solid var(--line)}
 .csend .emo{width:34px;height:34px;background:var(--soft);display:grid;place-items:center;flex:none;padding:0}
 .csend .emo svg{width:19px;height:19px;fill:none;stroke:var(--muted);stroke-width:1.9}
 .csend input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);
   font:inherit;font-size:16px;border-radius:0}
 .csend button.primary{background:none;color:var(--mkt);font-weight:800;font-size:15px;padding:6px 6px;flex:none}
-.cemoji{position:fixed;left:12px;right:12px;bottom:calc(66px + env(safe-area-inset-bottom) + var(--vvb,0px) + var(--kb,0px));
-  max-width:576px;margin:0 auto;z-index:22}
-main.chatting{padding-bottom:0}
-.msgs{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+.cemoji{flex:none;margin:0 12px}
+main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:calc(100dvh - var(--kb,0px));
+  display:flex;flex-direction:column;overflow:hidden}
 /* The way into a group's own chat, on the group screen. */
 .chatrow{display:flex;align-items:center;justify-content:center;gap:8px}
 .chatrow svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
@@ -673,8 +683,7 @@ main.chatting{padding-bottom:0}
 /* The screen. A bar with the clock in it, because how long is left is the whole question. */
 /* The clock is the whole point of this screen, so the bar it is on stays put while the rest
    scrolls — the same as a conversation keeps its name and its way back. */
-.fbar{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);
-  position:sticky;top:0;z-index:4;background:var(--bg)}
+.fbar{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line)}
 .fbar h2{margin:0;font-size:17px;font-weight:800}
 .fbar .backx{margin:0}
 .fbar .clock{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--text);color:var(--bg);padding:6px 10px}
@@ -846,15 +855,18 @@ main.chatting{padding-bottom:0}
    screen it was painting in place now needs compositing. */
 :root.moving #app{position:relative;will-change:transform}
 :root.moving,:root.moving body{overflow-x:clip}
-/* The blur behind the tab bar is resampled on every frame that anything under it moves, and
-   for the length of a transition everything under it moves. Off, for that long only — the
-   bar sits over the screen's own background, so nobody sees the difference. */
-:root.moving .bar{backdrop-filter:none;-webkit-backdrop-filter:none}
+/* And from the finger going down, before it has moved at all: a layer made on the first
+   frame of a drag is a hitch on the first frame of a drag. Cleared when the finger lifts. */
+:root.grabbing #app,:root.grabbing #one{will-change:transform}
 /* Sideways belongs to the app, so a drag back to the feed is not eaten as a page gesture.
    The one strip that scrolls sideways of its own accord keeps that. */
 #app{touch-action:pan-y}
 .stories{touch-action:pan-x}
 .bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb, 0px));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
+/* Put away for a conversation, on the same curve and over the same time as the screen that
+   is arriving. Popping out of existence over a screen still sliding in read as a fault. */
+.bar{transition:opacity .34s cubic-bezier(.32,.72,0,1),transform .34s cubic-bezier(.32,.72,0,1)}
+.bar.away{opacity:0;transform:translate(-50%,28px);pointer-events:none}
 .bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:999px}
 .bar button{transition:color .2s,transform .12s cubic-bezier(.2,.7,.2,1)}
 .bar button.on{color:var(--text);background:none}
@@ -1208,7 +1220,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v66';
+const BUILD = 'quota-v67';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1736,7 +1748,8 @@ function render() {
   // release of a tap on Send, which is a tap the browser then never reports as a click at
   // all. Putting the bar away lets the box sit still.
   const inChat = !!m && !!S.chat && S.chat !== 'list';
-  $('#bar').hidden = held || inChat;
+  $('#bar').hidden = held;
+  $('#bar').classList.toggle('away', inChat);   // a fade, not a pop, over the screen coming in
   $('#app').classList.toggle('chatting', inChat);
   $('#app').classList.toggle('out', held);
   if (held) return $('#app').innerHTML = screenHTML();
@@ -3151,12 +3164,12 @@ function chatView(key) {
         <span>${isGroup ? `${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}` : '@' + esc(other.username || '')}</span></span>
     </div>
     <div class="msgs" id="msgs">${chatBody(key)}</div>
+    <div class="emoji cemoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putChatEmoji(this,'${e}')">${e}</button>`).join('')}</div>
     <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
       <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
       <input name="body" placeholder="Message" maxlength="2000" required autocomplete="off">
       <button class="primary">Send</button>
-    </form>
-    <div class="emoji cemoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putChatEmoji(this,'${e}')">${e}</button>`).join('')}</div>`;
+    </form>`;
 }
 
 // Shown before the write lands, the way a comment is: a line that waits on a round trip
@@ -3188,8 +3201,8 @@ const pairOf = other => { const [a, b] = [me().id, other].sort(); return {a, b};
 // A conversation is read from the bottom. Twice, because a long one has not finished laying
 // itself out when the first one runs — the same reason coming back to a feed does it twice.
 function chatToEnd() {
-  if (!$('#msgs')) return;
-  const end = () => scrollTo(0, document.documentElement.scrollHeight);
+  const box = $('#msgs'); if (!box) return;
+  const end = () => { box.scrollTop = box.scrollHeight; };
   end(); requestAnimationFrame(end);
 }
 function pickMsgReact(ev, id) {
@@ -4537,6 +4550,7 @@ function navDown(e) {
   if (!$('#story').hidden || !$('#make').hidden || !$('#one').hidden) return;
   if (e.target.closest('.stories, input, textarea, [contenteditable]')) return;
   if (still() || !backAction()) return;
+  document.documentElement.classList.add('grabbing');   // the layer exists before the first move
   nav = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
 }
 function navMove(e) {
@@ -4573,6 +4587,7 @@ function navPaint() {
 }
 function navUp(e) {
   const d = nav; nav = null;
+  document.documentElement.classList.remove('grabbing');
   if (!d || !d.live) return;
   if (d.raf) cancelAnimationFrame(d.raf);   // a frame still waiting would write over the animation's first
   const dx = Math.max(0, e.clientX - d.x), w = innerWidth || 1;
@@ -4605,7 +4620,7 @@ function backSpring(at) {
 addEventListener('pointerdown', navDown);
 addEventListener('pointermove', navMove);
 addEventListener('pointerup', navUp);
-addEventListener('pointercancel', e => { if (nav && nav.live) backSpring(`translateX(${Math.max(0, e.clientX - nav.x)}px)`); nav = null; });
+addEventListener('pointercancel', e => { if (nav && nav.live) backSpring(`translateX(${Math.max(0, e.clientX - nav.x)}px)`); nav = null; document.documentElement.classList.remove('grabbing'); });
 
 // A post opened on its own sits in a layer of its own over the screen, so the screen's
 // back-drag above would slide the thing underneath it out and leave this on top of the
@@ -4615,6 +4630,7 @@ let oneNav = null, oneAnim = null, oneSwiped = false;
 function oneDown(e) {
   if (oneNav || still() || $('#one').hidden || $('#dlg').open) return;
   if (e.target.closest('input, textarea, [contenteditable]')) return;
+  document.documentElement.classList.add('grabbing');
   oneNav = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
 }
 function oneMove(e) {
@@ -4640,6 +4656,7 @@ function oneMove(e) {
 }
 function oneUp(e) {
   const d = oneNav; oneNav = null;
+  document.documentElement.classList.remove('grabbing');
   if (!d || !d.live) return;
   if (d.raf) cancelAnimationFrame(d.raf);
   oneSwiped = true;                        // the browser sends a click after this; it is not a tap
@@ -4659,7 +4676,7 @@ function oneUp(e) {
 $('#one').addEventListener('pointerdown', oneDown);
 $('#one').addEventListener('pointermove', oneMove);
 $('#one').addEventListener('pointerup', oneUp);
-$('#one').addEventListener('pointercancel', e => { if (oneNav && oneNav.live) oneUp(e); else oneNav = null; });
+$('#one').addEventListener('pointercancel', e => { if (oneNav && oneNav.live) oneUp(e); else { oneNav = null; document.documentElement.classList.remove('grabbing'); } });
 $('#one').addEventListener('click', e => {
   if (!oneSwiped) return;
   oneSwiped = false;

@@ -508,14 +508,33 @@ a post opened on its own — records where the finger is and writes the layers o
 `requestAnimationFrame`. On release the pending frame is cancelled, or it would land after
 the animation's first keyframe and write over it.
 
-Two more things are about the first frame of a move rather than the rest of it. `#app` is
-promoted to its own layer only while `:root.moving` is on: promoting it always costs memory
-on every screen, and never promoting it is the hitch at the start of a drag, the browser
-deciding mid-gesture that a screen it was painting in place now needs compositing. And the
-blur behind the tab bar is switched off for the length of a transition, because a backdrop
-blur is resampled on every frame that anything under it moves, and for those 340ms
-everything under it moves. The bar sits over the screen's own background, so nobody sees
-the difference.
+One more thing is about the first frame of a move rather than the rest of it. `#app` is
+promoted to its own layer from the moment a finger goes down on a screen that has a way
+back (`:root.grabbing`), before it has moved at all, and for the length of a button-driven
+move (`:root.moving`). Promoting it always would cost a layer on every screen; promoting it
+on the first frame of a drag is a hitch on the first frame of a drag — the browser deciding
+mid-gesture that a screen it was painting in place now needs compositing.
+
+### Nothing sticky, nothing fixed, on a screen that moves
+
+The chat bar and the flag bar were briefly `position: sticky`, and both screens glitched on
+the way out — swipe or button — while every other stacked screen was fine. A sticky element
+stops sticking the moment its screen is transformed or lifted into the ghost (WebKit treats
+a transformed ancestor as the end of its scrollport), so the bar snapped to wherever it sat
+in the flow, which after a scroll is off the top of the screen.
+
+The flag bar simply is not sticky now. A conversation is built the way every chat is: a
+column the height of the screen less the keyboard — the bar, the lines, the box — where only
+the lines scroll, inside their own box. Nothing on it has to hold still against a page that
+is moving, because the page does not move; the whole column is transformed as one. That
+also removed the window-scroll-to-the-end dance and the fixed-position composer, whose
+arithmetic against the keyboard is now just the column being shorter. `margin-top: auto` on
+the first line keeps a short conversation at the bottom without `justify-content: flex-end`,
+which makes the top of a long one unreachable.
+
+The tab bar is faded out for a conversation rather than hidden, on the same curve and over
+the same time as the screen arriving. Popping out of existence over a screen still sliding in
+read as a fault.
 
 ### Back is always the hub
 
@@ -537,9 +556,7 @@ there the list is a real screen with a real scroll, not a hub to route through.
 The status bar is translucent and the page runs under it, so anything at `top: 0` with a
 few pixels of padding is under the clock. Every header pads by `env(safe-area-inset-top)`;
 the chat bar and the flag bar did not, and a bare back button as the first thing on a
-screen did not either. `#app > .backx` is the one rule for the latter, and both bars carry
-the inset now. The chat bar is sticky as well, so the name and the way back are there
-however far up the conversation you have read.
+screen did not either. `#app > .backx` is the one rule for the latter, and both bars carry the inset now.
 
 
 `storyPeople()` decides the order once and both the row and the viewer use it: yours
