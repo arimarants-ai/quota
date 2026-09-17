@@ -568,7 +568,15 @@ button.rg{border:0;font:inherit}
   color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
 /* gav, not gr: gr is the growing middle of the row, and an avatar given flex:1 is an
    ellipse with a letter in it. */
-.crow .av.gav{background:var(--mk);color:var(--onmk)}
+/* A group's picture, where a person's would be. The mark colour rather than ink, so the two
+   are told apart at a glance in a list that holds both. */
+.av.gav{background:var(--mk);color:var(--onmk)}
+/* The picture beside the name, on the card in the list and at the top of the group. */
+.ghead{display:flex;align-items:center;gap:12px}
+.ghead h2{flex:1;min-width:0}
+.ghead.big{gap:14px;margin-bottom:12px}
+.ghead.big b{display:block;font-size:19px;font-weight:800;line-height:1.2}
+.ghead.big span{font-size:13px}
 .crow .gr{flex:1;min-width:0}
 .crow b{display:block;font-size:14.5px;font-weight:800}
 .crow .gr > span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -584,7 +592,7 @@ button.rg{border:0;font:inherit}
 .cbar{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);
   flex:none;background:var(--bg)}
 .cbar .backx{margin:0}
-.cbar .av.gav{background:var(--mk);color:var(--onmk)}
+
 .cbar .nm{min-width:0}
 .cbar .nm b{display:block;font-size:15.5px;font-weight:800}
 .cbar .nm span{font-size:11.5px;color:var(--muted)}
@@ -1220,7 +1228,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v67';
+const BUILD = 'quota-v68';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1429,6 +1437,11 @@ const standings = g => g.members.map(id => ({id, st: streak(g, id), r: rate(g, i
 const myGroups = () => S.groups.filter(g => g.members.includes(me().id));
 const avatarUrl = u => u.avatar_path ? sb.storage.from('avatars').getPublicUrl(u.avatar_path).data.publicUrl : '';
 const av = (u, cls = '') => `<div class="av ${cls}">${u.avatar_path ? `<img src="${esc(avatarUrl(u))}" alt="">` : esc(name(u)[0] || '?')}</div>`;
+// A group's, which is the same picture in the same bucket — it only differs in what it
+// falls back to when there is none: the first letter of the group's name on the mark
+// colour, rather than a person's initial on ink.
+const gav = (g, cls = '') => `<div class="av gav ${cls}">${g && g.avatar_path
+  ? `<img src="${esc(avatarUrl(g))}" alt="">` : esc((g && g.name || '?')[0].toUpperCase())}</div>`;
 const quotaText = g => g.quotas.map(qq => `${qq.target} ${esc(qq.metric)}`).join(' · ');
 const time = ts => new Date(ts).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
 const dayLabel = d => d === today() ? 'Today' : d === daysAgo(1) ? 'Yesterday' : new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
@@ -2745,8 +2758,8 @@ function activityBox() {
 
 function groupCard(g) {
   const m = me(), doneIds = g.members.filter(id => hit(g, id)), st = streak(g, m.id);
-  return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><h2>${esc(g.name)}<span>${
-    onDay(g) ? `${doneIds.length} of ${g.members.length} done` : 'rest day'}${st ? ` · ${st} day streak` : ''}</span></h2>
+  return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><div class="ghead">${gav(g, 'lg')}<h2>${esc(g.name)}<span>${
+    onDay(g) ? `${doneIds.length} of ${g.members.length} done` : 'rest day'}${st ? ` · ${st} day streak` : ''}</span></h2></div>
     ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="--w:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
     <div class="ppl">${g.members.map(id => av(user(id), hit(g, id) ? '' : 'todo')).join('')}<span class="muted">${
       !onDay(g) ? `rest day · ${esc(restText(g))}`
@@ -2762,7 +2775,9 @@ function groupsView() {
 function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
   return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="closeGroup()">‹ Groups</button>
-  <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
+  <div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
+      <span class="muted">${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}</span></div></div>
+    ${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
       everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
     ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
@@ -3098,7 +3113,7 @@ async function markChatRead(key) {
 function chatsView() {
   const rows = chatRows(), groups = rows.filter(c => c.group), people = rows.filter(c => !c.group);
   const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat('${esc(c.key)}')">
-    ${c.group ? `<div class="av gav">${esc((c.name || '?')[0].toUpperCase())}</div>` : av(c.who, '')}
+    ${c.group ? gav(c.group) : av(c.who, '')}
     <span class="gr"><b>${esc(c.name)}</b>
       <span>${c.last ? `${c.last.userId === me().id ? 'You: ' : (c.group ? esc(name(user(c.last.userId))) + ': ' : '')}${esc(c.last.body)}`
         : c.group ? 'Nothing said yet' : ''}</span></span>
@@ -3159,7 +3174,7 @@ function chatView(key) {
   return `<div class="cbar">
       <button type="button" class="backx" onclick="closeChat()" aria-label="Back">
         <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      ${isGroup ? `<div class="av gav">${esc(g.name[0].toUpperCase())}</div>` : av(other, '')}
+      ${isGroup ? gav(g) : av(other, '')}
       <span class="nm"><b>${esc(isGroup ? g.name : name(other))}</b>
         <span>${isGroup ? `${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}` : '@' + esc(other.username || '')}</span></span>
     </div>
@@ -4370,7 +4385,14 @@ function submitDlg(gid) {
 }
 const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
 function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 100}]}) {
+  clearAvatar();                           // nothing carried over from the last thing that was cropped
   dlg(`<h2>${g.id ? 'Edit' : 'New'} group</h2><form onsubmit="event.preventDefault();saveGroup(this,${g.id || 0})">
+    <div class="row" style="margin-bottom:14px"><span id="avprev">${gav(g, 'xl')}</span>
+      <div class="grow">
+        <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
+          <button type="button" class="grow" onclick="this.closest('form').querySelector('[name=photo]').click()">Choose a file</button></div>
+        <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
+    <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
     <label>Group goal</label><input name="goal" value="${esc(g.goal)}" placeholder="e.g. 100 pushups a day for 30 days">
     <label>Daily quota (per person)</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
@@ -4857,7 +4879,28 @@ async function saveGroup(f, id) {
   // create_group keeps the signature it always had, so an app that has not been updated
   // yet still works; the days follow in their own write.
   if (!id && active_days.length < 7) await q(sb.from('groups').update({active_days}).eq('id', gid));
+  // After the row, because a new group has no id to file a picture under until it exists.
+  // A picture that will not save must not take the name and the quotas down with it: they
+  // are already written by this point, so this says what went wrong and leaves them.
+  let picErr = null;
+  if (avatarFile) {
+    const was = (S.groups.find(x => x.id === gid) || {}).avatar_path;
+    const path = `g/${gid}/${Date.now()}.jpg`;   // a new name each time, so no browser shows the old one
+    try {
+      await q(sb.storage.from('avatars').upload(path, avatarFile, {contentType: 'image/jpeg'}));
+      await q(sb.from('groups').update({avatar_path: path}).eq('id', gid));
+      if (was) sb.storage.from('avatars').remove([was]);
+    } catch (e) { picErr = String(e && e.message || e); }
+  }
+  clearAvatar();
   dlg(); await load(); openGroup(gid);
+  // After the load, not before it: a load that goes well clears the bar, so saying this any
+  // earlier is saying it to a bar that is about to be wiped. Nobody would ever have read it.
+  if (picErr) {
+    showErr(/column|avatar_path/i.test(picErr)
+      ? 'A group picture needs the v30 block of schema.sql. The rest of the group was saved.'
+      : `That picture did not save: ${picErr}. The rest of the group was saved.`, picErr);
+  }
 }
 async function saveProfile(f) {
   const fd = new FormData(f), display_name = fd.get('display_name').trim() || null;

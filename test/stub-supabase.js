@@ -53,13 +53,17 @@
   // Talking to each other. Every group has a chat whether anything is in it or not, so
   // these start empty and a test puts what it needs in.
   self.__msgs = []; self.__mreacts = []; self.__reads = [];
+  // A group's picture, read back through whatever the page last saved, the same way a
+  // post's on_profile is: a test that sets it on S would lose it to the next load.
+  self.__gpic = {};
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
   const rows = t => ({
     profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
-    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }],
+    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }]
+      .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g)),
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
     // on_profile is the one thing about a post that can change after it is posted, so it
     // is read back through whatever the page last set rather than off the fixture.
@@ -143,6 +147,9 @@
       if (st.op === 'update' && t === 'flag_votes' && st.row) {
         self.__fvotes = self.__fvotes.map(v =>
           Object.entries(st.filters).every(([k, x]) => v[k] === x) ? { ...v, ...st.row } : v);
+      }
+      if (st.op === 'update' && t === 'groups' && st.row && 'avatar_path' in st.row && st.filters.id != null) {
+        self.__gpic[st.filters.id] = st.row.avatar_path;
       }
       if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
         self.__onprofile[st.filters.id] = st.row.on_profile;
@@ -261,8 +268,17 @@
       // more forgiving than the thing it stands for, and let `sb.rpc(...).catch(...)` ship —
       // it threw at the top of the load on a real phone and took the whole app down.
       rpc: (fn, args) => ({ then: (res, rej) => rpcRun(fn, args).then(res, rej) }),
-      storage: { from: () => ({
-        getPublicUrl: () => ({ data: { publicUrl: '' } }),
+      storage: { from: bucket => ({
+        // A real one hands back an address that names the file, which is how a test can
+        // tell whose picture is on screen. It stayed empty here until a group needed one.
+        getPublicUrl: path => ({ data: { publicUrl: `https://stub.invalid/${bucket}/${path}` } }),
+        // Uploading was never stubbed at all, so the one path that puts a picture into a
+        // bucket ran in no test. What went up and where is recorded rather than kept.
+        upload: async (path, file, opts) => {
+          self.__uploads = [...(self.__uploads || []), { bucket, path, type: (opts && opts.contentType) || (file && file.type) }];
+          return M().uploadFails ? { data: null, error: err('storage said no') } : { data: { path }, error: null };
+        },
+        remove: async paths => { self.__removed = [...(self.__removed || []), ...paths]; return { data: null, error: null }; },
         // One signed URL per post, in order, the way the page consumes them. A real
         // bucket refuses a path whose file is gone, and hands back a row with no URL on it.
         createSignedUrls: async paths => ({ data: paths.map(() => M().noSign ? { signedUrl: null, error: 'not found' } : { signedUrl: 'data:video/mp4;base64,' }), error: null }),

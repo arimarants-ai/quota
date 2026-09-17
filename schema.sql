@@ -1779,3 +1779,40 @@ begin
   );
   return new;
 end $$;
+
+-- ============================================================
+-- v30 (a picture for a group): safe to run on an existing project.
+--
+-- The same bucket, the same crop, the same 512px square a person's picture is. What is
+-- different is who may write one: the avatars policies key on the first folder being your
+-- own user id, and a group is not a user.
+--
+-- So a group's picture lives at g/<group id>/<timestamp>.jpg, and the policy asks the same
+-- question the groups table asks about editing one — are you in it. Any member can change
+-- it, which is exactly what "members edit the group" already allows for its name and its
+-- quotas, and a picture is not a stronger thing to change than the name.
+-- ============================================================
+alter table public.groups add column if not exists avatar_path text;
+
+drop policy if exists "upload a group picture" on storage.objects;
+drop policy if exists "replace a group picture" on storage.objects;
+drop policy if exists "delete a group picture" on storage.objects;
+-- The id is matched as digits before it is cast: a folder that is not a number would throw
+-- rather than fail the check, and a policy that throws is a policy nobody can write past.
+create policy "upload a group picture" on storage.objects for insert
+  with check (bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = 'g'
+    and (storage.foldername(name))[2] ~ '^[0-9]+$'
+    and public.is_member(((storage.foldername(name))[2])::bigint));
+create policy "replace a group picture" on storage.objects for update
+  using (bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = 'g'
+    and (storage.foldername(name))[2] ~ '^[0-9]+$'
+    and public.is_member(((storage.foldername(name))[2])::bigint));
+create policy "delete a group picture" on storage.objects for delete
+  using (bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = 'g'
+    and (storage.foldername(name))[2] ~ '^[0-9]+$'
+    and public.is_member(((storage.foldername(name))[2])::bigint));
+-- Reading needs nothing new: "avatars are public" already covers the whole bucket, the
+-- same as it does for a person's picture.
