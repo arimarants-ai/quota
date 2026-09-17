@@ -1035,6 +1035,23 @@ await withPage(NO_WHEEL, async page => {
   check('  and brings the camera back', await page.locator('#camrev').isHidden()
     && await page.evaluate(() => !!(camStream && camStream.getVideoTracks().length)));
   check('  leaving nothing behind on the form', (await page.locator('#vsize').innerText()).trim() === '');
+
+  // Escape closes a <dialog> on its own and reached none of the tidying up, so a take that
+  // was looked at and then escaped out of stayed on `recorded` — and the post sheet went on
+  // carrying a clip that had been walked away from, through closing and reopening the
+  // camera, because opening it does not clear one either.
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1500);
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => !$('#camrev').hidden, null, { timeout: 10000 }).catch(() => {});
+  check('a take is held while it is being looked at', await page.evaluate(() => recorded !== null));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(600);
+  check('  escaping out of the camera puts the take down',
+    await page.evaluate(() => recorded === null), String(await page.evaluate(() => !!recorded)));
+  check('    and leaves nothing on the form', (await page.locator('#vsize').innerText()).trim() === '');
+  check('    with the review put away rather than left up',
+    await page.locator('#camrev').isHidden() && await page.locator('#cam').evaluate(d => !d.open));
 });
 
 // Closing on a recording in progress is a stop, not a discard: what was filmed up to
@@ -2311,6 +2328,24 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.locator('#app .m .say').last().click();
   await page.waitForTimeout(300);
   check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick').count() === 1);
+  // What you answer a message with is not what you answer a post with: a post gets cheers,
+  // a line in a conversation gets agreeing with it or not.
+  const quick = await page.locator('#app .m .reactpick button').allInnerTexts();
+  check('    with answers a conversation actually takes',
+    quick.includes('❤️') && quick.includes('👍') && quick.includes('👎') && !quick.includes('💪'),
+    JSON.stringify(quick));
+  check('      and a way to anything else', quick.includes('+'));
+
+  // The + opens the rest in the same tray rather than a sheet over the conversation.
+  await page.locator('#app .m .reactpick .more').click();
+  await page.waitForTimeout(250);
+  const all = await page.locator('#app .m .reactpick button').allInnerTexts();
+  check('    which opens the rest in place, and scrolls',
+    all.length > 20 && !all.includes('+')
+    && await page.evaluate(() => getComputedStyle(document.querySelector('#app .m .reactpick')).overflowX === 'auto'),
+    `${all.length} to pick from`);
+  check('      still offering the quick ones first', all[0] === '❤️', JSON.stringify(all.slice(0, 3)));
+
   await page.locator('#app .m .reactpick button').first().click();
   await page.waitForTimeout(700);
   check('    and picking one sticks it on',
@@ -2328,8 +2363,9 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
     await page.locator('.crow').first().innerText());
 });
 
-// A private one, and the pair it is stored as.
-await withPage({ ...NO_WHEEL, friends: true }, async page => {
+// A private one, the pair it is stored as, and what the filter says about language it
+// turns away.
+await withPage({ ...NO_WHEEL, friends: true }, async (page, alerts) => {
   await settle(page);
   await page.evaluate(() => go('friends'));
   await page.waitForTimeout(600);
@@ -2346,6 +2382,23 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   const dm = await page.evaluate(() => self.__msgs.at(-1));
   check('  and it is stored as the pair, sorted, the way a friendship is',
     dm && dm.group_id === null && dm.a === 'u1' && dm.b === 'u2', JSON.stringify(dm));
+
+  // Language the filter turns away, said back without being said back. The word is taken
+  // out of the page at run time rather than written here, which is the same reason the
+  // notice does not quote it: nobody needs it on the screen to know which one it was.
+  const swear = await page.evaluate(() => (BAD.swear.word || [])[0] || (BAD.swear.any || [])[0]);
+  alerts.length = 0;
+  await page.locator('.csend input').fill(`well ${swear} then`);
+  await page.locator('.csend button.primary').click();
+  await page.waitForTimeout(500);
+  const said = alerts.join(' | ');
+  check('  language the filter turns away is refused', /cannot go on Quota/i.test(said), said);
+  check('    without repeating the word back at you', !said.toLowerCase().includes(swear),
+    said.replace(new RegExp(swear, 'ig'), '***'));
+  check('      while still saying which kind it was', /swear word/i.test(said), said);
+  check('    and nothing was sent', await page.evaluate(() => self.__msgs.length) === 1,
+    String(await page.evaluate(() => self.__msgs.length)));
+  await page.locator('.csend input').fill('');
 
   // Back out of a conversation is always the hub, however it was reached; back out of the
   // hub is wherever you were before any of it. Opened from Friends, that is Friends.
