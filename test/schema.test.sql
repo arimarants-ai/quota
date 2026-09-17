@@ -209,6 +209,17 @@ end $$;
 do $$
 declare n int; today_utc date := current_date;
 begin
+  -- Only wheel 1 is in play. The save_wheel block above leaves an 'Extra' wheel in this
+  -- same group, active, starting today, on a four-day cycle, with remind_hour 9 — so on any
+  -- run where Ari's local hour happens to be 9 the counts below saw two wheels come due and
+  -- read it as one person being reminded twice. It failed at 16:42 UTC, which is 09:42 in
+  -- Los Angeles, and passed every other hour of the day.
+  update public.wheels set active = false where id <> 1;
+  -- Said out loud, so a block added above this one that leaves a wheel behind fails here
+  -- rather than at whatever hour its remind_hour happens to collide on.
+  select count(*) into n from public.wheels where active;
+  if n <> 1 then raise exception 'this block counts every wheel that comes due, and % are active', n; end if;
+
   -- A wheel whose cycle starts today, for two people in very different places.
   update public.profiles set tz = 'America/Los_Angeles' where username = 'ari';
   update public.profiles set tz = 'Australia/Sydney' where username = 'sam';

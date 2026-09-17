@@ -487,13 +487,40 @@ Nothing at either end of the line: it pulls back at a third of the distance and 
 rather than tearing off the edge. Thrown forward past the last story is still the way out,
 the same as tapping past it.
 
-Swiping and tapping are the same step, and since v66 they are the same *move*: a tap builds
-the neighbour beside the story you are on and slides the pair across, exactly as a finger
-would, rather than redrawing the next one where the last one stood. `stepStory()` is the
-one place that decides this, so the clock running out and a clip ending take the same path.
-A step already in flight is left alone — the strip being armed is what says so, and a second
-step during those 320ms would land on the wrong story. Motion turned off in the phone's
-settings goes straight to the far side.
+### A tap walks, a swipe leaves
+
+The two gestures do different things, which is what every story viewer settled on and what
+v66 had wrong by making them identical:
+
+- **A tap** moves one story. Within the same person it is **instant** — no second pane, no
+  slide, no wait. Two of somebody's own stories are not two people, and sliding between them
+  said they were, which is the whole of what was wrong with it. Crossing to the *next person*
+  slides, because that really is a journey.
+- **A swipe** leaves this person for the next one, whatever else they posted. The rest of
+  somebody's stories is not something you drag through one at a time; that is what tapping
+  is for. `neighbour(d, cross)` is the one function both ask, and `cross` is the only
+  difference between them.
+
+`stepStory()` is the single place that decides whether anything moves, so the clock running
+out and a clip ending take the same path as a tap. A step already in flight is left alone —
+the strip being armed is what says so, and a second step during those 320ms would land on
+the wrong story. Motion turned off in the phone's settings goes straight to the far side.
+
+### The bar is the motion, once the slide is gone
+
+With another of the same person's arriving instantly, the progress bar is the only thing
+that moves — so it has to really run. The segment being watched fills over the story's own
+length: five seconds for a card or a picture, the clip's own duration for a clip, read off
+the file once it says so. It is one inline CSS animation rather than a timer of its own, so
+the browser keeps it in step without waking anything up, and it starts from **how much has
+already gone** rather than from zero — `paintStory()` runs again every time somebody reacts
+to a story, and a bar that restarted then would be lying about the clock.
+
+**Press and hold** and it waits for you: the clock, the clip and the bar stop together, and
+the time spent held never happened as far as `S.story.at` is concerned. Not on the buttons
+along the top and bottom — holding the close button is not asking for more time. A hold ends
+in a click the browser sends afterwards, and that is swallowed the same way a swipe's is,
+because neither is a tap.
 
 The tap zones cover the whole face, so a swipe that starts and ends inside one would step
 twice — once on the swipe and again on the click the browser sends afterwards — and the

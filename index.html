@@ -212,7 +212,14 @@ button.rg{border:0;font:inherit}
 #story .bars{display:flex;gap:4px;padding:0 10px}
 #story .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
 #story .bars i.done{background:rgba(255,255,255,.85)}
-#story .bars i.now{background:#fff}
+/* The one being watched fills as it runs, which is the whole of what tells you how long is
+   left — and, now that another of the same person's arrives with no slide, the only thing
+   that moves when it does. Held still while a finger is down. */
+#story .bars i.now{background:rgba(255,255,255,.28);overflow:hidden}
+#story .bars i.now b{display:block;height:100%;width:var(--from,0%);background:#fff;border-radius:2px;
+  animation:barfill var(--run,5000ms) linear forwards}
+#story.held .bars i.now b{animation-play-state:paused}
+@keyframes barfill{to{width:100%}}
 #story .who{display:flex;align-items:center;gap:9px;padding:12px 12px 10px;color:#fff;position:relative;z-index:3}
 #story .who b{font-size:14.5px;font-weight:800}
 #story .who span{font-size:12px;color:rgba(255,255,255,.7)}
@@ -1228,7 +1235,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v68';
+const BUILD = 'quota-v69';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2218,14 +2225,19 @@ function openStory(uid) {
   S.story = {q, p: q.indexOf(uid), uid, i: from < 0 ? 0 : from, at: Date.now()};
   paintStory();
 }
-function closeStory() { clearTimeout(storyTimer); S.story = null; $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
+function closeStory() { clearTimeout(storyTimer); clearTimeout(holdTimer); holdTimer = null; held = false;
+  S.story = null; $('#story').classList.remove('held'); $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
 // What is one step along the line, without going there. Off the end of somebody's stories
 // is the next person's, off the front is the one before's last, and off either end of the
 // line there is nothing. Asking rather than doing is what lets a swipe put the answer on
 // screen beside the story you are still holding.
-function neighbour(d) {
+// What one step along the line is, without going there. `cross` asks for the next *person*
+// rather than the next story, which is what a swipe means: in a story viewer a tap walks
+// through what somebody posted and a sideways drag leaves them for the next one, and the
+// rest of theirs is not something you drag past one at a time.
+function neighbour(d, cross) {
   const s = S.story, all = storiesOf(s.uid), i = s.i + d;
-  if (i >= 0 && i < all.length) return {uid: s.uid, all, i};
+  if (!cross && i >= 0 && i < all.length) return {uid: s.uid, all, i};
   for (let p = s.p + d; p >= 0 && p < s.q.length; p += d) {
     const next = storiesOf(s.q[p]);
     if (!next.length) continue;            // theirs ran out of the day while you were watching
@@ -2246,15 +2258,19 @@ function neighbour(d) {
 //
 // A step already in flight is left alone. The strip being armed is what says so, and a
 // second step during those 320ms would land on the wrong story.
+// The slide is what leaving one person for the next looks like, and it is only ever that.
+// Another of the same person's is not a journey: the bar moves on, the picture changes, and
+// there is nothing in between to watch. Sliding it made two of somebody's own stories read
+// as two different people, which is the whole of what was wrong with it.
 const SLIDE_MS = 320;
-function stepStory(d) {
-  const n = neighbour(d);
+function stepStory(d, cross) {
+  const n = neighbour(d, cross);
   if (!n) return d > 0 ? closeStory() : undefined;
   const t = strack();
   if (t && t.dataset.armed) return;
-  if (t && !still()) {
+  if (n.uid !== S.story.uid && t && !still()) {
     t.classList.add('grab');               // put the neighbour in place with no transition
-    armSlide(d);
+    armSlide(d, true);
     void t.offsetWidth;                    // that frame is committed before the move begins
     t.classList.remove('grab');
     clearTimeout(storyTimer);
@@ -2284,10 +2300,10 @@ const strack = () => $('#strack');
 // Nothing that way: it pulls against you at a third of the distance and lets go, instead
 // of tearing off the edge of the line.
 const resist = (dx, armed) => ((armed > 0 && dx < 0) || (armed < 0 && dx > 0)) ? dx : dx / 3;
-function armSlide(d) {
+function armSlide(d, cross) {
   const t = strack();
   if (!t || t.dataset.armed) return;
-  const n = neighbour(d);
+  const n = neighbour(d, cross);
   if (!n) return;
   const html = paneHTML(n.uid, n.all, n.i, false);
   if (d > 0) t.insertAdjacentHTML('beforeend', html);
@@ -2298,6 +2314,12 @@ $('#story').addEventListener('pointerdown', e => {
   if (e.target.closest('.seenby, .reactpick')) return;
   sdrag = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
   swiped = false;
+  // Not on the buttons along the top and bottom: holding the close button is not asking
+  // for more time with the story.
+  if (!e.target.closest('.who, .answer, .eye, .tally')) {
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(holdStory, HOLD_MS);
+  }
 });
 $('#story').addEventListener('pointermove', e => {
   if (!sdrag || !S.story) return;
@@ -2306,8 +2328,10 @@ $('#story').addEventListener('pointermove', e => {
     if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
     if (Math.abs(dx) <= Math.abs(dy)) { sdrag = null; return; }       // down the screen: not this
     sdrag.live = true;
+    clearTimeout(holdTimer); holdTimer = null;   // a drag is not a hold
+    if (held) { held = false; $('#story').classList.remove('held'); if (S.story) S.story.heldAt = null; }
     clearTimeout(storyTimer);              // it must not step out from under the finger
-    armSlide(dx < 0 ? 1 : -1);
+    armSlide(dx < 0 ? 1 : -1, true);       // sideways leaves this person, whatever else they posted
     const t = strack(); if (t) t.classList.add('grab');
     try { $('#story').setPointerCapture(e.pointerId); } catch (x) {}
   }
@@ -2338,7 +2362,7 @@ function endSwipe(e) {
     // Carry it the rest of the way, then redraw on the far side. The strip is already
     // showing the story it lands on, so the redraw is a change nobody can see.
     t.style.setProperty('--dx', `${armed > 0 ? -t.offsetWidth : t.offsetWidth}px`);
-    setTimeout(() => { const n = S.story && neighbour(armed); if (n) landStory(n); }, SLIDE_MS);
+    setTimeout(() => { const n = S.story && neighbour(armed, true); if (n) landStory(n); }, SLIDE_MS);
     return;
   }
   // It falls back, which has to be as smooth as leaving or the gesture feels like a trap.
@@ -2348,15 +2372,18 @@ function endSwipe(e) {
     if (!S.story) return;
     // Except off the end of the line, where there was never anything to fall back to.
     // Thrown past the last story is the way out, the same as tapping past it.
-    if (far && dir > 0 && !neighbour(1)) return closeStory();
+    if (far && dir > 0 && !neighbour(1, true)) return closeStory();
     paintStory();
   }, 240);
 }
-$('#story').addEventListener('pointerup', endSwipe);
-$('#story').addEventListener('pointercancel', e => { if (sdrag && sdrag.live) endSwipe(e); else sdrag = null; });
+$('#story').addEventListener('pointerup', e => { releaseStory(); endSwipe(e); });
+$('#story').addEventListener('pointercancel', e => { releaseStory(); if (sdrag && sdrag.live) endSwipe(e); else sdrag = null; });
 $('#story').addEventListener('click', e => {
-  if (!swiped) return;
-  swiped = false;
+  // A swipe and a hold both end in a click the browser sends afterwards, and neither is a
+  // tap. Swallowed here rather than by making the zones smaller, because tapping to step
+  // is how a story has always worked.
+  if (!swiped && !washeld) return;
+  swiped = false; washeld = false;
   e.stopPropagation(); e.preventDefault();
 }, true);
 
@@ -2366,7 +2393,7 @@ $('#story').addEventListener('click', e => {
 function paneHTML(uid, all, at, live) {
   const st = all[at], u = user(st.uid || uid), mine = st.u === me().id, likes = storyLikes(st.id).length;
   return `<div class="pane">
-    <div class="bars">${all.map((x, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}"></i>`).join('')}</div>
+    <div class="bars">${all.map((x, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}">${i === at ? '<b></b>' : ''}</i>`).join('')}</div>
     <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
       ${mine ? `<button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>` : ''}
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
@@ -2385,20 +2412,73 @@ function paneHTML(uid, all, at, live) {
   </div>`;
 }
 
+const STORY_RUN = 5000;                    // how long a card of text or a picture is up for
 function paintStory() {
   const box = $('#story'), all = storiesOf(S.story.uid), st = all[S.story.i];
   if (!st) return closeStory();
   box.hidden = false;
+  box.classList.remove('held');
   box.innerHTML = `<div class="track" id="strack">${paneHTML(S.story.uid, all, S.story.i, true)}</div>`;
   markSeen(st.id);
   clearTimeout(storyTimer);
   // A card of text is read in a few seconds; a clip runs as long as it runs. Answering one
   // repaints it, and the clock is not restarted for that: it would make a story you keep
-  // reacting to sit there forever.
+  // reacting to sit there forever. The bar is set from how much has already gone rather
+  // than from zero for the same reason — it is the clock drawn, not an animation.
   if (st.kind !== 'video') {
-    const left = Math.max(1200, 5000 - (Date.now() - (S.story.at || (S.story.at = Date.now()))));
+    const gone = Date.now() - (S.story.at || (S.story.at = Date.now()));
+    const left = Math.max(1200, STORY_RUN - gone);
+    fillBar(Math.min(1, gone / STORY_RUN), left);
     storyTimer = setTimeout(() => S.story && stepStory(1), left);
-  } else { const v = box.querySelector('video'); if (v) v.onended = () => S.story && stepStory(1); }
+  } else {
+    const v = box.querySelector('video');
+    if (v) {
+      v.onended = () => S.story && stepStory(1);
+      // A clip's own length is the clock, and it is not known until the file says so.
+      const set = () => { if (v.duration) fillBar(v.currentTime / v.duration, (v.duration - v.currentTime) * 1000); };
+      v.onloadedmetadata = set;
+      if (v.readyState >= 1) set();
+    }
+  }
+}
+// Where the bar starts from and how long it has to run. One inline animation rather than a
+// timer of its own: the browser keeps it in step with the clock without waking anything up,
+// and pausing it is one property.
+function fillBar(from, ms) {
+  const b = $('#story .bars i.now b');
+  if (!b) return;
+  b.style.setProperty('--from', `${Math.max(0, Math.min(100, from * 100))}%`);
+  b.style.setProperty('--run', `${Math.max(0, ms)}ms`);
+}
+
+// ---- holding it still
+// Press and hold and a story waits for you, which is the one thing every story viewer does
+// and the reason a card of text is not a race. The clock, the clip and the bar all stop
+// together, and the press that did it must not also count as a tap on the way back up.
+let holdTimer = null, held = false, washeld = false;
+const HOLD_MS = 180;                       // long enough that a tap is never mistaken for a hold
+function holdStory() {
+  if (!S.story || held) return;
+  held = true;
+  $('#story').classList.add('held');
+  clearTimeout(storyTimer);
+  S.story.heldAt = Date.now();
+  const v = $('#story video');
+  if (v) try { v.pause(); } catch (e) {}
+}
+function releaseStory() {
+  clearTimeout(holdTimer); holdTimer = null;
+  if (!held) return;
+  held = false; washeld = true;            // the click that follows this is not a tap
+  const s = S.story;
+  $('#story').classList.remove('held');
+  if (!s) return;
+  // The time spent held never happened, as far as the clock is concerned.
+  if (s.heldAt) { s.at = (s.at || Date.now()) + (Date.now() - s.heldAt); s.heldAt = null; }
+  const v = $('#story video');
+  if (v) { try { v.play().catch(() => {}); } catch (e) {} return; }
+  const left = Math.max(1200, STORY_RUN - (Date.now() - (s.at || Date.now())));
+  storyTimer = setTimeout(() => S.story && stepStory(1), left);
 }
 // Answering one. A heart and as many emoji as you like, the same two answers a post takes
 // — and both reach the person who posted it, because a story is gone tomorrow and an
