@@ -1635,3 +1635,147 @@ create trigger messages_notify after insert on public.messages
 drop trigger if exists message_reactions_notify on public.message_reactions;
 create trigger message_reactions_notify after insert on public.message_reactions
   for each row execute function public.notify_hook('message_reaction');
+
+-- ============================================================
+-- v29 (what is happening while you are looking, and what to say at the end of the day):
+-- safe to run on an existing project.
+--
+-- Three things, none of which the app needs in order to work.
+--
+--   * The tables realtime is allowed to broadcast. Adding a table to the publication is
+--     what lets the app hear about a row the moment it lands, instead of on the next
+--     refetch. Row level security still decides who hears what — a publication grants
+--     nothing that a policy does not already allow.
+--   * Somebody saying yes. A friend request accepted and a group invite accepted both end
+--     as a row, and until now the person who sent the invitation heard nothing at all.
+--   * The end of the day, for somebody who has not finished. The only other thing in the
+--     app that happens at a time rather than because somebody did something is the spin-day
+--     reminder, and this rides the same hourly cron and the same profiles.tz for the same
+--     reason: the server has no other way to know when evening is for anyone.
+-- ============================================================
+
+-- Realtime. A table not in the publication is simply never broadcast, and a project that
+-- has not run this behaves exactly as it did before.
+do $r$
+declare t text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise notice 'no supabase_realtime publication on this database; skipping';
+    return;
+  end if;
+  foreach t in array array['posts', 'comments', 'likes', 'reactions', 'stories', 'story_likes',
+                           'story_reactions', 'comment_likes', 'invites', 'group_members',
+                           'friendships', 'messages', 'message_reactions', 'flags', 'flag_votes']
+  loop
+    if to_regclass('public.' || t) is not null
+       and not exists (select 1 from pg_publication_tables
+                        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $r$;
+
+-- An update carries only the columns that changed unless the whole row is replicated, and
+-- the app reads post_id and outcome off a flag being decided.
+alter table public.flags replica identity full;
+
+-- ---- somebody said yes
+-- accept_invite() deletes the invite and writes the row, so the row is the only thing left
+-- to hang this on. Which of the pair to tell is worked out by the function: it is whoever
+-- did not just accept.
+drop trigger if exists friendships_notify on public.friendships;
+create trigger friendships_notify after insert on public.friendships
+  for each row execute function public.notify_hook('accepted_friend');
+drop trigger if exists group_members_notify on public.group_members;
+create trigger group_members_notify after insert on public.group_members
+  for each row execute function public.notify_hook('accepted_group');
+
+-- ---- the end of somebody's day
+-- One row per person per local day, so a retry or two crons overlapping cannot chase the
+-- same person twice. Service role only, like wheel_reminders: no policies at all.
+create table if not exists public.day_reminders (
+  user_id uuid not null references public.profiles on delete cascade,
+  day date not null,
+  sent_at timestamptz not null default now(),
+  primary key (user_id, day)
+);
+alter table public.day_reminders enable row level security;
+
+-- Whose evening it is right now, who is short, and by how much. The hour is 20:00 local:
+-- late enough to be the end of the day, early enough to do something about it.
+--
+-- A post the group decided did not count is left out, exactly as the app leaves it out, or
+-- the reminder would say a day was finished that the app shows as open.
+create or replace function public.day_due_now()
+returns table (user_id uuid, line text)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+  ), due as (
+    select id, zone, (now() at time zone zone)::date as day
+      from folk
+     where extract(hour from (now() at time zone zone))::int = 20
+  ), short as (
+    select d.id as uid, d.day,
+           q->>'metric' as metric,
+           (q->>'target')::numeric as target,
+           coalesce((
+             select sum(po.amount) from public.posts po
+              where po.group_id = g.id and po.user_id = d.id and po.day = d.day
+                and po.metric = q->>'metric'
+                and not exists (select 1 from public.flags f
+                                 where f.post_id = po.id and f.outcome = 'upheld')
+           ), 0) as did
+      from due d
+      join public.group_members gm on gm.user_id = d.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral jsonb_array_elements(coalesce(g.quotas, '[]'::jsonb)) q
+      -- A rest day is not a day anybody is behind on.
+     where (g.active_days is null or array_length(g.active_days, 1) is null
+            or extract(dow from d.day)::int = any (g.active_days))
+  ), behind as (
+    select uid, day, metric, (target - did)::bigint as left_to_do
+      from short where did < target
+  ), claimed as (
+    insert into public.day_reminders (user_id, day)
+    select distinct uid, day from behind
+    on conflict do nothing
+    returning day_reminders.user_id as uid
+  )
+  -- The same metric in two groups is one number to the person reading it, so the largest
+  -- of them is what is quoted rather than both.
+  select c.uid, string_agg(x.what, ', ' order by x.what)
+    from claimed c
+    join lateral (
+      select max(b.left_to_do)::text || ' ' || b.metric as what
+        from behind b where b.uid = c.uid group by b.metric
+    ) x on true
+   group by c.uid;
+$$;
+
+-- The hourly cron already calls wheelday; it answers both questions now, so nothing new is
+-- scheduled here. The function has to be redeployed for the second one to be asked.
+
+-- Who did it. Every trigger above sends the row that changed, and for two of them the row
+-- does not say who caused it: a friendship names a pair, and a membership names the person
+-- who joined but not whether they joined or were put there. auth.uid() is the one thing
+-- that knows, and it is only knowable here — by the time pg_net's call lands there is no
+-- session left to ask. Every kind gains the field; nothing that ignores it changes.
+create or replace function public.notify_hook() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare secret text := coalesce((select value from private.config where key = 'hook_secret'), '');
+begin
+  if secret = '' then
+    raise warning 'notify_hook: no hook_secret in private.config, so % notifications are not being sent', TG_ARGV[0];
+    return new;
+  end if;
+  perform net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/notify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', secret),
+    body    := jsonb_build_object('kind', TG_ARGV[0],
+                                  'record', to_jsonb(new) || jsonb_build_object('actor', auth.uid()))
+  );
+  return new;
+end $$;

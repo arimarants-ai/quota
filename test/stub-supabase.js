@@ -267,6 +267,21 @@
                                  : { data: { signedUrl: 'data:video/mp4;base64,' }, error: null }; },
       }) },
       functions: { invoke: async () => ({ data: null, error: null }) },
+      // Enough of a realtime channel to drive the app with: a test pushes a row through
+      // self.__live(table, payload) and everything downstream of it runs for real. With
+      // noRealtime the whole thing is missing, which is what a project that has not turned
+      // it on in the dashboard looks like.
+      channel: M().noRealtime ? undefined : () => {
+        const on = [];
+        const ch = {
+          on: (_kind, opts, cb) => { on.push({ table: opts && opts.table, cb }); return ch; },
+          subscribe: cb => { if (cb) cb(M().liveFails ? 'CHANNEL_ERROR' : 'SUBSCRIBED'); return ch; },
+        };
+        self.__live = (table, payload) => on.filter(h => h.table === table).forEach(h => h.cb(payload));
+        self.__liveTables = () => on.map(h => h.table);
+        return ch;
+      },
+      removeChannel: () => { self.__live = null; },
     }),
   };
 })();

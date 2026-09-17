@@ -109,6 +109,37 @@ Deno.serve(async (req) => {
     }));
   }
 
+  // Somebody said yes. A friendship names a pair and nothing else, so who to tell is
+  // whichever half of it did not just accept.
+  if (kind === 'accepted_friend') {
+    const { a, b, actor } = record ?? {};
+    if (!a || !b || !actor) return new Response('ignored', { status: 200 });
+    const tell = actor === a ? b : a;
+    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    if (!from) return new Response('ignored', { status: 200 });
+    return blast([tell], JSON.stringify({
+      title: 'Quota', body: socialFor('accepted_friend', who(from)),
+      url: `${SITE_URL}/#friends`, tag: `accepted-${actor}`,
+    }));
+  }
+
+  // Somebody joined a group. Only when they did it themselves — create_group() and an
+  // invite being written both land in the same table, and neither is news.
+  if (kind === 'accepted_group') {
+    const { group_id: gid, user_id: joined, actor } = record ?? {};
+    if (!gid || !joined || actor !== joined) return new Response('ignored', { status: 200 });
+    const [[group], members, [from]] = await Promise.all([
+      rest(`groups?id=eq.${gid}&select=name`),
+      rest(`group_members?group_id=eq.${gid}&user_id=neq.${joined}&select=user_id`),
+      rest(`profiles?id=eq.${joined}&select=username,display_name`),
+    ]);
+    if (!group || !from || !members.length) return new Response('nobody to notify', { status: 200 });
+    return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
+      title: group.name, body: socialFor('joined_group', who(from), group.name),
+      url: `${SITE_URL}/#groups`, tag: `joined-${gid}-${joined}`,
+    }));
+  }
+
   // Somebody said something. A group's chat goes to the group; a private one goes to the
   // other half of the pair. The link is the chat as the person reading it names it, which
   // for a private one is the sender rather than themselves.

@@ -2361,6 +2361,144 @@ await withPage({ ...NO_WHEEL, noChatTables: true }, async page => {
   check('  and no way in offered anywhere', await page.locator('.hdr .chatbtn').count() === 0);
 });
 
+// ---- what is happening while you are looking
+//
+// A push notification is for somebody who is not looking. This is the other half, and the
+// two rules that matter are both about restraint: nothing for a post in your group, because
+// the feed fills in underneath you, and nothing for the chat that is open in front of you.
+const fire = (page, table, row, ev = 'INSERT') =>
+  page.evaluate(([t, r, e]) => self.__live(t, { eventType: e, new: r }), [table, row, ev]);
+const settleLive = p => p.waitForTimeout(1400);   // the burst window, plus the load it asks for
+
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  check('the app subscribes to what it can show',
+    (await page.evaluate(() => self.__liveTables())).includes('comments'));
+  check('  and knows it is connected', await page.evaluate(() => liveOn) === true);
+
+  // Somebody in your group posting: the feed fills in underneath you and says nothing.
+  await page.evaluate(() => {
+    self.__posts.push({ id: 510, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 25,
+      caption: '', video_path: 'live.mp4', day: new Date().toLocaleDateString('en-CA'),
+      created_at: new Date().toISOString() });
+  });
+  const before = await page.locator('.post').count();
+  await fire(page, 'posts', { id: 510, group_id: 1, user_id: 'u2' });
+  await settleLive(page);
+  check('a post in your group turns up in the feed on its own',
+    await page.locator('.post').count() === before + 1,
+    `${before} -> ${await page.locator('.post').count()}`);
+  check('  and says nothing, because you can already see it',
+    await page.isHidden('#drop'), await page.locator('#drop').innerText().catch(() => ''));
+
+  // A comment on your own proof is news, and it lands on the comment.
+  const mine = await page.evaluate(() => S.posts.find(p => p.userId === S.me.id).id);
+  await page.evaluate(m => {
+    self.__cmts.push({ id: 760, post_id: m, user_id: 'u2', body: 'how', created_at: new Date().toISOString() });
+  }, mine);
+  await fire(page, 'comments', { id: 760, post_id: mine, user_id: 'u2', body: 'how' });
+  await settleLive(page);
+  check('a comment on your own proof comes down from the top',
+    await page.isVisible('#drop') && /Sam/.test(await page.locator('#drop').innerText())
+    && /how/.test(await page.locator('#drop').innerText()),
+    await page.locator('#drop').innerText());
+  await page.locator('#drop .dropcard').click();
+  await page.waitForTimeout(600);
+  check('  and tapping it goes to that comment, not near it',
+    await page.evaluate(() => !!document.querySelector('[data-cmt="760"]')));
+  check('    taking the banner with it', await page.isHidden('#drop'));
+
+  // Somebody else's proof being commented on is not your business.
+  const theirs = await page.evaluate(() => S.posts.find(p => p.userId !== S.me.id).id);
+  await page.evaluate(t => {
+    self.__cmts.push({ id: 761, post_id: t, user_id: 'u2', body: 'nice', created_at: new Date().toISOString() });
+  }, theirs);
+  await fire(page, 'comments', { id: 761, post_id: theirs, user_id: 'u2', body: 'nice' });
+  await settleLive(page);
+  check('  a comment on somebody else’s proof says nothing to you',
+    await page.isHidden('#drop'), await page.locator('#drop').innerText().catch(() => ''));
+
+  // Nothing you did yourself is ever news to you.
+  await page.evaluate(m => {
+    self.__likes.push({ post_id: m, user_id: 'u1' });
+  }, mine);
+  await fire(page, 'likes', { post_id: mine, user_id: 'u1' });
+  await settleLive(page);
+  check('  and nothing you did yourself is news to you', await page.isHidden('#drop'));
+});
+
+// The chat you are reading, and the one you are not.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => openChat('g:1'));
+  await page.waitForTimeout(700);
+  check('the subscription takes the chat poll off its hands',
+    await page.evaluate(() => chatPoll) === null);
+
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 960, group_id: 1, a: null, b: null, user_id: 'u2',
+      body: 'anyone up', created_at: new Date().toISOString() });
+  });
+  await fire(page, 'messages', { id: 960, group_id: 1, a: null, b: null, user_id: 'u2', body: 'anyone up' });
+  await settleLive(page);
+  check('  a line in the chat you are reading appears in it',
+    /anyone up/.test(await page.locator('#app .msgs').innerText()),
+    await page.locator('#app .msgs').innerText());
+  check('    and says nothing, because you are reading it', await page.isHidden('#drop'));
+
+  // The same line, in a conversation you are not looking at.
+  await page.evaluate(() => { S.chat = null; S.chatFrom = null; render(); });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 961, a: 'u1', b: 'u2', group_id: null, user_id: 'u2',
+      body: 'see you tomorrow', created_at: new Date().toISOString() });
+  });
+  await fire(page, 'messages', { id: 961, a: 'u1', b: 'u2', group_id: null, user_id: 'u2', body: 'see you tomorrow' });
+  await settleLive(page);
+  check('  a line in one you are not looking at does come down from the top',
+    await page.isVisible('#drop') && /see you tomorrow/.test(await page.locator('#drop').innerText()),
+    await page.locator('#drop').innerText());
+  await page.locator('#drop .dropcard').click();
+  await page.waitForTimeout(800);
+  check('    and tapping it opens that conversation',
+    await page.evaluate(() => S.chat) === 'u:u2');
+});
+
+// Saying yes, and the end of a flag: both are things that happen to you without you doing
+// anything, which is exactly what the banner is for.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await fire(page, 'friendships', { a: 'u1', b: 'u2' });
+  await settleLive(page);
+  check('somebody accepting your request says so',
+    await page.isVisible('#drop') && /accepted/i.test(await page.locator('#drop').innerText()),
+    await page.locator('#drop').innerText());
+  await page.locator('#drop .x').click();
+  await page.waitForTimeout(300);
+  check('  and it can be sent away', await page.isHidden('#drop'));
+
+  // A banner goes on its own, or it is a thing to be cleared rather than a thing to be read.
+  await fire(page, 'invites', { id: 55, type: 'friend', from_user: 'u3', to_user: 'u1' });
+  await settleLive(page);
+  check('  a request coming in says so too', await page.isVisible('#drop'));
+  await page.waitForTimeout(5200);
+  check('    and goes away on its own', await page.isHidden('#drop'));
+});
+
+// A project that has not turned realtime on in the dashboard. Nothing here is allowed to
+// be a thing the app needs in order to work.
+await withPage({ ...NO_WHEEL, noRealtime: true }, async page => {
+  await settle(page);
+  check('without realtime the app comes up exactly as it did', await page.isVisible('#bar')
+    && await page.locator('.post').count() > 0);
+  check('  with no error banner over it', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err span').innerText());
+  await page.evaluate(() => openChat('g:1'));
+  await page.waitForTimeout(600);
+  check('  and the chat falls back to asking for itself',
+    await page.evaluate(() => chatPoll) !== null);
+});
+
 // Which groups you are willing to have on show.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

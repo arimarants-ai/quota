@@ -307,6 +307,64 @@ was starting rejects with `AbortError`, a browser that will not start one unprom
 with `NotAllowedError`, and a request dropped because the screen it belonged to has gone
 rejects with nothing worth reading. None of the three is a fault anybody can act on.
 
+## What is happening while you are looking
+
+One channel for the whole app rather than one per screen: what you can see changes as you
+move about, and a subscription torn down and rebuilt on every navigation is one that is
+sometimes missing.
+
+**Nothing patches `S` by hand off a payload.** A row arriving is only a reason to *ask*, and
+`load()` already knows how to ask properly — an update that gets one table right and its
+neighbour wrong is worse than a round trip. Bursts are collapsed on a 600ms timer, so ten
+people liking a post at once is one load.
+
+**Realtime has to be switched on per table** in the Supabase dashboard (Database →
+Replication); the v29 block adds them to the publication. Where it is not on, none of this
+fires and the app behaves exactly as it did before: the visibility refetch, and in a chat
+`refreshChat()`. Row level security still decides who hears what — a publication grants
+nothing a policy does not already allow. There is a boot test for the app with no realtime
+at all, because this must never be something the app needs in order to work.
+
+### The line down from the top
+
+A push notification is for somebody who is not looking. `#drop` is the other half, and it is
+not a notification: it lives in the app, it goes away after five seconds, and the whole card
+is the way to the thing it is about.
+
+Two things never earn one, and both were asked for:
+
+- **Somebody in your group posting.** The feed fills in underneath you, and a banner would
+  only say what you can already see.
+- **Anything in the chat that is open in front of you.** You are reading it.
+
+Neither is a special case bolted on: `bannerFor()` returns nothing for `posts` at all, and
+returns nothing for a message whose chat is `S.chat`.
+
+Banners are **resolved after the load, not off the payload**. A row names ids, and whether a
+comment is on your post — or who somebody is — is only knowable once the tables it points at
+have caught up. `goTarget()` is the dispatch a banner and a notification both go through, so
+tapping either lands in exactly the same place; it checks that a chat key names a real
+conversation rather than that it is shaped like one, because a key that looks right and
+points at nobody opens an empty chat with "?" at the top of it.
+
+### Two things that happen at a time rather than because somebody did something
+
+`wheelday` already ran hourly on `profiles.tz` to work out whose morning it is. It answers a
+second question on the same beat now — whose evening it is, and who has not finished — so
+there is no new cron job, no new function and no new secret. `day_due_now()` claims each
+reminder as it returns it, the same as `wheel_due_now()`, so an overlapping run cannot chase
+anybody twice, and it leaves out a post an upheld flag took off the day, or the reminder
+would say a day was finished that the app shows as open. A rest day is not a day anybody is
+behind on.
+
+The other is **somebody saying yes**. A friend request accepted and a group invite accepted
+both end as a row, and until now whoever sent the invitation heard nothing at all.
+`notify_hook()` gained one field for it: a friendship names a pair and nothing else, and
+`auth.uid()` is the only thing that knows which half just accepted — and it is only knowable
+in the trigger, because by the time `pg_net`'s call lands there is no session left to ask.
+
+**This needs the v29 block of `schema.sql`**, and `wheelday` redeployed as well as `notify`.
+
 ## Talking to each other
 
 Two kinds of chat and one table, because a message is a message. A group's chat **is** the

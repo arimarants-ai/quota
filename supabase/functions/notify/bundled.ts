@@ -1,4 +1,4 @@
-// GENERATED — do not edit. Built from push.ts, message.ts and index.ts by test/bundle.mjs.
+// GENERATED — do not edit. Built from push.ts, message.ts, index.ts by test/bundle.mjs.
 // This is the same function in one file, for pasting into the Supabase dashboard when
 // the CLI is not to hand. Deploying either one gives the same behaviour.
 
@@ -174,9 +174,13 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
+  // Somebody said yes. Worth hearing: an invitation sent and never spoken of again is the
+  // one thing in the app that used to just quietly happen.
+  if (kind === 'accepted_friend') return `${name} accepted your friend request`;
+  if (kind === 'joined_group') return `${name} joined ${extra}`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
@@ -302,6 +306,37 @@ Deno.serve(async (req) => {
       body: socialFor('comment_like', who(from), comment.body),
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
+    }));
+  }
+
+  // Somebody said yes. A friendship names a pair and nothing else, so who to tell is
+  // whichever half of it did not just accept.
+  if (kind === 'accepted_friend') {
+    const { a, b, actor } = record ?? {};
+    if (!a || !b || !actor) return new Response('ignored', { status: 200 });
+    const tell = actor === a ? b : a;
+    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    if (!from) return new Response('ignored', { status: 200 });
+    return blast([tell], JSON.stringify({
+      title: 'Quota', body: socialFor('accepted_friend', who(from)),
+      url: `${SITE_URL}/#friends`, tag: `accepted-${actor}`,
+    }));
+  }
+
+  // Somebody joined a group. Only when they did it themselves — create_group() and an
+  // invite being written both land in the same table, and neither is news.
+  if (kind === 'accepted_group') {
+    const { group_id: gid, user_id: joined, actor } = record ?? {};
+    if (!gid || !joined || actor !== joined) return new Response('ignored', { status: 200 });
+    const [[group], members, [from]] = await Promise.all([
+      rest(`groups?id=eq.${gid}&select=name`),
+      rest(`group_members?group_id=eq.${gid}&user_id=neq.${joined}&select=user_id`),
+      rest(`profiles?id=eq.${joined}&select=username,display_name`),
+    ]);
+    if (!group || !from || !members.length) return new Response('nobody to notify', { status: 200 });
+    return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
+      title: group.name, body: socialFor('joined_group', who(from), group.name),
+      url: `${SITE_URL}/#groups`, tag: `joined-${gid}-${joined}`,
     }));
   }
 
