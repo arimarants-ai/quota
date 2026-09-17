@@ -2749,7 +2749,11 @@ function releaseClip(v) {
   if (!v.getAttribute('src') || (v.tagName === 'VIDEO' && !v.paused)) return;
   v.dataset.idle = '1';                    // so letting go is not mistaken for a failure
   v.removeAttribute('src');
-  v.load();
+  // Only a <video> has load(). Proof is a clip or a picture, and a picture is an <img>,
+  // which does not — so scrolling a photo post off the screen threw, and threw again on
+  // every scroll after it, which is what put a bar across the bottom of the app that
+  // nothing would clear. Everywhere else that calls load() already asks first.
+  if (v.tagName === 'VIDEO') v.load();
 }
 // #app is the screen, and #one is the single post that opens over it. Both, and nothing
 // else: a screen on its way out lives in #ghost for the length of a transition, and
