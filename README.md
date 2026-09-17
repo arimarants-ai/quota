@@ -487,10 +487,59 @@ Nothing at either end of the line: it pulls back at a third of the distance and 
 rather than tearing off the edge. Thrown forward past the last story is still the way out,
 the same as tapping past it.
 
-Swiping and tapping are the same step. The tap zones cover the whole face, so a swipe that
-starts and ends inside one would step twice — once on the swipe and again on the click the
-browser sends afterwards — and the click is swallowed rather than the zones made smaller,
-because tapping to step is how a story has always worked.
+Swiping and tapping are the same step, and since v66 they are the same *move*: a tap builds
+the neighbour beside the story you are on and slides the pair across, exactly as a finger
+would, rather than redrawing the next one where the last one stood. `stepStory()` is the
+one place that decides this, so the clock running out and a clip ending take the same path.
+A step already in flight is left alone — the strip being armed is what says so, and a second
+step during those 320ms would land on the wrong story. Motion turned off in the phone's
+settings goes straight to the far side.
+
+The tap zones cover the whole face, so a swipe that starts and ends inside one would step
+twice — once on the swipe and again on the click the browser sends afterwards — and the
+click is swallowed rather than the zones made smaller, because tapping to step is how a
+story has always worked.
+
+### Why a drag is one write per frame
+
+A finger sends more `pointermove` events than there are frames, and every transform written
+between two paints is work the screen never shows. Each drag — a screen going back, a story,
+a post opened on its own — records where the finger is and writes the layers once, in
+`requestAnimationFrame`. On release the pending frame is cancelled, or it would land after
+the animation's first keyframe and write over it.
+
+Two more things are about the first frame of a move rather than the rest of it. `#app` is
+promoted to its own layer only while `:root.moving` is on: promoting it always costs memory
+on every screen, and never promoting it is the hitch at the start of a drag, the browser
+deciding mid-gesture that a screen it was painting in place now needs compositing. And the
+blur behind the tab bar is switched off for the length of a transition, because a backdrop
+blur is resampled on every frame that anything under it moves, and for those 340ms
+everything under it moves. The bar sits over the screen's own background, so nobody sees
+the difference.
+
+### Back is always the hub
+
+Back out of a conversation is the chat hub, however the conversation was reached, and back
+out of the hub is wherever you were before any of it — a group, Friends, the feed — at the
+spot you left it. A thread opened from anywhere but the hub has no hub underneath it to go
+back to, so `openChat()` puts one there: an extra entry on `backY`, at the top of the page,
+above the entry for the screen you came from. The first back pops the hub, the second pops
+the screen, and the drag-back gesture — which pops one entry per screen — needs no special
+case for it.
+
+A flag is the other way round: opened from the flags list it goes back to the list, opened
+from the post it is about it goes back to the post. `S.flagFrom` remembers which, because
+skipping the list on the way out was a bug the phantom-entry trick would not have fixed —
+there the list is a real screen with a real scroll, not a hub to route through.
+
+### Under the notch
+
+The status bar is translucent and the page runs under it, so anything at `top: 0` with a
+few pixels of padding is under the clock. Every header pads by `env(safe-area-inset-top)`;
+the chat bar and the flag bar did not, and a bare back button as the first thing on a
+screen did not either. `#app > .backx` is the one rule for the latter, and both bars carry
+the inset now. The chat bar is sticky as well, so the name and the way back are there
+however far up the conversation you have read.
 
 
 `storyPeople()` decides the order once and both the row and the viewer use it: yours

@@ -204,9 +204,9 @@ button.rg{border:0;font:inherit}
 /* A strip rather than a single card, so the one you are heading for is already beside the
    one you are on and the whole thing can move with your finger. */
 #story{overflow:hidden}
-#story .track{position:relative;width:min(100%,430px);height:100%;display:flex;
+#story .track{position:relative;width:min(100%,430px);height:100%;display:flex;will-change:transform;
   transform:translateX(calc(var(--base,0px) + var(--dx,0px)));
-  transition:transform 280ms cubic-bezier(.32,.72,0,1)}
+  transition:transform 320ms cubic-bezier(.32,.72,0,1)}
 #story .track.grab{transition:none}
 #story .track > .pane{flex:0 0 100%;width:100%}
 #story .bars{display:flex;gap:4px;padding:0 10px}
@@ -550,7 +550,7 @@ button.rg{border:0;font:inherit}
 .post .head .who{background:none;padding:0;border-radius:0;font-weight:800;font-size:14.5px;line-height:1.2;color:var(--text);display:block;text-align:left;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .post .head .who:active{opacity:.5}
 /* One post on its own, because a tile can be from a group this account is not in. */
-#one{position:fixed;inset:0;z-index:65;background:var(--bg);overflow-y:auto;animation:slidein .28s cubic-bezier(.32,.72,0,1)}
+#one{position:fixed;inset:0;z-index:65;background:var(--bg);overflow-y:auto;animation:slidein .28s cubic-bezier(.32,.72,0,1);will-change:transform}
 #one[hidden]{display:none}
 @keyframes slidein{from{opacity:.4;transform:translateX(26px)}}
 .onebar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);
@@ -578,7 +578,10 @@ button.rg{border:0;font:inherit}
 .crow .rt i{display:inline-block;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--mk);
   color:var(--onmk);font-style:normal;font-size:12px;line-height:20px;text-align:center}
 /* One conversation. */
-.cbar{display:flex;align-items:center;gap:10px;padding:12px 14px 10px;border-bottom:1px solid var(--line);
+/* Padded past the notch like every other header: the status bar is translucent and the page
+   runs under it, so a bar at top:0 with 12px of padding puts the name and the way back
+   under the clock. Sticky, so it is there however far up the conversation you have read. */
+.cbar{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);
   position:sticky;top:0;z-index:4;background:var(--bg)}
 .cbar .backx{margin:0}
 .cbar .av.gav{background:var(--mk);color:var(--onmk)}
@@ -668,7 +671,10 @@ main.chatting{padding-bottom:0}
 .fbar-chip.mine{background:#8a1f30;color:#fff}
 .fbar-chip.mine em{color:#ffc9d2}
 /* The screen. A bar with the clock in it, because how long is left is the whole question. */
-.fbar{display:flex;align-items:center;gap:12px;padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+/* The clock is the whole point of this screen, so the bar it is on stays put while the rest
+   scrolls — the same as a conversation keeps its name and its way back. */
+.fbar{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:4;background:var(--bg)}
 .fbar h2{margin:0;font-size:17px;font-weight:800}
 .fbar .backx{margin:0}
 .fbar .clock{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--text);color:var(--bg);padding:6px 10px}
@@ -835,8 +841,15 @@ main.chatting{padding-bottom:0}
 #ghost{overflow:hidden;background:var(--bg);will-change:transform}
 #ghost .inner{position:absolute;left:0;right:0;max-width:600px;margin:0 auto}
 #dim{background:#06100b;opacity:0;will-change:opacity}
-:root.moving #app{position:relative}
+/* Promoted to its own layer for the length of the move rather than on the first frame of
+   it, which is the hitch at the start of a drag: the browser deciding, mid-gesture, that a
+   screen it was painting in place now needs compositing. */
+:root.moving #app{position:relative;will-change:transform}
 :root.moving,:root.moving body{overflow-x:clip}
+/* The blur behind the tab bar is resampled on every frame that anything under it moves, and
+   for the length of a transition everything under it moves. Off, for that long only — the
+   bar sits over the screen's own background, so nobody sees the difference. */
+:root.moving .bar{backdrop-filter:none;-webkit-backdrop-filter:none}
 /* Sideways belongs to the app, so a drag back to the feed is not eaten as a page gesture.
    The one strip that scrolls sideways of its own accord keeps that. */
 #app{touch-action:pan-y}
@@ -912,6 +925,9 @@ dialog h2{font-size:20px;margin-bottom:2px}
    button shaped like a button, with the arrow pointing the way it goes. */
 .backx{margin:12px 0 0 14px;width:38px;height:38px;padding:0;border-radius:50%;display:grid;place-items:center;
   background:var(--sheet);color:var(--text);border:1px solid var(--line);box-shadow:0 2px 10px -2px rgba(11,12,14,.22)}
+/* On its own at the top of a screen — a profile, the chats, the flags — it is the first thing
+   under the notch, and the notch is not a place a button can be pressed. */
+#app > .backx{margin-top:calc(12px + env(safe-area-inset-top))}
 .backx svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .backx:active{transform:scale(.93)}
 /* recording in the app */
@@ -1192,7 +1208,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v65';
+const BUILD = 'quota-v66';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1238,7 +1254,7 @@ const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
-  msgs: [], mreacts: [], reads: [], chat: null, chatFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
+  msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -2196,9 +2212,34 @@ function neighbour(d) {
 }
 // And going there. Off the end of the line forward is the way out; off the front there is
 // nothing, so it stays where it is.
+// One step along the line, whether it was tapped, swiped, or the clock ran out. The one you
+// are heading for is built beside the one you are on and the pair of them move across —
+// the same move a finger makes, so tapping and swiping look like the same thing because
+// they are. Only when there is nothing to move — no strip yet, or motion turned off — does
+// it go straight to the far side.
+//
+// A step already in flight is left alone. The strip being armed is what says so, and a
+// second step during those 320ms would land on the wrong story.
+const SLIDE_MS = 320;
 function stepStory(d) {
   const n = neighbour(d);
   if (!n) return d > 0 ? closeStory() : undefined;
+  const t = strack();
+  if (t && t.dataset.armed) return;
+  if (t && !still()) {
+    t.classList.add('grab');               // put the neighbour in place with no transition
+    armSlide(d);
+    void t.offsetWidth;                    // that frame is committed before the move begins
+    t.classList.remove('grab');
+    clearTimeout(storyTimer);
+    t.style.setProperty('--dx', `${d > 0 ? -t.offsetWidth : t.offsetWidth}px`);
+    setTimeout(() => { if (S.story) landStory(n); }, SLIDE_MS);
+    return;
+  }
+  landStory(n);
+}
+// Arrive. The strip is already showing this story, so the redraw is a change nobody sees.
+function landStory(n) {
   const s = S.story;
   if (n.p !== undefined) s.p = n.p;
   s.uid = n.uid; s.i = n.i; s.at = Date.now();
@@ -2246,14 +2287,22 @@ $('#story').addEventListener('pointermove', e => {
   }
   sdrag.v = (e.clientX - sdrag.last) / Math.max(1, performance.now() - sdrag.lt);
   sdrag.last = e.clientX; sdrag.lt = performance.now();
-  const t = strack();
-  if (t) t.style.setProperty('--dx', `${resist(dx, +(t.dataset.armed || 0))}px`);
+  // One write per frame, however many moves the finger sends in between: a transform set
+  // five times before a paint is four writes the screen never shows and a frame it misses.
+  sdrag.dx = dx;
+  if (!sdrag.raf) sdrag.raf = requestAnimationFrame(() => {
+    if (!sdrag) return;
+    sdrag.raf = 0;
+    const t = strack();
+    if (t) t.style.setProperty('--dx', `${resist(sdrag.dx, +(t.dataset.armed || 0))}px`);
+  });
   e.preventDefault();
 });
 function endSwipe(e) {
   const d = sdrag; sdrag = null;
   const t = strack();
   if (!d || !d.live || !t) return;
+  if (d.raf) cancelAnimationFrame(d.raf);   // a frame still waiting would write over the landing
   t.classList.remove('grab');
   swiped = true;
   const dx = e.clientX - d.x, armed = +(t.dataset.armed || 0), dir = dx < 0 ? 1 : -1;
@@ -2263,7 +2312,7 @@ function endSwipe(e) {
     // Carry it the rest of the way, then redraw on the far side. The strip is already
     // showing the story it lands on, so the redraw is a change nobody can see.
     t.style.setProperty('--dx', `${armed > 0 ? -t.offsetWidth : t.offsetWidth}px`);
-    setTimeout(() => S.story && stepStory(armed), 280);
+    setTimeout(() => { const n = S.story && neighbour(armed); if (n) landStory(n); }, SLIDE_MS);
     return;
   }
   // It falls back, which has to be as smooth as leaving or the gesture feels like a trap.
@@ -3004,16 +3053,24 @@ function chatRows() {
 }
 const unreadTotal = () => S.noChat ? 0 : chatRows().reduce((n, c) => n + c.unread, 0);
 
-function openChats() { if (S.noChat) return; S.chatFrom = null; S.chat = 'list'; S.settings = false; stackOn(); }
-// from is what the back button takes off: opened from the list it goes back to the list,
-// opened from a group or from Friends it goes back there.
-function openChat(key, from) {
+function openChats() { if (S.noChat) return; S.chat = 'list'; S.settings = false; stackOn(); }
+// Back out of a conversation is always the hub, and back out of the hub is wherever you
+// were before any of it — a group, Friends, the feed — at the spot you left it. One rule,
+// however the conversation was reached.
+//
+// A thread opened from anywhere but the hub has no hub underneath it to go back to, so one
+// is put there: an extra entry on the stack, at the top of the page, above the entry for
+// the screen you came from. The first back pops the hub, the second pops the screen. The
+// drag-back gesture pops one entry per screen and needs no special case for this.
+function openChat(key) {
   if (S.noChat) return;
-  S.chatFrom = from || null; S.chat = key; S.settings = false;
+  const viaHub = S.chat === 'list';
+  S.chat = key; S.settings = false;
   stackOn();
+  if (!viaHub) backY.push(0);
   markChatRead(key);
 }
-function closeChat() { S.chat = S.chat !== 'list' ? S.chatFrom : null; S.chatFrom = null; stackOff(); }
+function closeChat() { S.chat = S.chat !== 'list' ? 'list' : null; stackOff(); }
 // Written once when a chat is opened, and again when something lands while it is open —
 // which is also what stops a notification for a message you are looking at.
 async function markChatRead(key) {
@@ -3027,7 +3084,7 @@ async function markChatRead(key) {
 
 function chatsView() {
   const rows = chatRows(), groups = rows.filter(c => c.group), people = rows.filter(c => !c.group);
-  const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat('${esc(c.key)}','list')">
+  const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat('${esc(c.key)}')">
     ${c.group ? `<div class="av gav">${esc((c.name || '?')[0].toUpperCase())}</div>` : av(c.who, '')}
     <span class="gr"><b>${esc(c.name)}</b>
       <span>${c.last ? `${c.last.userId === me().id ? 'You: ' : (c.group ? esc(name(user(c.last.userId))) + ': ' : '')}${esc(c.last.body)}`
@@ -3289,8 +3346,14 @@ async function submitFlag(f, postId) {
 }
 
 // ---- the screen it opens
-function openFlag(id) { if (S.noFlags) return; S.flag = id; S.settings = false; stackOn(); }
-function closeFlag() { S.flag = null; stackOff(); }
+// A flag opened from the list goes back to the list; opened from the post it is about, or
+// from a notification, back is the screen that was under it.
+function openFlag(id) {
+  if (S.noFlags) return;
+  S.flagFrom = id !== 'all' && S.flag === 'all' ? 'all' : null;
+  S.flag = id; S.settings = false; stackOn();
+}
+function closeFlag() { S.flag = S.flag !== 'all' ? S.flagFrom : null; S.flagFrom = null; stackOff(); }
 // Everything still running, plus anything decided today, newest first. A flag whose post is
 // further back than the feed reaches is left out rather than drawn as a blank: they last
 // hours, so the post is always recent enough in practice.
@@ -4347,7 +4410,7 @@ function vidPick(input) {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
-function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.tab = tab; S.open = S.who = S.flag = S.chat = S.chatFrom = null; S.settings = false;
+function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = null; S.settings = false;
   backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
 
@@ -4449,10 +4512,10 @@ function stackOff() {
 function backAction() {
   if (!backY.length) return null;
   if (S.legal) return () => { S.legal = null; };
-  // A thread falls back to wherever it was opened from — the list, or nothing at all when
-  // it came straight off a group or a friend.
-  if (S.chat) return () => { S.chat = S.chat !== 'list' ? S.chatFrom : null; S.chatFrom = null; };
-  if (S.flag) return () => { S.flag = null; };
+  if (S.chat) return () => { S.chat = S.chat !== 'list' ? 'list' : null; };
+  // A flag opened from the list goes back to the list; one opened from a post goes back to
+  // the post. Where it came from is remembered when it is opened.
+  if (S.flag) return () => { S.flag = S.flag !== 'all' ? S.flagFrom : null; S.flagFrom = null; };
   if (S.settings) return () => { S.settings = false; };
   if (S.who) return () => { S.who = null; };
   if (S.open) return () => { S.open = null; };
@@ -4461,7 +4524,7 @@ function backAction() {
 // The screen you are heading for, built but not shown. S is put back exactly as it was:
 // this is a look ahead, and until you let go it may come to nothing.
 function peekBack(act) {
-  const was = {legal: S.legal, chat: S.chat, chatFrom: S.chatFrom, flag: S.flag,
+  const was = {legal: S.legal, chat: S.chat, flag: S.flag, flagFrom: S.flagFrom,
     settings: S.settings, who: S.who, open: S.open};
   act();
   try { return screenHTML(); } finally { Object.assign(S, was); }
@@ -4494,15 +4557,24 @@ function navMove(e) {
   }
   nav.v = (e.clientX - nav.last) / Math.max(1, performance.now() - nav.lt);
   nav.last = e.clientX; nav.lt = performance.now();
-  const w = innerWidth || 1, at = Math.max(0, dx);
+  // Three layers written once per frame, not once per move. A finger sends more moves than
+  // there are frames, and every write between two paints is work the screen never shows.
+  nav.at = Math.max(0, dx);
+  if (!nav.raf) nav.raf = requestAnimationFrame(navPaint);
+  e.preventDefault();
+}
+function navPaint() {
+  if (!nav || !nav.live) return;
+  nav.raf = 0;
+  const w = innerWidth || 1, at = nav.at;
   $('#app').style.transform = `translateX(${at}px)`;
   $('#ghost').style.transform = `translateX(${-22 * (1 - at / w)}px)`;
   $('#dim').style.opacity = String(.22 * (1 - at / w));
-  e.preventDefault();
 }
 function navUp(e) {
   const d = nav; nav = null;
   if (!d || !d.live) return;
+  if (d.raf) cancelAnimationFrame(d.raf);   // a frame still waiting would write over the animation's first
   const dx = Math.max(0, e.clientX - d.x), w = innerWidth || 1;
   const at = `translateX(${dx}px)`;
   // Far enough across, or thrown hard enough: it carries on. Otherwise it falls back and
@@ -4558,12 +4630,18 @@ function oneMove(e) {
   }
   oneNav.v = (e.clientX - oneNav.last) / Math.max(1, performance.now() - oneNav.lt);
   oneNav.last = e.clientX; oneNav.lt = performance.now();
-  $('#one').style.transform = `translateX(${Math.max(0, dx)}px)`;
+  oneNav.at = Math.max(0, dx);
+  if (!oneNav.raf) oneNav.raf = requestAnimationFrame(() => {
+    if (!oneNav) return;
+    oneNav.raf = 0;
+    $('#one').style.transform = `translateX(${oneNav.at}px)`;
+  });
   e.preventDefault();
 }
 function oneUp(e) {
   const d = oneNav; oneNav = null;
   if (!d || !d.live) return;
+  if (d.raf) cancelAnimationFrame(d.raf);
   oneSwiped = true;                        // the browser sends a click after this; it is not a tap
   const box = $('#one'), dx = Math.max(0, e.clientX - d.x), w = innerWidth || 1;
   const from = {transform: `translateX(${dx}px)`};
@@ -6051,7 +6129,7 @@ function goToHash() {
 }
 // Out of whatever is open first, then in, so the way back out lands where it should.
 function clearTo(tab = 'feed') {
-  S.tab = tab; S.open = S.who = S.flag = S.chat = S.chatFrom = null; S.settings = false;
+  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = null; S.settings = false;
   backY.length = 0;
   closePost(); closeStory();
   render();
@@ -6100,7 +6178,7 @@ function goTarget(hash) {
         && (S.friends.includes(key.slice(2)) || S.msgs.some(x => keyOf(x) === key));
     if (!real) return;
     clearTo();
-    openChat(key, 'list');
+    openChat(key);
     return;
   }
   // A flag lands on the flag, which is the only place its clock, its reason and its vote

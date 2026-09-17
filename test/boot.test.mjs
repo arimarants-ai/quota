@@ -2229,6 +2229,25 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.locator('.crow').click();
   await page.waitForTimeout(600);
   check('  opening it gives you somewhere to type', await page.locator('.csend input').count() === 1);
+  // The status bar is translucent and the page runs under it. Every header pads past it;
+  // this one did not, and the name and the way back sat under the clock. Read off the
+  // stylesheet rather than the box, because a desktop browser has no notch to measure.
+  // The whole declaration block as text: a shorthand carrying env() is not broken into its
+  // longhands by the browser, so asking for padding-top on its own comes back empty.
+  const rule = sel => page.evaluate(s => {
+    const r = [...document.styleSheets].flatMap(ss => { try { return [...ss.cssRules]; } catch (e) { return []; } })
+      .find(x => x.selectorText === s);
+    return r ? { css: r.style.cssText, pos: r.style.position } : null;
+  }, sel);
+  const cbar = await rule('.cbar'), fbar = await rule('.fbar'), backx = await rule('#app > .backx');
+  check('  the bar at the top sits below the notch',
+    cbar && /safe-area-inset-top/.test(cbar.css), JSON.stringify(cbar));
+  check('    and so does the one on a flag, and it stays put too',
+    fbar && /safe-area-inset-top/.test(fbar.css) && fbar.pos === 'sticky', JSON.stringify(fbar));
+  check('    and a back button on its own at the top of a screen',
+    backx && /margin-top:.*safe-area-inset-top/.test(backx.css), JSON.stringify(backx));
+  check('  and it stays put however far up you have read',
+    await page.evaluate(() => { const c = getComputedStyle(document.querySelector('.cbar')); return c.position === 'sticky' && c.top === '0px'; }));
   check('    and says who can read it',
     /everyone in the group/i.test(await page.locator('#app .msgs').innerText()),
     await page.locator('#app .msgs').innerText());
@@ -2302,11 +2321,103 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   check('  and it is stored as the pair, sorted, the way a friendship is',
     dm && dm.group_id === null && dm.a === 'u1' && dm.b === 'u2', JSON.stringify(dm));
 
-  // Opened from Friends rather than from the list, so that is where back goes.
+  // Back out of a conversation is always the hub, however it was reached; back out of the
+  // hub is wherever you were before any of it. Opened from Friends, that is Friends.
   await page.locator('#app .cbar .backx').click();
   await page.waitForTimeout(600);
-  check('  and back goes where it was opened from, not to the list',
-    await page.evaluate(() => S.chat) === null && await page.evaluate(() => S.tab) === 'friends');
+  check('  back out of it is the hub, even though it was opened from Friends',
+    await page.evaluate(() => S.chat) === 'list' && await page.locator('.crow').count() >= 1);
+  await page.locator('#app > .backx').click();
+  await page.waitForTimeout(600);
+  check('    and back out of the hub is Friends, where this started',
+    await page.evaluate(() => S.chat) === null && await page.evaluate(() => S.tab) === 'friends'
+    && await page.evaluate(() => backY.length) === 0);
+});
+
+// ---- every way back, and that it lands where you were
+//
+// A screen that opens over the feed has to have a way back that puts you where you were —
+// not at the top of the feed, and not one screen short. Every stacked screen, every back
+// control on it, from a feed scrolled well down, and the scroll checked on landing.
+await withPage({ ...NO_WHEEL, manyPosts: 12, friends: true }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const other = await page.evaluate(() => S.posts.find(p => p.userId !== S.me.id).id);
+  await page.evaluate(o => {
+    self.__flags.push({ id: 730, post_id: o, by_user: 'u2', reason: 'not sure',
+      created_at: new Date().toISOString(), closes_at: new Date(Date.now() + 2 * 3600e3).toISOString(),
+      outcome: null, closed_at: null });
+    self.__fvotes.push({ flag_id: 730, user_id: 'u2', agree: true });
+    return load();
+  }, other);
+  await page.waitForTimeout(900);
+  const Y = 640;
+  const onFeedAt = async () => ({ feed: await page.evaluate(() => S.tab === 'feed' && !S.who && !S.open && !S.flag && !S.chat && !S.settings && !S.legal),
+    y: await page.evaluate(() => scrollY), stack: await page.evaluate(() => backY.length) });
+  const back = async (sel, label) => {
+    await page.locator(sel).first().click();
+    await page.waitForTimeout(500);
+    const r = await onFeedAt();
+    check(label, r.feed && r.y === Y && r.stack === 0, JSON.stringify(r));
+  };
+  const from = async () => { await page.evaluate(y => scrollTo(0, y), Y); await page.waitForTimeout(80); };
+
+  await from(); await page.locator('.post .head .who').nth(1).click(); await page.waitForTimeout(500);
+  await back('#app > .backx', 'a profile goes back to the feed where you were');
+
+  await from(); await page.evaluate(() => openSettings()); await page.waitForTimeout(500);
+  await back('#app .ghost.back', 'settings goes back to the feed where you were');
+
+  await from(); await page.evaluate(() => openLegal('privacy')); await page.waitForTimeout(500);
+  await back('#app .ghost.back', 'a document goes back to the feed where you were');
+
+  await from(); await page.evaluate(() => openFlag(730)); await page.waitForTimeout(500);
+  await back('#app .fbar .backx', 'a flag goes back to the feed where you were');
+
+  await from(); await page.evaluate(() => openFlag('all')); await page.waitForTimeout(500);
+  check('the flags list has a way back at the top', await page.locator('#app > .backx').count() === 1);
+  await page.locator('.frow').first().click(); await page.waitForTimeout(500);
+  await page.locator('#app .fbar .backx').click(); await page.waitForTimeout(500);
+  check('  a flag opened from the list goes back to the list, not past it',
+    await page.evaluate(() => S.flag) === 'all' && await page.locator('.frow').count() === 1,
+    String(await page.evaluate(() => S.flag)));
+  await back('#app > .backx', '  and the list goes back to the feed where you were');
+
+  // Opened by calling in rather than by tapping the icon: the icon is in the feed's header,
+  // and a click on it scrolls the page to the top to reach it — which is what a thumb has to
+  // do as well, so "where you were" is the top in that case and proves nothing here. This is
+  // about the stack under the hub, so the hub is opened with the page left where it is.
+  await from(); await page.evaluate(() => openChats()); await page.waitForTimeout(500);
+  check('the chat hub has a way back at the top', await page.locator('#app > .backx').count() === 1);
+  await page.locator('.crow').first().click(); await page.waitForTimeout(500);
+  check('  and a conversation has one at the top too', await page.locator('#app .cbar .backx').count() === 1);
+  await page.locator('#app .cbar .backx').click(); await page.waitForTimeout(500);
+  check('  a conversation goes back to the hub', await page.evaluate(() => S.chat) === 'list');
+  await back('#app > .backx', '  and the hub goes back to the feed where you were');
+
+  // A conversation reached from a group screen: back is still the hub, and back out of the
+  // hub is the group, not the feed, at the spot you left it.
+  await page.evaluate(() => go('groups')); await page.waitForTimeout(300);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(500);
+  await page.evaluate(() => scrollTo(0, 220)); await page.waitForTimeout(80);
+  await page.locator('#app .chatrow').click(); await page.waitForTimeout(500);
+  await page.locator('#app .cbar .backx').click(); await page.waitForTimeout(500);
+  check('a conversation opened from a group goes back to the hub first',
+    await page.evaluate(() => S.chat) === 'list');
+  await page.locator('#app > .backx').click(); await page.waitForTimeout(500);
+  check('  and the hub goes back to the group, where you were',
+    await page.evaluate(() => S.open === 1 && S.chat === null && scrollY === 220),
+    JSON.stringify(await page.evaluate(() => ({ open: S.open, chat: S.chat, y: scrollY }))));
+
+  // The two layers that are not screens: closing them changes nothing underneath.
+  await page.evaluate(() => go('feed')); await page.waitForTimeout(300);
+  await from(); await page.evaluate(() => openPost(S.posts[0].id)); await page.waitForTimeout(400);
+  await page.locator('#one .backx').click(); await page.waitForTimeout(400);
+  check('closing a post on its own leaves the feed where it was', (await onFeedAt()).y === Y);
+  await page.evaluate(() => { S.stories = [{ id: 5, u: 'u2', kind: 'text', body: 'hi', style: {}, ts: Date.now() }]; render(); });
+  await from(); await page.evaluate(() => openStory('u2')); await page.waitForTimeout(400);
+  await page.locator('#story .who .x').click(); await page.waitForTimeout(400);
+  check('closing a story leaves the feed where it was', (await onFeedAt()).y === Y);
 });
 
 // What is waiting, and what stops waiting once it has been read.
@@ -2816,9 +2927,41 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#story').isVisible()
     && JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}', JSON.stringify(await where()));
 
-  // Tapping still steps, because a swipe was added rather than a tap taken away.
+  // Tapping still steps, because a swipe was added rather than a tap taken away — and it
+  // is the same move now, not a redraw in place: the neighbour is built beside the one you
+  // are on and the pair slide across, exactly as they would under a finger.
   await page.locator('#story .tap.fwd').click();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(60);
+  const mid = await page.evaluate(() => ({
+    panes: document.querySelectorAll('#strack .pane').length,
+    dx: getComputedStyle(document.querySelector('#strack')).getPropertyValue('--dx').trim(),
+    armed: document.querySelector('#strack').dataset.armed,
+    i: S.story.i,
+  }));
+  check('  a tap builds the next one beside this one and moves the pair',
+    mid.panes === 2 && mid.armed === '1' && /^-\d+px$/.test(mid.dx), JSON.stringify(mid));
+  check('    without having arrived yet', mid.i === 0, JSON.stringify(mid));
+  // A second tap while it is still moving would land on the wrong story. Dispatched
+  // straight to the handler rather than through a click: a Playwright click waits for the
+  // thing under it to stop moving first, which is the one moment this is about.
+  await page.evaluate(() => stepStory(1));
+  await page.waitForTimeout(450);
+  check('  and it arrives on the next one, once, however many taps landed on the way',
+    JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}'
+    && await page.evaluate(() => document.querySelectorAll('#strack .pane').length) === 1,
+    JSON.stringify(await where()));
+
+  // Motion turned off in the phone's settings goes straight to the far side.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('#story .tap.back').click();
+  await page.waitForTimeout(60);
+  check('  with motion turned off a tap lands at once',
+    JSON.stringify(await where()) === '{"uid":"u1","i":0,"p":0}'
+    && await page.evaluate(() => document.querySelectorAll('#strack .pane').length) === 1,
+    JSON.stringify(await where()));
+  await page.emulateMedia({ reducedMotion: null });
+  await page.locator('#story .tap.fwd').click();
+  await page.waitForTimeout(450);
   check('  tapping forward still steps by one',
     JSON.stringify(await where()) === '{"uid":"u1","i":1,"p":0}', JSON.stringify(await where()));
 
