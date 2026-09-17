@@ -520,6 +520,13 @@ button.rg{border:0;font:inherit}
 .tile .proof{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#0b0c0e}
 .tile b{position:absolute;left:5px;bottom:4px;z-index:2;color:#fff;font-family:Oswald,system-ui,sans-serif;font-weight:600;
   font-size:11.5px;letter-spacing:.02em;text-shadow:0 1px 6px rgba(0,0,0,.85)}
+/* The eye on a tile of yours that other people can see. Bottom right, opposite the number,
+   so a grid of them reads as one column of figures and one column of marks. */
+.tile .seen{position:absolute;right:4px;bottom:4px;z-index:2;width:15px;height:15px;display:block;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+.tile .seen svg{width:100%;height:100%;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pad.small{font-size:12.5px;line-height:1.45}
+.pad.small svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;vertical-align:-2px}
 .tile .pl{position:absolute;right:5px;top:5px;z-index:2;width:13px;height:13px;fill:#fff;opacity:.92;
   filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
 .tile:active{opacity:.75;transform:none}
@@ -533,6 +540,7 @@ button.rg{border:0;font:inherit}
 @keyframes slidein{from{opacity:.4;transform:translateX(26px)}}
 .onebar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);
   padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
+.onebar .backx{margin:0 0 0 6px}           /* the bar already has the padding the screen version needs */
 .onewrap{max-width:600px;margin:0 auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
 /* ---- settings ---- */
 .sec{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 18px 7px}
@@ -879,6 +887,11 @@ dialog h2{font-size:20px;margin-bottom:2px}
 #err[hidden]{display:none}
 #err span{flex:1;min-width:0}
 #err button{flex:none;background:var(--soft);color:var(--mkt);padding:7px 12px;font-size:13px}
+#err button[hidden]{display:none}
+/* There was no way to put this bar away. Something that had already been read, or that
+   there was nothing to be done about, stayed across the bottom of a working app until the
+   next successful load — which for a fault that repeats is forever. */
+#err .dis{background:none;color:var(--muted);padding:7px 4px;font-size:15px;line-height:1}
 /* iOS Safari has no install prompt, so this explains Add to Home Screen once */
 #a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:0;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
 #a2hs[hidden]{display:none}
@@ -908,7 +921,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <div id="story" hidden role="dialog" aria-label="Story"></div>
 <div id="make" hidden role="dialog" aria-label="New story"></div>
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
-<div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" onclick="load()">Retry</button></div>
+<div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" class="rty" onclick="load()">Retry</button><button type="button" class="dis" onclick="hideErr()" aria-label="Dismiss">✕</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
   <div class="camtop">
@@ -979,7 +992,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v59';
+const BUILD = 'quota-v60';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1291,13 +1304,29 @@ const plainly = m => !m ? 'something went wrong'
   : /load failed|failed to fetch|networkerror|network request failed/i.test(m)
     ? 'could not reach the server. Check your connection and try again.' : m;
 
-const showErr = (msg, detail) => {
+// A load that failed keeps its bar up: there is a Retry on it and the app is showing
+// whatever it had before until that is pressed. A report of something that already went
+// wrong is a different thing — there is nothing to press and nothing to retry — so it says
+// its piece and goes, rather than sitting over a working app until the next successful
+// load, which for a fault that repeats on every load is never.
+let errTimer = null;
+const SOFT_MS = 9000;
+const showErr = (msg, detail, soft) => {
   const e = $('#err');
   lastErr = `${msg}\n\n${detail || ''}\n${BUILD} · ${navigator.userAgent}`.trim();
   e.querySelector('span').textContent = msg;
+  e.querySelector('.rty').hidden = !!soft;
   e.hidden = false;
+  clearTimeout(errTimer);
+  if (soft) errTimer = setTimeout(hideErr, SOFT_MS);
 };
-const hideErr = () => { $('#err').hidden = true; };
+const hideErr = () => { clearTimeout(errTimer); $('#err').hidden = true; };
+// A clip swapped out while it was starting rejects with AbortError; a browser that will
+// not play one unprompted rejects with NotAllowedError; a request dropped because the
+// screen it belonged to has gone rejects with nothing worth reading. None of the three is
+// a fault anybody can act on, and all three used to put a bar across a working app.
+const noise = r => !r || r.name === 'AbortError' || r.name === 'NotAllowedError'
+  || (typeof r === 'object' && !r.message && !r.stack);
 async function copyErr(btn) {
   const was = btn.textContent;
   try { await navigator.clipboard.writeText(lastErr); btn.textContent = 'Copied'; }
@@ -1350,6 +1379,32 @@ function screenHTML() {
     : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
 }
 
+// Swap a container's contents without throwing away what was alive in it. A rebuild used
+// to take a playing clip with it: a like or a reply swapped the <video> for a fresh one
+// that had not decoded a frame, and the post went black. The reels already on screen are
+// kept and put back, along with anything half-typed into a reply box and any emoji tray
+// left open. The screen and the single-post layer both need this, which is why it is a
+// function rather than the middle of render().
+function redraw(sel, html) {
+  const box = $(sel); if (!box) return;
+  const at = s => [...document.querySelectorAll(`${sel} .post[data-post] ${s}`)];
+  const keep = new Map(at('.reel').map(r => [r.parentNode.dataset.post, r]));
+  const typed = new Map(at('.cin input').filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
+  const trays = at('.emoji:not([hidden])').map(t => t.closest('.post').dataset.post);
+  box.innerHTML = html;
+  at('.reel').forEach(r => {
+    const old = keep.get(r.parentNode.dataset.post); if (!old) return;
+    const np = r.querySelector('.proof'), op = old.querySelector('.proof');
+    if (!np || !op || np.tagName !== op.tagName) return;          // a different thing now: take the new one
+    if (np.dataset.src) op.dataset.src = np.dataset.src;         // a reload re-signs every URL; the old one is still good for an hour
+    const nr = r.querySelector('.reacts'), or = old.querySelector('.reacts');   // the one other thing on a reel that changes
+    if (or) or.remove(); if (nr) old.appendChild(nr);
+    r.replaceWith(old);
+  });
+  typed.forEach((v, id) => { const i = document.querySelector(`${sel} .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
+  trays.forEach(id => { const t = document.querySelector(`${sel} .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
+}
+
 function render() {
   const m = me();
   // One number decides the green everywhere: the best run going across your groups. Set on
@@ -1367,25 +1422,11 @@ function render() {
   // runLoad's finally, so a throw here escapes the load entirely and leaves whatever was
   // on screen — the splash, on a cold start — with a Retry that fails the same way.
   try {
-    // The screen is rebuilt from scratch, which used to take a playing clip with it: a like
-    // or a reply swapped the <video> for a fresh one that had not decoded a frame, and the
-    // post went black. The reels already on screen are kept and put back, along with
-    // anything half-typed into a reply box.
-    const keep = new Map([...document.querySelectorAll('#app .post[data-post] .reel')].map(r => [r.parentNode.dataset.post, r]));
-    const typed = new Map([...document.querySelectorAll('#app .post[data-post] .cin input')].filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
-    const trays = [...document.querySelectorAll('#app .post[data-post] .emoji:not([hidden])')].map(t => t.closest('.post').dataset.post);
-    $('#app').innerHTML = screenHTML();
-    document.querySelectorAll('#app .post[data-post] .reel').forEach(r => {
-      const old = keep.get(r.parentNode.dataset.post); if (!old) return;
-      const np = r.querySelector('.proof'), op = old.querySelector('.proof');
-      if (!np || !op || np.tagName !== op.tagName) return;          // a different thing now: take the new one
-      if (np.dataset.src) op.dataset.src = np.dataset.src;         // a reload re-signs every URL; the old one is still good for an hour
-      const nr = r.querySelector('.reacts'), or = old.querySelector('.reacts');   // the one other thing on a reel that changes
-      if (or) or.remove(); if (nr) old.appendChild(nr);
-      r.replaceWith(old);
-    });
-    typed.forEach((v, id) => { const i = document.querySelector(`#app .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
-    trays.forEach(id => { const t = document.querySelector(`#app .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
+    redraw('#app', screenHTML());
+    // A post opened on its own sits in its own layer, so a redraw of the screen behind it
+    // left it as it was: a reply written there did not appear until it was closed and
+    // opened again, and a like counted up everywhere except in front of you.
+    if (S.one != null) { const p = postById(S.one); p ? redraw('#onewrap', feed([p], true)) : closePost(); }
   // After the screen is drawn, not before: the celebration sits over whatever you were
   // looking at. Cheap enough to ask on every render, and it answers once.
   const mile = milestoneDue();
@@ -2343,11 +2384,21 @@ function releaseClip(v) {
   if (!v.getAttribute('src') || (v.tagName === 'VIDEO' && !v.paused)) return;
   v.dataset.idle = '1';                    // so letting go is not mistaken for a failure
   v.removeAttribute('src');
-  v.load();
+  // Only a <video> has load(). Proof is a clip or a picture, and a picture is an <img>,
+  // which does not — so scrolling a photo post off the screen threw, and threw again on
+  // every scroll after it, which is what put a bar across the bottom of the app that
+  // nothing would clear. Everywhere else that calls load() already asks first.
+  if (v.tagName === 'VIDEO') v.load();
 }
+// #app is the screen, and #one is the single post that opens over it. Both, and nothing
+// else: a screen on its way out lives in #ghost for the length of a transition, and
+// loading video for a picture nobody will see again is what scoping this to #app fixed.
+// Leaving #one out went the other way — the clip you had just tapped through to was the
+// one element on the page that never got its source, so it sat there black.
+const CLIPS = '#app .reel .proof, #app .tile .proof, #one .reel .proof';
 function watchClips() {
   if (clipObs) clipObs.disconnect();
-  const vs = [...document.querySelectorAll('#app .reel .proof, #app .tile .proof')];
+  const vs = [...document.querySelectorAll(CLIPS)];
   // Without an observer there is no way to tell what is on screen, so load them all and
   // accept the old behaviour rather than showing nothing.
   if (!self.IntersectionObserver) return vs.forEach(attachClip);
@@ -2389,6 +2440,14 @@ function putEmoji(btn, e) {
   try { input.setSelectionRange(to, to); } catch (err) {}
 }
 
+// Where a post lives depends on where you came at it from. The feed carries the last two
+// hundred; a profile grid is fetched on its own and reaches posts in groups this account
+// is not in at all, and further back than the feed goes. Anything that takes a post id
+// has to look in both, or it works in the feed and quietly fails everywhere else — which
+// is what left a clip on somebody's profile with a play button that did nothing.
+const postById = id => S.posts.find(x => x.id === id)
+  || Object.values(S.pro).flatMap(x => x.posts || []).find(x => x.id === id);
+
 const reelOf = v => v.closest('.reel');
 function bustMsg(v, msg) {
   const reel = reelOf(v);
@@ -2398,7 +2457,7 @@ function bustMsg(v, msg) {
   reel.classList.remove('playing');
 }
 async function freshUrl(postId) {
-  const p = S.posts.find(x => x.id === postId);
+  const p = postById(postId);
   if (!p || !p.path) return '';
   const {data, error} = await sb.storage.from('proof').createSignedUrl(p.path, 3600);
   if (error || !data || !data.signedUrl) return '';
@@ -2702,6 +2761,9 @@ async function savePassword(f) {
 // ---- a profile, which is the same screen whoever is looking
 // Your own adds the gear and the grid's own count; somebody else's adds the way back. One
 // function, because two that had to be kept in step would drift by the second feature.
+// An eye, for a post of yours that other people can see. It sits on the tile and it is
+// also the word in the sentence above the grid, so both say the same thing.
+const MARKED = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>';
 const GEAR = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.2a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4z"/></svg>';
 // The groups somebody is willing to have on show, and that they are still in. A group left
 // stops appearing because the id stops matching a membership, not because anything tidied
@@ -2720,6 +2782,7 @@ function personView(uid) {
   const bst = mine.length ? Math.max(0, ...mine.map(g => best(g, uid))) : null;
   const pro = S.pro[uid] || {loading: true, posts: []};
   const grid = pro.posts;
+  const shown = grid.filter(p => p.onProfile).length;
   const chips = shownGroups(uid);
   const stat = (v, l) => `<div><b class="num">${v === null ? '—' : num(v)}</b><small>${l}</small></div>`;
   // S.who is only set when this was opened over something else — the Profile tab draws
@@ -2734,37 +2797,44 @@ function personView(uid) {
     <div class="who">${av(u, 'xl')}
       <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
-    <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(grid.length, 'on show')}</div>
+    <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
     ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
       : own ? `<p class="muted pad">Badges start at a 25 day streak.</p>` : ''}
     ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
       mine.includes(g) && streak(g, uid) ? `<em>${streak(g, uid)} day streak</em>` : ''}</button>`).join('')}</div>` : ''}
     <div class="ptabs"><span class="on">Proof${grid.length ? ` · ${grid.length}` : ''}</span></div>
+    ${own && grid.length ? `<p class="muted pad small">Everything you have posted is here. The ${shown === 1 ? 'one marked' : `${shown} marked`} ${MARKED} ${shown === 1 ? 'is' : 'are'} on show to anyone who can see you; the rest only you can see. The ⋯ on a post changes that.</p>` : ''}
     ${pro.loading ? `<p class="muted pad">Loading…</p>`
-      : grid.length ? `<div class="pgrid">${grid.map(p => tile(p)).join('')}</div>`
-      : `<p class="muted pad">${own ? 'Nothing here yet. When you post, tick “Also show this on my profile” and it lands in this grid.'
+      : grid.length ? `<div class="pgrid">${grid.map(p => tile(p, own)).join('')}</div>`
+      : `<p class="muted pad">${own ? 'Nothing here yet. Post some proof and it lands in this grid.'
         : `Only what ${esc(name(u))} chose to show here.`}</p>`}
   </div>`;
 }
 // A tile is the first frame and what it was worth. The same lazy loading the feed uses, so
 // a grid of sixty does not ask the network for sixty files at once.
-function tile(p) {
+// On your own grid a tile also says whether anyone else can see it, because your own grid
+// is the only one holding both kinds. Nobody else's needs the mark: everything on theirs is
+// on show by definition.
+function tile(p, own) {
   const pic = isPhoto(p);
-  return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}">
+  const pub = own && p.onProfile;
+  return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}${own ? (p.onProfile ? ', on show' : ', only you can see this') : ''}">
     ${pic ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''}>`
       : `<video class="proof" playsinline preload="metadata" muted${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}
     ${pic ? '' : `<svg class="pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`}
+    ${pub ? `<i class="seen" aria-hidden="true">${MARKED}</i>` : ''}
     <b>+${num(p.amount)}</b></button>`;
 }
 // One post on its own, with everything a post has. A tile can be a post from a group this
 // account is not in, so sending you to the feed to find it would send you nowhere.
 function openPost(id) {
-  const p = S.posts.find(x => x.id === id) || Object.values(S.pro).flatMap(x => x.posts).find(x => x.id === id);
+  const p = postById(id);
   if (!p) return;
   S.one = id;
   const box = $('#one');
-  box.innerHTML = `<div class="onebar"><button type="button" class="ghost" onclick="closePost()">‹ Back</button></div>
-    <div class="onewrap">${feed([p], true)}</div>`;
+  box.innerHTML = `<div class="onebar"><button type="button" class="backx" onclick="closePost()" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button></div>
+    <div class="onewrap" id="onewrap">${feed([p], true)}</div>`;
   box.hidden = false;
   watchClips();
 }
@@ -3559,7 +3629,7 @@ const FLICK = 0.35;                        // px/ms that counts as thrown rather
 let nav = null;
 function navDown(e) {
   if (nav || $('#dlg').open || $('#cam').open || $('#crop').open) return;
-  if (!$('#story').hidden || !$('#make').hidden) return;
+  if (!$('#story').hidden || !$('#make').hidden || !$('#one').hidden) return;
   if (e.target.closest('.stories, input, textarea, [contenteditable]')) return;
   if (still() || !backAction()) return;
   nav = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
@@ -3623,10 +3693,67 @@ addEventListener('pointermove', navMove);
 addEventListener('pointerup', navUp);
 addEventListener('pointercancel', e => { if (nav && nav.live) backSpring(`translateX(${Math.max(0, e.clientX - nav.x)}px)`); nav = null; });
 
+// A post opened on its own sits in a layer of its own over the screen, so the screen's
+// back-drag above would slide the thing underneath it out and leave this on top of the
+// result. It gets the same gesture on itself instead, and needs no ghost: what it is
+// covering is really there, not a photograph of it.
+let oneNav = null, oneAnim = null, oneSwiped = false;
+function oneDown(e) {
+  if (oneNav || still() || $('#one').hidden || $('#dlg').open) return;
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  oneNav = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
+}
+function oneMove(e) {
+  if (!oneNav) return;
+  const dx = e.clientX - oneNav.x, dy = e.clientY - oneNav.y;
+  if (!oneNav.live) {
+    if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+    if (dx <= 0 || Math.abs(dx) <= Math.abs(dy)) { oneNav = null; return; }   // scrolling, not leaving
+    oneNav.live = true;
+    if (oneAnim) { try { oneAnim.cancel(); } catch (x) {} oneAnim = null; }
+    $('#one').style.animation = 'none';    // the way in must not fight the way out
+    try { $('#one').setPointerCapture(e.pointerId); } catch (x) {}
+  }
+  oneNav.v = (e.clientX - oneNav.last) / Math.max(1, performance.now() - oneNav.lt);
+  oneNav.last = e.clientX; oneNav.lt = performance.now();
+  $('#one').style.transform = `translateX(${Math.max(0, dx)}px)`;
+  e.preventDefault();
+}
+function oneUp(e) {
+  const d = oneNav; oneNav = null;
+  if (!d || !d.live) return;
+  oneSwiped = true;                        // the browser sends a click after this; it is not a tap
+  const box = $('#one'), dx = Math.max(0, e.clientX - d.x), w = innerWidth || 1;
+  const from = {transform: `translateX(${dx}px)`};
+  const gone = dx > w / 3 || d.v > FLICK;
+  oneAnim = box.animate([from, {transform: gone ? 'translateX(100vw)' : 'translateX(0)'}],
+    {duration: gone ? 240 : 220, easing: EASE, fill: 'forwards'});
+  oneAnim.finished.catch(() => {}).then(() => {
+    // Cancelled explicitly: a forwards fill left in place is a post that opens already
+    // slid off the side of the screen the next time one is tapped.
+    try { oneAnim.cancel(); } catch (x) {}
+    oneAnim = null; box.style.cssText = '';
+    if (gone) closePost();
+  });
+}
+$('#one').addEventListener('pointerdown', oneDown);
+$('#one').addEventListener('pointermove', oneMove);
+$('#one').addEventListener('pointerup', oneUp);
+$('#one').addEventListener('pointercancel', e => { if (oneNav && oneNav.live) oneUp(e); else oneNav = null; });
+$('#one').addEventListener('click', e => {
+  if (!oneSwiped) return;
+  oneSwiped = false;
+  e.stopPropagation(); e.preventDefault();
+}, true);
+
 // A profile lives inside whichever screen you opened it from: it slides in over the feed
 // and the way back is where you were, not the Profile tab.
 function openWho(uid) {
   if (!uid || uid === S.who) return;
+  // A name in a post opened on its own is a way in too, and the profile would have slid in
+  // underneath the post it was tapped from — a screen change nobody could see, behind a
+  // layer that was still in the way.
+  if (!$('#one').hidden) closePost();
   S.who = uid; S.settings = false; stackOn();
   loadProfile(uid);
 }
@@ -3636,15 +3763,23 @@ function closeSettings() { S.settings = false; stackOff(); }
 // The posts somebody chose to show. Fetched when their profile is opened rather than with
 // everything else: most of them are outside the two hundred the feed carries, and some are
 // in groups this account is not in at all.
+//
+// Your own profile is the exception: everything you have ever posted is there, whether you
+// put it on show or not, because your profile is also where you go to find your own work.
+// The filter is the only difference — what anyone else is served is decided by the policy
+// in the database, not by this line, so dropping it here cannot show your private posts to
+// anybody but you.
 async function loadProfile(uid) {
   if (S.pro[uid]) return;
+  const own = uid === me().id;
   S.pro[uid] = {loading: true, posts: []};
   try {
-    const rows = await q(sb.from('posts').select('*').eq('user_id', uid).eq('on_profile', true)
-      .order('created_at', {ascending: false}).limit(60));
+    let sel = sb.from('posts').select('*').eq('user_id', uid);
+    if (!own) sel = sel.eq('on_profile', true);
+    const rows = await q(sel.order('created_at', {ascending: false}).limit(60));
     const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
       amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
-      challenge: p.challenge, spinId: p.spin_id, onProfile: true}));
+      challenge: p.challenge, spinId: p.spin_id, onProfile: own ? !!p.on_profile : true}));
     if (list.length) {
       const urls = await q(sb.storage.from('proof').createSignedUrls(list.map(x => x.path), 3600));
       urls.forEach((u, i) => { list[i].url = u.signedUrl; });
@@ -4647,7 +4782,7 @@ async function addPost(f, gid) {
 // What you can do to a post of your own. Showing it on your profile is a decision you can
 // change later, which is the only way anything posted before today gets into the grid.
 function postMenu(id) {
-  const p = S.posts.find(x => x.id === id) || Object.values(S.pro).flatMap(x => x.posts).find(x => x.id === id);
+  const p = postById(id);
   if (!p) return;
   dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <div class="menu">
@@ -4668,7 +4803,8 @@ async function showOnProfile(id, on) {
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;
-  const p = S.posts.find(x => x.id === id);
+  const p = postById(id);
+  if (!p) return;
   await q(sb.from('posts').delete().eq('id', id));
   await sb.storage.from('proof').remove([p.path]);
   load();
@@ -4692,6 +4828,12 @@ async function toggleCommentLike(id) {
 async function addComment(f, postId) {
   const body = f.body.value.trim(); if (!body) return;
   working(f, '…');
+  // Emptied before the redraw, not after. render() carries half-typed replies across a
+  // rebuild so a like somewhere else on the page cannot eat what you were in the middle
+  // of writing — and a box still holding the comment it has just sent looks exactly like
+  // one being carried across, so it was put straight back and the comment appeared to
+  // have been typed twice.
+  f.body.value = '';
   // Show it, and count it, before the round trip finishes — a count that only moves once
   // the server answers reads as a tap that did nothing. It carries no real id yet, so it
   // is marked pending and offers no delete until load() brings back the real row.
@@ -4702,6 +4844,8 @@ async function addComment(f, postId) {
     await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body}));
   } catch (e) {
     S.comments = S.comments.filter(c => c !== tmp);
+    const back = document.querySelector(`#app .post[data-post="${postId}"] .cin input`);
+    if (back) back.value = body;           // it did not send: give them back what they wrote
     render();
     throw e;
   }
@@ -4788,12 +4932,12 @@ sb.auth.onAuthStateChange((event, session) => {
 // error event, and until now it went nowhere. A tap that silently does nothing is the
 // hardest bug to report, so it goes on the bar like everything else.
 addEventListener('error', e => {
-  if (!e.error || document.hidden) return;
-  showErr(`Something went wrong: ${e.error.message || e.message}`, e.error.stack);
+  if (!e.error || document.hidden || noise(e.error)) return;
+  showErr(`Something went wrong: ${e.error.message || e.message}`, e.error.stack, true);
 });
 addEventListener('unhandledrejection', e => {
-  if (e.reason?.shown || document.hidden) return;       // q() already put it in front of them
-  showErr(`Something went wrong: ${e.reason?.message || e.reason}`, e.reason?.stack);
+  if (e.reason?.shown || document.hidden || noise(e.reason)) return;   // q() already put it in front of them
+  showErr(`Something went wrong: ${e.reason?.message || e.reason}`, e.reason?.stack, true);
 });
 
 // ---- behaving like an application rather than a page
