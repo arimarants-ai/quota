@@ -1,7 +1,7 @@
 // Fan out a push notification to a group when someone posts proof.
 // Called by the posts_notify trigger in schema.sql (v4).
 import { send, type Subscription } from './push.ts';
-import { messageFor, socialFor, who } from './message.ts';
+import { chatFor, flagFor, messageFor, socialFor, verdictFor, who } from './message.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -107,6 +107,106 @@ Deno.serve(async (req) => {
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
     }));
+  }
+
+  // Somebody said yes. A friendship names a pair and nothing else, so who to tell is
+  // whichever half of it did not just accept.
+  if (kind === 'accepted_friend') {
+    const { a, b, actor } = record ?? {};
+    if (!a || !b || !actor) return new Response('ignored', { status: 200 });
+    const tell = actor === a ? b : a;
+    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    if (!from) return new Response('ignored', { status: 200 });
+    return blast([tell], JSON.stringify({
+      title: 'Quota', body: socialFor('accepted_friend', who(from)),
+      url: `${SITE_URL}/#friends`, tag: `accepted-${actor}`,
+    }));
+  }
+
+  // Somebody joined a group. Only when they did it themselves — create_group() and an
+  // invite being written both land in the same table, and neither is news.
+  if (kind === 'accepted_group') {
+    const { group_id: gid, user_id: joined, actor } = record ?? {};
+    if (!gid || !joined || actor !== joined) return new Response('ignored', { status: 200 });
+    const [[group], members, [from]] = await Promise.all([
+      rest(`groups?id=eq.${gid}&select=name`),
+      rest(`group_members?group_id=eq.${gid}&user_id=neq.${joined}&select=user_id`),
+      rest(`profiles?id=eq.${joined}&select=username,display_name`),
+    ]);
+    if (!group || !from || !members.length) return new Response('nobody to notify', { status: 200 });
+    return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
+      title: group.name, body: socialFor('joined_group', who(from), group.name),
+      url: `${SITE_URL}/#groups`, tag: `joined-${gid}-${joined}`,
+    }));
+  }
+
+  // Somebody said something. A group's chat goes to the group; a private one goes to the
+  // other half of the pair. The link is the chat as the person reading it names it, which
+  // for a private one is the sender rather than themselves.
+  if (kind === 'message') {
+    const { group_id: gid, a, b, user_id: actor, body: said } = record ?? {};
+    if (!actor) return new Response('ignored', { status: 200 });
+    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    if (!from) return new Response('ignored', { status: 200 });
+    if (gid) {
+      const [[group], members] = await Promise.all([
+        rest(`groups?id=eq.${gid}&select=name`),
+        rest(`group_members?group_id=eq.${gid}&user_id=neq.${actor}&select=user_id`),
+      ]);
+      if (!group) return new Response('ignored', { status: 200 });
+      return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
+        title: group.name, body: chatFor(who(from), said),
+        url: `${SITE_URL}/#chat-g:${gid}`, tag: `chat-g-${gid}`,
+      }));
+    }
+    const to = a === actor ? b : a;
+    if (!to) return new Response('ignored', { status: 200 });
+    return blast([to], JSON.stringify({
+      title: 'Quota', body: chatFor(who(from), said),
+      url: `${SITE_URL}/#chat-u:${actor}`, tag: `chat-u-${actor}`,
+    }));
+  }
+
+  // Somebody reacted to a line. Only whoever wrote it is told.
+  if (kind === 'message_reaction') {
+    const { message_id, user_id: actor, emoji } = record ?? {};
+    if (!message_id || !actor) return new Response('ignored', { status: 200 });
+    const [[msg], [from]] = await Promise.all([
+      rest(`messages?id=eq.${message_id}&select=user_id,group_id,a,b`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+    ]);
+    if (!msg || !from || msg.user_id === actor) return new Response('ignored', { status: 200 });
+    const where = msg.group_id ? `g:${msg.group_id}` : `u:${actor}`;
+    return blast([msg.user_id], JSON.stringify({
+      title: 'Quota', body: socialFor('message_reaction', who(from), emoji),
+      url: `${SITE_URL}/#chat-${where}`, tag: `msgreact-${message_id}-${emoji}`,
+    }));
+  }
+
+  // Somebody questioned a post, or the group finished deciding about one. Everyone in the
+  // group hears either way, and the person it is about hears a different sentence: they are
+  // being told, not asked, because they do not get a vote on their own.
+  if (kind === 'flag' || kind === 'flag_closed') {
+    const { id, post_id, by_user, outcome } = record ?? {};
+    if (!post_id) return new Response('ignored', { status: 200 });
+    const [[post], [raiser]] = await Promise.all([
+      rest(`posts?id=eq.${post_id}&select=user_id,group_id,metric,amount,challenge`),
+      by_user ? rest(`profiles?id=eq.${by_user}&select=username,display_name`) : Promise.resolve([{}]),
+    ]);
+    if (!post) return new Response('ignored', { status: 200 });
+    const members = await rest(`group_members?group_id=eq.${post.group_id}&select=user_id`);
+    const what = `${post.amount} ${post.challenge ? `${post.challenge} ` : ''}${post.metric}`;
+    const url = id ? `${SITE_URL}/#flag-${id}` : atPost(post_id);
+    // The owner is told about their own; everyone else is asked. Two blasts rather than
+    // one, because the same words cannot be right for both.
+    const others = members.map((m: { user_id: string }) => m.user_id)
+      .filter((u: string) => u !== post.user_id && (kind === 'flag_closed' || u !== by_user));
+    const line = (mine: boolean) => kind === 'flag'
+      ? flagFor(raiser?.username ? who(raiser) : 'Someone', what, mine)
+      : verdictFor(what, outcome === 'upheld', mine);
+    const tag = `flag-${id ?? post_id}${kind === 'flag_closed' ? '-done' : ''}`;
+    await blast([post.user_id], JSON.stringify({ title: 'Quota', body: line(true), url, tag }));
+    return blast(others, JSON.stringify({ title: 'Quota', body: line(false), url, tag }));
   }
 
   if (kind === 'comment' || kind === 'like' || kind === 'reaction') {

@@ -1804,7 +1804,8 @@ await withPage(NO_WHEEL, async page => {
   check("a post of your own offers to show itself on your profile",
     /show this on my profile/i.test(await page.locator('#dlg .menu').innerText()),
     await page.locator('#dlg .menu').innerText());
-  await page.locator('#dlg .menu button').first().click();
+  // By what it says rather than by where it sits: the menu has more on it than it used to.
+  await page.locator('#dlg .menu button', { hasText: /show this on my profile/i }).click();
   await page.waitForTimeout(700);
   const sent = (await page.evaluate(() => self.__edits)).filter(e => e.table === 'posts');
   check('  and ticking it saves that against the post',
@@ -1923,6 +1924,579 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(250);
   check('  a post deleted while it is open closes rather than emptying',
     await page.locator('#one').isHidden() && await page.evaluate(() => S.one) === null);
+});
+
+// Proof already posted, put on a story. It goes on as a card rather than as the whole
+// screen, because that is what it is: a thing lifted from somewhere else and stuck on.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.post .head .more').first().click();
+  await page.waitForTimeout(350);
+  check('a post of your own offers to go on your story',
+    /share this to my story/i.test(await page.locator('#dlg .menu').innerText()),
+    await page.locator('#dlg .menu').innerText());
+
+  // The story points at the post rather than carrying a copy, so the people who can watch
+  // the story have to be people who can open the post. On your profile is that exact set.
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(350);
+  check('  and says first that it also goes on your profile',
+    /profile/i.test(await page.locator('#dlg').innerText()), await page.locator('#dlg').innerText());
+  check('    with a way to back out', await page.locator('#dlg .row button').count() === 2);
+  await page.locator('#dlg .row button').first().click();       // Cancel
+  await page.waitForTimeout(300);
+  check('    and backing out shares nothing and changes nothing',
+    await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === false
+    && await page.locator('#make').isHidden());
+
+  await page.locator('.post .head .more').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg .menu button').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg .row button.teal').click();
+  await page.waitForTimeout(800);
+  check('  going ahead puts it on the profile and opens the editor',
+    await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === true
+    && await page.locator('#make').isVisible());
+  check('    with the post on the card, not filling it',
+    await page.locator('#make .face .pcard').count() === 1
+    && await page.evaluate(() => {
+      const c = document.querySelector('#make .face .pcard'), f = document.querySelector('#make .face');
+      return c.getBoundingClientRect().width < f.getBoundingClientRect().width * 0.92;
+    }));
+  check('    carrying what the post was worth',
+    /50/.test(await page.locator('#make .pcard .foot em').innerText()),
+    await page.locator('#make .pcard .foot').innerText());
+  check('    and it is not a button in here, because in here it is being arranged',
+    await page.evaluate(() => document.querySelector('#make .pcard').tagName) === 'DIV');
+
+  // It drags about the card like the words and the stickers do.
+  const box = await page.locator('#make .pcard').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 90, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  check('    and it can be dragged where you want it',
+    await page.evaluate(() => styleOf(S.draft).py) < 0.44,
+    String(await page.evaluate(() => styleOf(S.draft).py)));
+
+  await page.locator('#make .go').click();
+  await page.waitForTimeout(900);
+  const story = await page.evaluate(() => self.__stories.at(-1));
+  check('  sharing writes the post it points at into the story',
+    story && story.style && story.style.post === 1, JSON.stringify(story));
+  check('    and nothing is uploaded, because the clip is already up',
+    story && story.media_path === null && story.kind === 'text', JSON.stringify(story));
+
+  // And in the viewer it is the way through to the post.
+  await page.evaluate(() => openStory(S.me.id));
+  await page.waitForTimeout(600);
+  check('  the card is on the story when it is watched',
+    await page.locator('#story .pcard').count() === 1);
+  check('    as a button, above the zones that step the story on',
+    await page.evaluate(() => {
+      const c = document.querySelector('#story .pcard');
+      return c.tagName === 'BUTTON' && +getComputedStyle(c).zIndex
+        > +getComputedStyle(document.querySelector('#story .tap')).zIndex;
+    }));
+  await page.locator('#story .pcard').click();
+  await page.waitForTimeout(600);
+  check('  and tapping it opens that post rather than stepping the story on',
+    await page.locator('#story').isHidden() && await page.locator('#one .post').count() === 1,
+    `story hidden ${await page.locator('#story').isHidden()}, posts ${await page.locator('#one .post').count()}`);
+  await page.evaluate(() => closePost());
+
+  // A post that has gone since must not leave a hole on somebody's story.
+  await page.evaluate(() => {
+    S.stories = [{ id: 999, u: S.me.id, kind: 'text', body: '', style: { post: 123456 }, ts: Date.now() }];
+    S.spost = {}; openStory(S.me.id);
+  });
+  await page.waitForTimeout(500);
+  check('  a post that has gone says so rather than leaving a hole',
+    /no longer here/i.test(await page.locator('#story .pcard').innerText()),
+    await page.locator('#story .pcard').innerText());
+  await page.evaluate(() => closeStory());
+});
+
+// ---- questioning somebody's proof
+//
+// The rules themselves live in the database and are checked there (test/policies.test.sql).
+// What is checked here is that the app never offers what the database would refuse, and
+// that an upheld flag really does take the day back — that last one is the whole point of
+// the feature and it is worked out entirely in the browser.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  // Sam's post is the one that is not yours. HISTORY in the stub is all u2's.
+  const other = await page.evaluate(() => S.posts.find(p => p.userId !== S.me.id).id);
+  const own = await page.evaluate(() => S.posts.find(p => p.userId === S.me.id).id);
+  check('the flag is on somebody else’s post',
+    await page.locator(`.post[data-post="${other}"] .acts .flg`).count() === 1);
+  check('  and not on your own, because you cannot question yourself',
+    await page.locator(`.post[data-post="${own}"] .acts .flg`).count() === 0);
+  check('  drawn as an outline until somebody uses it',
+    await page.evaluate(o => {
+      const s = document.querySelector(`.post[data-post="${o}"] .acts .flg svg`);
+      return getComputedStyle(s).fill === 'none';
+    }, other));
+
+  await page.locator(`.post[data-post="${other}"] .acts .flg`).click();
+  await page.waitForTimeout(350);
+  check('  tapping it asks what is wrong rather than flagging on the spot',
+    await page.locator('#dlg textarea').count() === 1);
+  check('    and says the group decides', /group decides/i.test(await page.locator('#dlg').innerText()),
+    await page.locator('#dlg').innerText());
+  check('    and that the person it is about does not get a vote',
+    /does not get a vote/i.test(await page.locator('#dlg').innerText()));
+
+  // Cancel has to actually cancel. A half-written flag that goes up anyway is the worst
+  // possible failure for a feature whose whole job is being fair.
+  await page.locator('#dlg textarea').fill('elbows barely bent');
+  await page.locator('#dlg .row button', { hasText: /cancel/i }).click();
+  await page.waitForTimeout(400);
+  check('  cancelling raises nothing at all',
+    await page.evaluate(() => self.__flags.length) === 0
+    && await page.evaluate(() => S.flags.length) === 0);
+
+  // And an empty one is not a flag either: the reason is what everybody else votes on.
+  await page.locator(`.post[data-post="${other}"] .acts .flg`).click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(400);
+  check('  and one with no reason on it does not go up either',
+    await page.evaluate(() => self.__flags.length) === 0);
+
+  await page.locator('#dlg textarea').fill('not full range, elbows barely bent');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(1100);
+  const raised = await page.evaluate(() => self.__flags.at(-1));
+  check('  submitting raises it against that post, with the reason on it',
+    raised && raised.post_id === other && /elbows/.test(raised.reason), JSON.stringify(raised));
+  check('    and takes you straight to the thing you just started',
+    await page.evaluate(() => typeof S.flag) === 'number'
+    && await page.locator('#app .fbar').count() === 1);
+  check('    with a clock on it, because how long is left is the whole question',
+    /\d+:\d\d/.test(await page.locator('#app .fbar .clock b').innerText()),
+    await page.locator('#app .fbar').innerText());
+  check('    the reason the group is being asked to read',
+    /elbows/.test(await page.locator('#app .why p').innerText()));
+  check('    and the clip it is about', await page.locator('#app .post .reel').count() === 1);
+
+  // Raising one is a vote, or a pair could never reach "everybody has voted".
+  check('  raising it counted as agreeing with it',
+    await page.evaluate(() => myVote(S.flag)?.yes) === true);
+  check('    and that shows as the one you picked',
+    await page.locator('#app .votes button.on').count() === 1
+    && /needs redoing/i.test(await page.locator('#app .votes button.on').innerText()));
+
+  // Changing your mind before the result is out is not a second vote.
+  await page.locator('#app .votes button', { hasText: /it counts/i }).click();
+  await page.waitForTimeout(900);
+  check('  you can change it while the clock is running',
+    await page.evaluate(() => myVote(S.flag)?.yes) === false
+    && await page.evaluate(() => self.__fvotes.filter(v => v.user_id === 'u1').length) === 1,
+    JSON.stringify(await page.evaluate(() => self.__fvotes)));
+
+  // Back out, and the post now says a question has been asked about it.
+  await page.locator('#app .fbar .backx').click();
+  await page.waitForTimeout(500);
+  check('  the post itself says it is being questioned',
+    await page.locator(`.post[data-post="${other}"] .fstrip`).count() === 1
+    && /deciding/i.test(await page.locator(`.post[data-post="${other}"] .fstrip`).innerText()),
+    await page.locator(`.post[data-post="${other}"] .fstrip`).innerText());
+  check('    and the flag on it is filled in now, and goes to the decision',
+    await page.evaluate(o => {
+      const s = document.querySelector(`.post[data-post="${o}"] .acts .flg svg`);
+      return getComputedStyle(s).fill !== 'none';
+    }, other));
+  check('  and the feed carries the way back to it',
+    await page.locator('.fbar-chip').count() === 1
+    && /\d+:\d\d/.test(await page.locator('.fbar-chip em').innerText()),
+    await page.locator('.fbar-chip').innerText());
+});
+
+// What an upheld flag actually does, which is the whole point of the feature and is worked
+// out in the browser: the amount stops counting towards the day it was posted on, so the
+// day reopens and every rule written on top of the totals follows without knowing flags
+// exist. Driven through a load rather than by poking S, because the filtering happens while
+// the totals are being read.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const before = await page.evaluate(() => {
+    const g = myGroups()[0], p = S.posts.find(x => x.userId === 'u2');
+    return { g: g.id, post: p.id, day: p.day, u: p.userId,
+             did: done(g, p.userId, p.metric, p.day), streak: streak(g, p.userId) };
+  });
+  check('a day counts what was posted on it', before.did > 0, JSON.stringify(before));
+
+  await page.evaluate(b => {
+    self.__flags.push({ id: 700, post_id: b.post, by_user: 'u1', reason: 'not full range',
+      created_at: new Date().toISOString(), closes_at: new Date(Date.now() - 6e4).toISOString(),
+      outcome: 'upheld', closed_at: new Date().toISOString() });
+    return load();
+  }, before);
+  await page.waitForTimeout(900);
+  const after = await page.evaluate(b => ({
+    did: done(S.groups.find(g => g.id === b.g), b.u, 'pushups', b.day),
+    streak: streak(S.groups.find(g => g.id === b.g), b.u),
+    flagged: S.flags.length,
+  }), before);
+  check('  and an upheld flag takes that amount back off it',
+    after.did === before.did - (await page.evaluate(b => S.posts.find(p => p.id === b.post)?.amount ?? 0, before)),
+    `${before.did} -> ${after.did}`);
+  check('    which is what reopens the day rather than anything special-casing a streak',
+    after.streak <= before.streak, `${before.streak} -> ${after.streak}`);
+  check('  the post is not deleted: the group can still watch what it decided about',
+    await page.locator(`.post[data-post="${before.post}"] .reel`).count() === 1);
+  check('    and it says what was decided',
+    /needs redoing/i.test(await page.locator(`.post[data-post="${before.post}"] .fstrip`).innerText()),
+    await page.locator(`.post[data-post="${before.post}"] .fstrip`).innerText());
+
+  // A decision reached is not a clock any more.
+  await page.locator(`.post[data-post="${before.post}"] .fstrip`).click();
+  await page.waitForTimeout(500);
+  check('  opening it shows the verdict rather than a vote',
+    await page.locator('#app .verdict').count() === 1
+    && await page.locator('#app .votes').count() === 0,
+    await page.locator('#app').innerText().then(t => t.slice(0, 200)));
+  check('    with no clock left running on it',
+    await page.evaluate(() => !!tickTimer) === false);
+});
+
+// A flag against you: you are told, and you do not get a vote on your own.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    const p = S.posts.find(x => x.userId === S.me.id);
+    self.__flags.push({ id: 701, post_id: p.id, by_user: 'u2', reason: 'looked short to me',
+      created_at: new Date().toISOString(), closes_at: new Date(Date.now() + 3 * 3600e3).toISOString(),
+      outcome: null, closed_at: null });
+    self.__fvotes.push({ flag_id: 701, user_id: 'u2', agree: true });
+    return load();
+  });
+  await page.waitForTimeout(900);
+  check('a flag against your own post says so in the feed',
+    await page.locator('.fbar-chip.mine').count() === 1
+    && /your proof is being questioned/i.test(await page.locator('.fbar-chip').innerText()),
+    await page.locator('.fbar-chip').innerText());
+  await page.locator('.fbar-chip').click();
+  await page.waitForTimeout(600);
+  check('  and opening it offers no vote, because you do not get one',
+    await page.locator('#app .votes').count() === 0
+    && /do not get a vote/i.test(await page.innerText('#app')),
+    await page.innerText('#app'));
+  check('    but does show what was said about it',
+    /looked short to me/.test(await page.locator('#app .why p').innerText()));
+
+  // A notification about one lands on it, not near it.
+  await page.evaluate(() => { S.flag = null; render(); location.hash = '#flag-701'; });
+  await page.waitForTimeout(600);
+  check('  a notification about a flag opens that flag',
+    await page.evaluate(() => S.flag) === 701 && await page.locator('#app .why').count() === 1);
+  check('    and leaves a way back out of it',
+    await page.locator('#app .fbar .backx').count() === 1);
+  await page.locator('#app .fbar .backx').click();
+  await page.waitForTimeout(500);
+  check('    which goes back to the feed', await page.evaluate(() => S.flag) === null);
+});
+
+// A project where the v27 block has not been run. The tables are not there, and the app has
+// to come up without the feature rather than not come up.
+await withPage({ ...NO_WHEEL, noFlagTables: true }, async page => {
+  await settle(page);
+  check('without the schema block the app still loads', await page.isVisible('#bar')
+    && await page.locator('.post').count() > 0);
+  check('  with no error banner over it', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err').innerText());
+  check('  and no flag offered on anything', await page.locator('.acts .flg').count() === 0);
+  check('  and nothing in the feed about it', await page.locator('.fbar-chip').count() === 0);
+});
+
+// ---- talking to each other
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  check('the feed carries a way into the chats', await page.locator('.hdr .chatbtn').count() === 1);
+  check('  with nothing on it when nothing is waiting',
+    await page.locator('.hdr .chatbtn i').count() === 0);
+
+  await page.locator('.hdr .chatbtn').click();
+  await page.waitForTimeout(600);
+  check('a group has a chat whether anything has been said in it or not',
+    await page.locator('.crow').count() === 1
+    && /Mornings/.test(await page.locator('.crow').innerText()),
+    await page.locator('#app').innerText());
+
+  await page.locator('.crow').click();
+  await page.waitForTimeout(600);
+  check('  opening it gives you somewhere to type', await page.locator('.csend input').count() === 1);
+  check('    and says who can read it',
+    /everyone in the group/i.test(await page.locator('#app .msgs').innerText()),
+    await page.locator('#app .msgs').innerText());
+
+  const box = page.locator('.csend input');
+  await box.fill('who is doing the 6am one');
+  await page.evaluate(() => { self.__stall = new Promise(r => { self.__go = r; }); });
+  await page.locator('.csend button.primary').click();
+  await page.waitForTimeout(250);
+  check('  a line shows before the write comes back',
+    /6am one/.test(await page.locator('#app .msgs').innerText()));
+  check('    emptying the box it was typed into', await box.inputValue() === '',
+    JSON.stringify(await box.inputValue()));
+  check('    and offering nothing to react to until it has really landed',
+    await page.locator('.m.pending .drop').count() === 0);
+  await page.evaluate(() => { const g = self.__go; self.__stall = null; g(); });
+  await page.waitForTimeout(900);
+  const sent = await page.evaluate(() => self.__msgs.at(-1));
+  check('  and it is written against the group, not a pair',
+    sent && sent.group_id === 1 && sent.a === null && /6am one/.test(sent.body), JSON.stringify(sent));
+
+  // A conversation redraws itself every few seconds, so a redraw must never take what
+  // somebody is in the middle of writing — the same fault as the comment box, in the one
+  // place it would happen without anybody touching anything.
+  await box.fill('half a thought');
+  await page.evaluate(() => { document.querySelector('#app .csend input').focus(); render(); });
+  await page.waitForTimeout(250);
+  check('  a redraw does not take a half-written message',
+    await box.inputValue() === 'half a thought', JSON.stringify(await box.inputValue()));
+  check('    and leaves the caret where it was',
+    await page.evaluate(() => document.activeElement === document.querySelector('#app .csend input')));
+  await box.fill('');
+
+  // Reacting to one, which is the same gesture as reacting to a post.
+  await page.locator('#app .m .say').last().click();
+  await page.waitForTimeout(300);
+  check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick').count() === 1);
+  await page.locator('#app .m .reactpick button').first().click();
+  await page.waitForTimeout(700);
+  check('    and picking one sticks it on',
+    await page.locator('#app .m .mrx button').count() === 1
+    && await page.evaluate(() => self.__mreacts.length) === 1,
+    JSON.stringify(await page.evaluate(() => self.__mreacts)));
+
+  // Back to the list, because that is where this was opened from.
+  await page.locator('#app .cbar .backx').click();
+  await page.waitForTimeout(600);
+  check('  and the way back is the list it was opened from',
+    await page.evaluate(() => S.chat) === 'list' && await page.locator('.crow').count() >= 1);
+  check('    with the last thing said on the row',
+    /6am one/.test(await page.locator('.crow').first().innerText()),
+    await page.locator('.crow').first().innerText());
+});
+
+// A private one, and the pair it is stored as.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => go('friends'));
+  await page.waitForTimeout(600);
+  check('a friend can be messaged from the friends list',
+    await page.locator('#app .list .row .msg').count() === 1);
+  await page.locator('#app .list .row .msg').click();
+  await page.waitForTimeout(600);
+  check('  which opens a chat with only the two of you in it',
+    /only you and/i.test(await page.locator('#app .msgs').innerText()),
+    await page.locator('#app .msgs').innerText());
+  await page.locator('.csend input').fill('see you tomorrow');
+  await page.locator('.csend button.primary').click();
+  await page.waitForTimeout(900);
+  const dm = await page.evaluate(() => self.__msgs.at(-1));
+  check('  and it is stored as the pair, sorted, the way a friendship is',
+    dm && dm.group_id === null && dm.a === 'u1' && dm.b === 'u2', JSON.stringify(dm));
+
+  // Opened from Friends rather than from the list, so that is where back goes.
+  await page.locator('#app .cbar .backx').click();
+  await page.waitForTimeout(600);
+  check('  and back goes where it was opened from, not to the list',
+    await page.evaluate(() => S.chat) === null && await page.evaluate(() => S.tab) === 'friends');
+});
+
+// What is waiting, and what stops waiting once it has been read.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 950, group_id: 1, a: null, b: null, user_id: 'u2',
+      body: 'anyone up', created_at: new Date().toISOString() });
+    return load();
+  });
+  await page.waitForTimeout(900);
+  check('something said by somebody else counts as waiting',
+    await page.locator('.hdr .chatbtn i').count() === 1
+    && (await page.locator('.hdr .chatbtn i').innerText()).trim() === '1',
+    await page.locator('.hdr .chatbtn i').innerText());
+  await page.locator('.hdr .chatbtn').click();
+  await page.waitForTimeout(500);
+  check('  and the row it is in says so', await page.locator('.crow.un').count() === 1);
+  await page.locator('.crow').click();
+  await page.waitForTimeout(900);
+  check('  reading it stops it waiting',
+    await page.evaluate(() => self.__reads.some(r => r.chat === 'g:1')),
+    JSON.stringify(await page.evaluate(() => self.__reads)));
+  await page.evaluate(() => { S.chat = null; S.chatFrom = null; go('feed'); });
+  await page.waitForTimeout(600);
+  check('    and the feed stops saying so too', await page.locator('.hdr .chatbtn i').count() === 0);
+
+  // Your own words are never something waiting to be read.
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 951, group_id: 1, a: null, b: null, user_id: 'u1',
+      body: 'i am', created_at: new Date().toISOString() });
+    return load();
+  });
+  await page.waitForTimeout(900);
+  check('  and what you said yourself never counts as waiting',
+    await page.locator('.hdr .chatbtn i').count() === 0);
+
+  // A notification about one lands in it, not near it.
+  await page.evaluate(() => { location.hash = '#chat-g:1'; });
+  await page.waitForTimeout(700);
+  check('  a notification about a message opens that conversation',
+    await page.evaluate(() => S.chat) === 'g:1' && await page.locator('.csend input').count() === 1);
+});
+
+// A project where the v28 block has not been run.
+await withPage({ ...NO_WHEEL, noChatTables: true }, async page => {
+  await settle(page);
+  check('without the chat block the app still loads', await page.isVisible('#bar')
+    && await page.locator('.post').count() > 0);
+  check('  with no error banner over it', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err span').innerText());
+  check('  and no way in offered anywhere', await page.locator('.hdr .chatbtn').count() === 0);
+});
+
+// ---- what is happening while you are looking
+//
+// A push notification is for somebody who is not looking. This is the other half, and the
+// two rules that matter are both about restraint: nothing for a post in your group, because
+// the feed fills in underneath you, and nothing for the chat that is open in front of you.
+const fire = (page, table, row, ev = 'INSERT') =>
+  page.evaluate(([t, r, e]) => self.__live(t, { eventType: e, new: r }), [table, row, ev]);
+const settleLive = p => p.waitForTimeout(1400);   // the burst window, plus the load it asks for
+
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  check('the app subscribes to what it can show',
+    (await page.evaluate(() => self.__liveTables())).includes('comments'));
+  check('  and knows it is connected', await page.evaluate(() => liveOn) === true);
+
+  // Somebody in your group posting: the feed fills in underneath you and says nothing.
+  await page.evaluate(() => {
+    self.__posts.push({ id: 510, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 25,
+      caption: '', video_path: 'live.mp4', day: new Date().toLocaleDateString('en-CA'),
+      created_at: new Date().toISOString() });
+  });
+  const before = await page.locator('.post').count();
+  await fire(page, 'posts', { id: 510, group_id: 1, user_id: 'u2' });
+  await settleLive(page);
+  check('a post in your group turns up in the feed on its own',
+    await page.locator('.post').count() === before + 1,
+    `${before} -> ${await page.locator('.post').count()}`);
+  check('  and says nothing, because you can already see it',
+    await page.isHidden('#drop'), await page.locator('#drop').innerText().catch(() => ''));
+
+  // A comment on your own proof is news, and it lands on the comment.
+  const mine = await page.evaluate(() => S.posts.find(p => p.userId === S.me.id).id);
+  await page.evaluate(m => {
+    self.__cmts.push({ id: 760, post_id: m, user_id: 'u2', body: 'how', created_at: new Date().toISOString() });
+  }, mine);
+  await fire(page, 'comments', { id: 760, post_id: mine, user_id: 'u2', body: 'how' });
+  await settleLive(page);
+  check('a comment on your own proof comes down from the top',
+    await page.isVisible('#drop') && /Sam/.test(await page.locator('#drop').innerText())
+    && /how/.test(await page.locator('#drop').innerText()),
+    await page.locator('#drop').innerText());
+  await page.locator('#drop .dropcard').click();
+  await page.waitForTimeout(600);
+  check('  and tapping it goes to that comment, not near it',
+    await page.evaluate(() => !!document.querySelector('[data-cmt="760"]')));
+  check('    taking the banner with it', await page.isHidden('#drop'));
+
+  // Somebody else's proof being commented on is not your business.
+  const theirs = await page.evaluate(() => S.posts.find(p => p.userId !== S.me.id).id);
+  await page.evaluate(t => {
+    self.__cmts.push({ id: 761, post_id: t, user_id: 'u2', body: 'nice', created_at: new Date().toISOString() });
+  }, theirs);
+  await fire(page, 'comments', { id: 761, post_id: theirs, user_id: 'u2', body: 'nice' });
+  await settleLive(page);
+  check('  a comment on somebody else’s proof says nothing to you',
+    await page.isHidden('#drop'), await page.locator('#drop').innerText().catch(() => ''));
+
+  // Nothing you did yourself is ever news to you.
+  await page.evaluate(m => {
+    self.__likes.push({ post_id: m, user_id: 'u1' });
+  }, mine);
+  await fire(page, 'likes', { post_id: mine, user_id: 'u1' });
+  await settleLive(page);
+  check('  and nothing you did yourself is news to you', await page.isHidden('#drop'));
+});
+
+// The chat you are reading, and the one you are not.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => openChat('g:1'));
+  await page.waitForTimeout(700);
+  check('the subscription takes the chat poll off its hands',
+    await page.evaluate(() => chatPoll) === null);
+
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 960, group_id: 1, a: null, b: null, user_id: 'u2',
+      body: 'anyone up', created_at: new Date().toISOString() });
+  });
+  await fire(page, 'messages', { id: 960, group_id: 1, a: null, b: null, user_id: 'u2', body: 'anyone up' });
+  await settleLive(page);
+  check('  a line in the chat you are reading appears in it',
+    /anyone up/.test(await page.locator('#app .msgs').innerText()),
+    await page.locator('#app .msgs').innerText());
+  check('    and says nothing, because you are reading it', await page.isHidden('#drop'));
+
+  // The same line, in a conversation you are not looking at.
+  await page.evaluate(() => { S.chat = null; S.chatFrom = null; render(); });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 961, a: 'u1', b: 'u2', group_id: null, user_id: 'u2',
+      body: 'see you tomorrow', created_at: new Date().toISOString() });
+  });
+  await fire(page, 'messages', { id: 961, a: 'u1', b: 'u2', group_id: null, user_id: 'u2', body: 'see you tomorrow' });
+  await settleLive(page);
+  check('  a line in one you are not looking at does come down from the top',
+    await page.isVisible('#drop') && /see you tomorrow/.test(await page.locator('#drop').innerText()),
+    await page.locator('#drop').innerText());
+  await page.locator('#drop .dropcard').click();
+  await page.waitForTimeout(800);
+  check('    and tapping it opens that conversation',
+    await page.evaluate(() => S.chat) === 'u:u2');
+});
+
+// Saying yes, and the end of a flag: both are things that happen to you without you doing
+// anything, which is exactly what the banner is for.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await fire(page, 'friendships', { a: 'u1', b: 'u2' });
+  await settleLive(page);
+  check('somebody accepting your request says so',
+    await page.isVisible('#drop') && /accepted/i.test(await page.locator('#drop').innerText()),
+    await page.locator('#drop').innerText());
+  await page.locator('#drop .x').click();
+  await page.waitForTimeout(300);
+  check('  and it can be sent away', await page.isHidden('#drop'));
+
+  // A banner goes on its own, or it is a thing to be cleared rather than a thing to be read.
+  await fire(page, 'invites', { id: 55, type: 'friend', from_user: 'u3', to_user: 'u1' });
+  await settleLive(page);
+  check('  a request coming in says so too', await page.isVisible('#drop'));
+  await page.waitForTimeout(5200);
+  check('    and goes away on its own', await page.isHidden('#drop'));
+});
+
+// A project that has not turned realtime on in the dashboard. Nothing here is allowed to
+// be a thing the app needs in order to work.
+await withPage({ ...NO_WHEEL, noRealtime: true }, async page => {
+  await settle(page);
+  check('without realtime the app comes up exactly as it did', await page.isVisible('#bar')
+    && await page.locator('.post').count() > 0);
+  check('  with no error banner over it', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err span').innerText());
+  await page.evaluate(() => openChat('g:1'));
+  await page.waitForTimeout(600);
+  check('  and the chat falls back to asking for itself',
+    await page.evaluate(() => chatPoll) !== null);
 });
 
 // Which groups you are willing to have on show.

@@ -1344,3 +1344,438 @@ alter table public.profiles add column if not exists terms_version text;
 drop policy if exists "members see posts" on public.posts;
 create policy "members see posts" on public.posts for select
   using (user_id = auth.uid() or public.is_member(group_id) or (on_profile and public.can_see_user(user_id)));
+
+-- ============================================================
+-- v27 (questioning somebody's proof): safe to run on an existing project.
+--
+-- A flag is one person saying a post does not meet the challenge, and the group deciding.
+-- It is deliberately not a report to a moderator: there is no moderator, and the people who
+-- know whether twenty pushups were twenty pushups are the people in the group.
+--
+-- Three rules are in here rather than in the app, because all three are the kind that stop
+-- being true the moment somebody writes their own request:
+--
+--   * You cannot flag your own post, and you cannot vote on a flag against it.
+--   * One flag per post, ever. A post the group already stood behind is not re-litigated.
+--   * When it closes is the database's, not the browser's. It is three hours before the
+--     flagged person's own midnight, wherever in the world they are, worked out from
+--     profiles.tz — the same column the spin-day reminder runs on. A flag raised after that
+--     hour has already passed gets half an hour instead, so a late one still decides today
+--     rather than expiring on the spot or running past the day it is about.
+--
+-- Nothing here writes to posts. Whether an upheld flag has taken a post out of its day is
+-- read off the flag, by the app, from rows it already loads — a column on posts would have
+-- to be written by something, and the only things allowed to write a post are its author
+-- and post_edit_guard(), which exists precisely to stop a post changing after the group
+-- saw it. So the post is left exactly as it was and the flag carries the verdict.
+-- ============================================================
+create table if not exists public.flags (
+  id bigint generated always as identity primary key,
+  -- One per post, ever: unique rather than an index, so a second one is refused by the
+  -- database rather than by remembering to check.
+  post_id bigint not null unique references public.posts on delete cascade,
+  by_user uuid not null references public.profiles on delete cascade,
+  reason text not null check (char_length(btrim(reason)) between 1 and 300),
+  created_at timestamptz not null default now(),
+  closes_at timestamptz not null default now(),
+  outcome text check (outcome in ('upheld', 'dismissed')),
+  closed_at timestamptz
+);
+create index if not exists flags_open on public.flags (closes_at) where outcome is null;
+alter table public.flags enable row level security;
+
+create table if not exists public.flag_votes (
+  flag_id bigint not null references public.flags on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  -- true agrees with the flag: this needs redoing.
+  agree boolean not null,
+  created_at timestamptz not null default now(),
+  primary key (flag_id, user_id)   -- one vote each, by the key rather than by checking
+);
+alter table public.flag_votes enable row level security;
+
+-- Which group a flag belongs to, and whose post it is. Both are one join away and every
+-- policy below wants one of them, so they are functions rather than a subquery written out
+-- five times slightly differently.
+create or replace function public.flag_group(fid bigint) returns bigint
+language sql stable security definer set search_path = public as $$
+  select p.group_id from public.flags f join public.posts p on p.id = f.post_id where f.id = fid;
+$$;
+create or replace function public.flag_owner(fid bigint) returns uuid
+language sql stable security definer set search_path = public as $$
+  select p.user_id from public.flags f join public.posts p on p.id = f.post_id where f.id = fid;
+$$;
+
+drop policy if exists "see flags in your groups" on public.flags;
+drop policy if exists "question a post you can see" on public.flags;
+create policy "see flags in your groups" on public.flags for select
+  using (public.is_member((select group_id from public.posts where id = post_id)));
+create policy "question a post you can see" on public.flags for insert
+  with check (by_user = auth.uid()
+    and public.is_member((select group_id from public.posts where id = post_id))
+    and auth.uid() <> (select user_id from public.posts where id = post_id));
+-- No update and no delete: a flag is a thing that happened. Only close_due_flags() below
+-- writes an outcome, and it runs as the owner rather than as whoever called it.
+
+-- When it closes, and who it says raised it, are settled here rather than sent up by the
+-- browser — a closes_at the client picks is a clock the client can move.
+create or replace function public.flag_open_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare zone text; nine timestamptz;
+begin
+  select coalesce(nullif(pr.tz, ''), 'UTC') into zone
+    from public.posts p join public.profiles pr on pr.id = p.user_id where p.id = new.post_id;
+  -- An unrecognised zone is not worth failing a flag over; UTC is what the reminder falls
+  -- back to as well.
+  begin
+    nine := ((now() at time zone zone)::date + time '21:00') at time zone zone;
+  exception when others then
+    nine := ((now() at time zone 'UTC')::date + time '21:00') at time zone 'UTC';
+  end;
+  new.by_user := auth.uid();
+  new.created_at := now();
+  new.outcome := null; new.closed_at := null;
+  -- Three hours before their midnight, or half an hour, whichever is later.
+  new.closes_at := greatest(nine, now() + interval '30 minutes');
+  return new;
+end $$;
+drop trigger if exists flags_open_guard on public.flags;
+create trigger flags_open_guard before insert on public.flags
+  for each row execute function public.flag_open_guard();
+
+-- Raising one is a vote. Without this a flag opens with nobody on it, and "everybody has
+-- voted" could never be reached in a group of two.
+create or replace function public.flag_seed_vote() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.flag_votes (flag_id, user_id, agree) values (new.id, new.by_user, true)
+    on conflict do nothing;
+  return new;
+end $$;
+drop trigger if exists flags_seed_vote on public.flags;
+create trigger flags_seed_vote after insert on public.flags
+  for each row execute function public.flag_seed_vote();
+
+drop policy if exists "see votes on a flag you can see" on public.flag_votes;
+drop policy if exists "vote once on an open flag" on public.flag_votes;
+drop policy if exists "change your mind while it is open" on public.flag_votes;
+create policy "see votes on a flag you can see" on public.flag_votes for select
+  using (public.is_member(public.flag_group(flag_id)));
+create policy "vote once on an open flag" on public.flag_votes for insert
+  with check (user_id = auth.uid()
+    and public.is_member(public.flag_group(flag_id))
+    and auth.uid() <> public.flag_owner(flag_id)
+    and exists (select 1 from public.flags f where f.id = flag_id and f.outcome is null and f.closes_at > now()));
+-- One vote each is the primary key's job. Changing your mind before it closes is not a
+-- second vote, and a mis-tap that can never be undone is not a decision anybody wants to
+-- live with for the rest of the day.
+create policy "change your mind while it is open" on public.flag_votes for update
+  using (user_id = auth.uid()
+    and exists (select 1 from public.flags f where f.id = flag_id and f.outcome is null and f.closes_at > now()))
+  with check (user_id = auth.uid());
+
+-- Every flag whose time is up, or that everybody eligible has already voted on. Runs as the
+-- owner, so it can write an outcome no policy above allows anybody else to write, and it
+-- decides by the same rule however it was reached: from the app on a load, or from cron.
+--
+-- More agreeing than not is upheld; anything else, a tie included, is dismissed. A tie is
+-- deliberately not a coin toss — the post stands, and the day it counted towards stays
+-- counted, exactly as if the flag had never been raised.
+create or replace function public.close_due_flags() returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer := 0;
+begin
+  with t as (
+    select f.id, f.closes_at,
+           coalesce(sum(case when v.agree then 1 else 0 end), 0) as yes,
+           coalesce(sum(case when v.agree then 0 else 1 end), 0) as no,
+           count(v.*) as cast_,
+           -- Everyone in the group except whoever is being flagged.
+           greatest(0, (select count(*) from public.group_members gm where gm.group_id = p.group_id) - 1) as eligible
+      from public.flags f
+      join public.posts p on p.id = f.post_id
+      left join public.flag_votes v on v.flag_id = f.id
+     where f.outcome is null
+     group by f.id, f.closes_at, p.group_id
+  ), due as (
+    select * from t where closes_at <= now() or (eligible > 0 and cast_ >= eligible)
+  )
+  update public.flags f
+     set outcome = case when d.yes > d.no then 'upheld' else 'dismissed' end,
+         closed_at = now()
+    from due d where d.id = f.id;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.close_due_flags() from public;
+grant execute on function public.close_due_flags() to authenticated;
+
+-- The group hears when one is raised, and again when it is decided. The second one fires
+-- off the update close_due_flags() makes, so a result reaches people whether the app was
+-- open when the clock ran out or not.
+drop trigger if exists flags_notify on public.flags;
+create trigger flags_notify after insert on public.flags
+  for each row execute function public.notify_hook('flag');
+drop trigger if exists flags_closed_notify on public.flags;
+create trigger flags_closed_notify after update of outcome on public.flags
+  for each row when (old.outcome is null and new.outcome is not null)
+  execute function public.notify_hook('flag_closed');
+
+-- Ten minutes rather than the hour the wheel reminder runs on: a flag closes at whatever
+-- minute its half hour lands on, and a result that arrives fifty minutes late is a result
+-- that arrives after the person could have done anything about it.
+select cron.unschedule('close-flags') where exists (select 1 from cron.job where jobname = 'close-flags');
+select cron.schedule('close-flags', '*/10 * * * *', $cron$ select public.close_due_flags(); $cron$);
+
+-- ============================================================
+-- v28 (talking to each other): safe to run on an existing project.
+--
+-- Two kinds of chat and one table, because a message is a message. A group's chat is the
+-- group — every group has one the moment it exists, with nothing to create and nothing to
+-- join, and anyone who joins later can read all of it, the way a channel works. A private
+-- one is a pair of friends.
+--
+-- The pair is stored sorted, which is exactly what friendships already does, so "is there
+-- a chat between these two" and "are these two friends" are the same shape of question and
+-- the same index answers both. A row is one or the other, never both and never neither,
+-- and that is a constraint rather than a convention.
+--
+-- Text only. Proof is what the video budget is for, and a chat that can carry clips is a
+-- 1 GB bucket with a hole in it.
+-- ============================================================
+create table if not exists public.messages (
+  id bigint generated always as identity primary key,
+  group_id bigint references public.groups on delete cascade,
+  -- The pair, sorted, the way friendships is stored.
+  a uuid references public.profiles on delete cascade,
+  b uuid references public.profiles on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  body text not null check (char_length(btrim(body)) between 1 and 2000),
+  created_at timestamptz not null default now(),
+  -- A group message or a private one. Never both, never neither.
+  constraint message_is_one_kind check ((group_id is not null) <> (a is not null)),
+  constraint message_pair_whole check ((a is null) = (b is null)),
+  constraint message_pair_sorted check (a is null or a < b)
+);
+create index if not exists messages_group on public.messages (group_id, created_at desc) where group_id is not null;
+create index if not exists messages_pair on public.messages (a, b, created_at desc) where a is not null;
+alter table public.messages enable row level security;
+
+-- Are these two friends? friendships already stores the pair sorted, so this is the same
+-- question the rest of the app asks, asked once.
+create or replace function public.are_friends(x uuid, y uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.friendships f
+                  where f.a = least(x, y) and f.b = greatest(x, y));
+$$;
+
+drop policy if exists "read the chats you are in" on public.messages;
+drop policy if exists "say something where you can read" on public.messages;
+create policy "read the chats you are in" on public.messages for select
+  using ((group_id is not null and public.is_member(group_id))
+      or (a is not null and auth.uid() in (a, b)));
+-- Writing needs one thing more than reading: a private chat is between friends. Somebody
+-- who can see you is not somebody who can message you.
+create policy "say something where you can read" on public.messages for insert
+  with check (user_id = auth.uid()
+    and ((group_id is not null and public.is_member(group_id))
+      or (a is not null and auth.uid() in (a, b) and public.are_friends(a, b))));
+-- Taking back your own. No update: an edited message in a group nobody was told about is
+-- a different conversation from the one people read.
+drop policy if exists "take back your own message" on public.messages;
+create policy "take back your own message" on public.messages for delete using (user_id = auth.uid());
+
+-- Reacting to one, the same shape as reacting to a post.
+create table if not exists public.message_reactions (
+  message_id bigint not null references public.messages on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  emoji text not null check (char_length(emoji) between 1 and 8),
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id, emoji)
+);
+create index if not exists message_reactions_message on public.message_reactions (message_id);
+alter table public.message_reactions enable row level security;
+
+create or replace function public.can_see_message(mid bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.messages m where m.id = mid
+    and ((m.group_id is not null and public.is_member(m.group_id))
+      or (m.a is not null and auth.uid() in (m.a, m.b))));
+$$;
+
+drop policy if exists "see reactions where you can read" on public.message_reactions;
+drop policy if exists "react where you can read" on public.message_reactions;
+drop policy if exists "take back your own reaction" on public.message_reactions;
+create policy "see reactions where you can read" on public.message_reactions for select
+  using (public.can_see_message(message_id));
+create policy "react where you can read" on public.message_reactions for insert
+  with check (user_id = auth.uid() and public.can_see_message(message_id));
+create policy "take back your own reaction" on public.message_reactions for delete
+  using (user_id = auth.uid());
+
+-- How far down each chat you have read. One row per person per chat, keyed by a short
+-- string — 'g:12' for a group, 'u:<the other person>' for a private one — rather than by a
+-- pair of nullable columns that no primary key can cover properly. Nobody reads anybody
+-- else's: what you have read is not news to the person who sent it.
+create table if not exists public.chat_reads (
+  user_id uuid not null references public.profiles on delete cascade,
+  chat text not null check (chat ~ '^(g:[0-9]+|u:[0-9a-f-]{36})$'),
+  seen_at timestamptz not null default now(),
+  primary key (user_id, chat)
+);
+alter table public.chat_reads enable row level security;
+drop policy if exists "your own read marks" on public.chat_reads;
+create policy "your own read marks" on public.chat_reads for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Everyone in the conversation hears about it, except whoever said it.
+drop trigger if exists messages_notify on public.messages;
+create trigger messages_notify after insert on public.messages
+  for each row execute function public.notify_hook('message');
+drop trigger if exists message_reactions_notify on public.message_reactions;
+create trigger message_reactions_notify after insert on public.message_reactions
+  for each row execute function public.notify_hook('message_reaction');
+
+-- ============================================================
+-- v29 (what is happening while you are looking, and what to say at the end of the day):
+-- safe to run on an existing project.
+--
+-- Three things, none of which the app needs in order to work.
+--
+--   * The tables realtime is allowed to broadcast. Adding a table to the publication is
+--     what lets the app hear about a row the moment it lands, instead of on the next
+--     refetch. Row level security still decides who hears what — a publication grants
+--     nothing that a policy does not already allow.
+--   * Somebody saying yes. A friend request accepted and a group invite accepted both end
+--     as a row, and until now the person who sent the invitation heard nothing at all.
+--   * The end of the day, for somebody who has not finished. The only other thing in the
+--     app that happens at a time rather than because somebody did something is the spin-day
+--     reminder, and this rides the same hourly cron and the same profiles.tz for the same
+--     reason: the server has no other way to know when evening is for anyone.
+-- ============================================================
+
+-- Realtime. A table not in the publication is simply never broadcast, and a project that
+-- has not run this behaves exactly as it did before.
+do $r$
+declare t text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise notice 'no supabase_realtime publication on this database; skipping';
+    return;
+  end if;
+  foreach t in array array['posts', 'comments', 'likes', 'reactions', 'stories', 'story_likes',
+                           'story_reactions', 'comment_likes', 'invites', 'group_members',
+                           'friendships', 'messages', 'message_reactions', 'flags', 'flag_votes']
+  loop
+    if to_regclass('public.' || t) is not null
+       and not exists (select 1 from pg_publication_tables
+                        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $r$;
+
+-- An update carries only the columns that changed unless the whole row is replicated, and
+-- the app reads post_id and outcome off a flag being decided.
+alter table public.flags replica identity full;
+
+-- ---- somebody said yes
+-- accept_invite() deletes the invite and writes the row, so the row is the only thing left
+-- to hang this on. Which of the pair to tell is worked out by the function: it is whoever
+-- did not just accept.
+drop trigger if exists friendships_notify on public.friendships;
+create trigger friendships_notify after insert on public.friendships
+  for each row execute function public.notify_hook('accepted_friend');
+drop trigger if exists group_members_notify on public.group_members;
+create trigger group_members_notify after insert on public.group_members
+  for each row execute function public.notify_hook('accepted_group');
+
+-- ---- the end of somebody's day
+-- One row per person per local day, so a retry or two crons overlapping cannot chase the
+-- same person twice. Service role only, like wheel_reminders: no policies at all.
+create table if not exists public.day_reminders (
+  user_id uuid not null references public.profiles on delete cascade,
+  day date not null,
+  sent_at timestamptz not null default now(),
+  primary key (user_id, day)
+);
+alter table public.day_reminders enable row level security;
+
+-- Whose evening it is right now, who is short, and by how much. The hour is 20:00 local:
+-- late enough to be the end of the day, early enough to do something about it.
+--
+-- A post the group decided did not count is left out, exactly as the app leaves it out, or
+-- the reminder would say a day was finished that the app shows as open.
+create or replace function public.day_due_now()
+returns table (user_id uuid, line text)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+  ), due as (
+    select id, zone, (now() at time zone zone)::date as day
+      from folk
+     where extract(hour from (now() at time zone zone))::int = 20
+  ), short as (
+    select d.id as uid, d.day,
+           q->>'metric' as metric,
+           (q->>'target')::numeric as target,
+           coalesce((
+             select sum(po.amount) from public.posts po
+              where po.group_id = g.id and po.user_id = d.id and po.day = d.day
+                and po.metric = q->>'metric'
+                and not exists (select 1 from public.flags f
+                                 where f.post_id = po.id and f.outcome = 'upheld')
+           ), 0) as did
+      from due d
+      join public.group_members gm on gm.user_id = d.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral jsonb_array_elements(coalesce(g.quotas, '[]'::jsonb)) q
+      -- A rest day is not a day anybody is behind on.
+     where (g.active_days is null or array_length(g.active_days, 1) is null
+            or extract(dow from d.day)::int = any (g.active_days))
+  ), behind as (
+    select uid, day, metric, (target - did)::bigint as left_to_do
+      from short where did < target
+  ), claimed as (
+    insert into public.day_reminders (user_id, day)
+    select distinct uid, day from behind
+    on conflict do nothing
+    returning day_reminders.user_id as uid
+  )
+  -- The same metric in two groups is one number to the person reading it, so the largest
+  -- of them is what is quoted rather than both.
+  select c.uid, string_agg(x.what, ', ' order by x.what)
+    from claimed c
+    join lateral (
+      select max(b.left_to_do)::text || ' ' || b.metric as what
+        from behind b where b.uid = c.uid group by b.metric
+    ) x on true
+   group by c.uid;
+$$;
+
+-- The hourly cron already calls wheelday; it answers both questions now, so nothing new is
+-- scheduled here. The function has to be redeployed for the second one to be asked.
+
+-- Who did it. Every trigger above sends the row that changed, and for two of them the row
+-- does not say who caused it: a friendship names a pair, and a membership names the person
+-- who joined but not whether they joined or were put there. auth.uid() is the one thing
+-- that knows, and it is only knowable here — by the time pg_net's call lands there is no
+-- session left to ask. Every kind gains the field; nothing that ignores it changes.
+create or replace function public.notify_hook() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare secret text := coalesce((select value from private.config where key = 'hook_secret'), '');
+begin
+  if secret = '' then
+    raise warning 'notify_hook: no hook_secret in private.config, so % notifications are not being sent', TG_ARGV[0];
+    return new;
+  end if;
+  perform net.http_post(
+    url     := 'https://txvjakpeyfnzigtsvmja.supabase.co/functions/v1/notify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', secret),
+    body    := jsonb_build_object('kind', TG_ARGV[0],
+                                  'record', to_jsonb(new) || jsonb_build_object('actor', auth.uid()))
+  );
+  return new;
+end $$;

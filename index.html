@@ -165,6 +165,21 @@ button.rg{border:0;font:inherit}
   filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));user-select:none}
 /* The two it writes for you. The ring and the sparks are drawn in the ink colour, so
    picking a colour recolours the whole card, not just the words. */
+/* Proof lifted from the feed onto a story. A card with an edge and a shadow, sitting a
+   little off square, so it reads as something stuck on rather than something shot for
+   this. Above the tap zones, which are z-index 2, or a tap on it would step the story on
+   instead of opening what it is a picture of. */
+.face .pcard{position:absolute;transform:translate(-50%,-50%) rotate(-2.4deg);width:68%;max-width:272px;z-index:3;
+  padding:0;border:0;border-radius:14px;overflow:hidden;background:#0b0c0e;color:#fff;text-align:left;
+  box-shadow:0 18px 44px -12px rgba(0,0,0,.6),0 0 0 3px rgba(255,255,255,.9);touch-action:none;cursor:pointer}
+.face .pcard .shot{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;background:#0b0c0e}
+.face .pcard .foot{display:flex;align-items:center;gap:7px;padding:8px 10px;background:#0b0c0e;min-width:0}
+.face .pcard .foot b{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.face .pcard .foot em{margin-left:auto;font-style:normal;font-family:Oswald,system-ui,sans-serif;font-weight:600;
+  font-size:12px;color:#2fd36f;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;flex:none}
+.face .pcard .foot .av{width:20px;height:20px;font-size:9px;flex:none}
+.face .pcard .gone{padding:34px 16px;text-align:center;font-size:13.5px;font-weight:700;color:rgba(255,255,255,.72)}
+.face .pcard:active{transform:translate(-50%,-50%) rotate(-2.4deg) scale(.97)}
 .face .deco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .face .hero{position:absolute;left:0;right:0;top:11%;display:flex;flex-direction:column;align-items:center;gap:4px;
   pointer-events:none;color:inherit}
@@ -542,6 +557,176 @@ button.rg{border:0;font:inherit}
   padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
 .onebar .backx{margin:0 0 0 6px}           /* the bar already has the padding the screen version needs */
 .onewrap{max-width:600px;margin:0 auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+/* ---- talking to each other ----
+   The icon top right of the feed, where every app that has one puts it. */
+.hdr .top .chatbtn{position:relative;background:none;padding:4px;color:var(--text);line-height:0}
+.hdr .top .chatbtn svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.hdr .top .chatbtn i{position:absolute;right:-3px;top:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+  background:var(--mk);color:var(--onmk);font-style:normal;font-size:10.5px;line-height:17px;text-align:center}
+/* The list. One line each, and the ones with something waiting read as waiting. */
+.crow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:11px 14px;background:none;
+  color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
+/* gav, not gr: gr is the growing middle of the row, and an avatar given flex:1 is an
+   ellipse with a letter in it. */
+.crow .av.gav{background:var(--mk);color:var(--onmk)}
+.crow .gr{flex:1;min-width:0}
+.crow b{display:block;font-size:14.5px;font-weight:800}
+.crow .gr > span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow.un .gr > span{color:var(--text);font-weight:600}
+.crow .rt{flex:none;text-align:right}
+.crow .rt em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.crow .rt i{display:inline-block;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--mk);
+  color:var(--onmk);font-style:normal;font-size:12px;line-height:20px;text-align:center}
+/* One conversation. */
+.cbar{display:flex;align-items:center;gap:10px;padding:12px 14px 10px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:4;background:var(--bg)}
+.cbar .backx{margin:0}
+.cbar .av.gav{background:var(--mk);color:var(--onmk)}
+.cbar .nm{min-width:0}
+.cbar .nm b{display:block;font-size:15.5px;font-weight:800}
+.cbar .nm span{font-size:11.5px;color:var(--muted)}
+/* A conversation is read from the bottom, so a short one sits at the bottom rather than
+   floating at the top of an empty screen. */
+.msgs{padding:14px 12px 0;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;
+  min-height:calc(100vh - 150px)}
+.cday{align-self:center;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.cwho{font-size:11.5px;font-weight:800;color:var(--muted);margin:12px 0 3px 6px;align-self:flex-start}
+.m{position:relative;max-width:78%;display:flex;align-items:flex-end;gap:4px}
+.m.them{align-self:flex-start}
+.m.me{align-self:flex-end;flex-direction:row-reverse}
+.m .say{display:block;padding:9px 13px;font-size:15px;line-height:1.4;text-align:left;border-radius:16px;
+  white-space:pre-wrap;overflow-wrap:anywhere}
+.m.them .say{background:var(--soft);color:var(--text);border-bottom-left-radius:4px}
+.m.me .say{background:var(--mk);color:var(--onmk);border-bottom-right-radius:4px}
+.m.pending{opacity:.55}
+.m .drop{background:none;color:var(--muted);font-size:12px;padding:4px;opacity:0;flex:none}
+.m:hover .drop{opacity:1}
+/* Reactions hang off the bottom corner, the way every chat does them. */
+.m .mrx{position:absolute;bottom:-10px;display:flex;gap:3px;z-index:2}
+.m.them .mrx{left:10px}
+.m.me .mrx{right:10px}
+.m .mrx button{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:1px 6px 2px;font-size:12.5px;line-height:1.3;color:var(--text)}
+.m .mrx button.mine{border-color:var(--mk)}
+.m .mrx button b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:11px;color:var(--muted)}
+.m .reactpick{position:absolute;bottom:100%;margin-bottom:6px;z-index:6;display:flex;gap:2px;background:var(--sheet);
+  border:1px solid var(--line);border-radius:999px;padding:4px 6px;box-shadow:0 10px 26px -8px rgba(0,0,0,.35)}
+.m.them .reactpick{left:0}
+.m.me .reactpick{right:0}
+.m .reactpick button{background:none;padding:3px 4px;font-size:21px;line-height:1}
+/* The composer sits over the screen rather than at the end of it, so it is where your
+   thumb already is however far up the conversation you have read. */
+/* Follows the viewport the way the tab bar does, and rides the keyboard up on --kb. One
+   expression, with nothing in it that flips on focus alone: a box that moves the moment a
+   field is blurred moves out from under the finger that is pressing Send, and a press and
+   a release on two different places is not a click. */
+.csend{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb,0px) + var(--kb,0px));
+  max-width:576px;margin:0 auto;z-index:22;display:flex;align-items:center;gap:8px;padding:8px;
+  background:var(--barbg);border:1px solid var(--line);backdrop-filter:blur(12px)}
+.csend .emo{width:34px;height:34px;background:var(--soft);display:grid;place-items:center;flex:none;padding:0}
+.csend .emo svg{width:19px;height:19px;fill:none;stroke:var(--muted);stroke-width:1.9}
+.csend input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);
+  font:inherit;font-size:16px;border-radius:0}
+.csend button.primary{background:none;color:var(--mkt);font-weight:800;font-size:15px;padding:6px 6px;flex:none}
+.cemoji{position:fixed;left:12px;right:12px;bottom:calc(66px + env(safe-area-inset-bottom) + var(--vvb,0px) + var(--kb,0px));
+  max-width:576px;margin:0 auto;z-index:22}
+main.chatting{padding-bottom:0}
+.msgs{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+/* The way into a group's own chat, on the group screen. */
+.chatrow{display:flex;align-items:center;justify-content:center;gap:8px}
+.chatrow svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.chatrow i{font-style:normal;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--mk);
+  color:var(--onmk);font-size:11px;line-height:19px}
+.list .row .msg{display:inline-flex;align-items:center;gap:5px;line-height:0}
+.list .row .msg svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.list .row .msg i{font-style:normal;font-size:11px;line-height:1;color:var(--mkt)}
+/* ---- questioning somebody's proof ----
+   The flag is an outline until somebody uses it, and then it is filled: the post itself
+   says a question has been asked about it rather than hiding that on a page of its own. */
+.acts .flg svg{fill:none}
+.acts .flg.on{color:var(--mkt)}
+.acts .flg.on svg{fill:currentColor;stroke:currentColor}
+/* A line across the bottom of the post saying where that question got to. Your own post
+   carries no flag button and very much needs this. */
+.fstrip{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 14px;background:var(--soft);
+  color:var(--text);border-top:1px solid var(--line);font-size:13px;line-height:1.35;border-radius:0}
+.fstrip svg{width:17px;height:17px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.fstrip span{flex:1;min-width:0;font-weight:600}
+.fstrip b{font-weight:800}
+.fstrip em{font-style:normal;flex:none;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fstrip.bad{background:#fdeef0;color:#8a1f30}
+.fstrip.good{background:var(--mktint);color:var(--mkt)}
+:root[data-theme=dark] .fstrip.bad{background:#2a1418;color:#ff8ea0}
+/* The way in, in the feed, because it is a thing with a clock on it rather than a place
+   to browse. Not there at all when nothing is running, which is most days. */
+.fbar-chip{display:flex;align-items:center;gap:10px;width:calc(100% - 28px);margin:12px 14px 0;padding:12px 13px;
+  background:var(--text);color:var(--bg);text-align:left;font-size:13.5px;font-weight:700;border-radius:0}
+.fbar-chip svg{width:19px;height:19px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.fbar-chip span{flex:1;min-width:0}
+.fbar-chip em{font-style:normal;flex:none;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:13.5px;
+  font-variant-numeric:tabular-nums;color:var(--g2)}
+.fbar-chip.mine{background:#8a1f30;color:#fff}
+.fbar-chip.mine em{color:#ffc9d2}
+/* The screen. A bar with the clock in it, because how long is left is the whole question. */
+.fbar{display:flex;align-items:center;gap:12px;padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.fbar h2{margin:0;font-size:17px;font-weight:800}
+.fbar .backx{margin:0}
+.fbar .clock{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--text);color:var(--bg);padding:6px 10px}
+.fbar .clock svg{width:15px;height:15px;stroke:var(--g2);fill:none;stroke-width:2.2;stroke-linecap:round}
+.fbar .clock b{font-size:14px;font-variant-numeric:tabular-nums}
+.fbar .shut{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.verdict{padding:24px 18px 20px;background:var(--text);color:var(--bg)}
+.verdict .sec{margin:0 0 6px;color:var(--muted)}
+.verdict b{display:block;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:38px;line-height:1.05;
+  letter-spacing:-.01em;text-transform:uppercase;margin-bottom:8px}
+.verdict p{font-size:14px;line-height:1.5;opacity:.72}
+.verdict.bad{background:#8a1f30;color:#fff}
+/* On this one screen the clip is evidence rather than the thing you came to watch, so it
+   is capped: the reason and the two answers have to be reachable without hunting for them,
+   and a 4:5 card plus a verdict is already more than a phone shows at once. */
+.fbar ~ .post .reel,.verdict + .post .reel{aspect-ratio:auto;height:min(42vh,340px)}
+.why{padding:14px;border-bottom:1px solid var(--line)}
+.why .head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.why .head b{font-size:13.5px;font-weight:800}
+.why .head span{font-size:12px;color:var(--muted)}
+.why p{font-size:15px;line-height:1.5}
+.ask{padding:16px 14px 8px}
+.ask b{display:block;font-size:16px;font-weight:800;margin-bottom:3px}
+.ask span{font-size:13px;color:var(--muted)}
+.votes{display:flex;gap:10px;padding:12px 14px 14px}
+.votes button{flex:1;padding:15px 8px;font-size:14.5px;font-weight:800;background:var(--soft);color:var(--text);
+  display:flex;flex-direction:column;align-items:center;gap:7px;line-height:1.2;border-radius:0}
+.votes button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.votes button.on{background:var(--mk);color:var(--onmk)}
+.tally{padding:0 14px calc(28px + env(safe-area-inset-bottom))}
+.tally .track{height:6px;background:var(--line);overflow:hidden}
+.tally .track i{display:block;height:100%;background:var(--mk)}
+.tally .rows{padding:4px 0}
+.tally .rw{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)}
+.tally .rw:last-child{border-bottom:0}
+.tally .rw b{font-size:14px;font-weight:700;flex:1;min-width:0}
+.tally .rw em{font-style:normal;font-size:12.5px;font-weight:800;color:var(--mkt);flex:none}
+.tally .rw em.no{color:var(--muted)}
+.fine{font-size:12px;line-height:1.45;margin-top:10px}
+/* The list, when more than one is running. */
+.flist{padding:2px 0}
+.frow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 14px;background:none;
+  color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
+.frow .th{width:44px;height:55px;flex:none;background:#0b0c0e;overflow:hidden;display:block}
+.frow .th img,.frow .th video{width:100%;height:100%;object-fit:cover;display:block}
+.frow .gr{flex:1;min-width:0}
+.frow b{display:block;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow em{display:block;font-style:normal;font-size:12.5px;color:var(--muted);margin-top:2px}
+.frow .tag{flex:none;font-size:11.5px;font-weight:800;padding:5px 8px;background:var(--soft);color:var(--muted)}
+.frow .tag.live{color:var(--text);font-variant-numeric:tabular-nums}
+.frow .tag.bad{background:#fdeef0;color:#8a1f30}
+.frow .tag.good{background:var(--mktint);color:var(--mkt)}
+/* The chip naming the post in the sheet that asks why. */
+.fchip{display:flex;align-items:center;gap:9px;margin:16px 0 14px;padding:9px 10px;background:var(--soft)}
+.fchip b{display:block;font-size:13px;font-weight:800}
+.fchip em{font-style:normal;font-size:12px;color:var(--muted)}
+#dlg textarea{width:100%;padding:12px;border:1px solid var(--line);background:var(--card);color:var(--text);
+  font:inherit;font-size:16px;resize:none;border-radius:0}
 /* ---- settings ---- */
 .sec{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 18px 7px}
 /* A switch on its own does not say what it switches, so the list stays either way. */
@@ -892,6 +1077,20 @@ dialog h2{font-size:20px;margin-bottom:2px}
    there was nothing to be done about, stayed across the bottom of a working app until the
    next successful load — which for a fault that repeats is forever. */
 #err .dis{background:none;color:var(--muted);padding:7px 4px;font-size:15px;line-height:1}
+/* A line down from the top for somebody who is already here. Not a notification: it lives
+   in the app, it goes away on its own, and the whole card is the way to the thing. */
+#drop{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));max-width:580px;margin:0 auto;
+  z-index:40;display:flex;align-items:center;gap:0;background:var(--text);color:var(--bg);
+  box-shadow:0 16px 40px -12px rgba(0,0,0,.55);animation:dropin .26s cubic-bezier(.2,.7,.2,1)}
+#drop[hidden]{display:none}
+@keyframes dropin{from{opacity:0;transform:translateY(-14px)}}
+#drop .dropcard{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:11px 4px 11px 12px;
+  background:none;color:inherit;text-align:left;border-radius:0}
+#drop .av{background:var(--bg);color:var(--text)}
+#drop .gr{flex:1;min-width:0}
+#drop b{display:block;font-size:13.5px;font-weight:800}
+#drop .gr span{display:block;font-size:12.5px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#drop .x{flex:none;background:none;color:inherit;opacity:.55;font-size:15px;padding:12px 12px}
 /* iOS Safari has no install prompt, so this explains Add to Home Screen once */
 #a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:0;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
 #a2hs[hidden]{display:none}
@@ -921,6 +1120,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <div id="story" hidden role="dialog" aria-label="Story"></div>
 <div id="make" hidden role="dialog" aria-label="New story"></div>
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
+<div id="drop" hidden aria-live="polite"></div>
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" class="rty" onclick="load()">Retry</button><button type="button" class="dis" onclick="hideErr()" aria-label="Dismiss">✕</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
@@ -992,7 +1192,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v60';
+const BUILD = 'quota-v64';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1037,7 +1237,8 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, auth: 'welcome', push: 'off', booting: true, legal: null};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+  msgs: [], mreacts: [], reads: [], chat: null, chatFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1051,6 +1252,14 @@ const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.i
 const doneWith = (g, uid, metric, sp, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day
   && t.sp === sp.id && t.ch === effChallenge(sp)).reduce((a, t) => a + t.n, 0);
 const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
+// ---- flags: one person saying a post does not meet the challenge, and the group deciding
+const flagOf = postId => S.flags.find(f => f.post === postId);
+const votesOn = fid => S.fvotes.filter(v => v.f === fid);
+const myVote = fid => S.fvotes.find(v => v.f === fid && v.u === me().id);
+// Upheld is the only outcome that changes anything. The post is not deleted and nothing on
+// it is rewritten — the group can still watch what it decided about.
+const voidedPosts = () => new Set(S.flags.filter(f => f.outcome === 'upheld').map(f => f.post));
+const openFlags = () => S.flags.filter(f => !f.outcome);
 // Proof is a clip or a picture. Which one is read off the file, so nothing new had to be
 // stored and every post that already exists is a clip, as it was.
 const IMAGE = /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i;
@@ -1206,17 +1415,28 @@ function num(n) {
 }
 const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(user(id))); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
+// A query whose table may not be there yet. null means the feature is not switched on, and
+// the app draws itself without it rather than refusing to draw at all.
+const soft = async p => { const {data, error} = await p; return error ? null : data; };
+
 async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes] = await Promise.all([
+  // Anything whose time is up is closed before it is read, so nobody is shown a dead clock
+  // or asked to vote on something that is over. Cron does the same every ten minutes for
+  // the sake of people who are not looking, and this does nothing at all on a project where
+  // the v27 block has not been run.
+  await sb.rpc('close_due_flags').catch(() => {});
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
     q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
-    q(sb.from('posts').select('group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
+    // id, because a post the group decided did not count has to be left out of the day it
+    // was posted on, and the flag names the post rather than the total.
+    q(sb.from('posts').select('id,group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
     q(sb.from('wheels').select('*')),
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
@@ -1230,7 +1450,19 @@ async function fetchAll() {
     q(sb.from('story_reactions').select('story_id,user_id,emoji')),
     q(sb.from('badges').select('user_id,streak,earned_at')),
     q(sb.from('comment_likes').select('comment_id,user_id')),
+    // Softly: until the v27 block has been run these two tables do not exist, and a hard
+    // failure here would take the whole load — and with it the whole app — down over a
+    // feature that is simply not switched on yet. Comments have worked this way since v2.
+    soft(sb.from('flags').select('*')),
+    soft(sb.from('flag_votes').select('*')),
+    // ponytail: the last few hundred, which is every chat this app has ever had between
+    // people who see each other daily. A conversation older than that needs paging.
+    soft(sb.from('messages').select('*').order('created_at', {ascending: false}).limit(400)),
+    soft(sb.from('message_reactions').select('message_id,user_id,emoji')),
+    soft(sb.from('chat_reads').select('chat,seen_at')),
   ]);
+  S.noFlags = flags === null;
+  S.noChat = msgs === null;
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
   // view as a missing array and take the whole screen down with it — and since render()
@@ -1264,19 +1496,66 @@ async function fetchAll() {
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
     members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
-  S.totals = totals.map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
+  S.flags = (flags || []).map(f => ({id: f.id, post: f.post_id, by: f.by_user, reason: f.reason,
+    ts: Date.parse(f.created_at), closes: Date.parse(f.closes_at),
+    outcome: f.outcome || null, closedAt: f.closed_at ? Date.parse(f.closed_at) : null}));
+  S.fvotes = (fvotes || []).map(v => ({f: v.flag_id, u: v.user_id, yes: !!v.agree}));
+  if (S.flag && !S.flags.some(f => f.id === S.flag)) S.flag = null;   // gone while it was open
+  // Oldest first, which is the order a conversation is read in. The query asks for the
+  // newest so the limit takes the right end of a long one.
+  S.msgs = (msgs || []).map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at)})).sort((x, y) => x.ts - y.ts);
+  S.mreacts = (mreacts || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
+  S.reads = (reads || []).map(r => ({k: r.chat, ts: Date.parse(r.seen_at)}));
+  // A post the group decided did not count is left out of the day it was posted on, which
+  // is the whole consequence of an upheld flag: the day goes back to what it was without
+  // it, and every rule already written on top of the totals — the chips, the streak, the
+  // completion rate, whether a challenge is finished — follows on its own without knowing
+  // flags exist at all.
+  const gone = voidedPosts();
+  S.totals = totals.filter(t => !gone.has(t.id)).map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
   S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
   // A path that could not be signed — the file is gone, or storage said no — comes back
   // with no URL. Left as null it becomes src="null" and a player that silently does
   // nothing; empty, the post renders as a clip that could not be loaded, and says so.
   if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
+  // After S.posts, because a story pointing at a post the feed already carries needs no
+  // second fetch, and before the profiles below, because whoever made that post has to be
+  // one of the names asked for or the card on the story has nobody on it.
+  await storyPosts();
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at)}));
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
+  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { alert('Your profile was not created. Check that schema.sql ran without errors.'); await sb.auth.signOut(); }
   else keepTz();
+}
+
+// Proof somebody put on a story, fetched as itself. The feed carries the last two hundred
+// posts in groups this account is in, and a story can point at neither — somebody's own
+// older post, or one in a group shared with them but not with you. Asked for only when a
+// story on screen actually points at one, so the ordinary load is unchanged.
+//
+// What comes back is whatever the policy allows, which for a shared post is everyone who
+// can see the story, so in practice all of them. One that is missing draws as a card
+// saying the post has gone rather than as a hole.
+async function storyPosts() {
+  const want = [...new Set(S.stories.map(x => (x.style || {}).post)
+    .filter(id => Number.isFinite(+id) && +id > 0).map(Number))]
+    .filter(id => !S.posts.some(p => p.id === id));
+  if (!want.length) { S.spost = {}; return; }
+  try {
+    const rows = await q(sb.from('posts').select('*').in('id', want));
+    const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
+      amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
+      challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
+    if (list.length) {
+      const urls = await q(sb.storage.from('proof').createSignedUrls(list.map(x => x.path), 3600));
+      urls.forEach((u, i) => { list[i].url = u.signedUrl; });
+    }
+    S.spost = Object.fromEntries(list.map(p => [p.id, p]));
+  } catch (e) { S.spost = {}; }            // a card that says the post has gone beats no stories at all
 }
 
 // The spin-day reminder has to go out in the morning, and the server has no idea when
@@ -1358,6 +1637,7 @@ async function runLoad() {
     // Whether notifications are on is only known by asking the browser, and until it has
     // been asked the feed cannot tell whether to offer them. Once per launch is enough.
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
+    if (me()) goLive(); else dropLive();
     if (me() && location.hash) goToHash();
   }
 }
@@ -1373,7 +1653,9 @@ function screenHTML() {
   if (!m) return S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
   if (needsTerms(m)) return acceptView();
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
-  return S.settings ? settingsView()
+  return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
+    : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
+    : S.settings ? settingsView()
     : S.who ? personView(S.who)
     : g ? groupView(g)
     : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
@@ -1391,6 +1673,14 @@ function redraw(sel, html) {
   const keep = new Map(at('.reel').map(r => [r.parentNode.dataset.post, r]));
   const typed = new Map(at('.cin input').filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
   const trays = at('.emoji:not([hidden])').map(t => t.closest('.post').dataset.post);
+  // The chat composer is not attached to a post, so the preserving above walks straight
+  // past it — and a conversation redraws itself every few seconds while it is open, which
+  // is the one screen where a redraw is most likely to land mid-sentence.
+  const cin = box.querySelector('.csend input');
+  const said = cin ? cin.value : '';
+  const caret = cin ? cin.selectionStart : 0;
+  const typing = cin && document.activeElement === cin;
+  const cTray = !!box.querySelector('.cemoji:not([hidden])');
   box.innerHTML = html;
   at('.reel').forEach(r => {
     const old = keep.get(r.parentNode.dataset.post); if (!old) return;
@@ -1403,6 +1693,13 @@ function redraw(sel, html) {
   });
   typed.forEach((v, id) => { const i = document.querySelector(`${sel} .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
   trays.forEach(id => { const t = document.querySelector(`${sel} .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
+  const back = box.querySelector('.csend input');
+  if (back && said) {
+    back.value = said;
+    // Focus back where it was, or the keyboard slides away under somebody mid-word.
+    if (typing) { back.focus(); try { back.setSelectionRange(caret, caret); } catch (e) {} }
+  }
+  if (cTray) { const t = box.querySelector('.cemoji'); if (t) t.hidden = false; }
 }
 
 function render() {
@@ -1413,7 +1710,15 @@ function render() {
   // A document being read, and an account that has agreed to none of them, are both
   // whole-screen states: there is no tab bar over either, signed in or not.
   const held = !m || !!S.legal || needsTerms(m);
-  $('#bar').hidden = held; $('#app').classList.toggle('out', held);
+  // A conversation is a screen of its own, the way it is in every app that has one. The tab
+  // bar would sit under the box you type in, and worse: the box is pinned to the bottom, so
+  // it moved whenever the keyboard class flipped — including between the press and the
+  // release of a tap on Send, which is a tap the browser then never reports as a click at
+  // all. Putting the bar away lets the box sit still.
+  const inChat = !!m && !!S.chat && S.chat !== 'list';
+  $('#bar').hidden = held || inChat;
+  $('#app').classList.toggle('chatting', inChat);
+  $('#app').classList.toggle('out', held);
   if (held) return $('#app').innerHTML = screenHTML();
   // Still needed down at the tab bar, which offers the + for whichever group you are in.
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
@@ -1440,6 +1745,15 @@ function render() {
   const ico = {feed: '<path d="M4 6h16M4 12h16M4 18h10"/>', groups: '<circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/>', friends: '<circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/>', profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'};
   const tab = (t, l) => `<button data-tab="${t}" onclick="go('${t}')"><svg viewBox="0 0 24 24">${ico[t]}</svg>${l}</button>`;
   watchClips();
+  keepClocks();
+  // A conversation is read from the bottom, and jumping there is right exactly when it has
+  // just been opened or something new has landed — not on every redraw, which would yank
+  // you back down while you were reading up.
+  if (S.chat && S.chat !== 'list') {
+    const sig = `${S.chat}:${msgsIn(S.chat).length}`;
+    if (sig !== chatAt) { chatAt = sig; chatToEnd(); markChatRead(S.chat); }
+  } else chatAt = '';
+  keepChatFresh();
   // The bar is only rebuilt when its markup changes; which tab is on is a class and the
   // underline's position, so the underline can slide rather than be redrawn.
   const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
@@ -1637,16 +1951,39 @@ function feedView() {
     const w = S.wheels.find(x => x.id === sp.wheel_id);
     return {g, sp, w, need: requiredDays(w, sp), d: challengeDays(g, sp).length};
   })).filter(c => c.need);
-  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
+  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div>${chatIcon()}</div>
     <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
     ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}</b></div>`).join('')
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
     + storyRow()
+    + flagsBar()
     + pushPrompt()
     + spinPrompt()
     + activityBox()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
+// The way to everything being questioned right now. It is in the feed rather than behind a
+// tab because it is a thing with a clock on it: something you have hours to answer, not a
+// place to browse. It is not there at all when nothing is running, which is most days.
+function flagsBar() {
+  if (S.noFlags) return '';
+  const list = flagList();
+  if (!list.length) return '';
+  const live = list.filter(f => !f.outcome);
+  const mine = live.filter(f => { const p = postById(f.post); return p && p.userId === me().id; });
+  const todo = live.filter(f => { const p = postById(f.post); return p && p.userId !== me().id && !myVote(f.id); });
+  const say = mine.length ? `${mine.length === 1 ? 'Your proof is' : `${mine.length} of your posts are`} being questioned`
+    : todo.length ? `${todo.length === 1 ? 'A post needs' : `${todo.length} posts need`} your vote`
+    : live.length ? `${live.length === 1 ? 'One post is' : `${live.length} posts are`} still being decided`
+    : 'A decision came in';
+  const soon = live.length ? live.reduce((a, f) => Math.min(a, f.closes), Infinity) : 0;
+  return `<button type="button" class="fbar-chip${mine.length ? ' mine' : ''}"
+      onclick="openFlag(${live.length === 1 ? live[0].id : "'all'"})">
+    <svg viewBox="0 0 24 24" aria-hidden="true">${FLAG_PATH}</svg>
+    <span>${say}</span>
+    ${soon ? `<em class="num" data-until="${soon}">${esc(leftOf(soon))}</em>` : '<em>Closed</em>'}</button>`;
+}
+
 // ---- stories
 // Only people with something running appear, unseen first, the way every app that has
 // these does it. Somebody in your groups who has posted nothing is not a gap in the row —
@@ -1701,8 +2038,12 @@ const STICKER_MORE = ['🎉', '⭐', '🌟', '💯', '🥇', '🏅', '👑', '�
 // What goes behind words when they are boxed: the ink itself, with whichever of black or
 // white reads on it.
 const onInk = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); return (r * .299 + g * .587 + b * .114) > 150 ? '#0b0c0e' : '#ffffff'; };
+// post/px/py are a post of yours shared onto the card and where it was dragged to. They
+// live in style rather than in a column of their own because style is already the jsonb
+// holding everything that is about how one story looks, and nothing outside the story
+// reads any of it.
 const styleOf = st => ({bg: 0, font: 0, ink: 0, size: 1, box: 0, align: 'center', x: .5, y: .5,
-  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, ...(st.style || {})});
+  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, post: null, px: .5, py: .46, ...(st.style || {})});
 // Every sticker on a card. The single one older stories carry is folded in.
 const stickersOf = y => [...(Array.isArray(y.stks) ? y.stks : []), ...(y.stk ? [{e: y.stk, x: y.sx, y: y.sy}] : [])];
 // The effect as inline style, so the words and the chip that previews them agree.
@@ -1746,6 +2087,32 @@ function tplFace(y) {
     <span class="stamp">Done</span></div>`;
 }
 
+// Proof you already posted, put on a story as a card rather than as the whole screen. It
+// is a card because that is what it is: a thing lifted from somewhere else and stuck on,
+// which is why it sits at an angle with a border round it and the story's own background
+// showing past its edges. Filling the screen with it would say it was shot for the story.
+//
+// The clip is the post's own file, not a copy of it. Copying would double what a minute of
+// video costs against a 1 GB bucket for something that is gone in a day. What makes that
+// safe is that sharing puts the post on your profile, and a post on your profile is
+// readable by exactly the people a story is — can_see_user() decides both — so there is
+// nobody who can be shown this card and cannot be shown what is on it.
+function postCard(y, live, editing) {
+  const p = postById(y.post);
+  const inner = !p
+    ? `<div class="gone">This post is no longer here.</div>`
+    : `${isPhoto(p)
+        ? `<img class="shot" alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
+        : `<video class="shot" playsinline muted loop${live ? ' autoplay' : ''}${p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
+      <div class="foot">${av(user(p.userId), 'sm')}<b>${esc(name(user(p.userId)))}</b><em>${esc(effort(p))}</em></div>`;
+  const at = `left:${(y.px ?? .5) * 100}%;top:${(y.py ?? .46) * 100}%`;
+  // A tap on it in the viewer is a way through to the post. In the editor it is a thing
+  // being dragged about the card, so it is not a button at all.
+  return editing
+    ? `<div class="pcard" style="${at}">${inner}</div>`
+    : `<button type="button" class="pcard" style="${at}" onclick="openPostFromStory(${+y.post})"
+        aria-label="${p ? `Open ${esc(effort(p))} by ${esc(name(user(p.userId)))}` : 'This post is no longer here'}">${inner}</button>`;
+}
 // One drawing used by the editor and the viewer alike.
 function storyFace(st, live, editing) {
   const y = styleOf(st), bg = st.kind === 'text' ? STORY_BG[y.bg] || STORY_BG[0] : '#000';
@@ -1753,7 +2120,8 @@ function storyFace(st, live, editing) {
     : st.kind === 'photo' ? `<img class="fill" alt=""${st.url ? ` src="${esc(st.url)}"` : ''}>`
     : `<video class="fill" playsinline ${live ? 'autoplay' : ''} muted="${live ? 'false' : 'true'}"${st.url ? ` src="${esc(st.url)}"` : ''}></video>`;
   const stk = stickersOf(y).map((k, i) => `<span class="stk" data-i="${i}" style="left:${k.x * 100}%;top:${k.y * 100}%">${esc(k.e)}</span>`).join('');
-  return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${wordsOf(st, editing)}${stk}</div>`;
+  return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${
+    y.post ? postCard(y, live, editing) : ''}${wordsOf(st, editing)}${stk}</div>`;
 }
 
 // The line stories are watched in, and the order the row shows them in, which have to be
@@ -2010,6 +2378,7 @@ const HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6
 // does the leaving, and never a button that deletes anything: a picture of a face carries
 // a feeling, and a control should not.
 const SMILEY = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>';
+const BIN = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
 const DOTS = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>';
 // Who watched, or who liked — the same sheet, because they are the same list read two
 // ways, and what each person left is shown beside their name either way.
@@ -2164,6 +2533,7 @@ function paintDraft() {
       <button type="button" class="x" onclick="closeDraft()" aria-label="Close">✕</button>
       <div class="tools">
         ${d.kind === 'text' ? `<button type="button" class="bgbtn${t === 'bg' ? ' on' : ''}" style="background:${STORY_BG[y.bg]}" onclick="draftTray('bg')" aria-label="Background"></button>` : ''}
+        ${y.post ? `<button type="button" class="tb" onclick="draftSet('post',null)" aria-label="Take the post off">${BIN}</button>` : ''}
         <button type="button" class="fontpill${t === 'font' ? ' on' : ''}" onclick="draftTray('font')" style="font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'}">${f.name}<i>▾</i></button>
         <button type="button" class="tb inkbtn${t === 'ink' ? ' on' : ''}" onclick="draftTray('ink')" aria-label="Text colour"><span style="background:${ink}"></span></button>
         <button type="button" class="tb${t === 'fx' ? ' on' : ''}" onclick="draftTray('fx')" aria-label="Text effect"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 17l.8 2.2L8 20l-2.2.8L5 23l-.8-2.2L2 20l2.2-.8z"/></svg></button>
@@ -2184,6 +2554,11 @@ function paintDraft() {
   }
   // Stickers drag; a tap on one takes it off the card.
   box.querySelectorAll('.stk').forEach(el => { const i = +el.dataset.i; dragify(el, (x, yy) => draftStk(i, {x, y: yy}), () => draftStk(i)); });
+  // And so does a post shared onto it, by the same handful of lines. Nothing happens on a
+  // tap: in here it is a thing being arranged, and the way through to the post is what it
+  // does once it is up.
+  const card = box.querySelector('.pcard');
+  if (card) dragify(card, (x, yy) => { S.draft.style = {...styleOf(S.draft), px: x, py: yy}; });
 }
 
 // Drag a thing about the card. A press that does not move is a tap, and a tap on the words
@@ -2324,6 +2699,9 @@ function groupView(g) {
   <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
       everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
+    ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
+      <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
+      Group chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div></div>
   <h3>Today</h3>
@@ -2333,7 +2711,10 @@ function groupView(g) {
   ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
   <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
-function feed(ps, showGroup) {
+// bare is the flag screen: the post, and nothing you do to a post. What is being asked
+// there is one question with two answers, and putting the reel, the reason and the vote on
+// one screen is the difference between deciding and scrolling to find where to.
+function feed(ps, showGroup, bare) {
   if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
   let day = '';
   return ps.map(p => {
@@ -2354,9 +2735,9 @@ function feed(ps, showGroup) {
       <div class="prg"><b></b></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
       ${reactBubbles(p.id)}</div>
-      ${acts(p, cs.length)}
+      ${bare ? '' : acts(p, cs.length)}
       ${p.caption ? `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>` : ''}
-      ${commentsFor(p, cs)}</div>`;
+      ${bare ? '' : commentsFor(p, cs)}</div>`;
   }).join('');
 }
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
@@ -2446,7 +2827,8 @@ function putEmoji(btn, e) {
 // has to look in both, or it works in the feed and quietly fails everywhere else — which
 // is what left a clip on somebody's profile with a play button that did nothing.
 const postById = id => S.posts.find(x => x.id === id)
-  || Object.values(S.pro).flatMap(x => x.posts || []).find(x => x.id === id);
+  || Object.values(S.pro).flatMap(x => x.posts || []).find(x => x.id === id)
+  || S.spost[id];
 
 const reelOf = v => v.closest('.reel');
 function bustMsg(v, msg) {
@@ -2531,8 +2913,324 @@ function acts(p, comments) {
     <button type="button" class="react" onclick="pickReact(event,${p.id})" aria-label="React">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg>
     </button>
+    ${flagButton(p)}
     <span class="cc">${num(comments)} ${comments === 1 ? 'comment' : 'comments'}</span>
-  </div>`;
+  </div>${flagStrip(p)}`;
+}
+// Top right of the feed, where every app that has one puts it, with what is waiting on it.
+// Not there at all until the v28 block has been run.
+function chatIcon() {
+  const date = `<span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span>`;
+  if (S.noChat) return date;
+  const n = unreadTotal();
+  return `<button type="button" class="chatbtn" onclick="openChats()" aria-label="Chats${n ? `, ${n} unread` : ''}">
+    <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
+    ${n ? `<i class="num">${num(n)}</i>` : ''}</button>`;
+}
+
+// ---- talking to each other
+// What the screen was last drawn holding, so a redraw that changes nothing about the
+// conversation does not scroll it.
+let chatAt = '';
+// A chat nobody is watching updates when the app next loads, like everything else. One
+// that is open on screen cannot wait fifteen seconds for a reply, so while a thread is up
+// it asks more often. ponytail: a poll, until the realtime pass replaces it with a
+// subscription — at which point this whole function goes.
+let chatPoll = null;
+function keepChatFresh() {
+  // Off entirely where the subscription is working: the same lines would arrive twice, and
+  // the poll exists for exactly the case where they would not arrive at all.
+  const want = S.chat && S.chat !== 'list' && !S.noChat && !liveOn;
+  if (want && !chatPoll) chatPoll = setInterval(refreshChat, 5000);
+  else if (!want && chatPoll) { clearInterval(chatPoll); chatPoll = null; }
+}
+// Two queries rather than the twenty a whole load runs: a conversation on screen needs the
+// messages and what people put on them, and nothing else on the page has changed because
+// somebody typed. Redrawn only when something really is different, or a redraw every five
+// seconds would take the caret out of the box being typed into.
+async function refreshChat() {
+  if (document.hidden || S.noChat || !S.chat || S.chat === 'list') return;
+  const [rows, rx] = await Promise.all([
+    soft(sb.from('messages').select('*').order('created_at', {ascending: false}).limit(400)),
+    soft(sb.from('message_reactions').select('message_id,user_id,emoji')),
+  ]);
+  if (!rows) return;
+  const msgs = rows.map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at)})).sort((x, y) => x.ts - y.ts);
+  const mreacts = (rx || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
+  const same = msgs.length === S.msgs.length && mreacts.length === S.mreacts.length
+    && msgs.every((x, i) => x.id === S.msgs[i].id);
+  if (same) return;
+  // Anything still in flight keeps its place until the real row arrives.
+  const pending = S.msgs.filter(x => x.pending && !msgs.some(y => y.body === x.body && y.userId === x.userId));
+  S.msgs = [...msgs, ...pending];
+  S.mreacts = mreacts;
+  // The lines, and not the screen. render() would rebuild the composer along with
+  // everything else, and this runs every five seconds — redraw() puts a half-typed message
+  // back, but not rebuilding it at all is better than putting it back.
+  const box = $('#msgs');
+  if (!box) return render();
+  box.innerHTML = chatBody(S.chat);
+  chatToEnd();
+  markChatRead(S.chat);
+}
+// A chat is named by a short string rather than by an object, because it is a key: it is
+// what a read mark is stored against, what a notification points at, and what the screen
+// holds while it is open. 'g:12' is a group's, 'u:<them>' is a private one.
+const gKey = id => `g:${id}`;
+const uKey = id => `u:${id}`;
+const keyOf = m => m.groupId ? gKey(m.groupId) : uKey(m.a === me().id ? m.b : m.a);
+const msgsIn = key => S.msgs.filter(m => keyOf(m) === key);
+const seenAt = key => (S.reads.find(r => r.k === key) || {ts: 0}).ts;
+// Yours are never unread, and neither is anything you had already scrolled past.
+const unreadIn = key => msgsIn(key).filter(m => m.userId !== me().id && m.ts > seenAt(key)).length;
+const reactsOnMsg = id => S.mreacts.filter(r => r.m === id);
+// Every group you are in has one, whether anything has been said in it or not: the chat is
+// the group. A private one appears once there is something in it; starting a new one is
+// what the Friends tab is for.
+function chatRows() {
+  const m = me();
+  const groups = myGroups().map(g => ({key: gKey(g.id), name: g.name, group: g}));
+  const people = [...new Set(S.msgs.filter(x => x.a).map(keyOf))]
+    .map(k => ({key: k, name: name(user(k.slice(2))), who: user(k.slice(2))}));
+  return [...groups, ...people].map(c => {
+    const list = msgsIn(c.key);
+    return {...c, last: list[list.length - 1] || null, unread: unreadIn(c.key)};
+  }).sort((x, y) => (y.last ? y.last.ts : 0) - (x.last ? x.last.ts : 0));
+}
+const unreadTotal = () => S.noChat ? 0 : chatRows().reduce((n, c) => n + c.unread, 0);
+
+function openChats() { if (S.noChat) return; S.chatFrom = null; S.chat = 'list'; S.settings = false; stackOn(); }
+// from is what the back button takes off: opened from the list it goes back to the list,
+// opened from a group or from Friends it goes back there.
+function openChat(key, from) {
+  if (S.noChat) return;
+  S.chatFrom = from || null; S.chat = key; S.settings = false;
+  stackOn();
+  markChatRead(key);
+}
+function closeChat() { S.chat = S.chat !== 'list' ? S.chatFrom : null; S.chatFrom = null; stackOff(); }
+// Written once when a chat is opened, and again when something lands while it is open —
+// which is also what stops a notification for a message you are looking at.
+async function markChatRead(key) {
+  if (S.noChat || !unreadIn(key)) return;
+  const ts = Date.now();
+  S.reads = [...S.reads.filter(r => r.k !== key), {k: key, ts}];
+  render();
+  try { await q(sb.from('chat_reads').upsert({user_id: me().id, chat: key, seen_at: new Date(ts).toISOString()})); }
+  catch (e) { /* a read mark that did not save costs a bold row, nothing more */ }
+}
+
+function chatsView() {
+  const rows = chatRows(), groups = rows.filter(c => c.group), people = rows.filter(c => !c.group);
+  const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat('${esc(c.key)}','list')">
+    ${c.group ? `<div class="av gav">${esc((c.name || '?')[0].toUpperCase())}</div>` : av(c.who, '')}
+    <span class="gr"><b>${esc(c.name)}</b>
+      <span>${c.last ? `${c.last.userId === me().id ? 'You: ' : (c.group ? esc(name(user(c.last.userId))) + ': ' : '')}${esc(c.last.body)}`
+        : c.group ? 'Nothing said yet' : ''}</span></span>
+    <span class="rt">${c.last ? `<em>${esc(ago(c.last.ts))}</em>` : ''}${c.unread ? `<i class="num">${num(c.unread)}</i>` : ''}</span></button>`;
+  return `<button type="button" class="backx" onclick="closeChat()" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="hdr"><h1>Chats</h1></div>
+    ${groups.length ? `<h3>Groups</h3>${groups.map(row).join('')}` : ''}
+    ${people.length ? `<h3>People</h3>${people.map(row).join('')}` : ''}
+    ${!groups.length && !people.length ? `<div class="card empty"><b>No chats yet</b>
+      <p class="muted">Every group you are in has one. Friends gets you a private one.</p></div>` : ''}
+    ${people.length ? '' : `<p class="muted pad">To start a private one, open somebody from Friends.</p>`}`;
+}
+
+// One conversation. Days are marked because a chat read a day later is otherwise a wall of
+// lines with no time in it anywhere.
+// Just the lines, so the poll can swap them without touching the box being typed into.
+function chatBody(key) {
+  const m = me(), isGroup = key.startsWith('g:');
+  const list = msgsIn(key);
+  if (!list.length) {
+    const other = isGroup ? null : user(key.slice(2));
+    return `<div class="card empty"><b>Nothing said yet</b><p class="muted">${
+      isGroup ? 'Everyone in the group can read this.' : `Only you and ${esc(name(other))}.`}</p></div>`;
+  }
+  let day = '', lastWho = '';
+  return list.map(msg => {
+    const mine = msg.userId === m.id;
+    const d = ymd(new Date(msg.ts));
+    const head = d !== day ? `<div class="cday">${esc(dayLabel(d))}</div>` : '';
+    if (d !== day) lastWho = '';
+    day = d;
+    // Who said it, once per run of theirs, and only in a group: a private chat has two
+    // people in it and one of them is you.
+    const nameLine = isGroup && !mine && msg.userId !== lastWho
+      ? `<div class="cwho">${esc(name(user(msg.userId)))}</div>` : '';
+    lastWho = msg.userId;
+    const rx = reactsOnMsg(msg.id);
+    const grouped = [...new Set(rx.map(r => r.e))].map(e => ({e, n: rx.filter(r => r.e === e).length,
+      mine: rx.some(r => r.e === e && r.u === m.id)}));
+    // Nothing is hung on a line that has not landed yet: it has no real id to react to or
+    // delete by until load() brings the row back.
+    return head + nameLine + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
+      <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}</button>
+      ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
+        onclick="toggleMsgReact(${msg.id},'${r.e}')">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
+      ${mine && !msg.pending ? `<button type="button" class="drop" onclick="delMessage(${msg.id})" aria-label="Delete">\u2715</button>` : ''}</div>`;
+  }).join('');
+}
+
+// One conversation. Days are marked because a chat read a day later is otherwise a wall of
+// lines with no time in it anywhere.
+function chatView(key) {
+  const m = me(), isGroup = key.startsWith('g:');
+  const g = isGroup && S.groups.find(x => x.id === +key.slice(2) && x.members.includes(m.id));
+  const other = isGroup ? null : user(key.slice(2));
+  if (isGroup && !g) return chatsView();
+  return `<div class="cbar">
+      <button type="button" class="backx" onclick="closeChat()" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      ${isGroup ? `<div class="av gav">${esc(g.name[0].toUpperCase())}</div>` : av(other, '')}
+      <span class="nm"><b>${esc(isGroup ? g.name : name(other))}</b>
+        <span>${isGroup ? `${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}` : '@' + esc(other.username || '')}</span></span>
+    </div>
+    <div class="msgs" id="msgs">${chatBody(key)}</div>
+    <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
+      <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
+      <input name="body" placeholder="Message" maxlength="2000" required autocomplete="off">
+      <button class="primary">Send</button>
+    </form>
+    <div class="emoji cemoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putChatEmoji(this,'${e}')">${e}</button>`).join('')}</div>`;
+}
+
+// Shown before the write lands, the way a comment is: a line that waits on a round trip
+// reads as a Send that did nothing. It carries no real id until load() brings the row back,
+// so it cannot be reacted to or deleted yet.
+async function sendMessage(f, key) {
+  const body = f.body.value.trim();
+  if (!body) return;
+  f.body.value = '';                       // before the redraw, the same as a comment
+  const m = me(), isGroup = key.startsWith('g:');
+  const row = isGroup ? {group_id: +key.slice(2), user_id: m.id, body}
+    : {...pairOf(key.slice(2)), user_id: m.id, body};
+  const tmp = {id: -Date.now(), groupId: isGroup ? +key.slice(2) : null,
+    a: isGroup ? null : row.a, b: isGroup ? null : row.b, userId: m.id, body, ts: Date.now(), pending: true};
+  S.msgs = [...S.msgs, tmp];
+  render(); chatToEnd();
+  try { await q(sb.from('messages').insert(row)); }
+  catch (e) {
+    S.msgs = S.msgs.filter(x => x !== tmp);
+    const back = document.querySelector('#app .csend input');
+    if (back) back.value = body;           // it did not send: give them back what they wrote
+    render();
+    return showErr('That message did not send.', String(e && e.message || e));
+  }
+  await load(); chatToEnd();
+}
+// The pair, sorted, which is how the row is stored and how the policy looks it up.
+const pairOf = other => { const [a, b] = [me().id, other].sort(); return {a, b}; };
+// A conversation is read from the bottom. Twice, because a long one has not finished laying
+// itself out when the first one runs — the same reason coming back to a feed does it twice.
+function chatToEnd() {
+  if (!$('#msgs')) return;
+  const end = () => scrollTo(0, document.documentElement.scrollHeight);
+  end(); requestAnimationFrame(end);
+}
+function pickMsgReact(ev, id) {
+  ev.stopPropagation();
+  const row = ev.currentTarget.closest('.m');
+  const had = row.querySelector('.reactpick');
+  if (had) return had.remove();
+  document.querySelectorAll('#app .m .reactpick').forEach(x => x.remove());
+  const box = document.createElement('div');
+  box.className = 'reactpick';
+  box.innerHTML = REACTS.map(e => `<button type="button" onclick="toggleMsgReact(${id},'${e}');this.parentNode.remove()">${e}</button>`).join('');
+  row.appendChild(box);
+}
+// Same as reacting to a post: shown at once and put back if the write is refused.
+async function toggleMsgReact(id, emoji) {
+  const m = me(), had = S.mreacts.some(r => r.m === id && r.u === m.id && r.e === emoji);
+  const undo = () => { S.mreacts = had ? [...S.mreacts, {m: id, u: m.id, e: emoji}]
+    : S.mreacts.filter(r => !(r.m === id && r.u === m.id && r.e === emoji)); render(); };
+  S.mreacts = had ? S.mreacts.filter(r => !(r.m === id && r.u === m.id && r.e === emoji))
+    : [...S.mreacts, {m: id, u: m.id, e: emoji}];
+  render();
+  try {
+    if (had) await q(sb.from('message_reactions').delete().eq('message_id', id).eq('user_id', m.id).eq('emoji', emoji));
+    else await q(sb.from('message_reactions').insert({message_id: id, user_id: m.id, emoji}));
+  } catch (e) { undo(); }
+}
+async function delMessage(id) {
+  if (!confirm('Delete this message?')) return;
+  const before = S.msgs;
+  S.msgs = S.msgs.filter(x => x.id !== id); render();
+  try { await q(sb.from('messages').delete().eq('id', id)); }
+  catch (e) { S.msgs = before; render(); return showErr('That did not delete.', String(e && e.message || e)); }
+  load();
+}
+function toggleChatEmoji(btn) {
+  const box = $('#app .cemoji'); if (box) box.hidden = !box.hidden;
+}
+function putChatEmoji(btn, e) {
+  const input = $('#app .csend input'); if (!input) return;
+  const at = input.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, at) + e + input.value.slice(input.selectionEnd ?? at);
+  input.focus();
+  const to = at + e.length;
+  try { input.setSelectionRange(to, to); } catch (err) {}
+}
+
+// ---- the clock on a flag
+// A running one, because the whole question is how long is left. Under an hour it drops the
+// hours rather than showing a leading zero nobody reads.
+const two = n => String(n).padStart(2, '0');
+function leftOf(at) {
+  const s = Math.max(0, Math.round((at - Date.now()) / 1000));
+  if (!s) return 'time up';
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h}:${two(m)}:${two(s % 60)}` : `${m}:${two(s % 60)}`;
+}
+// One interval for every clock on the page, started when there is one and stopped the
+// moment there is not: a timer running on a screen with no clock on it is a wake-up every
+// second for nothing. render() calls this after it draws, so it follows the screen about
+// without anything having to remember to switch it off.
+let tickTimer = null;
+function tickClocks() {
+  const els = [...document.querySelectorAll('[data-until]')];
+  if (!els.length) { clearInterval(tickTimer); tickTimer = null; return; }
+  let out = false;
+  els.forEach(el => { const at = +el.dataset.until; el.textContent = leftOf(at); if (at <= Date.now()) out = true; });
+  // A clock reaching zero is not the result. The database decides — close_due_flags() runs
+  // at the top of every load — so this asks for the answer rather than working one out.
+  // Throttled on lastLoad, or a flag the server cannot close would be asked about every
+  // second for as long as the screen was open.
+  if (out && Date.now() - lastLoad > 5000) load();
+}
+function keepClocks() {
+  if (document.querySelector('[data-until]')) { if (!tickTimer) tickTimer = setInterval(tickClocks, 1000); }
+  else if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+}
+
+// An outline beside the like and the reaction, on everybody's post but your own. Filled in
+// once somebody has raised one, so the post itself says a question has been asked about it
+// rather than hiding that away on a page of its own.
+const FLAG_PATH = '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>';
+function flagButton(p) {
+  if (S.noFlags || p.userId === me().id) return '';
+  const f = flagOf(p.id);
+  if (f) return `<button type="button" class="flg on" onclick="openFlag(${f.id})" aria-label="Questioned — see what the group said">
+    <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
+  return `<button type="button" class="flg" onclick="flagDlg(${p.id})" aria-label="Question this one">
+    <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
+}
+// And a line across the post saying where that question got to. Your own post has no flag
+// button on it but very much needs this one.
+function flagStrip(p) {
+  const f = S.noFlags ? null : flagOf(p.id);
+  if (!f || S.flag === f.id) return '';    // not on the screen that is already about it
+  const mine = p.userId === me().id;
+  const what = f.outcome === 'upheld' ? `<b>The group said this needs redoing.</b> It no longer counts towards ${mine ? 'your' : 'the'} day.`
+    : f.outcome ? `<b>The group let this stand.</b> It counts as it always did.`
+    : `<b>${esc(name(user(f.by)))} questioned this.</b> The group is deciding.`;
+  return `<button type="button" class="fstrip${f.outcome === 'upheld' ? ' bad' : f.outcome ? ' good' : ''}" onclick="openFlag(${f.id})">
+    <svg viewBox="0 0 24 24" aria-hidden="true">${FLAG_PATH}</svg>
+    <span>${what}</span>
+    ${f.outcome ? '' : `<em class="num" data-until="${f.closes}">${esc(leftOf(f.closes))}</em>`}</button>`;
 }
 
 // The replies, and a box that is always there to type in. No sheet to open: on a post you
@@ -2551,6 +3249,137 @@ function commentsFor(p, cs) {
     </form>
     <div class="emoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putEmoji(this,'${e}')">${e}</button>`).join('')}</div>
   </div>`;
+}
+
+// ---- raising one
+function flagDlg(postId) {
+  const p = postById(postId);
+  if (!p || S.noFlags || p.userId === me().id || flagOf(postId)) return;
+  const u = user(p.userId);
+  dlg(`<h2>Question this one</h2>
+    <p class="muted">The group decides, not you and not us. Say what is wrong with it — everyone voting reads this.</p>
+    <div class="fchip">${av(u, 'sm')}<span><b>${esc(name(u))} · ${esc(effort(p))}</b><em>${esc(dayLabel(p.day))}</em></span></div>
+    <form onsubmit="event.preventDefault();submitFlag(this,${postId})">
+      <textarea name="reason" maxlength="300" required rows="3" autocomplete="off"
+        placeholder="Not full range — elbows barely bent on most of them."></textarea>
+      <div class="row" style="margin-top:16px">
+        <button type="button" class="grow" onclick="dlg()">Cancel</button>
+        <button class="teal grow primary">Submit flag</button>
+      </div>
+    </form>
+    <p class="muted fine">${esc(name(u))} is told straight away and does not get a vote. It closes three hours
+      before their own midnight, wherever they are, so there is still time to redo it.</p>`);
+}
+// The word filter runs on a submit listener at the document, in the capture phase, so this
+// is never reached with a slur in it and nothing here has to remember to check.
+async function submitFlag(f, postId) {
+  const reason = f.reason.value.trim();
+  if (!reason) return;
+  working(f, '…');
+  try { await q(sb.from('flags').insert({post_id: postId, by_user: me().id, reason})); }
+  catch (e) { dlg(); return showErr('That flag did not go up.', String(e && e.message || e)); }
+  dlg();
+  await load();
+  const fl = flagOf(postId);
+  if (fl) openFlag(fl.id);                 // straight to the thing you just started
+}
+
+// ---- the screen it opens
+function openFlag(id) { if (S.noFlags) return; S.flag = id; S.settings = false; stackOn(); }
+function closeFlag() { S.flag = null; stackOff(); }
+// Everything still running, plus anything decided today, newest first. A flag whose post is
+// further back than the feed reaches is left out rather than drawn as a blank: they last
+// hours, so the post is always recent enough in practice.
+const flagList = () => S.flags.filter(f => postById(f.post))
+  .filter(f => !f.outcome || Date.now() - (f.closedAt || f.ts) < 864e5)
+  .sort((a, b) => (a.outcome ? 1 : 0) - (b.outcome ? 1 : 0) || b.ts - a.ts);
+
+function flagsView() {
+  const list = flagList();
+  return `<button type="button" class="backx" onclick="closeFlag()" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="hdr"><h1>Flagged</h1></div>
+    ${!list.length ? `<div class="card empty"><b>Nothing is being questioned</b>
+      <p class="muted">The flag on somebody's post is how one starts.</p></div>`
+    : `<div class="flist">${list.map(f => {
+      const p = postById(f.post), u = user(p.userId), v = votesOn(f.id);
+      const yes = v.filter(x => x.yes).length;
+      return `<button type="button" class="frow" onclick="openFlag(${f.id})">
+        <span class="th">${isPhoto(p) ? `<img alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
+          : `<video muted playsinline preload="metadata"${p.url ? ` src="${esc(p.url)}"` : ''}></video>`}</span>
+        <span class="gr"><b>${esc(name(u))} · ${esc(effort(p))}</b>
+          <em>${f.outcome === 'upheld' ? 'Needs redoing' : f.outcome ? 'Stands' : `${yes} of ${v.length} say redo`}</em></span>
+        ${f.outcome ? `<span class="tag ${f.outcome === 'upheld' ? 'bad' : 'good'}">${f.outcome === 'upheld' ? 'Redo' : 'Stands'}</span>`
+          : `<span class="tag live num" data-until="${f.closes}">${esc(leftOf(f.closes))}</span>`}</button>`;
+    }).join('')}</div>`}`;
+}
+
+function flagView(id) {
+  const f = S.flags.find(x => x.id === id);
+  if (!f) return flagsView();
+  const p = postById(f.post);
+  if (!p) return flagsView();
+  const mine = p.userId === me().id, v = votesOn(f.id), mv = myVote(f.id);
+  const yes = v.filter(x => x.yes).length, no = v.length - yes;
+  const g = S.groups.find(x => x.id === p.groupId);
+  const eligible = Math.max(0, (g ? g.members.length : v.length + 1) - 1);
+  const open = !f.outcome;
+  return `<div class="fbar">
+      <button type="button" class="backx" onclick="closeFlag()" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h2>Flagged</h2>
+      ${open ? `<span class="clock"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <b class="num" data-until="${f.closes}">${esc(leftOf(f.closes))}</b></span>`
+      : `<span class="shut">Closed</span>`}
+    </div>
+    ${f.outcome ? `<div class="verdict${f.outcome === 'upheld' ? ' bad' : ''}">
+      <span class="sec">The group decided</span>
+      <b>${f.outcome === 'upheld' ? 'Needs redoing' : 'It stands'}</b>
+      <p>${f.outcome === 'upheld'
+        ? `${esc(mine ? 'Your' : name(user(p.userId)) + '’s')} ${esc(effort(p))} no longer counts towards ${esc(dayLabel(p.day))}.`
+        : `${esc(effort(p))} counts, exactly as it did before.`}</p></div>` : ''}
+    ${feed([p], true, true)}
+    <div class="why">
+      <div class="head">${av(user(f.by), 'sm')}<b>${esc(name(user(f.by)))} questioned this</b><span>${esc(ago(f.ts))}</span></div>
+      <p>${esc(f.reason)}</p>
+    </div>
+    ${open ? (mine
+      ? `<div class="card empty"><b>This one is about you</b>
+          <p class="muted">You do not get a vote on it. Redoing it is the answer you get to give.</p></div>`
+      : `<div class="ask"><b>Does this count?</b><span>One vote each. You can change it until the clock runs out.</span></div>
+        <div class="votes">
+          <button type="button" class="${mv && !mv.yes ? 'on' : ''}" onclick="castVote(${f.id},false)">
+            <svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-8a2.5 2.5 0 0 1 3 2.5V9h4.5a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 17 19H7"/></svg>It counts</button>
+          <button type="button" class="${mv && mv.yes ? 'on' : ''}" onclick="castVote(${f.id},true)">
+            <svg viewBox="0 0 24 24"><path d="M17 13V4h3v9zM17 13l-4 8a2.5 2.5 0 0 1-3-2.5V15H5.5a2 2 0 0 1-2-2.4l1.4-6A2 2 0 0 1 7 5h10"/></svg>Needs redoing</button>
+        </div>`) : ''}
+    <div class="tally">
+      <span class="sec">${open ? `${v.length} of ${eligible} voted` : 'How it went'}</span>
+      <div class="track"><i style="width:${eligible ? Math.min(100, Math.round(v.length / eligible * 100)) : 100}%"></i></div>
+      <div class="rows">${v.map(x => `<div class="rw">${av(user(x.u), 'sm')}<b>${esc(name(user(x.u)))}</b>
+        <em class="${x.yes ? '' : 'no'}">${x.yes ? 'Needs redoing' : 'It counts'}</em></div>`).join('')}</div>
+      <p class="muted fine">${yes} ${yes === 1 ? 'says' : 'say'} redo · ${no} ${no === 1 ? 'says' : 'say'} it counts.
+        ${open ? 'An even split leaves the post standing.' : ''}</p>
+    </div>`;
+}
+// One vote each, and changing it before the result is out is not a second one. Shown first
+// and written after, the way a like is: a tap that waits on a round trip reads as a tap
+// that did nothing.
+async function castVote(fid, yes) {
+  const m = me(), had = myVote(fid);
+  if (had && had.yes === yes) return;
+  const before = S.fvotes;
+  S.fvotes = had ? S.fvotes.map(v => v === had ? {...v, yes} : v) : [...S.fvotes, {f: fid, u: m.id, yes}];
+  render();
+  try {
+    if (had) await q(sb.from('flag_votes').update({agree: yes}).eq('flag_id', fid).eq('user_id', m.id));
+    else await q(sb.from('flag_votes').insert({flag_id: fid, user_id: m.id, agree: yes}));
+  } catch (e) {
+    S.fvotes = before; render();
+    return showErr('That vote did not go through.', String(e && e.message || e));
+  }
+  // Everybody having voted ends it early, and that is the database's call, not this one's.
+  await load();
 }
 
 // What people have left on a post, drifting up the side of it the way likes drift up a
@@ -2626,7 +3455,11 @@ function friendsView() {
   <div id="fsr">${peopleList()}</div>
   <p class="muted" style="margin-top:8px">They'll see your request under Friends and can accept it.</p></div>
   ${incoming.length ? `<h3>Requests</h3><div class="card list">` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') + `</div>` : ''}
-  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Search for someone above by their name or username.</p></div>`}
+  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id,
+    (S.noChat ? '' : `<button class="ghost small msg" onclick="openChat('${uKey(id)}')" aria-label="Message ${esc(name(user(id)))}">
+      <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>${
+      unreadIn(uKey(id)) ? `<i class="num">${num(unreadIn(uKey(id)))}</i>` : ''}</button>`)
+    + `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Search for someone above by their name or username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3><div class="card list">` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') + `</div>` : ''}`;
 }
 // Notifications were opt-in behind a card at the foot of the Profile tab, which is to say
@@ -3510,7 +4343,7 @@ function vidPick(input) {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
-function go(tab) { const back = !!(S.open || S.who || S.settings); S.tab = tab; S.open = S.who = null; S.settings = false;
+function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.tab = tab; S.open = S.who = S.flag = S.chat = S.chatFrom = null; S.settings = false;
   backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
 
@@ -3612,6 +4445,10 @@ function stackOff() {
 function backAction() {
   if (!backY.length) return null;
   if (S.legal) return () => { S.legal = null; };
+  // A thread falls back to wherever it was opened from — the list, or nothing at all when
+  // it came straight off a group or a friend.
+  if (S.chat) return () => { S.chat = S.chat !== 'list' ? S.chatFrom : null; S.chatFrom = null; };
+  if (S.flag) return () => { S.flag = null; };
   if (S.settings) return () => { S.settings = false; };
   if (S.who) return () => { S.who = null; };
   if (S.open) return () => { S.open = null; };
@@ -3620,7 +4457,8 @@ function backAction() {
 // The screen you are heading for, built but not shown. S is put back exactly as it was:
 // this is a look ahead, and until you let go it may come to nothing.
 function peekBack(act) {
-  const was = {legal: S.legal, settings: S.settings, who: S.who, open: S.open};
+  const was = {legal: S.legal, chat: S.chat, chatFrom: S.chatFrom, flag: S.flag,
+    settings: S.settings, who: S.who, open: S.open};
   act();
   try { return screenHTML(); } finally { Object.assign(S, was); }
 }
@@ -4786,10 +5624,36 @@ function postMenu(id) {
   if (!p) return;
   dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <div class="menu">
+      <button type="button" onclick="dlg();sharePost(${id})">Share this to my story</button>
       <button type="button" onclick="dlg();showOnProfile(${id},${p.onProfile ? 'false' : 'true'})">${
         p.onProfile ? 'Take this off my profile' : 'Show this on my profile'}</button>
       <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete this post</button>
     </div>`);
+}
+// Proof you already posted, put on a story. The story points at the post rather than
+// carrying a copy of it, so the people who can watch the story have to be people who can
+// open the post: on your profile is exactly that set — can_see_user() decides both — which
+// is why sharing puts it there, and says so first rather than quietly.
+async function sharePost(id) {
+  const p = postById(id);
+  if (!p || p.userId !== me().id) return;
+  const open = () => newStory({kind: 'text', body: '',
+    style: {post: id, bg: 3, ink: 0, font: 0, size: 0, box: 2, y: .87, px: .5, py: .44}});
+  if (p.onProfile) return open();
+  dlg(`<h2>Share to your story</h2>
+    <p class="muted">Anyone who can watch your story can watch what is on it, so this goes
+      on your profile too. The same menu takes it off again.</p>
+    <div class="row" style="margin-top:18px">
+      <button type="button" class="grow" onclick="dlg()">Cancel</button>
+      <button type="button" class="teal grow" onclick="dlg();showOnProfile(${id},true).then(ok=>ok&&sharePost(${id}))">Share it</button>
+    </div>`);
+}
+// A card on a story is a way through to the post it is a picture of. The story closes
+// first: it sits at a higher layer than a post opened on its own, so leaving it up would
+// put the post behind it, and going somewhere is the whole point of the tap.
+function openPostFromStory(id) {
+  closeStory();
+  if (postById(id)) openPost(id);
 }
 async function showOnProfile(id, on) {
   const touch = list => list.map(x => x.id === id ? {...x, onProfile: on} : x);
@@ -4798,8 +5662,9 @@ async function showOnProfile(id, on) {
   delete S.pro[me().id];                   // the grid is fetched, so it has to be asked again
   render();
   try { await q(sb.from('posts').update({on_profile: on}).eq('id', id)); }
-  catch (e) { return showErr('That did not save.', String(e && e.message || e)); }
+  catch (e) { showErr('That did not save.', String(e && e.message || e)); return false; }
   loadProfile(me().id);
+  return true;                             // sharing to a story waits on this having worked
 }
 async function delPost(id) {
   if (!confirm('Delete this post?')) return;
@@ -4916,13 +5781,193 @@ async function disablePush() {
   } catch (e) { /* leaving the row behind is harmless: the sender prunes dead endpoints */ }
   S.push = 'off'; render();
 }
+// ---- what is happening while you are looking
+// One channel for the whole app rather than one per screen: what you can see changes as you
+// move about, and a subscription that has to be torn down and rebuilt on every navigation
+// is a subscription that is sometimes missing.
+//
+// Nothing here patches S by hand off a payload. A row arriving is only a reason to ask, and
+// load() already knows how to ask properly — an update that gets one table right and its
+// neighbour wrong is worse than a round trip. Bursts are collapsed: ten people liking a post
+// at once is one load.
+//
+// Realtime has to be switched on per table in the Supabase dashboard (Database →
+// Replication). Where it is not, none of this fires and the app behaves exactly as it did
+// before: the visibility refetch and, in a chat, refreshChat(). It is an improvement on
+// top, never something the app needs to work.
+const LIVE_TABLES = ['posts', 'comments', 'likes', 'reactions', 'stories', 'story_likes',
+  'story_reactions', 'comment_likes', 'invites', 'group_members', 'friendships',
+  'messages', 'message_reactions', 'flags', 'flag_votes'];
+let live = null, liveTimer = null, liveOn = false;
+function goLive() {
+  if (live || !me() || typeof sb.channel !== 'function') return;
+  try {
+    const ch = sb.channel('quota-live');
+    for (const table of LIVE_TABLES) {
+      ch.on('postgres_changes', {event: '*', schema: 'public', table}, e => onLive(table, e));
+    }
+    ch.subscribe(status => { liveOn = status === 'SUBSCRIBED'; });
+    live = ch;
+  } catch (e) { live = null; }            // no realtime: the app is exactly as it was
+}
+function dropLive() {
+  if (!live) return;
+  try { sb.removeChannel(live); } catch (e) {}
+  live = null; liveOn = false;
+  clearTimeout(liveTimer); liveTimer = null;
+}
+const LIVE_WAIT = 600;                     // long enough to collect a burst, short enough to feel immediate
+function onLive(table, e) {
+  if (!me()) return;
+  noteWorthSaying(table, e);
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => { liveTimer = null; load().then(sayWhatHappened); }, LIVE_WAIT);
+}
+
+// ---- saying what just happened, to somebody who is already here
+// A push notification is for somebody who is not looking. This is the other half: a line
+// down from the top for somebody who is, which is not a notification at all — it lives in
+// the app and goes away on its own.
+//
+// Two things never earn one. Somebody in your group posting: the feed fills in underneath
+// you and a banner would only say what you can already see. And anything in the chat that
+// is open in front of you: you are reading it.
+//
+// Resolved after the load rather than off the payload. A row arriving names ids, and
+// whether a comment is on your post, or who somebody is, is only knowable once the tables
+// it points at have caught up.
+let saidQueue = [];
+function noteWorthSaying(table, e) {
+  if (e.eventType === 'DELETE') return;
+  saidQueue.push({table, ev: e.eventType, row: e.new || {}});
+  if (saidQueue.length > 12) saidQueue = saidQueue.slice(-12);   // a burst is not a backlog
+}
+
+function bannerFor({table, ev, row}) {
+  const m = me(), actor = row.user_id || row.by_user || row.from_user;
+  if (actor === m.id) return null;         // nothing you did is news to you
+  const by = u => ({who: user(u), name: name(user(u))});
+  const post = id => postById(id);
+  const mine = p => p && p.userId === m.id;
+
+  if (table === 'posts') return null;      // the feed fills in underneath you
+
+  if (table === 'comments') {
+    const p = post(row.post_id);
+    if (!mine(p)) return null;
+    return {...by(actor), text: `commented on your proof: ${esc(row.body || '')}`, go: `#comment-${row.id}`};
+  }
+  if (table === 'likes') {
+    const p = post(row.post_id);
+    return mine(p) ? {...by(actor), text: 'liked your proof', go: `#post-${row.post_id}`} : null;
+  }
+  if (table === 'reactions') {
+    const p = post(row.post_id);
+    return mine(p) ? {...by(actor), text: `reacted ${row.emoji || ''}`.trim(), go: `#post-${row.post_id}`} : null;
+  }
+  if (table === 'comment_likes') {
+    const c = S.comments.find(x => x.id === row.comment_id);
+    return c && c.userId === m.id ? {...by(actor), text: 'liked your comment', go: `#comment-${row.comment_id}`} : null;
+  }
+  if (table === 'story_likes' || table === 'story_reactions') {
+    const st = S.stories.find(x => x.id === row.story_id);
+    if (!st || st.u !== m.id) return null;
+    return {...by(actor), text: table === 'story_likes' ? 'liked your story'
+      : `reacted ${row.emoji || ''} to your story`.trim(), go: `#story-${m.id}`};
+  }
+  if (table === 'messages') {
+    const msg = S.msgs.find(x => x.id === row.id);
+    if (!msg) return null;
+    const key = keyOf(msg);
+    if (S.chat === key) return null;       // you are reading it
+    const where = key.startsWith('g:') ? S.groups.find(g => g.id === +key.slice(2)) : null;
+    return {...by(actor), text: `${where ? `in ${where.name}: ` : ''}${esc(row.body || '')}`, go: `#chat-${key}`};
+  }
+  if (table === 'message_reactions') {
+    const msg = S.msgs.find(x => x.id === row.message_id);
+    if (!msg || msg.userId !== m.id) return null;
+    if (S.chat === keyOf(msg)) return null;
+    return {...by(actor), text: `reacted ${row.emoji || ''} to your message`.trim(), go: `#chat-${keyOf(msg)}`};
+  }
+  if (table === 'flags') {
+    const p = post(row.post_id);
+    if (!p) return null;
+    if (S.flag === row.id) return null;
+    if (ev === 'UPDATE') {
+      if (!row.outcome) return null;
+      const yours = mine(p);
+      return {...by(p.userId), text: row.outcome === 'upheld'
+        ? `${yours ? 'Your' : 'Their'} ${esc(effort(p))} needs redoing — the group decided`
+        : `${yours ? 'Your' : 'Their'} ${esc(effort(p))} stands — the group decided`, go: `#flag-${row.id}`};
+    }
+    return {...by(actor), text: mine(p) ? `questioned your ${esc(effort(p))}`
+      : `questioned ${esc(name(user(p.userId)))}'s ${esc(effort(p))}`, go: `#flag-${row.id}`};
+  }
+  if (table === 'invites') {
+    if (row.to_user !== m.id) return null;
+    const g = row.group_id && S.groups.find(x => x.id === row.group_id);
+    return {...by(actor), text: row.type === 'group' && g ? `invited you to ${esc(g.name)}` : 'wants to be friends',
+      go: row.type === 'group' ? '#groups' : '#friends'};
+  }
+  // Somebody said yes. friendships has no user_id on it, so who to name is whichever half
+  // of the pair is not you.
+  if (table === 'friendships') {
+    if (row.a !== m.id && row.b !== m.id) return null;
+    const them = row.a === m.id ? row.b : row.a;
+    return {...by(them), text: 'accepted your friend request', go: '#friends'};
+  }
+  if (table === 'group_members') {
+    const g = S.groups.find(x => x.id === row.group_id);
+    if (!g || !g.members.includes(m.id) || row.user_id === m.id) return null;
+    return {...by(row.user_id), text: `joined ${esc(g.name)}`, go: '#groups'};
+  }
+  return null;
+}
+
+// One at a time, from the top, gone on its own. Three is the most anybody reads before they
+// stop being information and start being weather.
+const DROP_MS = 4800, DROP_MAX = 3;
+let drops = [], dropTimer = null;
+function sayWhatHappened() {
+  const q = saidQueue; saidQueue = [];
+  if (!me() || document.hidden) return;
+  const seen = new Set();
+  for (const it of q) {
+    let card = null;
+    try { card = bannerFor(it); } catch (e) { card = null; }
+    if (!card) continue;
+    const key = `${card.who.id}|${card.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    drops.push(card);
+  }
+  if (drops.length > DROP_MAX) drops = drops.slice(-DROP_MAX);
+  if (drops.length && !dropTimer) nextDrop();
+}
+function nextDrop() {
+  const box = $('#drop'), card = drops.shift();
+  clearTimeout(dropTimer); dropTimer = null;
+  if (!card) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = `<button type="button" class="dropcard" onclick="takeDrop('${esc(card.go)}')">
+    ${av(card.who, '')}<span class="gr"><b>${esc(card.name)}</b><span>${card.text}</span></span></button>
+    <button type="button" class="x" onclick="nextDrop()" aria-label="Dismiss">✕</button>`;
+  box.hidden = false;
+  dropTimer = setTimeout(nextDrop, DROP_MS);
+}
+function takeDrop(go) {
+  drops = [];
+  clearTimeout(dropTimer); dropTimer = null;
+  $('#drop').hidden = true; $('#drop').innerHTML = '';
+  goTarget(go);
+}
+
 // ---- boot
 // The library keeps the session alive on its own timer and can end it without the app
 // asking — a refresh that finally fails after the phone has been offline, or a sign-out
 // in another tab. Without this the screen kept showing a signed-in app that no longer was.
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'INITIAL_SESSION') return;              // the first load() below covers this
-  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); render(); }
+  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); dropLive(); render(); }
   else if (!me()) load();                               // signed in, or a refresh recovered while we sat on the welcome screen
 });
 
@@ -4990,25 +6035,40 @@ fitBar();
 
 // A notification is worth tapping only if it arrives somewhere. The service worker sends
 // the app to /#post-<id>; this is the other half, run once the feed has something in it.
+// A notification is worth tapping only if it arrives somewhere. The service worker sends
+// the app to /#post-<id> and the like; this is the other half, run once the feed has
+// something in it. A banner from the top asks for the same journeys, so the dispatch is a
+// function of a target rather than of the address bar, and both go through it.
 function goToHash() {
-  const m = /^#post-(\d+)$/.exec(location.hash || '');
+  const h = location.hash;
+  if (!h) return;
+  history.replaceState(null, '', location.pathname);
+  goTarget(h);
+}
+// Out of whatever is open first, then in, so the way back out lands where it should.
+function clearTo(tab = 'feed') {
+  S.tab = tab; S.open = S.who = S.flag = S.chat = S.chatFrom = null; S.settings = false;
+  backY.length = 0;
+  closePost(); closeStory();
+  render();
+}
+function goTarget(hash) {
+  const m = /^#post-(\d+)$/.exec(hash || '');
   if (m) {
     const id = +m[1];
     if (!S.posts.some(p => p.id === id)) return;
-    history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0; render();
+    clearTo();
     const el = document.querySelector(`[data-post="${id}"]`);
     if (el) el.scrollIntoView({block: 'start'});
     return;
   }
   // A notification about a comment lands on the comment, not near it: the post is opened,
   // the reply is scrolled to and marked for a second so the eye finds it among twenty.
-  const cm = /^#comment-(\d+)$/.exec(location.hash || '');
+  const cm = /^#comment-(\d+)$/.exec(hash || '');
   if (cm) {
     const cid = +cm[1], c = S.comments.find(x => x.id === cid);
     if (!c || !S.posts.some(p => p.id === c.postId)) return;
-    history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0; render();
+    clearTo();
     const el = document.querySelector(`[data-cmt="${cid}"]`);
     if (el) {
       el.scrollIntoView({block: 'center'});
@@ -5017,17 +6077,39 @@ function goToHash() {
     }
     return;
   }
-  const sm = /^#story-([0-9a-f-]+)$/i.exec(location.hash || '');
+  const sm = /^#story-([0-9a-f-]+)$/i.exec(hash || '');
   if (sm) {
-    history.replaceState(null, '', location.pathname);
-    if (storiesOf(sm[1]).length) { S.tab = 'feed'; S.open = null; render(); openStory(sm[1]); }
+    if (storiesOf(sm[1]).length) { clearTo(); openStory(sm[1]); }
     return;
   }
-  if (location.hash === '#friends' || location.hash === '#groups') {
-    const tab = location.hash.slice(1);
-    history.replaceState(null, '', location.pathname);
-    go(tab);
+  // A message lands in the conversation it belongs to, scrolled to the end of it, which is
+  // where the thing you were told about is.
+  const ch = /^#chat-((?:g:\d+|u:[\w-]+))$/i.exec(hash || '');
+  if (ch) {
+    const key = ch[1];
+    // Whether it names a real conversation, rather than whether it is shaped like one. A
+    // key that looks right and points at nobody opens an empty chat with "?" at the top of
+    // it, which is worse than doing nothing.
+    const real = S.noChat ? false : key.startsWith('g:')
+      ? myGroups().some(g => g.id === +key.slice(2))
+      : key.slice(2) !== me().id
+        && (S.friends.includes(key.slice(2)) || S.msgs.some(x => keyOf(x) === key));
+    if (!real) return;
+    clearTo();
+    openChat(key, 'list');
+    return;
   }
+  // A flag lands on the flag, which is the only place its clock, its reason and its vote
+  // all are. Straight there, not near it.
+  const fm = /^#flag-(\d+)$/.exec(hash || '');
+  if (fm) {
+    const id = +fm[1];
+    if (!S.flags.some(f => f.id === id)) return;
+    clearTo();
+    openFlag(id);
+    return;
+  }
+  if (hash === '#friends' || hash === '#groups') go(hash.slice(1));
 }
 addEventListener('hashchange', goToHash);
 

@@ -268,6 +268,28 @@ function taking a post id has to look in both or it works in the feed and quietl
 everywhere else — which is what left `freshUrl()` unable to re-sign a clip on somebody's
 profile, so the one retry that would have fixed it could never fire.
 
+## Proof on a story
+
+The ⋯ on your own post offers to put it on your story. It goes on as a **card** — inset, a
+little off square, with the story's own background showing past its edges — because that is
+what it is: a thing lifted from somewhere else and stuck on. Filling the screen with it would
+say it was shot for the story. It drags about the card like the words and the stickers do,
+by the same `dragify()`, and tapping it while somebody is watching opens that post.
+
+The story points at the post rather than carrying a copy of it. Copying would double what a
+minute of video costs against a 1 GB bucket for something that is gone in a day. What makes
+pointing safe is that sharing puts the post **on your profile**, and a post on your profile
+is readable by exactly the people a story is — `can_see_user()` decides both — so there is
+nobody who can be shown the card and cannot be shown what is on it. The sheet says that
+before it does it rather than after.
+
+It needs no new table and no new block of `schema.sql`. The post id lives in `style`, the
+jsonb that already holds everything about how one story looks, as `post` with `px`/`py` for
+where it was dragged to. `storyPosts()` fetches the ones the feed does not already carry —
+somebody's older post, or one in a group shared with them but not with you — and signs them,
+only when a story on screen actually points at one. A post that has gone since draws as a
+card saying so rather than as a hole.
+
 ## The bar at the bottom, and putting it away
 
 `showErr()` carries two different things and they want opposite treatment. A load that
@@ -284,6 +306,165 @@ which is exactly what "it never goes away" described.
 was starting rejects with `AbortError`, a browser that will not start one unprompted rejects
 with `NotAllowedError`, and a request dropped because the screen it belonged to has gone
 rejects with nothing worth reading. None of the three is a fault anybody can act on.
+
+## What is happening while you are looking
+
+One channel for the whole app rather than one per screen: what you can see changes as you
+move about, and a subscription torn down and rebuilt on every navigation is one that is
+sometimes missing.
+
+**Nothing patches `S` by hand off a payload.** A row arriving is only a reason to *ask*, and
+`load()` already knows how to ask properly — an update that gets one table right and its
+neighbour wrong is worse than a round trip. Bursts are collapsed on a 600ms timer, so ten
+people liking a post at once is one load.
+
+**Realtime has to be switched on per table** in the Supabase dashboard (Database →
+Replication); the v29 block adds them to the publication. Where it is not on, none of this
+fires and the app behaves exactly as it did before: the visibility refetch, and in a chat
+`refreshChat()`. Row level security still decides who hears what — a publication grants
+nothing a policy does not already allow. There is a boot test for the app with no realtime
+at all, because this must never be something the app needs in order to work.
+
+### The line down from the top
+
+A push notification is for somebody who is not looking. `#drop` is the other half, and it is
+not a notification: it lives in the app, it goes away after five seconds, and the whole card
+is the way to the thing it is about.
+
+Two things never earn one, and both were asked for:
+
+- **Somebody in your group posting.** The feed fills in underneath you, and a banner would
+  only say what you can already see.
+- **Anything in the chat that is open in front of you.** You are reading it.
+
+Neither is a special case bolted on: `bannerFor()` returns nothing for `posts` at all, and
+returns nothing for a message whose chat is `S.chat`.
+
+Banners are **resolved after the load, not off the payload**. A row names ids, and whether a
+comment is on your post — or who somebody is — is only knowable once the tables it points at
+have caught up. `goTarget()` is the dispatch a banner and a notification both go through, so
+tapping either lands in exactly the same place; it checks that a chat key names a real
+conversation rather than that it is shaped like one, because a key that looks right and
+points at nobody opens an empty chat with "?" at the top of it.
+
+### Two things that happen at a time rather than because somebody did something
+
+`wheelday` already ran hourly on `profiles.tz` to work out whose morning it is. It answers a
+second question on the same beat now — whose evening it is, and who has not finished — so
+there is no new cron job, no new function and no new secret. `day_due_now()` claims each
+reminder as it returns it, the same as `wheel_due_now()`, so an overlapping run cannot chase
+anybody twice, and it leaves out a post an upheld flag took off the day, or the reminder
+would say a day was finished that the app shows as open. A rest day is not a day anybody is
+behind on.
+
+The other is **somebody saying yes**. A friend request accepted and a group invite accepted
+both end as a row, and until now whoever sent the invitation heard nothing at all.
+`notify_hook()` gained one field for it: a friendship names a pair and nothing else, and
+`auth.uid()` is the only thing that knows which half just accepted — and it is only knowable
+in the trigger, because by the time `pg_net`'s call lands there is no session left to ask.
+
+**This needs the v29 block of `schema.sql`**, and `wheelday` redeployed as well as `notify`.
+
+## Talking to each other
+
+Two kinds of chat and one table, because a message is a message. A group's chat **is** the
+group: every group has one the moment it exists, with nothing to create and nothing to join,
+and anybody who joins later can read all of it, the way a channel works. A private one is a
+pair of friends, and the pair is stored sorted — which is exactly what `friendships` already
+does, so "is there a chat between these two" and "are these two friends" are the same shape
+of question. A row is one or the other, never both and never neither, and that is a
+constraint rather than a convention.
+
+Writing needs one thing more than reading: a private chat is **between friends**. Somebody
+who can see you is not somebody who can message you.
+
+Text only. Proof is what the video budget is for, and a chat that can carry clips is a 1 GB
+bucket with a hole in it.
+
+The way in is the icon at the top right of the feed, with what is waiting on it. A group's
+own chat is also on the group screen, and a friend can be messaged straight from Friends —
+`openChat(key, from)` takes where it was opened from, so the way back is the list when it
+came off the list and the group when it came off the group.
+
+**The tab bar goes away for the length of a conversation**, the way it does in every app
+that has one. Not only because it would sit under the box you type in: the box is pinned to
+the bottom, and it used to move whenever the keyboard class flipped — including between the
+press and the release of a tap on Send, and a press and a release in two different places is
+not a click the browser ever reports. So Send did nothing, silently. The box now follows the
+viewport on `--vvb` and rides the keyboard up on `--kb`, in one expression with nothing in it
+that flips on focus alone.
+
+`redraw()` learned about the composer for the same sort of reason. A conversation redraws
+itself every few seconds while it is open, so it is the one screen where a redraw is most
+likely to land mid-sentence; what was typed and where the caret was are carried across, and
+focus is put back, or the keyboard slides away under somebody mid-word. `refreshChat()`
+avoids the question entirely by swapping only the lines — two queries rather than the twenty
+a whole load runs, because nothing else on the page changed because somebody typed.
+
+That poll is a **stopgap** and is marked as one. It goes when the realtime pass replaces it
+with a subscription.
+
+**This needs the v28 block of `schema.sql`**, and the `notify` function redeployed for
+`message` and `message_reaction`. Until the block is run the tables do not exist, the app
+loads them softly, and no way in is offered anywhere — same as flags, same as comments.
+
+## Questioning somebody's proof
+
+A flag is one person saying a post does not meet the challenge, and the group deciding. It
+is deliberately not a report to a moderator: there is no moderator, and the people who know
+whether twenty pushups were twenty pushups are the people in the group.
+
+The outline beside the like and the reaction opens a sheet asking why — the reason is what
+everybody else votes on, so there is no flagging without one. It fills in once a flag exists,
+and a line across the bottom of the post says where the question got to, on your own post
+too, which carries no flag button at all.
+
+**What an upheld flag does** is stop the post counting towards its day. The clip is not
+deleted and nothing on it is rewritten — the group can still watch what it decided about.
+The day simply goes back to what it was without it, and every rule already written on top
+of the totals follows on its own: the chips, the streak, the completion rate, whether a
+challenge is finished. None of them know flags exist. A flagged day that is never redone is
+an ordinary missed day, with no special case anywhere.
+
+That is also why nothing here writes to `posts`. A column there would have to be written by
+something, and the only things allowed to write a post are its author and
+`post_edit_guard()`, which exists precisely to stop a post changing after the group saw it.
+So the post is left alone and the flag carries the verdict, which the app reads off rows it
+already loads.
+
+**Three rules are in the database** rather than in the page, because all three stop being
+true the moment somebody writes their own request: you cannot flag your own post or vote on
+the flag against it; one flag per post, ever, so a post the group already stood behind is
+not re-litigated; and **when it closes is the database's**, not the browser's — a `closes_at`
+the client picks is a clock the client can move.
+
+It closes **three hours before the flagged person's own midnight**, wherever in the world
+they are, worked out from `profiles.tz` — the same column the spin-day reminder runs on —
+so there is still time to redo it. A flag raised after that hour has already gone gets half
+an hour instead, so a late one still decides today rather than expiring on the spot or
+running past the day it is about. Everybody eligible having voted closes it early.
+
+**More agreeing than not upholds it; anything else, a tie included, leaves the post
+standing.** A tie is not a coin toss — the post stands and its day stays counted, exactly as
+if nothing had been said.
+
+`close_due_flags()` is the one thing that writes an outcome, runs as the owner, and decides
+by the same rule however it was reached: from the app at the top of every load, so whoever
+is looking sees a result rather than a dead clock, and from `pg_cron` every ten minutes for
+everybody who is not. Ten rather than the hour the wheel reminder uses, because a flag
+closes at whatever minute its half hour lands on and a result fifty minutes late is one that
+arrives after the person could have done anything about it.
+
+`leftOf()` and `keepClocks()` are the running clock. One interval for every clock on the
+page, started when there is one and stopped the moment there is not, because `render()`
+calls it after it draws — a timer running on a screen with no clock on it is a wake-up every
+second for nothing. A clock reaching zero asks the server for the answer rather than working
+one out, throttled on `lastLoad`.
+
+**This needs the v27 block of `schema.sql`.** Until it is run the two tables do not exist,
+and the app loads them softly and draws itself without the feature — the same way comments
+have worked since v2. A feature that is not switched on must not be a page that will not
+come up. It also wants the `notify` function redeployed, which adds `flag` and `flag_closed`.
 
 ## Stories are one line, not one person
 

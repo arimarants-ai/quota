@@ -1,8 +1,14 @@
 // Run: node --experimental-strip-types message.test.ts
-import { messageFor, socialFor } from './message.ts';
+import { flagFor, messageFor, socialFor, verdictFor } from './message.ts';
 let n = 0;
 const eq = (got: string, want: string, msg: string) => {
   if (got !== want) throw new Error(`FAIL ${msg}\n  got:  ${got}\n  want: ${want}`);
+  console.log('  ok  ' + msg); n++;
+};
+// Some of these are about what a sentence must and must not carry rather than its exact
+// wording, which is a thing worth being able to change without editing a test.
+const ok = (cond: boolean, msg: string, saw = '') => {
+  if (!cond) throw new Error(`FAIL ${msg}${saw ? `\n  saw: ${saw}` : ''}`);
   console.log('  ok  ' + msg); n++;
 };
 
@@ -76,4 +82,34 @@ eq(socialFor('comment_like', 'Ari'), 'Ari liked your comment', '  and reads prop
   const got = socialFor('comment_like', 'Ari', 'y'.repeat(200));
   eq(String(got.length <= 90), 'true', '  a long one is cut rather than filling the screen');
   eq(String(got.endsWith('…')), 'true', '  and says it was cut');
+}
+
+// ---- questioning somebody's proof
+// The same two events, four different sentences, because being asked to vote and being
+// told about your own are not the same thing to read on a lock screen.
+{
+  const asked = flagFor('Max', '20 pushups', false);
+  const told = flagFor('Max', '20 pushups', true);
+  ok(asked.includes('Max') && /have your say/i.test(asked),
+    'somebody else is asked to vote', asked);
+  ok(told.includes('your 20 pushups') && !/have your say/i.test(told),
+    'the person it is about is told, not asked', told);
+  ok(!told.includes('your your'), 'and told once, not twice', told);
+
+  const lost = verdictFor('20 pushups', true, true);
+  const kept = verdictFor('20 pushups', false, true);
+  ok(/redoing/i.test(lost) && /still time/i.test(lost),
+    'an upheld flag says what to do about it', lost);
+  ok(/stand/i.test(kept) && !/redo/i.test(kept), 'a dismissed one says it stands', kept);
+
+  const lostThem = verdictFor('20 pushups', true, false);
+  ok(!/your/i.test(lostThem), 'and the group hears about it without being blamed for it', lostThem);
+}
+
+// ---- somebody said yes
+{
+  const f = socialFor('accepted_friend', 'Sam');
+  ok(/sam/i.test(f) && /accepted/i.test(f), 'an accepted friend request says who', f);
+  const g = socialFor('joined_group', 'Sam', 'Mornings');
+  ok(/sam/i.test(g) && /mornings/i.test(g), 'and joining a group says which one', g);
 }

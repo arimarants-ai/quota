@@ -22,6 +22,41 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
   return justFinished ? `${name} completed the day's goal` : `${name} did ${what}`;
 }
 
+/**
+ * Text for a flag: one person questioning whether a post met the challenge, and the group
+ * deciding. Four different people want four different sentences out of the same two events,
+ * so who is being told is an argument rather than something guessed from the row.
+ *
+ * `mine` is true when the post being questioned is the reader's own. Everyone else in the
+ * group is being asked to vote; the person it is about is being told, and has no vote.
+ */
+export function flagFor(name: string, what: string, mine: boolean): string {
+  return mine ? `${name} questioned your ${what}. The group is deciding.`
+              : `${name} questioned ${what}. Have your say.`;
+}
+export function verdictFor(what: string, upheld: boolean, mine: boolean): string {
+  if (mine) {
+    return upheld ? `The group says your ${what} needs redoing. There is still time today.`
+                  : `The group let your ${what} stand.`;
+  }
+  return upheld ? `The group says ${what} needs redoing.` : `The group let ${what} stand.`;
+}
+
+/** Somebody's own words, trimmed to what a lock screen can hold. The rest is one tap away. */
+export const snippet = (s: string | null | undefined, max = 80) => {
+  const t = (s ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+};
+
+/**
+ * A message in a chat. The group's name is the title of the notification when it is a
+ * group's, so this is only ever the line under it: who said it and what they said.
+ */
+export function chatFor(name: string, body: string): string {
+  const said = snippet(body);
+  return said ? `${name}: ${said}` : `${name} sent a message`;
+}
+
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
 export type Who = { username: string; display_name?: string | null };
 export const who = (p: Who) => p.display_name || p.username;
@@ -30,8 +65,13 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
+  if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
+  // Somebody said yes. Worth hearing: an invitation sent and never spoken of again is the
+  // one thing in the app that used to just quietly happen.
+  if (kind === 'accepted_friend') return `${name} accepted your friend request`;
+  if (kind === 'joined_group') return `${name} joined ${extra}`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
