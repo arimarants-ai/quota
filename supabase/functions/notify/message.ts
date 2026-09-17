@@ -65,9 +65,13 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
+  // Somebody said yes. Worth hearing: an invitation sent and never spoken of again is the
+  // one thing in the app that used to just quietly happen.
+  if (kind === 'accepted_friend') return `${name} accepted your friend request`;
+  if (kind === 'joined_group') return `${name} joined ${extra}`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();

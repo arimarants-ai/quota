@@ -1077,6 +1077,20 @@ dialog h2{font-size:20px;margin-bottom:2px}
    there was nothing to be done about, stayed across the bottom of a working app until the
    next successful load — which for a fault that repeats is forever. */
 #err .dis{background:none;color:var(--muted);padding:7px 4px;font-size:15px;line-height:1}
+/* A line down from the top for somebody who is already here. Not a notification: it lives
+   in the app, it goes away on its own, and the whole card is the way to the thing. */
+#drop{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));max-width:580px;margin:0 auto;
+  z-index:40;display:flex;align-items:center;gap:0;background:var(--text);color:var(--bg);
+  box-shadow:0 16px 40px -12px rgba(0,0,0,.55);animation:dropin .26s cubic-bezier(.2,.7,.2,1)}
+#drop[hidden]{display:none}
+@keyframes dropin{from{opacity:0;transform:translateY(-14px)}}
+#drop .dropcard{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:11px 4px 11px 12px;
+  background:none;color:inherit;text-align:left;border-radius:0}
+#drop .av{background:var(--bg);color:var(--text)}
+#drop .gr{flex:1;min-width:0}
+#drop b{display:block;font-size:13.5px;font-weight:800}
+#drop .gr span{display:block;font-size:12.5px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#drop .x{flex:none;background:none;color:inherit;opacity:.55;font-size:15px;padding:12px 12px}
 /* iOS Safari has no install prompt, so this explains Add to Home Screen once */
 #a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:0;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
 #a2hs[hidden]{display:none}
@@ -1106,6 +1120,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <div id="story" hidden role="dialog" aria-label="Story"></div>
 <div id="make" hidden role="dialog" aria-label="New story"></div>
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
+<div id="drop" hidden aria-live="polite"></div>
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" class="rty" onclick="load()">Retry</button><button type="button" class="dis" onclick="hideErr()" aria-label="Dismiss">✕</button></div>
 <dialog id="cam">
   <video id="campre" playsinline muted autoplay></video>
@@ -1177,7 +1192,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v63';
+const BUILD = 'quota-v64';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1622,6 +1637,7 @@ async function runLoad() {
     // Whether notifications are on is only known by asking the browser, and until it has
     // been asked the feed cannot tell whether to offer them. Once per launch is enough.
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
+    if (me()) goLive(); else dropLive();
     if (me() && location.hash) goToHash();
   }
 }
@@ -2922,9 +2938,11 @@ let chatAt = '';
 // subscription — at which point this whole function goes.
 let chatPoll = null;
 function keepChatFresh() {
-  const live = S.chat && S.chat !== 'list' && !S.noChat;
-  if (live && !chatPoll) chatPoll = setInterval(refreshChat, 5000);
-  else if (!live && chatPoll) { clearInterval(chatPoll); chatPoll = null; }
+  // Off entirely where the subscription is working: the same lines would arrive twice, and
+  // the poll exists for exactly the case where they would not arrive at all.
+  const want = S.chat && S.chat !== 'list' && !S.noChat && !liveOn;
+  if (want && !chatPoll) chatPoll = setInterval(refreshChat, 5000);
+  else if (!want && chatPoll) { clearInterval(chatPoll); chatPoll = null; }
 }
 // Two queries rather than the twenty a whole load runs: a conversation on screen needs the
 // messages and what people put on them, and nothing else on the page has changed because
@@ -5763,13 +5781,193 @@ async function disablePush() {
   } catch (e) { /* leaving the row behind is harmless: the sender prunes dead endpoints */ }
   S.push = 'off'; render();
 }
+// ---- what is happening while you are looking
+// One channel for the whole app rather than one per screen: what you can see changes as you
+// move about, and a subscription that has to be torn down and rebuilt on every navigation
+// is a subscription that is sometimes missing.
+//
+// Nothing here patches S by hand off a payload. A row arriving is only a reason to ask, and
+// load() already knows how to ask properly — an update that gets one table right and its
+// neighbour wrong is worse than a round trip. Bursts are collapsed: ten people liking a post
+// at once is one load.
+//
+// Realtime has to be switched on per table in the Supabase dashboard (Database →
+// Replication). Where it is not, none of this fires and the app behaves exactly as it did
+// before: the visibility refetch and, in a chat, refreshChat(). It is an improvement on
+// top, never something the app needs to work.
+const LIVE_TABLES = ['posts', 'comments', 'likes', 'reactions', 'stories', 'story_likes',
+  'story_reactions', 'comment_likes', 'invites', 'group_members', 'friendships',
+  'messages', 'message_reactions', 'flags', 'flag_votes'];
+let live = null, liveTimer = null, liveOn = false;
+function goLive() {
+  if (live || !me() || typeof sb.channel !== 'function') return;
+  try {
+    const ch = sb.channel('quota-live');
+    for (const table of LIVE_TABLES) {
+      ch.on('postgres_changes', {event: '*', schema: 'public', table}, e => onLive(table, e));
+    }
+    ch.subscribe(status => { liveOn = status === 'SUBSCRIBED'; });
+    live = ch;
+  } catch (e) { live = null; }            // no realtime: the app is exactly as it was
+}
+function dropLive() {
+  if (!live) return;
+  try { sb.removeChannel(live); } catch (e) {}
+  live = null; liveOn = false;
+  clearTimeout(liveTimer); liveTimer = null;
+}
+const LIVE_WAIT = 600;                     // long enough to collect a burst, short enough to feel immediate
+function onLive(table, e) {
+  if (!me()) return;
+  noteWorthSaying(table, e);
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => { liveTimer = null; load().then(sayWhatHappened); }, LIVE_WAIT);
+}
+
+// ---- saying what just happened, to somebody who is already here
+// A push notification is for somebody who is not looking. This is the other half: a line
+// down from the top for somebody who is, which is not a notification at all — it lives in
+// the app and goes away on its own.
+//
+// Two things never earn one. Somebody in your group posting: the feed fills in underneath
+// you and a banner would only say what you can already see. And anything in the chat that
+// is open in front of you: you are reading it.
+//
+// Resolved after the load rather than off the payload. A row arriving names ids, and
+// whether a comment is on your post, or who somebody is, is only knowable once the tables
+// it points at have caught up.
+let saidQueue = [];
+function noteWorthSaying(table, e) {
+  if (e.eventType === 'DELETE') return;
+  saidQueue.push({table, ev: e.eventType, row: e.new || {}});
+  if (saidQueue.length > 12) saidQueue = saidQueue.slice(-12);   // a burst is not a backlog
+}
+
+function bannerFor({table, ev, row}) {
+  const m = me(), actor = row.user_id || row.by_user || row.from_user;
+  if (actor === m.id) return null;         // nothing you did is news to you
+  const by = u => ({who: user(u), name: name(user(u))});
+  const post = id => postById(id);
+  const mine = p => p && p.userId === m.id;
+
+  if (table === 'posts') return null;      // the feed fills in underneath you
+
+  if (table === 'comments') {
+    const p = post(row.post_id);
+    if (!mine(p)) return null;
+    return {...by(actor), text: `commented on your proof: ${esc(row.body || '')}`, go: `#comment-${row.id}`};
+  }
+  if (table === 'likes') {
+    const p = post(row.post_id);
+    return mine(p) ? {...by(actor), text: 'liked your proof', go: `#post-${row.post_id}`} : null;
+  }
+  if (table === 'reactions') {
+    const p = post(row.post_id);
+    return mine(p) ? {...by(actor), text: `reacted ${row.emoji || ''}`.trim(), go: `#post-${row.post_id}`} : null;
+  }
+  if (table === 'comment_likes') {
+    const c = S.comments.find(x => x.id === row.comment_id);
+    return c && c.userId === m.id ? {...by(actor), text: 'liked your comment', go: `#comment-${row.comment_id}`} : null;
+  }
+  if (table === 'story_likes' || table === 'story_reactions') {
+    const st = S.stories.find(x => x.id === row.story_id);
+    if (!st || st.u !== m.id) return null;
+    return {...by(actor), text: table === 'story_likes' ? 'liked your story'
+      : `reacted ${row.emoji || ''} to your story`.trim(), go: `#story-${m.id}`};
+  }
+  if (table === 'messages') {
+    const msg = S.msgs.find(x => x.id === row.id);
+    if (!msg) return null;
+    const key = keyOf(msg);
+    if (S.chat === key) return null;       // you are reading it
+    const where = key.startsWith('g:') ? S.groups.find(g => g.id === +key.slice(2)) : null;
+    return {...by(actor), text: `${where ? `in ${where.name}: ` : ''}${esc(row.body || '')}`, go: `#chat-${key}`};
+  }
+  if (table === 'message_reactions') {
+    const msg = S.msgs.find(x => x.id === row.message_id);
+    if (!msg || msg.userId !== m.id) return null;
+    if (S.chat === keyOf(msg)) return null;
+    return {...by(actor), text: `reacted ${row.emoji || ''} to your message`.trim(), go: `#chat-${keyOf(msg)}`};
+  }
+  if (table === 'flags') {
+    const p = post(row.post_id);
+    if (!p) return null;
+    if (S.flag === row.id) return null;
+    if (ev === 'UPDATE') {
+      if (!row.outcome) return null;
+      const yours = mine(p);
+      return {...by(p.userId), text: row.outcome === 'upheld'
+        ? `${yours ? 'Your' : 'Their'} ${esc(effort(p))} needs redoing — the group decided`
+        : `${yours ? 'Your' : 'Their'} ${esc(effort(p))} stands — the group decided`, go: `#flag-${row.id}`};
+    }
+    return {...by(actor), text: mine(p) ? `questioned your ${esc(effort(p))}`
+      : `questioned ${esc(name(user(p.userId)))}'s ${esc(effort(p))}`, go: `#flag-${row.id}`};
+  }
+  if (table === 'invites') {
+    if (row.to_user !== m.id) return null;
+    const g = row.group_id && S.groups.find(x => x.id === row.group_id);
+    return {...by(actor), text: row.type === 'group' && g ? `invited you to ${esc(g.name)}` : 'wants to be friends',
+      go: row.type === 'group' ? '#groups' : '#friends'};
+  }
+  // Somebody said yes. friendships has no user_id on it, so who to name is whichever half
+  // of the pair is not you.
+  if (table === 'friendships') {
+    if (row.a !== m.id && row.b !== m.id) return null;
+    const them = row.a === m.id ? row.b : row.a;
+    return {...by(them), text: 'accepted your friend request', go: '#friends'};
+  }
+  if (table === 'group_members') {
+    const g = S.groups.find(x => x.id === row.group_id);
+    if (!g || !g.members.includes(m.id) || row.user_id === m.id) return null;
+    return {...by(row.user_id), text: `joined ${esc(g.name)}`, go: '#groups'};
+  }
+  return null;
+}
+
+// One at a time, from the top, gone on its own. Three is the most anybody reads before they
+// stop being information and start being weather.
+const DROP_MS = 4800, DROP_MAX = 3;
+let drops = [], dropTimer = null;
+function sayWhatHappened() {
+  const q = saidQueue; saidQueue = [];
+  if (!me() || document.hidden) return;
+  const seen = new Set();
+  for (const it of q) {
+    let card = null;
+    try { card = bannerFor(it); } catch (e) { card = null; }
+    if (!card) continue;
+    const key = `${card.who.id}|${card.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    drops.push(card);
+  }
+  if (drops.length > DROP_MAX) drops = drops.slice(-DROP_MAX);
+  if (drops.length && !dropTimer) nextDrop();
+}
+function nextDrop() {
+  const box = $('#drop'), card = drops.shift();
+  clearTimeout(dropTimer); dropTimer = null;
+  if (!card) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = `<button type="button" class="dropcard" onclick="takeDrop('${esc(card.go)}')">
+    ${av(card.who, '')}<span class="gr"><b>${esc(card.name)}</b><span>${card.text}</span></span></button>
+    <button type="button" class="x" onclick="nextDrop()" aria-label="Dismiss">✕</button>`;
+  box.hidden = false;
+  dropTimer = setTimeout(nextDrop, DROP_MS);
+}
+function takeDrop(go) {
+  drops = [];
+  clearTimeout(dropTimer); dropTimer = null;
+  $('#drop').hidden = true; $('#drop').innerHTML = '';
+  goTarget(go);
+}
+
 // ---- boot
 // The library keeps the session alive on its own timer and can end it without the app
 // asking — a refresh that finally fails after the phone has been offline, or a sign-out
 // in another tab. Without this the screen kept showing a signed-in app that no longer was.
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'INITIAL_SESSION') return;              // the first load() below covers this
-  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); render(); }
+  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); dropLive(); render(); }
   else if (!me()) load();                               // signed in, or a refresh recovered while we sat on the welcome screen
 });
 
@@ -5837,25 +6035,40 @@ fitBar();
 
 // A notification is worth tapping only if it arrives somewhere. The service worker sends
 // the app to /#post-<id>; this is the other half, run once the feed has something in it.
+// A notification is worth tapping only if it arrives somewhere. The service worker sends
+// the app to /#post-<id> and the like; this is the other half, run once the feed has
+// something in it. A banner from the top asks for the same journeys, so the dispatch is a
+// function of a target rather than of the address bar, and both go through it.
 function goToHash() {
-  const m = /^#post-(\d+)$/.exec(location.hash || '');
+  const h = location.hash;
+  if (!h) return;
+  history.replaceState(null, '', location.pathname);
+  goTarget(h);
+}
+// Out of whatever is open first, then in, so the way back out lands where it should.
+function clearTo(tab = 'feed') {
+  S.tab = tab; S.open = S.who = S.flag = S.chat = S.chatFrom = null; S.settings = false;
+  backY.length = 0;
+  closePost(); closeStory();
+  render();
+}
+function goTarget(hash) {
+  const m = /^#post-(\d+)$/.exec(hash || '');
   if (m) {
     const id = +m[1];
     if (!S.posts.some(p => p.id === id)) return;
-    history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0; render();
+    clearTo();
     const el = document.querySelector(`[data-post="${id}"]`);
     if (el) el.scrollIntoView({block: 'start'});
     return;
   }
   // A notification about a comment lands on the comment, not near it: the post is opened,
   // the reply is scrolled to and marked for a second so the eye finds it among twenty.
-  const cm = /^#comment-(\d+)$/.exec(location.hash || '');
+  const cm = /^#comment-(\d+)$/.exec(hash || '');
   if (cm) {
     const cid = +cm[1], c = S.comments.find(x => x.id === cid);
     if (!c || !S.posts.some(p => p.id === c.postId)) return;
-    history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0; render();
+    clearTo();
     const el = document.querySelector(`[data-cmt="${cid}"]`);
     if (el) {
       el.scrollIntoView({block: 'center'});
@@ -5864,39 +6077,39 @@ function goToHash() {
     }
     return;
   }
-  const sm = /^#story-([0-9a-f-]+)$/i.exec(location.hash || '');
+  const sm = /^#story-([0-9a-f-]+)$/i.exec(hash || '');
   if (sm) {
-    history.replaceState(null, '', location.pathname);
-    if (storiesOf(sm[1]).length) { S.tab = 'feed'; S.open = null; render(); openStory(sm[1]); }
+    if (storiesOf(sm[1]).length) { clearTo(); openStory(sm[1]); }
     return;
   }
   // A message lands in the conversation it belongs to, scrolled to the end of it, which is
   // where the thing you were told about is.
-  const ch = /^#chat-((?:g:\d+|u:[0-9a-f-]{36}))$/i.exec(location.hash || '');
+  const ch = /^#chat-((?:g:\d+|u:[\w-]+))$/i.exec(hash || '');
   if (ch) {
-    history.replaceState(null, '', location.pathname);
-    S.tab = 'feed'; S.open = S.who = S.flag = null; S.settings = false; backY.length = 0;
-    S.chat = null; render();               // out of whatever was open, then in, so back works
-    openChat(ch[1], 'list');
+    const key = ch[1];
+    // Whether it names a real conversation, rather than whether it is shaped like one. A
+    // key that looks right and points at nobody opens an empty chat with "?" at the top of
+    // it, which is worse than doing nothing.
+    const real = S.noChat ? false : key.startsWith('g:')
+      ? myGroups().some(g => g.id === +key.slice(2))
+      : key.slice(2) !== me().id
+        && (S.friends.includes(key.slice(2)) || S.msgs.some(x => keyOf(x) === key));
+    if (!real) return;
+    clearTo();
+    openChat(key, 'list');
     return;
   }
   // A flag lands on the flag, which is the only place its clock, its reason and its vote
   // all are. Straight there, not near it.
-  const fm = /^#flag-(\d+)$/.exec(location.hash || '');
+  const fm = /^#flag-(\d+)$/.exec(hash || '');
   if (fm) {
     const id = +fm[1];
-    history.replaceState(null, '', location.pathname);
     if (!S.flags.some(f => f.id === id)) return;
-    S.tab = 'feed'; S.open = S.who = null; S.settings = false; backY.length = 0;
-    S.flag = null; render();               // out of whatever was open, then in, so back works
+    clearTo();
     openFlag(id);
     return;
   }
-  if (location.hash === '#friends' || location.hash === '#groups') {
-    const tab = location.hash.slice(1);
-    history.replaceState(null, '', location.pathname);
-    go(tab);
-  }
+  if (hash === '#friends' || hash === '#groups') go(hash.slice(1));
 }
 addEventListener('hashchange', goToHash);
 

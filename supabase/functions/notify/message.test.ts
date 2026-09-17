@@ -105,3 +105,11 @@ eq(socialFor('comment_like', 'Ari'), 'Ari liked your comment', '  and reads prop
   const lostThem = verdictFor('20 pushups', true, false);
   ok(!/your/i.test(lostThem), 'and the group hears about it without being blamed for it', lostThem);
 }
+
+// ---- somebody said yes
+{
+  const f = socialFor('accepted_friend', 'Sam');
+  ok(/sam/i.test(f) && /accepted/i.test(f), 'an accepted friend request says who', f);
+  const g = socialFor('joined_group', 'Sam', 'Mornings');
+  ok(/sam/i.test(g) && /mornings/i.test(g), 'and joining a group says which one', g);
+}
