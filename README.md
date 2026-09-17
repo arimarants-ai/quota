@@ -574,6 +574,27 @@ that starts and ends inside one would step twice — once on the swipe and again
 the browser sends afterwards — and the click is swallowed rather than the zones made
 smaller, because tapping to step is how a story has always worked.
 
+## A picture for a group
+
+The same bucket, the same crop sheet, the same 512px square JPEG a person's picture is —
+`groupDlg()` reuses `openCrop()`, `useCrop()` and the held `avatarFile` outright, so there
+is one picture pipeline in the app and not two. `gav(g)` is the drawing, and differs from
+`av(u)` only in what it falls back to: the group's first letter on the mark colour rather
+than a person's initial on ink, so the two are told apart at a glance in a list holding both.
+
+What is genuinely different is **where the file goes**. The avatars policies key on the
+first folder being your own user id, and a group is not a user, so a group's picture lives
+at `g/<group id>/<timestamp>.jpg` and the policy asks the question the `groups` table
+already asks about editing one — are you in it. Any member can change it, which is exactly
+what `members edit the group` allows for the name and the quotas, and a picture is not a
+stronger thing to change than the name.
+
+The upload happens **after** the row is written, because a new group has no id to file a
+picture under until it exists. A picture that will not save cannot take the name and the
+quotas with it: those are already written by that point, so the failure says so and leaves
+them alone. **This needs the v30 block of `schema.sql`**; without it the picture is the only
+part that does not save, and it says which block is missing.
+
 ## The profile picture
 
 Both ways in — **Camera** and **Choose a file** — end at the same circular crop sheet

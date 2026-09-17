@@ -2636,6 +2636,100 @@ await withPage({ ...NO_WHEEL, noRealtime: true }, async page => {
     await page.evaluate(() => chatPoll) !== null);
 });
 
+// ---- a picture for a group
+//
+// The same bucket, the same crop and the same 512px square a person's picture is. What is
+// different is where it is filed — a group is not a user, and the avatars policies key on
+// the first folder being your own id — so the path is what this is really about.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => go('groups'));
+  await page.waitForTimeout(400);
+  check('a group with no picture wears its first letter',
+    (await page.locator('.ghead .av.gav').first().innerText()).trim() === 'M',
+    await page.locator('.ghead .av.gav').first().innerText());
+
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(500);
+  await page.evaluate(() => groupDlg(S.groups.find(x => x.id === 1)));
+  await page.waitForTimeout(400);
+  check('  editing it offers somewhere to put one',
+    await page.locator('#dlg #avprev .av').count() === 1
+    && /camera/i.test(await page.locator('#dlg').innerText()));
+  check('    and says who may change it',
+    /anyone in it can change it/i.test(await page.locator('#dlg').innerText()));
+
+  // Straight through the crop, the way the camera and the file picker both arrive at it.
+  await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = c.height = 8;
+    const g = c.getContext('2d'); g.fillStyle = '#123456'; g.fillRect(0, 0, 8, 8);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    await openCrop(new File([blob], 'pic.png', { type: 'image/png' }), 'file');
+  });
+  await page.waitForTimeout(500);
+  check('  a picture chosen for it goes through the same crop a face does',
+    await page.locator('#crop').evaluate(d => d.open) === true);
+  await page.evaluate(() => useCrop());
+  await page.waitForTimeout(600);
+  check('    and lands in the form as the picture it will be',
+    await page.locator('#dlg #avprev .av img').count() === 1);
+
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(1200);
+  const up = await page.evaluate(() => (self.__uploads || []).at(-1));
+  check('  saving files it under the group, not under whoever saved it',
+    up && up.bucket === 'avatars' && /^g\/1\/\d+\.jpg$/.test(up.path) && up.type === 'image/jpeg',
+    JSON.stringify(up));
+  const wrote = await page.evaluate(() => self.__edits.filter(e => e.table === 'groups' && 'avatar_path' in e).at(-1));
+  check('    and writes that path onto the group',
+    wrote && wrote.avatar_path === up.path, JSON.stringify(wrote));
+
+  // And once it is really saved — read back through a load, not set on S by hand — it is
+  // the group's face everywhere the letter used to be.
+  await page.evaluate(() => go('groups'));
+  await page.waitForTimeout(800);
+  check('  the group wears it in the list',
+    (await page.locator('.ghead .av.gav img').first().getAttribute('src') || '').includes(up.path),
+    await page.locator('.ghead .av.gav img').first().getAttribute('src').catch(() => 'no img'));
+  await page.evaluate(() => openChat('g:1'));
+  await page.waitForTimeout(700);
+  check('    and at the top of its chat',
+    (await page.locator('.cbar .av.gav img').getAttribute('src') || '').includes(up.path));
+  await page.evaluate(() => closeChat());
+  await page.waitForTimeout(600);
+  await page.evaluate(() => openChats());
+  await page.waitForTimeout(600);
+  check('    and in the list of chats',
+    (await page.locator('.crow .av.gav img').first().getAttribute('src') || '').includes(up.path));
+});
+
+// A picture that will not upload must not take the name and the quotas down with it.
+await withPage({ ...NO_WHEEL, uploadFails: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(400);
+  await page.evaluate(() => groupDlg(S.groups.find(x => x.id === 1)));
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=name]').fill('Evenings');
+  await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = c.height = 8;
+    c.getContext('2d').fillRect(0, 0, 8, 8);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    await openCrop(new File([blob], 'pic.png', { type: 'image/png' }), 'file');
+  });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => useCrop());
+  await page.waitForTimeout(400);
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(1400);
+  const named = await page.evaluate(() => self.__edits.filter(e => e.table === 'groups' && e.name).at(-1));
+  check('a picture that will not upload still saves the rest of the group',
+    named && named.name === 'Evenings', JSON.stringify(named));
+  check('  and says so rather than failing quietly',
+    await page.isVisible('#err') && /picture/i.test(await page.locator('#err span').innerText()),
+    await page.locator('#err span').innerText().catch(() => ''));
+});
+
 // Which groups you are willing to have on show.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
