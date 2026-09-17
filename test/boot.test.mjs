@@ -2242,12 +2242,38 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   const cbar = await rule('.cbar'), fbar = await rule('.fbar'), backx = await rule('#app > .backx');
   check('  the bar at the top sits below the notch',
     cbar && /safe-area-inset-top/.test(cbar.css), JSON.stringify(cbar));
-  check('    and so does the one on a flag, and it stays put too',
-    fbar && /safe-area-inset-top/.test(fbar.css) && fbar.pos === 'sticky', JSON.stringify(fbar));
+  check('    and so does the one on a flag', fbar && /safe-area-inset-top/.test(fbar.css), JSON.stringify(fbar));
   check('    and a back button on its own at the top of a screen',
     backx && /margin-top:.*safe-area-inset-top/.test(backx.css), JSON.stringify(backx));
-  check('  and it stays put however far up you have read',
-    await page.evaluate(() => { const c = getComputedStyle(document.querySelector('.cbar')); return c.position === 'sticky' && c.top === '0px'; }));
+  // A conversation is a column the height of the screen, and only the lines in it scroll.
+  // Nothing sticky, nothing fixed: a sticky bar stops sticking the moment its screen is
+  // transformed or lifted into the ghost, which is what was glitching the way out.
+  await page.evaluate(() => {
+    S.msgs = Array.from({ length: 40 }, (_, i) => ({ id: 9000 + i, groupId: 1, a: null, b: null,
+      userId: i % 2 ? 'u1' : 'u2', body: `line ${i}`, ts: Date.now() - (40 - i) * 6e4 }));
+    render();
+  });
+  await page.waitForTimeout(300);
+  const col = await page.evaluate(() => {
+    const m = document.querySelector('#msgs'), bar = document.querySelector('.cbar'), box = document.querySelector('.csend');
+    const cs = getComputedStyle(m);
+    const before = bar.getBoundingClientRect().top;
+    m.scrollTop = 0;
+    return { scrolls: cs.overflowY === 'auto' && m.scrollHeight > m.clientHeight,
+      atEndFirst: m.scrollHeight - m.clientHeight - (m.scrollTop) >= 0,   // was scrolled to the end before we moved it
+      barStill: bar.getBoundingClientRect().top === before,
+      barSticky: getComputedStyle(bar).position === 'sticky', boxFixed: getComputedStyle(box).position === 'fixed',
+      pageScrolls: document.documentElement.scrollHeight > innerHeight + 1,
+      boxBelow: box.getBoundingClientRect().top >= m.getBoundingClientRect().bottom - 1 };
+  });
+  check('  a long conversation scrolls inside its own box, not the page',
+    col.scrolls && !col.pageScrolls, JSON.stringify(col));
+  check('    with the name and the way back held still above it, and nothing sticky or fixed to do it',
+    col.barStill && !col.barSticky && !col.boxFixed && col.boxBelow, JSON.stringify(col));
+  check('    and the tab bar put away for it, faded rather than gone',
+    await page.evaluate(() => !$('#bar').hidden && $('#bar').classList.contains('away')));
+  await page.evaluate(() => { S.msgs = []; render(); });
+  await page.waitForTimeout(200);
   check('    and says who can read it',
     /everyone in the group/i.test(await page.locator('#app .msgs').innerText()),
     await page.locator('#app .msgs').innerText());
