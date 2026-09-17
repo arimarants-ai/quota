@@ -622,6 +622,23 @@ quotas with it: those are already written by that point, so the failure says so 
 them alone. **This needs the v30 block of `schema.sql`**; without it the picture is the only
 part that does not save, and it says which block is missing.
 
+## Every way out of the camera
+
+`useTake()` is the only one that keeps what was filmed. Every other — ✕, Escape, the phone
+taking the app away — puts it down, and puts down the line about it on the post sheet at the
+same time, which is what `dropTake()` is for: a sheet that goes on saying "Recorded · 3.2 MB"
+about a clip that is no longer anywhere is worse than one that says nothing.
+
+**Escape reached none of this.** A `<dialog>` closes itself on Escape without going near the
+button's handler, so the camera was left running, the review was left up, and the take stayed
+on `recorded` — through closing and reopening the camera, because opening one does not clear
+a take either. The tidying now hangs off the dialog's own `close` event, so there is one way
+out however it was asked for.
+
+**Closing on a recording in progress is still a stop, not a discard.** What was filmed up to
+that point is worth being asked about, and tearing the camera down first would lose the end
+of it. That is a decision with a test on it, and it is not the same thing as Escape.
+
 ## The profile picture
 
 Both ways in — **Camera** and **Choose a file** — end at the same circular crop sheet
@@ -672,6 +689,12 @@ their next open. If a document changes in a way that matters, bump `TERMS_VERSIO
 `index.html`.
 
 ### The word filter
+
+It does not say the word back. Whoever typed it knows which one it was, and quoting it puts
+the thing the filter exists to keep off the screen onto the screen, in an alert, in front of
+whoever is holding the phone. The notice says that some of the language cannot go on Quota
+and which kind it was, and stops there. The test for it takes the word out of the page at
+run time rather than carrying one, for the same reason.
 
 `badWords()` in `index.html` refuses slurs, sexually explicit words and strong swearing
 anywhere text is typed — captions, comments, stories, group names, metrics, bios,
