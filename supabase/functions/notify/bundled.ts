@@ -1,4 +1,4 @@
-// GENERATED — do not edit. Built from push.ts, message.ts and index.ts by test/bundle.mjs.
+// GENERATED — do not edit. Built from push.ts, message.ts, index.ts by test/bundle.mjs.
 // This is the same function in one file, for pasting into the Supabase dashboard when
 // the CLI is not to hand. Deploying either one gives the same behaviour.
 
