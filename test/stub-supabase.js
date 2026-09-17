@@ -206,6 +206,42 @@
     p.delete = () => chain(t, { ...st, op: 'delete' });
     return p;
   };
+  // What an rpc actually does. Standalone so rpc() can hand back a thenable that runs it.
+  const rpcRun = async (fn, args) => {
+    if (fn === 'spin') {
+      const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
+      const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
+      if (had && !had.sat_out) return { data: had, error: null };
+      if (had) self.__spins = self.__spins.filter(sp => sp !== had);
+      const results = STAGES.map(st => {
+        const i = M().pick != null ? M().pick % st.segments.length : Math.floor(Math.random() * st.segments.length);
+        return { seq: st.seq, kind: st.kind, label: st.label, value: st.segments[i], i, segs: st.segments };
+      });
+      const days = results.find(r => r.kind === 'days');
+      const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
+        results, days_required: days ? Math.min(+days.value, WHEEL.every_days) : 1, sat_out: false,
+        created_at: new Date().toISOString() };
+      self.__spins.push(sp);
+      return { data: sp, error: null };
+    }
+    if (fn === 'sit_out') {
+      const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
+      const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
+      if (had) return { data: had, error: null };      // never overwrites a result
+      const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
+        results: [], days_required: 0, sat_out: true, created_at: new Date().toISOString() };
+      self.__spins.push(sp);
+      return { data: sp, error: null };
+    }
+    if (fn === 'use_challenge') {
+      const sp = self.__spins.find(x => x.id === args.p_spin);
+      if (sp) sp.challenge_override = args.p_text;
+      return { data: sp, error: null };
+    }
+    if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }
+    return { data: null, error: null };
+  };
+
   self.supabase = {
     createClient: () => ({
       auth: {
@@ -220,42 +256,11 @@
         signOut: async () => ({ error: null }),
       },
       from: t => chain(t),
-      // The database picks the slice and writes the row before anything is shown; calling
-      // it again returns what is already there rather than rolling again.
-      rpc: async (fn, args) => {
-        if (fn === 'spin') {
-          const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
-          const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
-          if (had && !had.sat_out) return { data: had, error: null };
-          if (had) self.__spins = self.__spins.filter(sp => sp !== had);
-          const results = STAGES.map(st => {
-            const i = M().pick != null ? M().pick % st.segments.length : Math.floor(Math.random() * st.segments.length);
-            return { seq: st.seq, kind: st.kind, label: st.label, value: st.segments[i], i, segs: st.segments };
-          });
-          const days = results.find(r => r.kind === 'days');
-          const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
-            results, days_required: days ? Math.min(+days.value, WHEEL.every_days) : 1, sat_out: false,
-            created_at: new Date().toISOString() };
-          self.__spins.push(sp);
-          return { data: sp, error: null };
-        }
-        if (fn === 'sit_out') {
-          const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
-          const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
-          if (had) return { data: had, error: null };      // never overwrites a result
-          const sp = { id: self.__spins.length + 1, wheel_id: args.p_wheel, user_id: 'u1', cycle,
-            results: [], days_required: 0, sat_out: true, created_at: new Date().toISOString() };
-          self.__spins.push(sp);
-          return { data: sp, error: null };
-        }
-        if (fn === 'use_challenge') {
-          const sp = self.__spins.find(x => x.id === args.p_spin);
-          if (sp) sp.challenge_override = args.p_text;
-          return { data: sp, error: null };
-        }
-        if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }
-        return { data: null, error: null };
-      },
+      // A thenable and not a Promise, which is what the real library hands back: it has
+      // then() and neither catch() nor finally(). A stub that returned a real Promise was
+      // more forgiving than the thing it stands for, and let `sb.rpc(...).catch(...)` ship —
+      // it threw at the top of the load on a real phone and took the whole app down.
+      rpc: (fn, args) => ({ then: (res, rej) => rpcRun(fn, args).then(res, rej) }),
       storage: { from: () => ({
         getPublicUrl: () => ({ data: { publicUrl: '' } }),
         // One signed URL per post, in order, the way the page consumes them. A real

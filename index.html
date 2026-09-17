@@ -1192,7 +1192,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v64';
+const BUILD = 'quota-v65';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1427,7 +1427,11 @@ async function fetchAll() {
   // or asked to vote on something that is over. Cron does the same every ten minutes for
   // the sake of people who are not looking, and this does nothing at all on a project where
   // the v27 block has not been run.
-  await sb.rpc('close_due_flags').catch(() => {});
+  // try/catch rather than .catch(): what the library hands back here is a thenable, not a
+  // Promise — it has then() and nothing else — so calling .catch() on it throws, at the top
+  // of the load, which takes the whole app with it. A missing function comes back as
+  // {error} rather than a rejection anyway; the catch is for the network failing.
+  try { await sb.rpc('close_due_flags'); } catch (e) {}
   const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
