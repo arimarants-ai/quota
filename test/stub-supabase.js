@@ -50,6 +50,9 @@
   // closes; both are done here too, or the page would be driven against a shape the real
   // thing never produces.
   self.__flags = []; self.__fvotes = [];
+  // Talking to each other. Every group has a chat whether anything is in it or not, so
+  // these start empty and a test puts what it needs in.
+  self.__msgs = []; self.__mreacts = []; self.__reads = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
@@ -76,6 +79,11 @@
     stories: self.__stories,
     flags: self.__flags,
     flag_votes: self.__fvotes,
+    // A private chat is between friends, and until now nothing needed anybody to have one.
+    friendships: M().friends ? [{ a: 'u1', b: 'u2' }] : [],
+    messages: self.__msgs,
+    message_reactions: self.__mreacts,
+    chat_reads: self.__reads,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
   // column can be null, and a row can be missing what a newer column would have had.
@@ -87,6 +95,10 @@
     // app has to draw itself without the feature rather than refuse to draw at all.
     if (m.noFlagTables && (t === 'flags' || t === 'flag_votes')) {
       return { data: null, error: err('relation "public.flags" does not exist') };
+    }
+    // The same, for a project where the v28 block has not been run.
+    if (m.noChatTables && (t === 'messages' || t === 'message_reactions' || t === 'chat_reads')) {
+      return { data: null, error: err('relation "public.messages" does not exist') };
     }
     return m.queryError ? { data: null, error: err(m.queryError) } : { data: rows(t).map(mangle), error: null };
   };
@@ -111,6 +123,10 @@
       }
       if (st.op === 'delete' && (t === 'story_likes' || t === 'story_reactions')) {
         const key = t === 'story_likes' ? '__slikes' : '__sreacts';
+        self[key] = self[key].filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
+      if (st.op === 'delete' && (t === 'messages' || t === 'message_reactions')) {
+        const key = t === 'messages' ? '__msgs' : '__mreacts';
         self[key] = self[key].filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
       if (st.op === 'delete' && t === 'comment_likes') {
@@ -146,7 +162,13 @@
     // still in flight, rather than only after the round trip has landed.
     const p = { then: (res, rej) => Promise.resolve(
       self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
-    for (const k of ['select', 'order', 'limit', 'in', 'upsert']) p[k] = () => chain(t, st);
+    for (const k of ['select', 'order', 'limit', 'in']) p[k] = () => chain(t, st);
+    // upsert is a write, and a read mark is the one thing the page upserts: treated as a
+    // passthrough it silently kept every chat unread however many times one was opened.
+    p.upsert = row => {
+      if (t === 'chat_reads') self.__reads = [...self.__reads.filter(r => r.chat !== row.chat), { ...row }];
+      return chain(t, { ...st, op: 'upsert' });
+    };
 
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
@@ -176,6 +198,9 @@
         self.__fvotes.push({ flag_id: id, user_id: row.by_user, agree: true });   // raising one is a vote
       }
       if (t === 'flag_votes') self.__fvotes.push({ ...row });
+      if (t === 'messages') self.__msgs.push({ id: 900 + self.__msgs.length, created_at: new Date().toISOString(),
+        group_id: null, a: null, b: null, ...row });
+      if (t === 'message_reactions') self.__mreacts.push({ ...row });
       return chain(t, { ...st, op: 'insert' });
     };
     p.delete = () => chain(t, { ...st, op: 'delete' });

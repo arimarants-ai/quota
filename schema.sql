@@ -1526,3 +1526,112 @@ create trigger flags_closed_notify after update of outcome on public.flags
 -- that arrives after the person could have done anything about it.
 select cron.unschedule('close-flags') where exists (select 1 from cron.job where jobname = 'close-flags');
 select cron.schedule('close-flags', '*/10 * * * *', $cron$ select public.close_due_flags(); $cron$);
+
+-- ============================================================
+-- v28 (talking to each other): safe to run on an existing project.
+--
+-- Two kinds of chat and one table, because a message is a message. A group's chat is the
+-- group — every group has one the moment it exists, with nothing to create and nothing to
+-- join, and anyone who joins later can read all of it, the way a channel works. A private
+-- one is a pair of friends.
+--
+-- The pair is stored sorted, which is exactly what friendships already does, so "is there
+-- a chat between these two" and "are these two friends" are the same shape of question and
+-- the same index answers both. A row is one or the other, never both and never neither,
+-- and that is a constraint rather than a convention.
+--
+-- Text only. Proof is what the video budget is for, and a chat that can carry clips is a
+-- 1 GB bucket with a hole in it.
+-- ============================================================
+create table if not exists public.messages (
+  id bigint generated always as identity primary key,
+  group_id bigint references public.groups on delete cascade,
+  -- The pair, sorted, the way friendships is stored.
+  a uuid references public.profiles on delete cascade,
+  b uuid references public.profiles on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  body text not null check (char_length(btrim(body)) between 1 and 2000),
+  created_at timestamptz not null default now(),
+  -- A group message or a private one. Never both, never neither.
+  constraint message_is_one_kind check ((group_id is not null) <> (a is not null)),
+  constraint message_pair_whole check ((a is null) = (b is null)),
+  constraint message_pair_sorted check (a is null or a < b)
+);
+create index if not exists messages_group on public.messages (group_id, created_at desc) where group_id is not null;
+create index if not exists messages_pair on public.messages (a, b, created_at desc) where a is not null;
+alter table public.messages enable row level security;
+
+-- Are these two friends? friendships already stores the pair sorted, so this is the same
+-- question the rest of the app asks, asked once.
+create or replace function public.are_friends(x uuid, y uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.friendships f
+                  where f.a = least(x, y) and f.b = greatest(x, y));
+$$;
+
+drop policy if exists "read the chats you are in" on public.messages;
+drop policy if exists "say something where you can read" on public.messages;
+create policy "read the chats you are in" on public.messages for select
+  using ((group_id is not null and public.is_member(group_id))
+      or (a is not null and auth.uid() in (a, b)));
+-- Writing needs one thing more than reading: a private chat is between friends. Somebody
+-- who can see you is not somebody who can message you.
+create policy "say something where you can read" on public.messages for insert
+  with check (user_id = auth.uid()
+    and ((group_id is not null and public.is_member(group_id))
+      or (a is not null and auth.uid() in (a, b) and public.are_friends(a, b))));
+-- Taking back your own. No update: an edited message in a group nobody was told about is
+-- a different conversation from the one people read.
+drop policy if exists "take back your own message" on public.messages;
+create policy "take back your own message" on public.messages for delete using (user_id = auth.uid());
+
+-- Reacting to one, the same shape as reacting to a post.
+create table if not exists public.message_reactions (
+  message_id bigint not null references public.messages on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  emoji text not null check (char_length(emoji) between 1 and 8),
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id, emoji)
+);
+create index if not exists message_reactions_message on public.message_reactions (message_id);
+alter table public.message_reactions enable row level security;
+
+create or replace function public.can_see_message(mid bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.messages m where m.id = mid
+    and ((m.group_id is not null and public.is_member(m.group_id))
+      or (m.a is not null and auth.uid() in (m.a, m.b))));
+$$;
+
+drop policy if exists "see reactions where you can read" on public.message_reactions;
+drop policy if exists "react where you can read" on public.message_reactions;
+drop policy if exists "take back your own reaction" on public.message_reactions;
+create policy "see reactions where you can read" on public.message_reactions for select
+  using (public.can_see_message(message_id));
+create policy "react where you can read" on public.message_reactions for insert
+  with check (user_id = auth.uid() and public.can_see_message(message_id));
+create policy "take back your own reaction" on public.message_reactions for delete
+  using (user_id = auth.uid());
+
+-- How far down each chat you have read. One row per person per chat, keyed by a short
+-- string — 'g:12' for a group, 'u:<the other person>' for a private one — rather than by a
+-- pair of nullable columns that no primary key can cover properly. Nobody reads anybody
+-- else's: what you have read is not news to the person who sent it.
+create table if not exists public.chat_reads (
+  user_id uuid not null references public.profiles on delete cascade,
+  chat text not null check (chat ~ '^(g:[0-9]+|u:[0-9a-f-]{36})$'),
+  seen_at timestamptz not null default now(),
+  primary key (user_id, chat)
+);
+alter table public.chat_reads enable row level security;
+drop policy if exists "your own read marks" on public.chat_reads;
+create policy "your own read marks" on public.chat_reads for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Everyone in the conversation hears about it, except whoever said it.
+drop trigger if exists messages_notify on public.messages;
+create trigger messages_notify after insert on public.messages
+  for each row execute function public.notify_hook('message');
+drop trigger if exists message_reactions_notify on public.message_reactions;
+create trigger message_reactions_notify after insert on public.message_reactions
+  for each row execute function public.notify_hook('message_reaction');

@@ -151,6 +151,21 @@ export function verdictFor(what: string, upheld: boolean, mine: boolean): string
   return upheld ? `The group says ${what} needs redoing.` : `The group let ${what} stand.`;
 }
 
+/** Somebody's own words, trimmed to what a lock screen can hold. The rest is one tap away. */
+export const snippet = (s: string | null | undefined, max = 80) => {
+  const t = (s ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+};
+
+/**
+ * A message in a chat. The group's name is the title of the notification when it is a
+ * group's, so this is only ever the line under it: who said it and what they said.
+ */
+export function chatFor(name: string, body: string): string {
+  const said = snippet(body);
+  return said ? `${name}: ${said}` : `${name} sent a message`;
+}
+
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
 export type Who = { username: string; display_name?: string | null };
 export const who = (p: Who) => p.display_name || p.username;
@@ -159,8 +174,9 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
+  if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
@@ -286,6 +302,49 @@ Deno.serve(async (req) => {
       body: socialFor('comment_like', who(from), comment.body),
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
+    }));
+  }
+
+  // Somebody said something. A group's chat goes to the group; a private one goes to the
+  // other half of the pair. The link is the chat as the person reading it names it, which
+  // for a private one is the sender rather than themselves.
+  if (kind === 'message') {
+    const { group_id: gid, a, b, user_id: actor, body: said } = record ?? {};
+    if (!actor) return new Response('ignored', { status: 200 });
+    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    if (!from) return new Response('ignored', { status: 200 });
+    if (gid) {
+      const [[group], members] = await Promise.all([
+        rest(`groups?id=eq.${gid}&select=name`),
+        rest(`group_members?group_id=eq.${gid}&user_id=neq.${actor}&select=user_id`),
+      ]);
+      if (!group) return new Response('ignored', { status: 200 });
+      return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
+        title: group.name, body: chatFor(who(from), said),
+        url: `${SITE_URL}/#chat-g:${gid}`, tag: `chat-g-${gid}`,
+      }));
+    }
+    const to = a === actor ? b : a;
+    if (!to) return new Response('ignored', { status: 200 });
+    return blast([to], JSON.stringify({
+      title: 'Quota', body: chatFor(who(from), said),
+      url: `${SITE_URL}/#chat-u:${actor}`, tag: `chat-u-${actor}`,
+    }));
+  }
+
+  // Somebody reacted to a line. Only whoever wrote it is told.
+  if (kind === 'message_reaction') {
+    const { message_id, user_id: actor, emoji } = record ?? {};
+    if (!message_id || !actor) return new Response('ignored', { status: 200 });
+    const [[msg], [from]] = await Promise.all([
+      rest(`messages?id=eq.${message_id}&select=user_id,group_id,a,b`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+    ]);
+    if (!msg || !from || msg.user_id === actor) return new Response('ignored', { status: 200 });
+    const where = msg.group_id ? `g:${msg.group_id}` : `u:${actor}`;
+    return blast([msg.user_id], JSON.stringify({
+      title: 'Quota', body: socialFor('message_reaction', who(from), emoji),
+      url: `${SITE_URL}/#chat-${where}`, tag: `msgreact-${message_id}-${emoji}`,
     }));
   }
 

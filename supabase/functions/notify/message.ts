@@ -42,6 +42,21 @@ export function verdictFor(what: string, upheld: boolean, mine: boolean): string
   return upheld ? `The group says ${what} needs redoing.` : `The group let ${what} stand.`;
 }
 
+/** Somebody's own words, trimmed to what a lock screen can hold. The rest is one tap away. */
+export const snippet = (s: string | null | undefined, max = 80) => {
+  const t = (s ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+};
+
+/**
+ * A message in a chat. The group's name is the title of the notification when it is a
+ * group's, so this is only ever the line under it: who said it and what they said.
+ */
+export function chatFor(name: string, body: string): string {
+  const said = snippet(body);
+  return said ? `${name}: ${said}` : `${name} sent a message`;
+}
+
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
 export type Who = { username: string; display_name?: string | null };
 export const who = (p: Who) => p.display_name || p.username;
@@ -50,8 +65,9 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
+  if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
   if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();

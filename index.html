@@ -557,6 +557,89 @@ button.rg{border:0;font:inherit}
   padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
 .onebar .backx{margin:0 0 0 6px}           /* the bar already has the padding the screen version needs */
 .onewrap{max-width:600px;margin:0 auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+/* ---- talking to each other ----
+   The icon top right of the feed, where every app that has one puts it. */
+.hdr .top .chatbtn{position:relative;background:none;padding:4px;color:var(--text);line-height:0}
+.hdr .top .chatbtn svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.hdr .top .chatbtn i{position:absolute;right:-3px;top:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+  background:var(--mk);color:var(--onmk);font-style:normal;font-size:10.5px;line-height:17px;text-align:center}
+/* The list. One line each, and the ones with something waiting read as waiting. */
+.crow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:11px 14px;background:none;
+  color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
+/* gav, not gr: gr is the growing middle of the row, and an avatar given flex:1 is an
+   ellipse with a letter in it. */
+.crow .av.gav{background:var(--mk);color:var(--onmk)}
+.crow .gr{flex:1;min-width:0}
+.crow b{display:block;font-size:14.5px;font-weight:800}
+.crow .gr > span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow.un .gr > span{color:var(--text);font-weight:600}
+.crow .rt{flex:none;text-align:right}
+.crow .rt em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.crow .rt i{display:inline-block;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--mk);
+  color:var(--onmk);font-style:normal;font-size:12px;line-height:20px;text-align:center}
+/* One conversation. */
+.cbar{display:flex;align-items:center;gap:10px;padding:12px 14px 10px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:4;background:var(--bg)}
+.cbar .backx{margin:0}
+.cbar .av.gav{background:var(--mk);color:var(--onmk)}
+.cbar .nm{min-width:0}
+.cbar .nm b{display:block;font-size:15.5px;font-weight:800}
+.cbar .nm span{font-size:11.5px;color:var(--muted)}
+/* A conversation is read from the bottom, so a short one sits at the bottom rather than
+   floating at the top of an empty screen. */
+.msgs{padding:14px 12px 0;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;
+  min-height:calc(100vh - 150px)}
+.cday{align-self:center;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.cwho{font-size:11.5px;font-weight:800;color:var(--muted);margin:12px 0 3px 6px;align-self:flex-start}
+.m{position:relative;max-width:78%;display:flex;align-items:flex-end;gap:4px}
+.m.them{align-self:flex-start}
+.m.me{align-self:flex-end;flex-direction:row-reverse}
+.m .say{display:block;padding:9px 13px;font-size:15px;line-height:1.4;text-align:left;border-radius:16px;
+  white-space:pre-wrap;overflow-wrap:anywhere}
+.m.them .say{background:var(--soft);color:var(--text);border-bottom-left-radius:4px}
+.m.me .say{background:var(--mk);color:var(--onmk);border-bottom-right-radius:4px}
+.m.pending{opacity:.55}
+.m .drop{background:none;color:var(--muted);font-size:12px;padding:4px;opacity:0;flex:none}
+.m:hover .drop{opacity:1}
+/* Reactions hang off the bottom corner, the way every chat does them. */
+.m .mrx{position:absolute;bottom:-10px;display:flex;gap:3px;z-index:2}
+.m.them .mrx{left:10px}
+.m.me .mrx{right:10px}
+.m .mrx button{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:1px 6px 2px;font-size:12.5px;line-height:1.3;color:var(--text)}
+.m .mrx button.mine{border-color:var(--mk)}
+.m .mrx button b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:11px;color:var(--muted)}
+.m .reactpick{position:absolute;bottom:100%;margin-bottom:6px;z-index:6;display:flex;gap:2px;background:var(--sheet);
+  border:1px solid var(--line);border-radius:999px;padding:4px 6px;box-shadow:0 10px 26px -8px rgba(0,0,0,.35)}
+.m.them .reactpick{left:0}
+.m.me .reactpick{right:0}
+.m .reactpick button{background:none;padding:3px 4px;font-size:21px;line-height:1}
+/* The composer sits over the screen rather than at the end of it, so it is where your
+   thumb already is however far up the conversation you have read. */
+/* Follows the viewport the way the tab bar does, and rides the keyboard up on --kb. One
+   expression, with nothing in it that flips on focus alone: a box that moves the moment a
+   field is blurred moves out from under the finger that is pressing Send, and a press and
+   a release on two different places is not a click. */
+.csend{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb,0px) + var(--kb,0px));
+  max-width:576px;margin:0 auto;z-index:22;display:flex;align-items:center;gap:8px;padding:8px;
+  background:var(--barbg);border:1px solid var(--line);backdrop-filter:blur(12px)}
+.csend .emo{width:34px;height:34px;background:var(--soft);display:grid;place-items:center;flex:none;padding:0}
+.csend .emo svg{width:19px;height:19px;fill:none;stroke:var(--muted);stroke-width:1.9}
+.csend input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);
+  font:inherit;font-size:16px;border-radius:0}
+.csend button.primary{background:none;color:var(--mkt);font-weight:800;font-size:15px;padding:6px 6px;flex:none}
+.cemoji{position:fixed;left:12px;right:12px;bottom:calc(66px + env(safe-area-inset-bottom) + var(--vvb,0px) + var(--kb,0px));
+  max-width:576px;margin:0 auto;z-index:22}
+main.chatting{padding-bottom:0}
+.msgs{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+/* The way into a group's own chat, on the group screen. */
+.chatrow{display:flex;align-items:center;justify-content:center;gap:8px}
+.chatrow svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.chatrow i{font-style:normal;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--mk);
+  color:var(--onmk);font-size:11px;line-height:19px}
+.list .row .msg{display:inline-flex;align-items:center;gap:5px;line-height:0}
+.list .row .msg svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.list .row .msg i{font-style:normal;font-size:11px;line-height:1;color:var(--mkt)}
 /* ---- questioning somebody's proof ----
    The flag is an outline until somebody uses it, and then it is filled: the post itself
    says a question has been asked about it rather than hiding that on a page of its own. */
@@ -1094,7 +1177,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v62';
+const BUILD = 'quota-v63';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1139,7 +1222,8 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, auth: 'welcome', push: 'off', booting: true, legal: null};
+let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+  msgs: [], mreacts: [], reads: [], chat: null, chatFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -1329,7 +1413,7 @@ async function fetchAll() {
   // the sake of people who are not looking, and this does nothing at all on a project where
   // the v27 block has not been run.
   await sb.rpc('close_due_flags').catch(() => {});
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -1356,8 +1440,14 @@ async function fetchAll() {
     // feature that is simply not switched on yet. Comments have worked this way since v2.
     soft(sb.from('flags').select('*')),
     soft(sb.from('flag_votes').select('*')),
+    // ponytail: the last few hundred, which is every chat this app has ever had between
+    // people who see each other daily. A conversation older than that needs paging.
+    soft(sb.from('messages').select('*').order('created_at', {ascending: false}).limit(400)),
+    soft(sb.from('message_reactions').select('message_id,user_id,emoji')),
+    soft(sb.from('chat_reads').select('chat,seen_at')),
   ]);
   S.noFlags = flags === null;
+  S.noChat = msgs === null;
   // Every row is put into the shape the rest of the page assumes, once, here. A jsonb
   // column that came back null, or a wheel whose stages did not load, used to reach a
   // view as a missing array and take the whole screen down with it — and since render()
@@ -1396,6 +1486,12 @@ async function fetchAll() {
     outcome: f.outcome || null, closedAt: f.closed_at ? Date.parse(f.closed_at) : null}));
   S.fvotes = (fvotes || []).map(v => ({f: v.flag_id, u: v.user_id, yes: !!v.agree}));
   if (S.flag && !S.flags.some(f => f.id === S.flag)) S.flag = null;   // gone while it was open
+  // Oldest first, which is the order a conversation is read in. The query asks for the
+  // newest so the limit takes the right end of a long one.
+  S.msgs = (msgs || []).map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at)})).sort((x, y) => x.ts - y.ts);
+  S.mreacts = (mreacts || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
+  S.reads = (reads || []).map(r => ({k: r.chat, ts: Date.parse(r.seen_at)}));
   // A post the group decided did not count is left out of the day it was posted on, which
   // is the whole consequence of an upheld flag: the day goes back to what it was without
   // it, and every rule already written on top of the totals — the chips, the streak, the
@@ -1541,7 +1637,8 @@ function screenHTML() {
   if (!m) return S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
   if (needsTerms(m)) return acceptView();
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
-  return S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
+  return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
+    : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
     : S.settings ? settingsView()
     : S.who ? personView(S.who)
     : g ? groupView(g)
@@ -1560,6 +1657,14 @@ function redraw(sel, html) {
   const keep = new Map(at('.reel').map(r => [r.parentNode.dataset.post, r]));
   const typed = new Map(at('.cin input').filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
   const trays = at('.emoji:not([hidden])').map(t => t.closest('.post').dataset.post);
+  // The chat composer is not attached to a post, so the preserving above walks straight
+  // past it — and a conversation redraws itself every few seconds while it is open, which
+  // is the one screen where a redraw is most likely to land mid-sentence.
+  const cin = box.querySelector('.csend input');
+  const said = cin ? cin.value : '';
+  const caret = cin ? cin.selectionStart : 0;
+  const typing = cin && document.activeElement === cin;
+  const cTray = !!box.querySelector('.cemoji:not([hidden])');
   box.innerHTML = html;
   at('.reel').forEach(r => {
     const old = keep.get(r.parentNode.dataset.post); if (!old) return;
@@ -1572,6 +1677,13 @@ function redraw(sel, html) {
   });
   typed.forEach((v, id) => { const i = document.querySelector(`${sel} .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
   trays.forEach(id => { const t = document.querySelector(`${sel} .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
+  const back = box.querySelector('.csend input');
+  if (back && said) {
+    back.value = said;
+    // Focus back where it was, or the keyboard slides away under somebody mid-word.
+    if (typing) { back.focus(); try { back.setSelectionRange(caret, caret); } catch (e) {} }
+  }
+  if (cTray) { const t = box.querySelector('.cemoji'); if (t) t.hidden = false; }
 }
 
 function render() {
@@ -1582,7 +1694,15 @@ function render() {
   // A document being read, and an account that has agreed to none of them, are both
   // whole-screen states: there is no tab bar over either, signed in or not.
   const held = !m || !!S.legal || needsTerms(m);
-  $('#bar').hidden = held; $('#app').classList.toggle('out', held);
+  // A conversation is a screen of its own, the way it is in every app that has one. The tab
+  // bar would sit under the box you type in, and worse: the box is pinned to the bottom, so
+  // it moved whenever the keyboard class flipped — including between the press and the
+  // release of a tap on Send, which is a tap the browser then never reports as a click at
+  // all. Putting the bar away lets the box sit still.
+  const inChat = !!m && !!S.chat && S.chat !== 'list';
+  $('#bar').hidden = held || inChat;
+  $('#app').classList.toggle('chatting', inChat);
+  $('#app').classList.toggle('out', held);
   if (held) return $('#app').innerHTML = screenHTML();
   // Still needed down at the tab bar, which offers the + for whichever group you are in.
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
@@ -1610,6 +1730,14 @@ function render() {
   const tab = (t, l) => `<button data-tab="${t}" onclick="go('${t}')"><svg viewBox="0 0 24 24">${ico[t]}</svg>${l}</button>`;
   watchClips();
   keepClocks();
+  // A conversation is read from the bottom, and jumping there is right exactly when it has
+  // just been opened or something new has landed — not on every redraw, which would yank
+  // you back down while you were reading up.
+  if (S.chat && S.chat !== 'list') {
+    const sig = `${S.chat}:${msgsIn(S.chat).length}`;
+    if (sig !== chatAt) { chatAt = sig; chatToEnd(); markChatRead(S.chat); }
+  } else chatAt = '';
+  keepChatFresh();
   // The bar is only rebuilt when its markup changes; which tab is on is a class and the
   // underline's position, so the underline can slide rather than be redrawn.
   const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
@@ -1807,7 +1935,7 @@ function feedView() {
     const w = S.wheels.find(x => x.id === sp.wheel_id);
     return {g, sp, w, need: requiredDays(w, sp), d: challengeDays(g, sp).length};
   })).filter(c => c.need);
-  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span></div>
+  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div>${chatIcon()}</div>
     <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
     ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}</b></div>`).join('')
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
@@ -2555,6 +2683,9 @@ function groupView(g) {
   <div class="card">${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
       everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
+    ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
+      <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
+      Group chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div></div>
   <h3>Today</h3>
@@ -2766,6 +2897,262 @@ function acts(p, comments) {
     <span class="cc">${num(comments)} ${comments === 1 ? 'comment' : 'comments'}</span>
   </div>${flagStrip(p)}`;
 }
+// Top right of the feed, where every app that has one puts it, with what is waiting on it.
+// Not there at all until the v28 block has been run.
+function chatIcon() {
+  const date = `<span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</span>`;
+  if (S.noChat) return date;
+  const n = unreadTotal();
+  return `<button type="button" class="chatbtn" onclick="openChats()" aria-label="Chats${n ? `, ${n} unread` : ''}">
+    <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
+    ${n ? `<i class="num">${num(n)}</i>` : ''}</button>`;
+}
+
+// ---- talking to each other
+// What the screen was last drawn holding, so a redraw that changes nothing about the
+// conversation does not scroll it.
+let chatAt = '';
+// A chat nobody is watching updates when the app next loads, like everything else. One
+// that is open on screen cannot wait fifteen seconds for a reply, so while a thread is up
+// it asks more often. ponytail: a poll, until the realtime pass replaces it with a
+// subscription — at which point this whole function goes.
+let chatPoll = null;
+function keepChatFresh() {
+  const live = S.chat && S.chat !== 'list' && !S.noChat;
+  if (live && !chatPoll) chatPoll = setInterval(refreshChat, 5000);
+  else if (!live && chatPoll) { clearInterval(chatPoll); chatPoll = null; }
+}
+// Two queries rather than the twenty a whole load runs: a conversation on screen needs the
+// messages and what people put on them, and nothing else on the page has changed because
+// somebody typed. Redrawn only when something really is different, or a redraw every five
+// seconds would take the caret out of the box being typed into.
+async function refreshChat() {
+  if (document.hidden || S.noChat || !S.chat || S.chat === 'list') return;
+  const [rows, rx] = await Promise.all([
+    soft(sb.from('messages').select('*').order('created_at', {ascending: false}).limit(400)),
+    soft(sb.from('message_reactions').select('message_id,user_id,emoji')),
+  ]);
+  if (!rows) return;
+  const msgs = rows.map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at)})).sort((x, y) => x.ts - y.ts);
+  const mreacts = (rx || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
+  const same = msgs.length === S.msgs.length && mreacts.length === S.mreacts.length
+    && msgs.every((x, i) => x.id === S.msgs[i].id);
+  if (same) return;
+  // Anything still in flight keeps its place until the real row arrives.
+  const pending = S.msgs.filter(x => x.pending && !msgs.some(y => y.body === x.body && y.userId === x.userId));
+  S.msgs = [...msgs, ...pending];
+  S.mreacts = mreacts;
+  // The lines, and not the screen. render() would rebuild the composer along with
+  // everything else, and this runs every five seconds — redraw() puts a half-typed message
+  // back, but not rebuilding it at all is better than putting it back.
+  const box = $('#msgs');
+  if (!box) return render();
+  box.innerHTML = chatBody(S.chat);
+  chatToEnd();
+  markChatRead(S.chat);
+}
+// A chat is named by a short string rather than by an object, because it is a key: it is
+// what a read mark is stored against, what a notification points at, and what the screen
+// holds while it is open. 'g:12' is a group's, 'u:<them>' is a private one.
+const gKey = id => `g:${id}`;
+const uKey = id => `u:${id}`;
+const keyOf = m => m.groupId ? gKey(m.groupId) : uKey(m.a === me().id ? m.b : m.a);
+const msgsIn = key => S.msgs.filter(m => keyOf(m) === key);
+const seenAt = key => (S.reads.find(r => r.k === key) || {ts: 0}).ts;
+// Yours are never unread, and neither is anything you had already scrolled past.
+const unreadIn = key => msgsIn(key).filter(m => m.userId !== me().id && m.ts > seenAt(key)).length;
+const reactsOnMsg = id => S.mreacts.filter(r => r.m === id);
+// Every group you are in has one, whether anything has been said in it or not: the chat is
+// the group. A private one appears once there is something in it; starting a new one is
+// what the Friends tab is for.
+function chatRows() {
+  const m = me();
+  const groups = myGroups().map(g => ({key: gKey(g.id), name: g.name, group: g}));
+  const people = [...new Set(S.msgs.filter(x => x.a).map(keyOf))]
+    .map(k => ({key: k, name: name(user(k.slice(2))), who: user(k.slice(2))}));
+  return [...groups, ...people].map(c => {
+    const list = msgsIn(c.key);
+    return {...c, last: list[list.length - 1] || null, unread: unreadIn(c.key)};
+  }).sort((x, y) => (y.last ? y.last.ts : 0) - (x.last ? x.last.ts : 0));
+}
+const unreadTotal = () => S.noChat ? 0 : chatRows().reduce((n, c) => n + c.unread, 0);
+
+function openChats() { if (S.noChat) return; S.chatFrom = null; S.chat = 'list'; S.settings = false; stackOn(); }
+// from is what the back button takes off: opened from the list it goes back to the list,
+// opened from a group or from Friends it goes back there.
+function openChat(key, from) {
+  if (S.noChat) return;
+  S.chatFrom = from || null; S.chat = key; S.settings = false;
+  stackOn();
+  markChatRead(key);
+}
+function closeChat() { S.chat = S.chat !== 'list' ? S.chatFrom : null; S.chatFrom = null; stackOff(); }
+// Written once when a chat is opened, and again when something lands while it is open —
+// which is also what stops a notification for a message you are looking at.
+async function markChatRead(key) {
+  if (S.noChat || !unreadIn(key)) return;
+  const ts = Date.now();
+  S.reads = [...S.reads.filter(r => r.k !== key), {k: key, ts}];
+  render();
+  try { await q(sb.from('chat_reads').upsert({user_id: me().id, chat: key, seen_at: new Date(ts).toISOString()})); }
+  catch (e) { /* a read mark that did not save costs a bold row, nothing more */ }
+}
+
+function chatsView() {
+  const rows = chatRows(), groups = rows.filter(c => c.group), people = rows.filter(c => !c.group);
+  const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat('${esc(c.key)}','list')">
+    ${c.group ? `<div class="av gav">${esc((c.name || '?')[0].toUpperCase())}</div>` : av(c.who, '')}
+    <span class="gr"><b>${esc(c.name)}</b>
+      <span>${c.last ? `${c.last.userId === me().id ? 'You: ' : (c.group ? esc(name(user(c.last.userId))) + ': ' : '')}${esc(c.last.body)}`
+        : c.group ? 'Nothing said yet' : ''}</span></span>
+    <span class="rt">${c.last ? `<em>${esc(ago(c.last.ts))}</em>` : ''}${c.unread ? `<i class="num">${num(c.unread)}</i>` : ''}</span></button>`;
+  return `<button type="button" class="backx" onclick="closeChat()" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="hdr"><h1>Chats</h1></div>
+    ${groups.length ? `<h3>Groups</h3>${groups.map(row).join('')}` : ''}
+    ${people.length ? `<h3>People</h3>${people.map(row).join('')}` : ''}
+    ${!groups.length && !people.length ? `<div class="card empty"><b>No chats yet</b>
+      <p class="muted">Every group you are in has one. Friends gets you a private one.</p></div>` : ''}
+    ${people.length ? '' : `<p class="muted pad">To start a private one, open somebody from Friends.</p>`}`;
+}
+
+// One conversation. Days are marked because a chat read a day later is otherwise a wall of
+// lines with no time in it anywhere.
+// Just the lines, so the poll can swap them without touching the box being typed into.
+function chatBody(key) {
+  const m = me(), isGroup = key.startsWith('g:');
+  const list = msgsIn(key);
+  if (!list.length) {
+    const other = isGroup ? null : user(key.slice(2));
+    return `<div class="card empty"><b>Nothing said yet</b><p class="muted">${
+      isGroup ? 'Everyone in the group can read this.' : `Only you and ${esc(name(other))}.`}</p></div>`;
+  }
+  let day = '', lastWho = '';
+  return list.map(msg => {
+    const mine = msg.userId === m.id;
+    const d = ymd(new Date(msg.ts));
+    const head = d !== day ? `<div class="cday">${esc(dayLabel(d))}</div>` : '';
+    if (d !== day) lastWho = '';
+    day = d;
+    // Who said it, once per run of theirs, and only in a group: a private chat has two
+    // people in it and one of them is you.
+    const nameLine = isGroup && !mine && msg.userId !== lastWho
+      ? `<div class="cwho">${esc(name(user(msg.userId)))}</div>` : '';
+    lastWho = msg.userId;
+    const rx = reactsOnMsg(msg.id);
+    const grouped = [...new Set(rx.map(r => r.e))].map(e => ({e, n: rx.filter(r => r.e === e).length,
+      mine: rx.some(r => r.e === e && r.u === m.id)}));
+    // Nothing is hung on a line that has not landed yet: it has no real id to react to or
+    // delete by until load() brings the row back.
+    return head + nameLine + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
+      <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}</button>
+      ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
+        onclick="toggleMsgReact(${msg.id},'${r.e}')">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
+      ${mine && !msg.pending ? `<button type="button" class="drop" onclick="delMessage(${msg.id})" aria-label="Delete">\u2715</button>` : ''}</div>`;
+  }).join('');
+}
+
+// One conversation. Days are marked because a chat read a day later is otherwise a wall of
+// lines with no time in it anywhere.
+function chatView(key) {
+  const m = me(), isGroup = key.startsWith('g:');
+  const g = isGroup && S.groups.find(x => x.id === +key.slice(2) && x.members.includes(m.id));
+  const other = isGroup ? null : user(key.slice(2));
+  if (isGroup && !g) return chatsView();
+  return `<div class="cbar">
+      <button type="button" class="backx" onclick="closeChat()" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      ${isGroup ? `<div class="av gav">${esc(g.name[0].toUpperCase())}</div>` : av(other, '')}
+      <span class="nm"><b>${esc(isGroup ? g.name : name(other))}</b>
+        <span>${isGroup ? `${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}` : '@' + esc(other.username || '')}</span></span>
+    </div>
+    <div class="msgs" id="msgs">${chatBody(key)}</div>
+    <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
+      <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
+      <input name="body" placeholder="Message" maxlength="2000" required autocomplete="off">
+      <button class="primary">Send</button>
+    </form>
+    <div class="emoji cemoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putChatEmoji(this,'${e}')">${e}</button>`).join('')}</div>`;
+}
+
+// Shown before the write lands, the way a comment is: a line that waits on a round trip
+// reads as a Send that did nothing. It carries no real id until load() brings the row back,
+// so it cannot be reacted to or deleted yet.
+async function sendMessage(f, key) {
+  const body = f.body.value.trim();
+  if (!body) return;
+  f.body.value = '';                       // before the redraw, the same as a comment
+  const m = me(), isGroup = key.startsWith('g:');
+  const row = isGroup ? {group_id: +key.slice(2), user_id: m.id, body}
+    : {...pairOf(key.slice(2)), user_id: m.id, body};
+  const tmp = {id: -Date.now(), groupId: isGroup ? +key.slice(2) : null,
+    a: isGroup ? null : row.a, b: isGroup ? null : row.b, userId: m.id, body, ts: Date.now(), pending: true};
+  S.msgs = [...S.msgs, tmp];
+  render(); chatToEnd();
+  try { await q(sb.from('messages').insert(row)); }
+  catch (e) {
+    S.msgs = S.msgs.filter(x => x !== tmp);
+    const back = document.querySelector('#app .csend input');
+    if (back) back.value = body;           // it did not send: give them back what they wrote
+    render();
+    return showErr('That message did not send.', String(e && e.message || e));
+  }
+  await load(); chatToEnd();
+}
+// The pair, sorted, which is how the row is stored and how the policy looks it up.
+const pairOf = other => { const [a, b] = [me().id, other].sort(); return {a, b}; };
+// A conversation is read from the bottom. Twice, because a long one has not finished laying
+// itself out when the first one runs — the same reason coming back to a feed does it twice.
+function chatToEnd() {
+  if (!$('#msgs')) return;
+  const end = () => scrollTo(0, document.documentElement.scrollHeight);
+  end(); requestAnimationFrame(end);
+}
+function pickMsgReact(ev, id) {
+  ev.stopPropagation();
+  const row = ev.currentTarget.closest('.m');
+  const had = row.querySelector('.reactpick');
+  if (had) return had.remove();
+  document.querySelectorAll('#app .m .reactpick').forEach(x => x.remove());
+  const box = document.createElement('div');
+  box.className = 'reactpick';
+  box.innerHTML = REACTS.map(e => `<button type="button" onclick="toggleMsgReact(${id},'${e}');this.parentNode.remove()">${e}</button>`).join('');
+  row.appendChild(box);
+}
+// Same as reacting to a post: shown at once and put back if the write is refused.
+async function toggleMsgReact(id, emoji) {
+  const m = me(), had = S.mreacts.some(r => r.m === id && r.u === m.id && r.e === emoji);
+  const undo = () => { S.mreacts = had ? [...S.mreacts, {m: id, u: m.id, e: emoji}]
+    : S.mreacts.filter(r => !(r.m === id && r.u === m.id && r.e === emoji)); render(); };
+  S.mreacts = had ? S.mreacts.filter(r => !(r.m === id && r.u === m.id && r.e === emoji))
+    : [...S.mreacts, {m: id, u: m.id, e: emoji}];
+  render();
+  try {
+    if (had) await q(sb.from('message_reactions').delete().eq('message_id', id).eq('user_id', m.id).eq('emoji', emoji));
+    else await q(sb.from('message_reactions').insert({message_id: id, user_id: m.id, emoji}));
+  } catch (e) { undo(); }
+}
+async function delMessage(id) {
+  if (!confirm('Delete this message?')) return;
+  const before = S.msgs;
+  S.msgs = S.msgs.filter(x => x.id !== id); render();
+  try { await q(sb.from('messages').delete().eq('id', id)); }
+  catch (e) { S.msgs = before; render(); return showErr('That did not delete.', String(e && e.message || e)); }
+  load();
+}
+function toggleChatEmoji(btn) {
+  const box = $('#app .cemoji'); if (box) box.hidden = !box.hidden;
+}
+function putChatEmoji(btn, e) {
+  const input = $('#app .csend input'); if (!input) return;
+  const at = input.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, at) + e + input.value.slice(input.selectionEnd ?? at);
+  input.focus();
+  const to = at + e.length;
+  try { input.setSelectionRange(to, to); } catch (err) {}
+}
+
 // ---- the clock on a flag
 // A running one, because the whole question is how long is left. Under an hour it drops the
 // hours rather than showing a leading zero nobody reads.
@@ -3046,7 +3433,11 @@ function friendsView() {
   <div id="fsr">${peopleList()}</div>
   <p class="muted" style="margin-top:8px">They'll see your request under Friends and can accept it.</p></div>
   ${incoming.length ? `<h3>Requests</h3><div class="card list">` + incoming.map(i => person(i.from, `<button class="small primary" onclick="accept(${i.id})">Accept</button><button class="small" onclick="decline(${i.id})">Decline</button>`)).join('') + `</div>` : ''}
-  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id, `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Search for someone above by their name or username.</p></div>`}
+  <h3>Your friends</h3>${S.friends.length ? `<div class="card list">` + S.friends.map(id => person(id,
+    (S.noChat ? '' : `<button class="ghost small msg" onclick="openChat('${uKey(id)}')" aria-label="Message ${esc(name(user(id)))}">
+      <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>${
+      unreadIn(uKey(id)) ? `<i class="num">${num(unreadIn(uKey(id)))}</i>` : ''}</button>`)
+    + `<button class="ghost small" onclick="unfriend('${id}')">Remove</button>`)).join('') + `</div>` : `<div class="card empty"><b>No friends yet</b><p class="muted">Search for someone above by their name or username.</p></div>`}
   ${outgoing.length ? `<h3>Sent</h3><div class="card list">` + outgoing.map(i => person(i.to, `<span class="muted">Pending</span><button class="ghost small" onclick="decline(${i.id})">Cancel</button>`)).join('') + `</div>` : ''}`;
 }
 // Notifications were opt-in behind a card at the foot of the Profile tab, which is to say
@@ -3930,7 +4321,7 @@ function vidPick(input) {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
-function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag); S.tab = tab; S.open = S.who = S.flag = null; S.settings = false;
+function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.tab = tab; S.open = S.who = S.flag = S.chat = S.chatFrom = null; S.settings = false;
   backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
 
@@ -4032,6 +4423,9 @@ function stackOff() {
 function backAction() {
   if (!backY.length) return null;
   if (S.legal) return () => { S.legal = null; };
+  // A thread falls back to wherever it was opened from — the list, or nothing at all when
+  // it came straight off a group or a friend.
+  if (S.chat) return () => { S.chat = S.chat !== 'list' ? S.chatFrom : null; S.chatFrom = null; };
   if (S.flag) return () => { S.flag = null; };
   if (S.settings) return () => { S.settings = false; };
   if (S.who) return () => { S.who = null; };
@@ -4041,7 +4435,8 @@ function backAction() {
 // The screen you are heading for, built but not shown. S is put back exactly as it was:
 // this is a look ahead, and until you let go it may come to nothing.
 function peekBack(act) {
-  const was = {legal: S.legal, flag: S.flag, settings: S.settings, who: S.who, open: S.open};
+  const was = {legal: S.legal, chat: S.chat, chatFrom: S.chatFrom, flag: S.flag,
+    settings: S.settings, who: S.who, open: S.open};
   act();
   try { return screenHTML(); } finally { Object.assign(S, was); }
 }
@@ -5469,6 +5864,16 @@ function goToHash() {
   if (sm) {
     history.replaceState(null, '', location.pathname);
     if (storiesOf(sm[1]).length) { S.tab = 'feed'; S.open = null; render(); openStory(sm[1]); }
+    return;
+  }
+  // A message lands in the conversation it belongs to, scrolled to the end of it, which is
+  // where the thing you were told about is.
+  const ch = /^#chat-((?:g:\d+|u:[0-9a-f-]{36}))$/i.exec(location.hash || '');
+  if (ch) {
+    history.replaceState(null, '', location.pathname);
+    S.tab = 'feed'; S.open = S.who = S.flag = null; S.settings = false; backY.length = 0;
+    S.chat = null; render();               // out of whatever was open, then in, so back works
+    openChat(ch[1], 'list');
     return;
   }
   // A flag lands on the flag, which is the only place its clock, its reason and its vote

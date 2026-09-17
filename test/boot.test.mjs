@@ -2168,6 +2168,155 @@ await withPage({ ...NO_WHEEL, noFlagTables: true }, async page => {
   check('  and nothing in the feed about it', await page.locator('.fbar-chip').count() === 0);
 });
 
+// ---- talking to each other
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  check('the feed carries a way into the chats', await page.locator('.hdr .chatbtn').count() === 1);
+  check('  with nothing on it when nothing is waiting',
+    await page.locator('.hdr .chatbtn i').count() === 0);
+
+  await page.locator('.hdr .chatbtn').click();
+  await page.waitForTimeout(600);
+  check('a group has a chat whether anything has been said in it or not',
+    await page.locator('.crow').count() === 1
+    && /Mornings/.test(await page.locator('.crow').innerText()),
+    await page.locator('#app').innerText());
+
+  await page.locator('.crow').click();
+  await page.waitForTimeout(600);
+  check('  opening it gives you somewhere to type', await page.locator('.csend input').count() === 1);
+  check('    and says who can read it',
+    /everyone in the group/i.test(await page.locator('#app .msgs').innerText()),
+    await page.locator('#app .msgs').innerText());
+
+  const box = page.locator('.csend input');
+  await box.fill('who is doing the 6am one');
+  await page.evaluate(() => { self.__stall = new Promise(r => { self.__go = r; }); });
+  await page.locator('.csend button.primary').click();
+  await page.waitForTimeout(250);
+  check('  a line shows before the write comes back',
+    /6am one/.test(await page.locator('#app .msgs').innerText()));
+  check('    emptying the box it was typed into', await box.inputValue() === '',
+    JSON.stringify(await box.inputValue()));
+  check('    and offering nothing to react to until it has really landed',
+    await page.locator('.m.pending .drop').count() === 0);
+  await page.evaluate(() => { const g = self.__go; self.__stall = null; g(); });
+  await page.waitForTimeout(900);
+  const sent = await page.evaluate(() => self.__msgs.at(-1));
+  check('  and it is written against the group, not a pair',
+    sent && sent.group_id === 1 && sent.a === null && /6am one/.test(sent.body), JSON.stringify(sent));
+
+  // A conversation redraws itself every few seconds, so a redraw must never take what
+  // somebody is in the middle of writing — the same fault as the comment box, in the one
+  // place it would happen without anybody touching anything.
+  await box.fill('half a thought');
+  await page.evaluate(() => { document.querySelector('#app .csend input').focus(); render(); });
+  await page.waitForTimeout(250);
+  check('  a redraw does not take a half-written message',
+    await box.inputValue() === 'half a thought', JSON.stringify(await box.inputValue()));
+  check('    and leaves the caret where it was',
+    await page.evaluate(() => document.activeElement === document.querySelector('#app .csend input')));
+  await box.fill('');
+
+  // Reacting to one, which is the same gesture as reacting to a post.
+  await page.locator('#app .m .say').last().click();
+  await page.waitForTimeout(300);
+  check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick').count() === 1);
+  await page.locator('#app .m .reactpick button').first().click();
+  await page.waitForTimeout(700);
+  check('    and picking one sticks it on',
+    await page.locator('#app .m .mrx button').count() === 1
+    && await page.evaluate(() => self.__mreacts.length) === 1,
+    JSON.stringify(await page.evaluate(() => self.__mreacts)));
+
+  // Back to the list, because that is where this was opened from.
+  await page.locator('#app .cbar .backx').click();
+  await page.waitForTimeout(600);
+  check('  and the way back is the list it was opened from',
+    await page.evaluate(() => S.chat) === 'list' && await page.locator('.crow').count() >= 1);
+  check('    with the last thing said on the row',
+    /6am one/.test(await page.locator('.crow').first().innerText()),
+    await page.locator('.crow').first().innerText());
+});
+
+// A private one, and the pair it is stored as.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => go('friends'));
+  await page.waitForTimeout(600);
+  check('a friend can be messaged from the friends list',
+    await page.locator('#app .list .row .msg').count() === 1);
+  await page.locator('#app .list .row .msg').click();
+  await page.waitForTimeout(600);
+  check('  which opens a chat with only the two of you in it',
+    /only you and/i.test(await page.locator('#app .msgs').innerText()),
+    await page.locator('#app .msgs').innerText());
+  await page.locator('.csend input').fill('see you tomorrow');
+  await page.locator('.csend button.primary').click();
+  await page.waitForTimeout(900);
+  const dm = await page.evaluate(() => self.__msgs.at(-1));
+  check('  and it is stored as the pair, sorted, the way a friendship is',
+    dm && dm.group_id === null && dm.a === 'u1' && dm.b === 'u2', JSON.stringify(dm));
+
+  // Opened from Friends rather than from the list, so that is where back goes.
+  await page.locator('#app .cbar .backx').click();
+  await page.waitForTimeout(600);
+  check('  and back goes where it was opened from, not to the list',
+    await page.evaluate(() => S.chat) === null && await page.evaluate(() => S.tab) === 'friends');
+});
+
+// What is waiting, and what stops waiting once it has been read.
+await withPage({ ...NO_WHEEL, friends: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 950, group_id: 1, a: null, b: null, user_id: 'u2',
+      body: 'anyone up', created_at: new Date().toISOString() });
+    return load();
+  });
+  await page.waitForTimeout(900);
+  check('something said by somebody else counts as waiting',
+    await page.locator('.hdr .chatbtn i').count() === 1
+    && (await page.locator('.hdr .chatbtn i').innerText()).trim() === '1',
+    await page.locator('.hdr .chatbtn i').innerText());
+  await page.locator('.hdr .chatbtn').click();
+  await page.waitForTimeout(500);
+  check('  and the row it is in says so', await page.locator('.crow.un').count() === 1);
+  await page.locator('.crow').click();
+  await page.waitForTimeout(900);
+  check('  reading it stops it waiting',
+    await page.evaluate(() => self.__reads.some(r => r.chat === 'g:1')),
+    JSON.stringify(await page.evaluate(() => self.__reads)));
+  await page.evaluate(() => { S.chat = null; S.chatFrom = null; go('feed'); });
+  await page.waitForTimeout(600);
+  check('    and the feed stops saying so too', await page.locator('.hdr .chatbtn i').count() === 0);
+
+  // Your own words are never something waiting to be read.
+  await page.evaluate(() => {
+    self.__msgs.push({ id: 951, group_id: 1, a: null, b: null, user_id: 'u1',
+      body: 'i am', created_at: new Date().toISOString() });
+    return load();
+  });
+  await page.waitForTimeout(900);
+  check('  and what you said yourself never counts as waiting',
+    await page.locator('.hdr .chatbtn i').count() === 0);
+
+  // A notification about one lands in it, not near it.
+  await page.evaluate(() => { location.hash = '#chat-g:1'; });
+  await page.waitForTimeout(700);
+  check('  a notification about a message opens that conversation',
+    await page.evaluate(() => S.chat) === 'g:1' && await page.locator('.csend input').count() === 1);
+});
+
+// A project where the v28 block has not been run.
+await withPage({ ...NO_WHEEL, noChatTables: true }, async page => {
+  await settle(page);
+  check('without the chat block the app still loads', await page.isVisible('#bar')
+    && await page.locator('.post').count() > 0);
+  check('  with no error banner over it', await page.isHidden('#err'),
+    await page.isHidden('#err') ? '' : await page.locator('#err span').innerText());
+  check('  and no way in offered anywhere', await page.locator('.hdr .chatbtn').count() === 0);
+});
+
 // Which groups you are willing to have on show.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
