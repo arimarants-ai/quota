@@ -268,6 +268,28 @@ function taking a post id has to look in both or it works in the feed and quietl
 everywhere else — which is what left `freshUrl()` unable to re-sign a clip on somebody's
 profile, so the one retry that would have fixed it could never fire.
 
+## Proof on a story
+
+The ⋯ on your own post offers to put it on your story. It goes on as a **card** — inset, a
+little off square, with the story's own background showing past its edges — because that is
+what it is: a thing lifted from somewhere else and stuck on. Filling the screen with it would
+say it was shot for the story. It drags about the card like the words and the stickers do,
+by the same `dragify()`, and tapping it while somebody is watching opens that post.
+
+The story points at the post rather than carrying a copy of it. Copying would double what a
+minute of video costs against a 1 GB bucket for something that is gone in a day. What makes
+pointing safe is that sharing puts the post **on your profile**, and a post on your profile
+is readable by exactly the people a story is — `can_see_user()` decides both — so there is
+nobody who can be shown the card and cannot be shown what is on it. The sheet says that
+before it does it rather than after.
+
+It needs no new table and no new block of `schema.sql`. The post id lives in `style`, the
+jsonb that already holds everything about how one story looks, as `post` with `px`/`py` for
+where it was dragged to. `storyPosts()` fetches the ones the feed does not already carry —
+somebody's older post, or one in a group shared with them but not with you — and signs them,
+only when a story on screen actually points at one. A post that has gone since draws as a
+card saying so rather than as a hole.
+
 ## The bar at the bottom, and putting it away
 
 `showErr()` carries two different things and they want opposite treatment. A load that
