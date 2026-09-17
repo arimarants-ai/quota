@@ -307,6 +307,49 @@ was starting rejects with `AbortError`, a browser that will not start one unprom
 with `NotAllowedError`, and a request dropped because the screen it belonged to has gone
 rejects with nothing worth reading. None of the three is a fault anybody can act on.
 
+## Talking to each other
+
+Two kinds of chat and one table, because a message is a message. A group's chat **is** the
+group: every group has one the moment it exists, with nothing to create and nothing to join,
+and anybody who joins later can read all of it, the way a channel works. A private one is a
+pair of friends, and the pair is stored sorted — which is exactly what `friendships` already
+does, so "is there a chat between these two" and "are these two friends" are the same shape
+of question. A row is one or the other, never both and never neither, and that is a
+constraint rather than a convention.
+
+Writing needs one thing more than reading: a private chat is **between friends**. Somebody
+who can see you is not somebody who can message you.
+
+Text only. Proof is what the video budget is for, and a chat that can carry clips is a 1 GB
+bucket with a hole in it.
+
+The way in is the icon at the top right of the feed, with what is waiting on it. A group's
+own chat is also on the group screen, and a friend can be messaged straight from Friends —
+`openChat(key, from)` takes where it was opened from, so the way back is the list when it
+came off the list and the group when it came off the group.
+
+**The tab bar goes away for the length of a conversation**, the way it does in every app
+that has one. Not only because it would sit under the box you type in: the box is pinned to
+the bottom, and it used to move whenever the keyboard class flipped — including between the
+press and the release of a tap on Send, and a press and a release in two different places is
+not a click the browser ever reports. So Send did nothing, silently. The box now follows the
+viewport on `--vvb` and rides the keyboard up on `--kb`, in one expression with nothing in it
+that flips on focus alone.
+
+`redraw()` learned about the composer for the same sort of reason. A conversation redraws
+itself every few seconds while it is open, so it is the one screen where a redraw is most
+likely to land mid-sentence; what was typed and where the caret was are carried across, and
+focus is put back, or the keyboard slides away under somebody mid-word. `refreshChat()`
+avoids the question entirely by swapping only the lines — two queries rather than the twenty
+a whole load runs, because nothing else on the page changed because somebody typed.
+
+That poll is a **stopgap** and is marked as one. It goes when the realtime pass replaces it
+with a subscription.
+
+**This needs the v28 block of `schema.sql`**, and the `notify` function redeployed for
+`message` and `message_reaction`. Until the block is run the tables do not exist, the app
+loads them softly, and no way in is offered anywhere — same as flags, same as comments.
+
 ## Questioning somebody's proof
 
 A flag is one person saying a post does not meet the challenge, and the group deciding. It
