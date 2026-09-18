@@ -973,7 +973,12 @@ dialog h2{font-size:20px;margin-bottom:2px}
   border:0;border-radius:0;background:#000;box-shadow:none;display:flex;flex-direction:column;overflow:hidden}
 #cam:not([open]){display:none}
 #cam::backdrop{background:#000}
-#campre{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+/* Longhand offsets and an explicit size rather than `inset`, and a floor under both: this
+   is the one element in the app whose box has to be the whole screen with nothing else
+   deciding, and a preview that comes up as a small rectangle in the middle of a black
+   screen is a camera that looks broken before it has been used. */
+#campre{position:absolute;top:0;left:0;width:100%;height:100%;min-width:100%;min-height:100%;
+  max-width:none;max-height:none;object-fit:cover;display:block;background:#000}
 /* The front camera is shown mirrored, the way every phone camera shows it — you are
    looking at yourself, not at a picture of yourself. What is recorded is not mirrored. */
 #campre.mirror{transform:scaleX(-1)}
@@ -1246,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v71';
+const BUILD = 'quota-v72';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5325,7 +5330,13 @@ function startRec() {
   camChunks = [];
   camRec.ondataavailable = e => e.data && e.data.size && camChunks.push(e.data);
   camRec.onstop = finishRec;
-  camRec.start(1000);                      // a chunk a second, so a long clip is not one lump
+  // No timeslice. Asking for a chunk a second kept the clip off the heap in one lump, and
+  // on Safari it cost the clip: MediaRecorder writing MP4 puts the header in the first blob
+  // and fragments in the rest, and what those fragments reassemble into is not reliably a
+  // file — you record a minute, stop, and get the last second of it. Without a timeslice
+  // there is one blob, written whole when it stops, which is the only shape every browser
+  // agrees on. Stopping still yields everything, so the salvage on pagehide is unaffected.
+  camRec.start();
   camStart = Date.now();
   holdWake();
   paintCam();

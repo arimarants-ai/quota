@@ -1029,6 +1029,19 @@ await withPage(NO_WHEEL, async page => {
   check('  saying how long it runs and how big it is',
     /\d:\d\d · [\d.]+ MB/.test(await page.locator('#camrevw').innerText()),
     await page.locator('#camrevw').innerText());
+  // What is handed back is the whole recording and not the end of it. MediaRecorder was
+  // asked for a chunk a second, and on Safari writing MP4 that put the header in the first
+  // blob and fragments in the rest — what they reassembled into was a file holding the last
+  // moment of a long take. Measured off the player rather than the label, because the label
+  // is written from the same duration and would agree with a wrong one.
+  const ran = await page.evaluate(() => new Promise(res => {
+    const v = document.querySelector('#camplay');
+    if (v.duration && isFinite(v.duration)) return res(v.duration);
+    v.addEventListener('loadedmetadata', () => res(v.duration), { once: true });
+    setTimeout(() => res(-1), 5000);
+  }));
+  check('  and it is the whole recording, not the end of it',
+    ran > 1.2, `${ran}s back from about 2s of recording`);
   await page.locator('#camrev button:has-text("Retake")').click({ timeout: 8000 }).catch(() => {});
   await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 10000 }).catch(() => {});
   check('  turning it down throws it away', await page.evaluate(() => recorded === null));
