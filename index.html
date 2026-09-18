@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v72';
+const BUILD = 'quota-v73';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2176,7 +2176,7 @@ function postCard(y, live, editing) {
     ? `<div class="gone">This post is no longer here.</div>`
     : `${isPhoto(p)
         ? `<img class="shot" alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
-        : `<video class="shot" playsinline muted loop${live ? ' autoplay' : ''}${p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
+        : `<video class="shot" playsinline muted loop${live ? ' autoplay' : ''}${live && p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
       <div class="foot">${av(user(p.userId), 'sm')}<b>${esc(name(user(p.userId)))}</b><em>${esc(effort(p))}</em></div>`;
   const at = `left:${(y.px ?? .5) * 100}%;top:${(y.py ?? .46) * 100}%`;
   // A tap on it in the viewer is a way through to the post. In the editor it is a thing
@@ -2957,20 +2957,42 @@ function releaseClip(v) {
 // loading video for a picture nobody will see again is what scoping this to #app fixed.
 // Leaving #one out went the other way — the clip you had just tapped through to was the
 // one element on the page that never got its source, so it sat there black.
-const CLIPS = '#app .reel .proof, #app .tile .proof, #one .reel .proof';
+const CLIPS = '#app .reel .proof, #app .tile .proof, #one .reel .proof, #app .frow .th video';
+// A phone keeps only a handful of videos decoded at once. Past that they come up black,
+// they freeze with the sound still running, and in the end the page is killed for memory —
+// which is a browser tab saying "a problem repeatedly occurred" and a PWA that will not
+// open. The observer says which clips are *near*; this says how many of those may actually
+// hold a source, and lets go of whichever are furthest from the middle of the screen.
+//
+// Being near enough was the only rule until now, and that was fine while a screen showed
+// two or three: a profile grid is sixty tiles three across, and 150% of a screen either way
+// covers a lot of them.
+const MAX_CLIPS = 6;
+function trimClips() {
+  const on = [...document.querySelectorAll(CLIPS)].filter(v => v.getAttribute('src'));
+  if (on.length <= MAX_CLIPS) return;
+  const mid = innerHeight / 2;
+  on.map(v => { const r = v.getBoundingClientRect(); return {v, d: Math.abs(r.top + r.height / 2 - mid)}; })
+    .sort((a, b) => b.d - a.d)
+    .slice(0, on.length - MAX_CLIPS)
+    .forEach(x => releaseClip(x.v));      // refuses anything actually playing
+}
 function watchClips() {
   if (clipObs) clipObs.disconnect();
   const vs = [...document.querySelectorAll(CLIPS)];
   // Without an observer there is no way to tell what is on screen, so load them all and
   // accept the old behaviour rather than showing nothing.
-  if (!self.IntersectionObserver) return vs.forEach(attachClip);
+  if (!self.IntersectionObserver) { vs.forEach(attachClip); return trimClips(); }
   // A hidden element reports as off screen too — a clip whose reel is showing a failure,
   // say. That is not "scrolled away", and taking its source back gains nothing, so only
   // something with a box of its own is let go.
-  clipObs = new IntersectionObserver(es => es.forEach(e => {
-    if (e.isIntersecting) attachClip(e.target);
-    else if (e.boundingClientRect.width) releaseClip(e.target);
-  }), {rootMargin: '150% 0px'});
+  clipObs = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (e.isIntersecting) attachClip(e.target);
+      else if (e.boundingClientRect.width) releaseClip(e.target);
+    });
+    trimClips();
+  }, {rootMargin: '150% 0px'});
   vs.forEach(v => clipObs.observe(v));
 }
 
@@ -3521,7 +3543,7 @@ function flagsView() {
       const yes = v.filter(x => x.yes).length;
       return `<button type="button" class="frow" onclick="openFlag(${f.id})">
         <span class="th">${isPhoto(p) ? `<img alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
-          : `<video muted playsinline preload="metadata"${p.url ? ` src="${esc(p.url)}"` : ''}></video>`}</span>
+          : `<video muted playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}</span>
         <span class="gr"><b>${esc(name(u))} · ${esc(effort(p))}</b>
           <em>${f.outcome === 'upheld' ? 'Needs redoing' : f.outcome ? 'Stands' : `${yes} of ${v.length} say redo`}</em></span>
         ${f.outcome ? `<span class="tag ${f.outcome === 'upheld' ? 'bad' : 'good'}">${f.outcome === 'upheld' ? 'Redo' : 'Stands'}</span>`
@@ -5396,11 +5418,24 @@ function finishRec() {
   releaseWake();
   $('#camtime').textContent = '';
   const type = (camRec && camRec.mimeType || 'video/mp4').split(';')[0];
+  camRec = null;                           // nothing holds a finished recorder on a stream
   const blob = new Blob(camChunks, {type});
   camChunks = [];
+  // Let the camera go rather than parking it. Parking is for closing the dialog and opening
+  // it again in a moment, and it is right for that — but a stream that has just been
+  // recorded on is a different thing. Safari will not reliably start a second MediaRecorder
+  // on one, and what that looks like is a shutter that does nothing, a clock that never
+  // starts, a stop that does not stop, and then either an empty recording or the last
+  // second of a long one handed back as the whole take. A retake asks for a fresh camera.
   stopCam();                               // reviewing does not need the camera on
+  dropCam();
   paintCam();
-  if (blob.size < 1024) { $('#cam').close(); return alert('That recording came out empty. Try again, or use "Choose a file".'); }
+  if (blob.size < 1024) {
+    // "Try again" has to be something you can actually do, so it hands back a live camera
+    // rather than closing the whole thing and leaving you to find your way back in.
+    alert('That recording came out empty. Try again, or use "Choose a file".');
+    return retake();
+  }
   keepTake(blob, `clip.${type.includes('webm') ? 'webm' : 'mp4'}`, type);
 }
 

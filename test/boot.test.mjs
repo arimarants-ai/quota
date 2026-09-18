@@ -896,14 +896,16 @@ await withPage(NO_WHEEL, async page => {
   check('  stopping keeps the recording', rec && rec.size > 1024, JSON.stringify(rec));
   check('  marked as ours, so it is never re-encoded', rec && rec.cam === true, JSON.stringify(rec));
   check('  and it is offered back to watch before it goes anywhere', await page.locator('#camrev').isVisible());
-  // Parked rather than stopped: letting every track end is what made the phone ask for
-  // the camera again on the very next open. Nothing is being watched or heard while it
-  // waits, and it goes out on its own.
+  // Released rather than parked, and this is a change. Parking keeps the next open instant
+  // and is still what a photo does — but a stream that has just been recorded on cannot be
+  // recorded on again: Safari will not start a second MediaRecorder on one, and what comes
+  // back is nothing at all. So a take ends with the camera let go and the next one asks
+  // afresh, which costs a moment and is the difference between recording and not.
   check('  with the preview let go of while you watch', await page.evaluate(() => $('#campre').srcObject === null));
-  check('    and nothing listening', await page.evaluate(() => camStream.getAudioTracks().every(t => !t.enabled)));
-  check('    but the camera not handed back, so it is not asked for twice',
-    await page.evaluate(() => camStream.getVideoTracks().some(t => t.readyState === 'live')));
-  check('    and it goes out when the app does', await page.evaluate(() => { dropCam(); return camStream === null; }));
+  check('    and the camera released rather than parked, so the next take gets a fresh one',
+    await page.evaluate(() => camStream === null));
+  check('    with no finished recorder left holding anything',
+    await page.evaluate(() => camRec === null));
   check('  and the form says what it has', /Recorded/.test(await page.locator('#vsize').innerText()),
     await page.locator('#vsize').innerText());
   await page.locator('#camrev button:has-text("Use this")').click({ timeout: 8000 }).catch(() => {});
@@ -1067,6 +1069,54 @@ await withPage(NO_WHEEL, async page => {
     await page.locator('#camrev').isHidden() && await page.locator('#cam').evaluate(d => !d.open));
 });
 
+// Recording, retaking, and recording again. The second take is where it went wrong: the
+// stream was parked and handed straight back, so the next MediaRecorder was built on one a
+// previous recorder had already used. Safari answers that with a shutter that does nothing,
+// a clock that never starts, a stop that does not stop, and then an empty recording — or
+// the last second of a long one handed back as the whole take.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => openCam('post'));
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 15000 });
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(2000);
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => !$('#camrev').hidden, null, { timeout: 15000 });
+  check('a first take records', await page.evaluate(() => recorded !== null));
+  check('  and the camera is let go rather than parked, so the next take gets a fresh one',
+    await page.evaluate(() => camStream === null));
+  check('    with no finished recorder left holding it', await page.evaluate(() => camRec === null));
+
+  await page.locator('#camrev button:has-text("Retake")').click();
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 15000 });
+  check('  retaking brings a live camera back', await page.evaluate(() => camLive()));
+
+  // The press that used to do nothing at all.
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(500);
+  check('  and the very next press really starts recording',
+    await page.evaluate(() => !!camRec && camRec.state === 'recording'),
+    String(await page.evaluate(() => camRec && camRec.state)));
+  await page.waitForTimeout(2200);
+  check('    with the clock running rather than sitting at nothing',
+    /0:0[1-9]/.test(await page.locator('#camtime').innerText()),
+    JSON.stringify(await page.locator('#camtime').innerText()));
+
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => !$('#camrev').hidden, null, { timeout: 15000 });
+  check('  and stopping really stops it', await page.evaluate(() => camRec === null));
+  check('    with nothing saying the recording came out empty',
+    !alerts.some(a => /came out empty/i.test(a)), alerts.join(' | '));
+  const again = await page.evaluate(() => new Promise(res => {
+    const v = document.querySelector('#camplay');
+    if (v.duration && isFinite(v.duration)) return res(v.duration);
+    v.addEventListener('loadedmetadata', () => res(v.duration), { once: true });
+    setTimeout(() => res(-1), 5000);
+  }));
+  check('  and the second take is the whole thing, not its last second',
+    again > 1.5, `${again}s back from about 2.5s of recording`);
+});
+
 // Closing on a recording in progress is a stop, not a discard: what was filmed up to
 // that point is still worth keeping, and tearing the camera down first would lose the end.
 await withPage(NO_WHEEL, async page => {
@@ -1186,6 +1236,37 @@ await withPage({ ...SIGNED_IN, manyPosts: 12 }, async page => {
   check('  and lets go of the one you left',
     await page.locator('.reel video').first().getAttribute('src') === null,
     `${await loaded()} of ${n} still loaded`);
+  // Near enough was the only rule, and it is not enough on its own: a phone keeps a handful
+  // of videos decoded at once, and past that they come up black, freeze with the sound
+  // still running, and in the end the page is killed for memory. 150% of a screen either
+  // way covers a lot of a grid three tiles across.
+  check('  and never more than a handful at once, however many are near',
+    await loaded() <= await page.evaluate(() => MAX_CLIPS),
+    `${await loaded()} loaded, budget ${await page.evaluate(() => MAX_CLIPS)}`);
+});
+
+// The same budget over a profile grid, which is where it actually bites: sixty tiles three
+// across, all of them small enough that a great many sit inside the margin at once.
+await withPage({ ...NO_WHEEL, manyPosts: 24 }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  // Every post put on the profile, so the grid is as full as it can be.
+  await page.evaluate(() => {
+    S.pro[S.me.id] = {loading: false, posts: S.posts.map(p => ({...p, userId: S.me.id, onProfile: true}))};
+    go('profile');
+  });
+  await page.waitForTimeout(900);
+  const tiles = await page.locator('#app .tile .proof').count();
+  check('a full profile grid draws every tile', tiles >= 20, `${tiles} tiles`);
+  const live = () => page.locator('#app .tile video[src]').count();
+  check('  but only a handful hold a clip at once',
+    await live() <= await page.evaluate(() => MAX_CLIPS),
+    `${await live()} of ${tiles} loaded`);
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(800);
+  check('    and still only a handful after scrolling the length of it',
+    await live() <= await page.evaluate(() => MAX_CLIPS),
+    `${await live()} of ${tiles} loaded`);
 });
 
 // Proof is a clip or a picture, and letting go of one is not the same as letting go of the
