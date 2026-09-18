@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       ]);
       if (!group) return new Response('ignored', { status: 200 });
       return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
-        title: group.name, body: chatFor(who(from), said),
+        title: group.name, body: chatFor(who(from), said, group.name),
         url: `${SITE_URL}/#chat-g:${gid}`, tag: `chat-g-${gid}`,
       }));
     }
@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });
 
   // dayPosts already includes the row that fired this trigger.
-  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge);
+  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge, group.name);
 
   return blast(
     members.map((m: { user_id: string }) => m.user_id),

@@ -1246,7 +1246,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v70';
+const BUILD = 'quota-v71';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3333,10 +3333,15 @@ function pickMsgReact(ev, id) {
 }
 const msgReactBtn = (id, e) => `<button type="button" onclick="toggleMsgReact(${id},'${e}');this.closest('.reactpick').remove()">${e}</button>`;
 const msgReactRow = id => CHAT_REACTS.map(e => msgReactBtn(id, e)).join('')
-  + `<button type="button" class="more" onclick="moreMsgReact(this,${id})" aria-label="Any other emoji">+</button>`;
+  + `<button type="button" class="more" onclick="moreMsgReact(event,this,${id})" aria-label="Any other emoji">+</button>`;
 // Everything else, in the same tray rather than in a sheet over the conversation: the
 // answer you are picking belongs to the line it is hanging off, and a sheet would cover it.
-function moreMsgReact(btn, id) {
+function moreMsgReact(ev, btn, id) {
+  // Stopped here like every other opener, and for a sharper reason: the line below replaces
+  // this button with the full set, so by the time a listener on the document looked at the
+  // click its target would be a node no longer in the page — and "is this inside a tray"
+  // has no answer for something that is not in the document at all.
+  ev.stopPropagation();
   const box = btn.closest('.reactpick');
   box.classList.add('all');
   box.innerHTML = [...new Set([...CHAT_REACTS, ...EMOJI, ...STICKER_MORE])].map(e => msgReactBtn(id, e)).join('');
@@ -6055,6 +6060,14 @@ async function disablePush() {
   S.push = 'off'; render();
 }
 // ---- what is happening while you are looking
+// A tray of answers is put away by tapping anywhere that is not it, which is what tapping
+// away from an open thing means everywhere else on a phone. Every opener stops its own
+// click, so this can never close the tray that click just opened.
+addEventListener('click', e => {
+  if (e.target.closest('.reactpick')) return;
+  document.querySelectorAll('.reactpick').forEach(x => x.remove());
+});
+
 // One channel for the whole app rather than one per screen: what you can see changes as you
 // move about, and a subscription that has to be torn down and rebuilt on every navigation
 // is a subscription that is sometimes missing.
