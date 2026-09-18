@@ -29,6 +29,41 @@ select setval(pg_get_serial_sequence('public.groups', 'id'), 1);
 select setval(pg_get_serial_sequence('public.posts', 'id'), 1);
 select setval(pg_get_serial_sequence('public.comments', 'id'), 1);
 
+-- ---- what the anon key can reach (v31)
+--
+-- Checked here, before the blanket grant below hands app2 everything: this is about the
+-- grant a function is created with, not about what a test role was given afterwards.
+--
+-- Both due_now functions claim what they return, so calling one is not a read — it spends
+-- the reminder. PostgREST serves everything in `public` to whoever holds the anon key, and
+-- that key ships inside index.html on purpose, so a function left on its default grant was
+-- one POST away from anybody who viewed source. Repeated calls would have claimed every
+-- pending reminder and sent none, with nothing anywhere saying why.
+do $$
+begin
+  if has_function_privilege('anon', 'public.wheel_due_now()', 'EXECUTE') then
+    raise exception 'anyone with the anon key could spend everybody''s spin-day reminders';
+  end if;
+  if has_function_privilege('anon', 'public.day_due_now()', 'EXECUTE') then
+    raise exception 'anyone with the anon key could spend everybody''s end-of-day reminders';
+  end if;
+  if has_function_privilege('authenticated', 'public.day_due_now()', 'EXECUTE') then
+    raise exception 'any signed-in account could spend everybody''s end-of-day reminders';
+  end if;
+  -- And the one caller that does need them still has them.
+  if not has_function_privilege('service_role', 'public.day_due_now()', 'EXECUTE') then
+    raise exception 'the cron cannot call day_due_now, so no reminder would ever go out';
+  end if;
+  -- Closing a flag is the other way round: the app calls it on every load, and applying a
+  -- rule that is already true costs nothing and claims nothing.
+  if not has_function_privilege('authenticated', 'public.close_due_flags()', 'EXECUTE') then
+    raise exception 'the app cannot close a flag whose time is up';
+  end if;
+  if has_function_privilege('anon', 'public.close_due_flags()', 'EXECUTE') then
+    raise exception 'a signed-out caller could close flags';
+  end if;
+end $$;
+
 create role app2 nologin;
 grant usage on schema public, auth to app2;
 grant select, insert, update, delete on all tables in schema public to app2;
