@@ -1121,7 +1121,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v76';
+const BUILD = 'quota-v77';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5003,8 +5003,25 @@ const STORY_SECS = 10;                     // a story is a moment, not a clip
 let recorded = null;                       // what came back, used in place of a picked file
 let camFor = 'post';
 
+// The phone dims about thirty seconds into a recording and then locks, and a take that was
+// going fine ends because nobody touched the glass. The camera app never does this to you;
+// an app *hosting* the camera is the one that has to say "not while this is running", and
+// Safari does not say it on our behalf.
+//
+// A wake lock is the only way to say it from a page, and whether it survives the camera
+// sheet is not ours to decide: the spec releases one as soon as the page is hidden, and
+// whether iOS counts a sheet over the page as hidden is its own business. So it is asked
+// for on the way in and let go of on the way back. If the phone keeps it, the dimming
+// stops. If it does not, this cost nothing and the answer is Auto-Lock, or a real app.
+let wake = null;
+async function holdWake() {
+  try { if (!wake) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; }
+}
+function dropWake() { try { if (wake) wake.release(); } catch (e) {} wake = null; }
+
 function openCam(what = 'post') {
   camFor = what;
+  holdWake();
   const i = $('#camin');
   i.value = '';                            // or taking the same shot twice reports nothing
   const pic = what === 'avatar';
@@ -5029,6 +5046,7 @@ function clipSecs(f) {
 }
 
 async function camPicked(input) {
+  dropWake();                              // back from the camera, whatever came of it
   const f = input.files[0];
   input.value = '';
   if (!f) return;                          // backed out of the camera without taking one
@@ -5597,9 +5615,11 @@ async function delComment(id) {
 
 // An installed app comes back to the foreground constantly, and this refetches every
 // table each time. Once every 15 seconds is plenty; load() itself collapses overlapping calls.
+$('#camin').addEventListener('cancel', dropWake);   // closed the camera without taking one
 document.addEventListener('visibilitychange', () => {
-  // A parked camera is for coming straight back to it. Put the app away and it goes out,
-  // rather than sitting there with the light on.
+  // Whatever the camera was doing is over once the app is in front again, and a lock left
+  // held is a phone that never sleeps.
+  if (!document.hidden) dropWake();
   if (document.hidden || !me() || Date.now() - lastLoad < 15000) return;
   load();
 });

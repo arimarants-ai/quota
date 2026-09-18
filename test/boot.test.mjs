@@ -907,6 +907,43 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => !recorded.fromCamera));
 });
 
+// The phone dims thirty seconds into a recording and then locks, taking the take with it.
+// Whether a wake lock survives the camera sheet is the phone's business and cannot be
+// settled here — what can is that one is asked for on the way in and let go of on the way
+// back, because a lock nobody releases is a phone that never sleeps.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => {
+    self.__wake = {asked: 0, released: 0};
+    Object.defineProperty(navigator, 'wakeLock', {configurable: true, value: {
+      request: async () => { self.__wake.asked++; return {release: async () => { self.__wake.released++; }}; },
+    }});
+  });
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => openCam())]);
+  await page.waitForTimeout(150);
+  check('opening the camera asks the phone to stay awake',
+    await page.evaluate(() => self.__wake.asked) === 1, JSON.stringify(await page.evaluate(() => self.__wake)));
+  // Checked before the chooser is answered, because answering it is the thing that ends the
+  // camera — the lock has to still be held while it is genuinely still up.
+  check('  and it is still held while the camera is up',
+    await page.evaluate(() => self.__wake.released) === 0, JSON.stringify(await page.evaluate(() => self.__wake)));
+  await fc.setFiles([]).catch(() => {});
+
+  await page.evaluate(() => camPicked({files: [new File([new Uint8Array(2048)], 'c.mp4', {type: 'video/mp4'})], value: ''}));
+  await page.waitForTimeout(150);
+  check('  and let go of once the take is back',
+    await page.evaluate(() => self.__wake.released) === 1, JSON.stringify(await page.evaluate(() => self.__wake)));
+
+  // Backing out of the camera does not always report a change, so coming back to the app
+  // has to be enough on its own.
+  await page.evaluate(async () => { await holdWake(); document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForTimeout(150);
+  check('  and let go of on the way back even when nothing was taken',
+    await page.evaluate(() => self.__wake.released) === 2, JSON.stringify(await page.evaluate(() => self.__wake)));
+  check('    leaving nothing holding the screen on',
+    await page.evaluate(() => wake === null));
+});
+
 // A profile picture is of you, so it opens the other way round and will not take a video.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
