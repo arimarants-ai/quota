@@ -126,4 +126,15 @@ if (process.argv.includes('--update')) {
     `sw.js and ${LOCK} disagree. If the change is intended, run: node test/static.test.mjs --update`);
 }
 
+// 4. Every $('#id') in the page has to name an element the page actually has. Deleting a
+// dialog is a one-line edit and leaving one guard behind that still asks it a question is
+// a TypeError on a path nobody runs in a test — removing the camera left `$('#cam').open`
+// in the handler for a finger touching the screen, so every touch threw and a working app
+// wore an error bar it could not clear.
+const page = read('index.html');
+const have = new Set([...page.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]));
+const want = [...new Set([...page.matchAll(/\$\('#([A-Za-z0-9_-]+)'\)/g)].map(m => m[1]))];
+const gone = want.filter(id => !have.has(id));
+assert.deepEqual(gone, [], `index.html asks for ${gone.join(', ')}, which no element in it has.`);
+
 console.log('PASS: page and service worker agree');
