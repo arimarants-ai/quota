@@ -1838,3 +1838,27 @@ revoke all on function public.wheel_due_now() from public, anon, authenticated;
 revoke all on function public.day_due_now() from public, anon, authenticated;
 grant execute on function public.wheel_due_now() to service_role;
 grant execute on function public.day_due_now() to service_role;
+
+-- ============================================================
+-- v32 (revoking from public is not enough on Supabase): worth running.
+--
+-- v27 tried to keep close_due_flags to signed-in accounts with `revoke all ... from public`
+-- and it did not work. Supabase grants EXECUTE on functions in `public` to anon and to
+-- authenticated *directly*, and revoking from PUBLIC does not remove a direct grant — so
+-- the anon key, which ships inside index.html on purpose, could still call it. v31 worked
+-- on the two reminder functions precisely because it named the roles.
+--
+-- Calling this one is harmless: it closes flags already past their deadline or already
+-- fully voted, so it applies a rule that is true whether anyone calls it or not, and claims
+-- nothing. It is revoked anyway, because a test in test/policies.test.sql says anon cannot
+-- reach it, and a test that passes on a plain Postgres while the real database says
+-- otherwise is worse than no test — it is a suite that has stopped describing the thing it
+-- is pointed at.
+--
+-- Every other function anon can reach was checked at the same time and defends itself:
+-- create_group answers "not signed in", accept_invite finds no invite, spin, sit_out and
+-- use_challenge find no wheel and no spin. They read auth.uid() before they do anything, so
+-- reaching them achieves nothing. Nothing else needs revoking.
+-- ============================================================
+revoke all on function public.close_due_flags() from public, anon;
+grant execute on function public.close_due_flags() to authenticated;

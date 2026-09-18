@@ -29,10 +29,16 @@ select setval(pg_get_serial_sequence('public.groups', 'id'), 1);
 select setval(pg_get_serial_sequence('public.posts', 'id'), 1);
 select setval(pg_get_serial_sequence('public.comments', 'id'), 1);
 
--- ---- what the anon key can reach (v31)
+-- ---- what the anon key can reach (v31, v32)
 --
 -- Checked here, before the blanket grant below hands app2 everything: this is about the
 -- grant a function is created with, not about what a test role was given afterwards.
+--
+-- `revoke ... from public` alone does not do this on Supabase, and a plain Postgres cannot
+-- show you that: Supabase grants EXECUTE on functions in `public` to anon and authenticated
+-- *directly*, and revoking from PUBLIC leaves a direct grant standing. So every revoke here
+-- names the roles, and these checks passed for a while against a database where two of them
+-- were not true. Name the roles.
 --
 -- Both due_now functions claim what they return, so calling one is not a read — it spends
 -- the reminder. PostgREST serves everything in `public` to whoever holds the anon key, and
