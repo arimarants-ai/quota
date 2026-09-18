@@ -1252,7 +1252,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v74';
+const BUILD = 'quota-v75';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2245,9 +2245,15 @@ function openStory(uid) {
   const from = all.findIndex(x => !S.seen.includes(x.id));
   S.story = {q, p: q.indexOf(uid), uid, i: from < 0 ? 0 : from, at: Date.now()};
   paintStory();
+  trimClips();                             // the feed is behind a cover now: give its decoders back
 }
 function closeStory() { clearTimeout(storyTimer); clearTimeout(holdTimer); holdTimer = null; held = false;
-  S.story = null; $('#story').classList.remove('held'); $('#story').hidden = true; $('#story').innerHTML = ''; render(); }
+  S.story = null; $('#story').classList.remove('held'); $('#story').hidden = true; $('#story').innerHTML = '';
+  render(); watchClips(); }
+// Coming back out from under a cover needs asking for. An observer reports crossings, and
+// a clip that sat on screen the whole time the story was over it never crossed anything —
+// so the sources handed back on the way in were not handed over again on the way out, and
+// the feed you returned to was a column of blank boxes until something made it scroll.
 // What is one step along the line, without going there. Off the end of somebody's stories
 // is the next person's, off the front is the one before's last, and off either end of the
 // line there is nothing. Asking rather than doing is what lets a swipe put the answer on
@@ -2636,6 +2642,7 @@ function newStory(pre) {
   if (S.draft.file && !S.draft.url) S.draft.url = URL.createObjectURL(S.draft.file);
   if (S.draft.editing) S.draft.file = null;   // the file is already up; only words and look are being changed
   paintDraft();
+  trimClips();
 }
 // Three ways in, and the camera is the same one proof uses — capped at ten seconds when
 // it is opened from here.
@@ -2689,7 +2696,15 @@ function placeCaretEnd(el) {
   try { const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
     const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } catch (e) {}
 }
-function closeDraft() { S.draft = null; $('#make').hidden = true; $('#make').innerHTML = ''; }
+// The picture goes before the handle to it does, or the last frame blanks on the way out.
+// Handing the handle back matters: it is the whole clip, held in memory until it is, and a
+// phone that has been offered five stories and posted none of them is carrying all five.
+function closeDraft() {
+  const url = S.draft && S.draft.url;
+  S.draft = null; $('#make').hidden = true; $('#make').innerHTML = '';
+  if (url) URL.revokeObjectURL(url);
+  watchClips();                            // same as closing a story: ask for them back
+}
 
 function paintDraft() {
   const d = S.draft, box = $('#make');
@@ -2969,14 +2984,27 @@ const CLIPS = '#app .reel .proof, #app .tile .proof, #one .reel .proof, #app .fr
 // two or three: a profile grid is sixty tiles three across, and 150% of a screen either way
 // covers a lot of them.
 const MAX_CLIPS = 6;
+// A story, or the composer, covers the whole screen — and every clip still decoded behind
+// it is a decoder the phone is holding for something nobody can see. Six was under the
+// limit on its own and over it the moment a story opened on top, which is why a clip that
+// had been playing happily froze with the sound still running a few seconds in. Under a
+// cover the budget is nothing: the feed gives them all back, and gets them when it returns.
+const clipBudget = () => (S.story || S.draft) ? 0 : MAX_CLIPS;
 function trimClips() {
+  const keep = clipBudget();
   const on = [...document.querySelectorAll(CLIPS)].filter(v => v.getAttribute('src'));
-  if (on.length <= MAX_CLIPS) return;
+  if (on.length <= keep) return;
   const mid = innerHeight / 2;
   on.map(v => { const r = v.getBoundingClientRect(); return {v, d: Math.abs(r.top + r.height / 2 - mid)}; })
     .sort((a, b) => b.d - a.d)
-    .slice(0, on.length - MAX_CLIPS)
-    .forEach(x => releaseClip(x.v));      // refuses anything actually playing
+    .slice(0, on.length - keep)
+    .forEach(x => {
+      // Refusing to let go of something playing is right while scrolling — it is the clip
+      // being watched. Behind a cover it is the one thing that must go, or the sound of a
+      // post nobody can see carries on under the story, holding its decoder the whole time.
+      if (!keep && x.v.tagName === 'VIDEO') { try { x.v.pause(); } catch (e) {} }
+      releaseClip(x.v);
+    });
 }
 function watchClips() {
   if (clipObs) clipObs.disconnect();
@@ -2995,6 +3023,28 @@ function watchClips() {
     trimClips();
   }, {rootMargin: '150% 0px'});
   vs.forEach(v => clipObs.observe(v));
+  sweepClips();
+}
+
+// Observing a clip does not tell you anything about it until it *crosses* the margin, and
+// coming back out from under a story is not a crossing — the clip sat in view the whole
+// time it was covered. Nothing was reported, nothing was given back, and the feed you
+// returned to was a column of blank boxes until something happened to make it scroll. So
+// what is in view is attached outright rather than waited for, and the observer goes on
+// doing the part it is good at, which is everything after that.
+const nearClip = v => {
+  const r = v.getBoundingClientRect();
+  // No box at all is the case the observer refuses to let go of — a reel showing a failure,
+  // a screen mid-transition — so it is also one the sweep gives back. Letting go of these
+  // under a cover and then judging them too far away to return is how a clip disappeared
+  // for good: released by one rule and refused by a stricter one.
+  if (!r.width) return true;
+  const m = innerHeight * 1.5;             // the same margin the observer is given
+  return r.bottom > -m && r.top < innerHeight + m;
+};
+function sweepClips() {
+  document.querySelectorAll(CLIPS).forEach(v => { if (nearClip(v)) attachClip(v); });
+  trimClips();
 }
 
 // The phone's own keyboard has an emoji key, and this does not replace it — it is there

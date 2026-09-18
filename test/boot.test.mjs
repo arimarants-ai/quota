@@ -1290,6 +1290,63 @@ await withPage({ ...SIGNED_IN, manyPosts: 12 }, async page => {
     `${await loaded()} loaded, budget ${await page.evaluate(() => MAX_CLIPS)}`);
 });
 
+// A budget that only counts the feed is not a budget: a story covers the screen and brings
+// its own clips, so six behind it plus its own is over the line — and what that looks like
+// is a video that plays for a few seconds and then freezes with the sound carrying on.
+await withPage({ ...NO_WHEEL, manyPosts: 12 }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  await page.waitForTimeout(600);
+  // Scrolled to, so there is genuinely a clip in view: a reel sitting below the fold holds
+  // no source to give back, and a test that never had one proves nothing about handing them
+  // back — it just agrees that nothing is nothing.
+  await page.locator('#app .reel').nth(1).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(700);
+  const loaded = () => page.locator('#app .reel video[src]').count();
+  check('the feed holds clips while it is the thing on screen', await loaded() > 0, `${await loaded()} loaded`);
+
+  // One of them playing, because that is the case the budget used to refuse to touch — and
+  // behind a cover it is the one that must go, not the one to leave alone.
+  await page.evaluate(async () => {
+    const v = document.querySelector('#app .reel video[src]');
+    if (v) { v.muted = true; try { await v.play(); } catch (e) {} }
+  });
+  await page.waitForTimeout(200);
+
+  await page.evaluate(() => {
+    S.stories = [{id: 70, u: 'u2', kind: 'text', body: 'up early', ts: Date.now() - 36e5, style: {}}];
+    S.seen = [];
+    openStory('u2');
+  });
+  await page.waitForTimeout(400);
+  check('  opening a story gives every one of them back',
+    await loaded() === 0, `${await loaded()} still holding a decoder behind the story`);
+  check('    including one that was playing, which is the sound that carried on',
+    await page.evaluate(() => [...document.querySelectorAll('#app .reel video')].every(v => v.paused)));
+
+  await page.evaluate(() => closeStory());
+  await page.waitForTimeout(700);
+  check('  and closing it hands them back to the feed', await loaded() > 0, `${await loaded()} loaded again`);
+  check('    still inside the budget',
+    await loaded() <= await page.evaluate(() => MAX_CLIPS), `${await loaded()} loaded`);
+});
+
+// A clip offered to a story and then thought better of is a whole video held in memory for
+// as long as the page lives, which on a phone is how five of them end up costing the app.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const alive = u => page.evaluate(async u => {
+    try { const r = await fetch(u); await r.blob(); return true; } catch (e) { return false; }
+  }, u);
+  const url = await page.evaluate(() => {
+    newStory({kind: 'video', file: new File([new Uint8Array(2048)], 'c.mp4', {type: 'video/mp4'}), body: ''});
+    return S.draft.url;
+  });
+  check('a story draft holds its clip while it is open', /^blob:/.test(url) && await alive(url), url);
+  await page.evaluate(() => closeDraft());
+  check('  and hands it back when it is put down', !await alive(url));
+});
+
 // The same budget over a profile grid, which is where it actually bites: sixty tiles three
 // across, all of them small enough that a great many sit inside the margin at once.
 await withPage({ ...NO_WHEEL, manyPosts: 24 }, async page => {
