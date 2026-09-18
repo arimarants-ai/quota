@@ -1117,6 +1117,51 @@ await withPage(NO_WHEEL, async (page, alerts) => {
     again > 1.5, `${again}s back from about 2.5s of recording`);
 });
 
+// The preview is the whole screen. Checked rather than assumed: twice it came up as a small
+// rectangle in the middle of a black one on a phone while the stylesheet read correctly and
+// a desktop browser drew it full-bleed, so the rule itself is no longer taken on trust.
+await withPage(NO_WHEEL, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  await page.evaluate(() => openCam('post'));
+  await page.waitForFunction(() => !$('#camgo').disabled, null, { timeout: 15000 });
+  const full = await page.evaluate(() => {
+    const r = document.querySelector('#campre').getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight,
+      inline: document.querySelector('#campre').getAttribute('style') || '' };
+  });
+  check('the preview fills the screen', full.w === full.vw && full.h === full.vh, JSON.stringify(full));
+  check('  without needing to be forced, where the stylesheet is honoured',
+    !/width/.test(full.inline), JSON.stringify(full.inline));
+
+  // And when something does take it away — which is what a phone was doing — it is measured
+  // and put back, rather than left as a rectangle nobody can frame a shot in. The rule here
+  // is !important, so this also proves the correction outranks whatever did it.
+  await page.evaluate(() => {
+    const s = document.createElement('style');
+    s.textContent = '#campre{width:180px !important;height:320px !important}';
+    document.head.appendChild(s);
+  });
+  await page.waitForTimeout(120);
+  check('  a rule that shrinks it really does shrink it',
+    await page.evaluate(() => Math.round(document.querySelector('#campre').getBoundingClientRect().width)) < 250);
+  await page.evaluate(() => fitPreview());
+  await page.waitForTimeout(120);
+  const fixed = await page.evaluate(() => {
+    const r = document.querySelector('#campre').getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight };
+  });
+  check('    and it is measured and put back to the whole screen',
+    fixed.w === fixed.vw && fixed.h === fixed.vh, JSON.stringify(fixed));
+  check('      and it still fills after the screen changes size',
+    await page.setViewportSize({ width: 414, height: 896 }).then(() => page.waitForTimeout(300))
+      .then(() => page.evaluate(() => {
+        const r = document.querySelector('#campre').getBoundingClientRect();
+        return Math.round(r.width) === innerWidth && Math.round(r.height) === innerHeight;
+      })));
+  await page.evaluate(() => closeCam());
+});
+
 // Closing on a recording in progress is a stop, not a discard: what was filmed up to
 // that point is still worth keeping, and tearing the camera down first would lose the end.
 await withPage(NO_WHEEL, async page => {

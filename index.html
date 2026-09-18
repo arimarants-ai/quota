@@ -973,12 +973,13 @@ dialog h2{font-size:20px;margin-bottom:2px}
   border:0;border-radius:0;background:#000;box-shadow:none;display:flex;flex-direction:column;overflow:hidden}
 #cam:not([open]){display:none}
 #cam::backdrop{background:#000}
-/* Longhand offsets and an explicit size rather than `inset`, and a floor under both: this
-   is the one element in the app whose box has to be the whole screen with nothing else
-   deciding, and a preview that comes up as a small rectangle in the middle of a black
-   screen is a camera that looks broken before it has been used. */
-#campre{position:absolute;top:0;left:0;width:100%;height:100%;min-width:100%;min-height:100%;
-  max-width:none;max-height:none;object-fit:cover;display:block;background:#000}
+/* Measured against the viewport rather than against whatever box it happens to sit in.
+   A percentage asks a containing block, and on at least one browser the answer came back
+   wrong: the preview drew as a small rectangle in the middle of a black screen. The
+   viewport is not a matter of opinion, so it is asked directly — and fitPreview() checks
+   afterwards that the answer took. A camera you cannot see through is not a camera. */
+#campre{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;
+  max-width:none;max-height:none;object-fit:cover;display:block;background:#000;z-index:0}
 /* The front camera is shown mirrored, the way every phone camera shows it — you are
    looking at yourself, not at a picture of yourself. What is recorded is not mirrored. */
 #campre.mirror{transform:scaleX(-1)}
@@ -1251,7 +1252,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v73';
+const BUILD = 'quota-v74';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5186,8 +5187,27 @@ async function startCam(want) {
   await v.play().catch(() => {});
   $('#camtime').textContent = '';
   $('#camgo').disabled = false;
+  fitPreview();
   paintCam();
   await camOptions();
+}
+
+// What the stylesheet asked for, checked. Everything above says this element is the size of
+// the viewport, and twice now it has not been — so rather than a third guess at which rule
+// an engine is reading differently, this measures the box that actually got drawn and puts
+// it right in pixels when it is wrong. The stylesheet is given its chance first each time,
+// so a browser that never needed this never gets inline styles.
+function fitPreview() {
+  const v = $('#campre'), box = $('#cam');
+  if (!v || !box || !box.open) return;
+  v.style.removeProperty('width'); v.style.removeProperty('height');
+  const r = v.getBoundingClientRect();
+  if (r.width < innerWidth - 2 || r.height < innerHeight - 2) {
+    // Important, deliberately. Whatever won the argument the first two times, this has to
+    // win it now — and an inline style that can be outvoted is a third guess, not a fix.
+    v.style.setProperty('width', `${innerWidth}px`, 'important');
+    v.style.setProperty('height', `${innerHeight}px`, 'important');
+  }
 }
 
 // What this particular camera can do. Zoom and a light are real on some Android phones and
@@ -6357,8 +6377,8 @@ if (self.visualViewport) {
   visualViewport.addEventListener('resize', fitBar);
   visualViewport.addEventListener('scroll', fitBar);
 }
-addEventListener('resize', fitBar);
-addEventListener('orientationchange', fitBar);
+addEventListener('resize', () => { fitBar(); fitPreview(); });
+addEventListener('orientationchange', () => { fitBar(); fitPreview(); });
 addEventListener('focusin', fitBar);
 // focusout lands before the focusin that follows it, so moving between two fields would
 // flash the bar back for a frame. Let the focus settle first.
