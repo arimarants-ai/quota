@@ -1816,3 +1816,25 @@ create policy "delete a group picture" on storage.objects for delete
     and public.is_member(((storage.foldername(name))[2])::bigint));
 -- Reading needs nothing new: "avatars are public" already covers the whole bucket, the
 -- same as it does for a person's picture.
+
+-- ============================================================
+-- v31 (the reminder functions are the cron's, not the world's): worth running.
+--
+-- wheel_due_now() and day_due_now() both *claim* what they return — a row per person per
+-- cycle, per person per day — so that a retry or two overlapping cron runs cannot wake the
+-- same person twice. That is the right design and it has a sharp edge: calling one is not a
+-- read, it spends the reminder.
+--
+-- Postgres grants EXECUTE on a new function to PUBLIC, and PostgREST serves everything in
+-- `public` to anybody holding the anon key, which ships inside index.html and is meant to.
+-- So both were one POST away from anyone who viewed source, and repeated calls would have
+-- claimed every pending reminder and sent none: no spin-day notification, no end-of-day
+-- one, and nothing anywhere saying why.
+--
+-- Only the edge function needs them, and it connects as the service role. Nothing in the
+-- app calls either one.
+-- ============================================================
+revoke all on function public.wheel_due_now() from public, anon, authenticated;
+revoke all on function public.day_due_now() from public, anon, authenticated;
+grant execute on function public.wheel_due_now() to service_role;
+grant execute on function public.day_due_now() to service_role;
