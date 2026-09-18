@@ -2328,6 +2328,16 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.locator('#app .m .say').last().click();
   await page.waitForTimeout(300);
   check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick').count() === 1);
+  // Put away by tapping anywhere that is not it, which is what tapping away from an open
+  // thing means everywhere else on a phone. It used to want the same message tapped again.
+  await page.locator('#app .cbar').click();
+  await page.waitForTimeout(200);
+  check('    and tapping anywhere else puts it away',
+    await page.locator('#app .m .reactpick').count() === 0);
+  await page.locator('#app .m .say').last().click();
+  await page.waitForTimeout(250);
+  check('    while tapping the tray itself leaves it up',
+    await page.locator('#app .m .reactpick').count() === 1);
   // What you answer a message with is not what you answer a post with: a post gets cheers,
   // a line in a conversation gets agreeing with it or not.
   const quick = await page.locator('#app .m .reactpick button').allInnerTexts();

@@ -117,7 +117,7 @@ export type Post = { metric: string; amount: number };
  * gave them, when the post was marked as done with it: "did 25 decline pushups"
  * rather than "did 25 pushups".
  */
-export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null): string {
+export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null, where?: string | null): string {
   const totals = new Map<string, number>();
   for (const p of dayPosts) totals.set(p.metric, (totals.get(p.metric) ?? 0) + p.amount);
 
@@ -128,7 +128,11 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
     && !quotas.every(q => hit(q, q.metric === metric ? amount : 0));
 
   const what = challenge ? `${amount} ${challenge} ${metric}` : `${amount} ${metric}`;
-  return justFinished ? `${name} completed the day's goal` : `${name} did ${what}`;
+  // Named as the thing that happened rather than left to be worked out. "Sam did 30
+  // pushups" reads on a lock screen as something Sam mentioned; what it means is that Sam
+  // posted proof, in a group, and there is something there to go and look at.
+  const wheresit = where ? ` in ${where}` : '';
+  return justFinished ? `${name} finished the day's goal${wheresit}` : `${name} posted ${what}${wheresit}`;
 }
 
 /**
@@ -158,12 +162,18 @@ export const snippet = (s: string | null | undefined, max = 80) => {
 };
 
 /**
- * A message in a chat. The group's name is the title of the notification when it is a
- * group's, so this is only ever the line under it: who said it and what they said.
+ * A message in a chat. `where` is the group's name when it is a group's chat, and nothing
+ * when it is between two people.
+ *
+ * It says what happened before it says what was said. "Sam: see you tomorrow" on a lock
+ * screen could be a message, a comment, a reply to a story or a caption — every one of
+ * which lands somewhere different when it is tapped. Naming the action is what makes the
+ * tap predictable, and the words are still there after it.
  */
-export function chatFor(name: string, body: string): string {
-  const said = snippet(body);
-  return said ? `${name}: ${said}` : `${name} sent a message`;
+export function chatFor(name: string, body: string, where?: string | null): string {
+  const said = snippet(body, 60);
+  const did = where ? `${name} messaged ${where}` : `${name} sent you a message`;
+  return said ? `${did}: ${said}` : did;
 }
 
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
@@ -183,7 +193,7 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'react
   if (kind === 'joined_group') return `${name} joined ${extra}`;
   if (kind === 'group') return `${name} added you to ${extra}`;
   if (kind === 'like') return `${name} liked your proof`;
-  if (kind === 'reaction') return `${name} reacted ${extra ?? ''}`.trim();
+  if (kind === 'reaction') return `${name} reacted ${extra ?? ''} to your proof`.replace(/ {2,}/g, ' ');
   // A story says so, because it is gone in a day and the post it is not is still there.
   if (kind === 'story_like') return `${name} liked your story`;
   if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
@@ -193,11 +203,12 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'react
     const short = said.length > 60 ? `${said.slice(0, 59)}\u2026` : said;
     return short ? `${name} liked your comment: ${short}` : `${name} liked your comment`;
   }
-  // A comment is worth reading in the notification itself, but a long one turns the
-  // whole thing into a wall; the rest is one tap away.
-  const body = (extra ?? '').replace(/\s+/g, ' ').trim();
-  const short = body.length > 80 ? `${body.slice(0, 79)}…` : body;
-  return short ? `${name}: ${short}` : `${name} commented on your proof`;
+  // A comment is worth reading in the notification itself, but a long one turns the whole
+  // thing into a wall; the rest is one tap away. What it is comes first either way — the
+  // words alone could be a message, a reply to a story, or a caption, and each of those
+  // lands somewhere different when it is tapped.
+  const short = snippet(extra, 60);
+  return short ? `${name} commented on your proof: ${short}` : `${name} commented on your proof`;
 }
 
 // Fan out a push notification to a group when someone posts proof.
@@ -355,7 +366,7 @@ Deno.serve(async (req) => {
       ]);
       if (!group) return new Response('ignored', { status: 200 });
       return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
-        title: group.name, body: chatFor(who(from), said),
+        title: group.name, body: chatFor(who(from), said, group.name),
         url: `${SITE_URL}/#chat-g:${gid}`, tag: `chat-g-${gid}`,
       }));
     }
@@ -440,7 +451,7 @@ Deno.serve(async (req) => {
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });
 
   // dayPosts already includes the row that fired this trigger.
-  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge);
+  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge, group.name);
 
   return blast(
     members.map((m: { user_id: string }) => m.user_id),

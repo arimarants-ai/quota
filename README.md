@@ -928,6 +928,23 @@ in every function's environment.
 
 ## Notifications
 
+**Every one says what happened, not just what was written.** "Sam: see you tomorrow" on a
+lock screen could be a message, a comment, a reply to a story or a caption — and every one
+of those lands somewhere different when it is tapped. Naming the action is what makes the
+tap predictable, and the words are still there after it:
+
+| What happened | What it says |
+| --- | --- |
+| A post | `Sam posted 30 pushups in Mornings` |
+| The post that finishes the day | `Sam finished the day's goal in Mornings` |
+| A private message | `Sam sent you a message: see you tomorrow` |
+| A message in a group's chat | `Sam messaged Mornings: who is doing the 6am one` |
+| A comment | `Sam commented on your proof: nice one` |
+| A reaction | `Sam reacted 🔥 to your proof` |
+
+The quoted part is cut at sixty characters, because the rest is one tap away and a
+notification that fills the screen is one nobody reads.
+
 When someone posts, everyone else in the group gets a push: "John did 30 pushups",
 or "Sydney completed the day's goal" on the post that finishes it.
 
