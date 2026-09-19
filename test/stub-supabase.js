@@ -18,6 +18,12 @@
     video_path: `e${i}.mp4`, day: new Date(Date.now() - (i + 5) * 864e5).toLocaleDateString('en-CA'),
     created_at: new Date(Date.now() - (i + 5) * 864e5).toISOString(),
   }));
+  // Sam has posted today and Ari has not: the one state the day's lock exists for. Ari's
+  // own post is dropped in the same breath, because the lock is about having nothing in.
+  const SAM_TODAY = M().samToday ? [{
+    id: 300, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 50, caption: 'up before you',
+    video_path: 'sam-today.mp4', day: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString(),
+  }] : [];
   const HISTORY = [1, 2, 3].map((n, i) => ({
     id: 100 + i, group_id: 1, user_id: 'u2', metric: 'pushups', amount: 50, caption: '',
     video_path: `s${i}.mp4`, day: ago(n), created_at: new Date(Date.now() - n * 864e5).toISOString(),
@@ -67,7 +73,7 @@
     group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
     // on_profile is the one thing about a post that can change after it is posted, so it
     // is read back through whatever the page last set rather than off the fixture.
-    posts: [M().noCaption ? { ...POST, caption: '' } : POST, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
+    posts: [...(M().samToday ? [] : [M().noCaption ? { ...POST, caption: '' } : POST]), ...SAM_TODAY, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
       .map(p => ({ on_profile: false, ...p, ...(p.id in self.__onprofile ? { on_profile: self.__onprofile[p.id] } : {}) })),
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,

@@ -274,6 +274,27 @@ await withPage(NO_WHEEL, async page => {
     `${(await labels(page)).join(' -> ')} | dialog open: ${open}`);
 });
 
+// The day's lock. Nothing of today's is readable until something of your own is in, and
+// the point of checking the DOM for the URL rather than just the blur is that a blur over
+// a signed URL sitting in an attribute is not a lock at all.
+await withPage({ ...NO_WHEEL, samToday: true }, async page => {
+  await settle(page);
+  const html = await page.innerHTML('#app');
+  const signed = () => page.evaluate(() => !!(S.posts.find(p => p.id === 300) || {}).url);
+  check('today is locked until you have posted', html.includes('Post yours to unlock'), 'no lock on the feed');
+  check("  and the locked clip was never signed at all", !await signed(),
+    'a signed URL for a locked post reached the client');
+  check('  and it has no player to point at one', await page.locator('[data-post="300"] .proof').count() === 0);
+  check('  and the caption does not leak past it', !html.includes('up before you'));
+  check('  while yesterday stays open', await page.locator('.reel .proof[data-src]').count() > 0,
+    'history was locked too');
+  await submitProof(page);
+  await page.waitForTimeout(1200);
+  check('  and posting unlocks it with no reload',
+    !(await page.innerHTML('#app')).includes('Post yours to unlock'), 'still locked after posting');
+  check('    with the clip signed at last', await signed(), 'unlocked but never signed');
+});
+
 // A rejected upload has to repeat what the server said, not fail silently.
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
