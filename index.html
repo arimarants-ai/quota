@@ -434,6 +434,17 @@ button.rg{border:0;font:inherit}
    username, which is what a stretched face across every post turned out to be. */
 .reel .proof{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:block} /* ponytail: cover crops landscape clips; switch to contain if people film sideways */
 .reel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(to top,rgba(0,0,0,.45),transparent);pointer-events:none}
+/* The lock. A silhouette on the same black the player uses, so a locked day reads as the
+   shape of the feed with the clips taken out rather than as a broken one. */
+.lockedreel{display:grid;place-items:center;gap:14px;align-content:center}
+.lockedreel::after{display:none}
+.lockedreel .sil{width:78px;height:78px;fill:none;stroke:rgba(255,255,255,.3);stroke-width:1.4;stroke-linecap:round}
+.lockedreel .lockmsg{text-align:center;padding:0 24px}
+.lockedreel .lockmsg b{display:block;font-family:Oswald;font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:15px}
+.lockedreel .lockmsg span{display:block;margin-top:4px;font-size:13px;color:rgba(255,255,255,.55)}
+.lockedtile{display:grid;place-items:center;background:#000}
+.lockedtile svg{width:26px;height:26px;fill:none;stroke:rgba(255,255,255,.35);stroke-width:1.5}
+
 /* Who and when, on the card above the clip, the way every established feed does it. */
 .post .head{display:flex;align-items:center;gap:10px;padding:12px 14px}
 .post .head .av{width:34px;height:34px;font-size:14px}
@@ -1121,7 +1132,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v77';
+const BUILD = 'quota-v78';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1202,6 +1213,22 @@ const activeDays = g => Array.isArray(g.active_days) && g.active_days.length ? g
 const everyDay = g => activeDays(g).length >= 7;
 const onDay = (g, d = today()) => activeDays(g).includes(new Date(`${d}T00:00`).getDay());
 const restText = g => everyDay(g) ? '' : activeDays(g).slice().sort().map(n => DAYNAMES[n]).join(', ');
+// ---- today's proof is behind your own
+// You do not get to watch the group's day until you have put something into it. One proof
+// is the price, not the whole quota: the lock is there to stop someone reading the group
+// every morning and never answering, and hit() would make it a punishment instead.
+//
+// Only today, and only in a group you are in. Yesterday is history, and history is never
+// locked — the grid and the recaps would be holes if it were.
+const postedIn = (g, uid = me().id, day = today()) => S.posts.some(p => p.groupId === g.id && p.userId === uid && p.day === day);
+// The viewer is passed in rather than read off S, because the one caller that matters
+// most — the signing in load() — runs before S.me is set, and a lock that quietly answers
+// "no" there is the whole lock gone.
+function locked(p, uid = S.me ? me().id : null) {
+  if (p.day !== today() || !uid || p.userId === uid) return false;
+  const g = S.groups.find(x => x.id === p.groupId);
+  return !!g && g.members.includes(uid) && !postedIn(g, uid);
+}
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
 const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
 // A wheel set to break the streak does it on the day its cycle closes, not on the day it
@@ -1456,7 +1483,11 @@ async function fetchAll() {
   // A path that could not be signed — the file is gone, or storage said no — comes back
   // with no URL. Left as null it becomes src="null" and a player that silently does
   // nothing; empty, the post renders as a clip that could not be loaded, and says so.
-  if (S.posts.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(S.posts.map(p => p.path), 3600)); urls.forEach((u, i) => S.posts[i].url = u.signedUrl); }
+  // A locked post is never signed. A blur over a clip whose URL is sitting in the page is
+  // a curtain, not a lock, so the URL is simply never asked for — posting calls load()
+  // again, and that is where the day's clips get theirs.
+  const open = S.posts.filter(p => !locked(p, uid));
+  if (open.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(open.map(p => p.path), 3600)); urls.forEach((u, i) => open[i].url = u.signedUrl); }
   // After S.posts, because a story pointing at a post the feed already carries needs no
   // second fetch, and before the profiles below, because whoever made that post has to be
   // one of the names asked for or the card on the story has nobody on it.
@@ -2775,6 +2806,11 @@ function groupView(g) {
 // bare is the flag screen: the post, and nothing you do to a post. What is being asked
 // there is one question with two answers, and putting the reel, the reason and the vote on
 // one screen is the difference between deciding and scrolling to find where to.
+// What stands where the clip would be until you have posted. A silhouette rather than a
+// blurred frame: there is no frame to blur, because the URL was never asked for.
+const lockedReel = p => `<div class="reel lockedreel">
+  <svg class="sil" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+  <div class="lockmsg"><b>Post yours to unlock</b><span>${esc(name(user(p.userId)))} has posted today</span></div></div>`;
 function feed(ps, showGroup, bare) {
   if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
   let day = '';
@@ -2786,7 +2822,7 @@ function feed(ps, showGroup, bare) {
     return h + `<div class="card post" data-post="${p.id}">
       <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
         ${p.userId === me().id ? `<button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button>` : ''}</div>
-      <div class="reel">
+      ${locked(p) ? lockedReel(p) : `<div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
         : `<video class="proof" playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
@@ -2795,10 +2831,10 @@ function feed(ps, showGroup, bare) {
       <button type="button" class="sound" onclick="clipSound(this)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6"/><path class="m" d="M4 4l16 16"/></svg></button>
       <div class="prg"><b></b></div>`}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
-      ${reactBubbles(p.id)}</div>
-      ${bare ? '' : acts(p, cs.length)}
-      ${p.caption ? `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>` : ''}
-      ${bare ? '' : commentsFor(p, cs)}</div>`;
+      ${reactBubbles(p.id)}</div>`}
+      ${locked(p) ? '' : bare ? '' : acts(p, cs.length)}
+      ${locked(p) || !p.caption ? '' : `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>`}
+      ${locked(p) || bare ? '' : commentsFor(p, cs)}</div>`;
   }).join('');
 }
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
@@ -2958,7 +2994,7 @@ function bustMsg(v, msg) {
 }
 async function freshUrl(postId) {
   const p = postById(postId);
-  if (!p || !p.path) return '';
+  if (!p || !p.path || locked(p)) return '';   // a retry is not a way around the lock
   const {data, error} = await sb.storage.from('proof').createSignedUrl(p.path, 3600);
   if (error || !data || !data.signedUrl) return '';
   p.url = data.signedUrl;
@@ -3801,6 +3837,9 @@ function personView(uid) {
 // is the only one holding both kinds. Nobody else's needs the mark: everything on theirs is
 // on show by definition.
 function tile(p, own) {
+  // A grid tile of today's locked proof is the same lock, small: no frame, no way in.
+  if (locked(p)) return `<span class="tile lockedtile" aria-label="Locked until you post today">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg></span>`;
   const pic = isPhoto(p);
   const pub = own && p.onProfile;
   return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}${own ? (p.onProfile ? ', on show' : ', only you can see this') : ''}">
