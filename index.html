@@ -91,6 +91,11 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .hdr .gback{padding:4px 0;font-size:13px;font-weight:700}
 /* What the pass has quietly done for the group, under the number it did it to. */
 .hdr .passline{margin:10px 0 0;padding-bottom:12px;font-size:12.5px;color:var(--muted);font-weight:600}
+/* Who is still out, with the clock on it. Sits between the heading and the list it is
+   about, so it reads as the state of the day rather than as a notice pinned to the page. */
+.missline{margin:0 18px 10px;font-size:13.5px;font-weight:700;line-height:1.45}
+.missline b{font-weight:700;color:var(--mkt);white-space:nowrap}
+.missline.in,.missline.rest{color:var(--muted);font-weight:600}
 .hdr h1{font-family:Oswald,system-ui,sans-serif;margin:16px 0;font-size:34px;font-weight:600;letter-spacing:0;text-transform:uppercase}
 .hdr .big{display:flex;align-items:flex-end;gap:13px;margin-top:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .hdr .big b{font-size:74px;letter-spacing:-.02em;line-height:.8;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em 0;
@@ -1135,7 +1140,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v78';
+const BUILD = 'quota-v79';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2827,6 +2832,34 @@ function groupsView() {
     + `<div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">My groups</h3><button class="small teal" onclick="groupDlg()">＋ New group</button></div>`
     + (mine.length ? mine.map(groupCard).join('') : `<div class="card empty"><b>No groups yet</b><p class="muted">Start one and invite your friends.</p></div>`);
 }
+// ---- who is still out, and how long they have
+// Only ever drawn inside a group's own screen, so it is only ever read by that group:
+// S.groups holds the groups you are in, and there is no route to this from outside one.
+// Nothing here costs anybody anything — it is the group noticing, which is the whole
+// mechanism, and a penalty on top of it would be a different app.
+//
+// Each person's own midnight, off their own device clock, which is already how today() and
+// every day string in the app are worked out.
+const endOfToday = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return d.getTime(); };
+// Somebody with nothing in has not posted. Somebody part-way has, and saying they have not
+// would be wrong about a real person in front of their friends, so they are counted short
+// instead.
+function stillOut(g) {
+  return g.members.filter(id => !hit(g, id)).map(id => {
+    const short = g.quotas.map(qq => qq.target - done(g, id, qq.metric)).filter(n => n > 0);
+    return {id, posted: postedIn(g, id), short};
+  });
+}
+function missLine(g) {
+  if (!onDay(g)) return `<p class="missline rest">Rest day \u00b7 nothing due${restText(g) ? ` \u00b7 ${esc(restText(g))} only` : ''}</p>`;
+  const out = stillOut(g);
+  if (!out.length) return `<p class="missline in">Everyone is in for today.</p>`;
+  const none = out.filter(x => !x.posted), part = out.filter(x => x.posted);
+  const bits = [];
+  if (none.length) bits.push(`${esc(names(none.map(x => x.id)))} ${none.length === 1 && none[0].id !== me().id ? "hasn't" : "haven't"} posted`);
+  for (const x of part) bits.push(`${esc(names([x.id]))} ${x.id === me().id ? 'are' : 'is'} ${x.short.join(' and ')} short`);
+  return `<p class="missline">${bits.join(' \u00b7 ')} \u2014 <b class="num" data-until="${endOfToday()}" data-coarse="1">${esc(leftLong(endOfToday()))}</b></p>`;
+}
 // The group screen leads with the group's streak, at the size the feed gives your own.
 // Everything else on the screen is about today; this is the only thing on it about all
 // the days at once, so it goes at the top and it goes big.
@@ -2853,6 +2886,7 @@ function groupView(g) {
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div></div>
   <h3>Today</h3>
+  ${missLine(g)}
   <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
   ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
@@ -3417,6 +3451,14 @@ function putChatEmoji(btn, e) {
 // A running one, because the whole question is how long is left. Under an hour it drops the
 // hours rather than showing a leading zero nobody reads.
 const two = n => String(n).padStart(2, '0');
+// A window that shuts at midnight is hours away for most of the day, and a seconds column
+// on it is a page repainting all afternoon to say nothing. Hours, then minutes, then a
+// warning that it is nearly gone.
+function leftLong(at) {
+  const s = Math.max(0, Math.round((at - Date.now()) / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return !s ? "today's over" : h ? `${h}h left` : m ? `${m}m left` : 'minutes left';
+}
 function leftOf(at) {
   const s = Math.max(0, Math.round((at - Date.now()) / 1000));
   if (!s) return 'time up';
@@ -3432,7 +3474,7 @@ function tickClocks() {
   const els = [...document.querySelectorAll('[data-until]')];
   if (!els.length) { clearInterval(tickTimer); tickTimer = null; return; }
   let out = false;
-  els.forEach(el => { const at = +el.dataset.until; el.textContent = leftOf(at); if (at <= Date.now()) out = true; });
+  els.forEach(el => { const at = +el.dataset.until; el.textContent = el.dataset.coarse ? leftLong(at) : leftOf(at); if (at <= Date.now()) out = true; });
   // A clock reaching zero is not the result. The database decides — close_due_flags() runs
   // at the top of every load — so this asks for the answer rather than working one out.
   // Throttled on lastLoad, or a flag the server cannot close would be asked about every
@@ -6120,6 +6162,24 @@ if (location.hash === '#test') {
   console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
   console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
   console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
+  // Who is still out. Somebody part-way through the day has posted, and saying they have
+  // not would be wrong about a real person in front of their friends.
+  const g6 = {id: 6, quotas: [{metric: 'pushups', target: 50}], members: ['a', 'b', 'c'], active_days: ALLDAYS};
+  // Totals are what a day is measured in; posts are what "has posted" means. In the app
+  // one follows the other, so the check seeds both.
+  for (const [u, n] of [['a', 50], ['b', 20]]) {
+    S.totals.push({g: 6, u, d: today(), m: 'pushups', n});
+    S.posts.push({id: `t-${u}`, groupId: 6, userId: u, day: today(), metric: 'pushups', amount: n});
+  }
+  const out6 = stillOut(g6);
+  console.assert(out6.length === 2, 'whoever hit the quota is not still out');
+  console.assert(out6.find(x => x.id === 'b').posted === true && out6.find(x => x.id === 'b').short[0] === 30,
+    'part-way through counts as posted, and 30 short');
+  console.assert(out6.find(x => x.id === 'c').posted === false, 'nothing in at all is not posted');
+  console.assert(leftLong(Date.now() + 4.2 * 3600e3) === '4h left'
+    && leftLong(Date.now() + 90e3) === '1m left' && leftLong(Date.now()) === "today's over",
+    'the window clock reads in hours, then minutes, then not at all');
+
   // The group's streak and the month's pass, on fixed dates: a rule about calendar months
   // tested on relative days would be testing something different on the 1st of a month.
   // Nobody hit anything before the 10th, so the walk runs off the end of the data — which
