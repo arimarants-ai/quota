@@ -1190,7 +1190,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v81';
+const BUILD = 'quota-v82';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1235,7 +1235,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {sub: null, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {sub: null, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1720,6 +1720,9 @@ function screenHTML() {
   // means flashing the sign-in screen at someone who is already signed in.
   if (!m) return S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
   if (needsTerms(m)) return acceptView();
+  // Nothing else is reachable until there is a group. Checked after the terms so the
+  // order of the two screens is always the same one.
+  if (!myGroups().length && !S.settings) return needGroupView();
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
     : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
@@ -2911,6 +2914,103 @@ function missLine(g) {
   for (const x of part) bits.push(`${esc(names([x.id]))} ${x.id === me().id ? 'are' : 'is'} ${x.short.join(' and ')} short`);
   return `<p class="missline">${bits.join(' \u00b7 ')} \u2014 <b class="num" data-until="${endOfToday()}" data-coarse="1">${esc(leftLong(endOfToday()))}</b></p>`;
 }
+// ---- an invite that travels as a link
+// The first thing that happens to somebody who has never been here is opening a link
+// somebody texted them, which is before there is an account to attach it to. So the code
+// is taken off the address the moment the page opens and kept on the device until there
+// is somebody to join: through the sign-up screen, the account being made, and the reload
+// that Safari sometimes does in the middle of all that.
+// base64 of nine bytes is always twelve characters, which is what new_join_code() makes.
+// Knowing the length exactly is what lets a bare code be told apart from the last word of
+// some other URL somebody pasted by mistake.
+const JOIN_RE = /^#?join-([A-Za-z0-9]{12})$/, BARE_RE = /^[A-Za-z0-9]{12}$/;
+const pendingJoin = () => { try { return localStorage.pendingJoin || ''; } catch (e) { return ''; } };
+const setPending = c => { try { c ? localStorage.pendingJoin = c : delete localStorage.pendingJoin; } catch (e) {} };
+// A whole link, a bare code, or the hash off the end of one. Somebody pasting into a box
+// will paste any of the three.
+const codeFrom = t => {
+  const tail = String(t || '').trim().split(/[#/]/).pop() || '';
+  const m = JOIN_RE.exec(tail);
+  return m ? m[1] : BARE_RE.test(tail) ? tail : '';
+};
+function catchInvite() {
+  const m = JOIN_RE.exec(location.hash || '');
+  if (!m) return;
+  setPending(m[1]);
+  history.replaceState(null, '', location.pathname);
+}
+const inviteLink = code => `${location.origin}${location.pathname}#join-${code}`;
+
+let joining = false;
+// Called once there is an account, however that came about: already signed in when the
+// link was opened, just signed up, or just logged in. No separate "join" step anywhere,
+// which is the whole point of the link.
+async function takePendingJoin() {
+  const code = pendingJoin();
+  if (!code || joining || !S.me) return;
+  joining = true;
+  try {
+    const gid = await q(sb.rpc('join_by_code', {code}));
+    setPending('');
+    if (gid) { await load(); openGroup(gid); }
+  } catch (e) {
+    setPending('');                        // a dead link is not something to carry around
+    alert(e && e.message && /not valid/.test(e.message) ? 'That invite link has expired or was rotated. Ask whoever sent it for a new one.'
+      : `Could not join that group: ${(e && e.message) || e}`);
+  } finally { joining = false; render(); }
+}
+// The name behind a code, so the welcome screen can say what you were invited to rather
+// than asking you to sign up for nothing in particular.
+async function peekInvite() {
+  const code = pendingJoin();
+  if (!code || S.invited !== undefined) return;
+  S.invited = null;
+  try { const rows = await q(sb.rpc('code_group', {code})); S.invited = (rows && rows[0]) || null; }
+  catch (e) { S.invited = null; }
+  render();
+}
+
+// ---- no account is a groupless account
+// Quota is a group doing something together; on your own it is a note-taking app with a
+// camera. So an account that belongs to no group is finished on this screen and nowhere
+// else — the only ways off it are to start one, to take an invite, or to leave.
+function needGroupView() {
+  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div><h1>One last thing</h1></div>
+  <div class="card"><b>Quota is a group thing</b>
+    <p class="muted">Proof goes to the people doing it with you. Start a group and invite them, or open the link somebody sent you.</p>
+    <div class="row" style="margin-top:16px"><button class="teal grow" onclick="groupDlg()">Start a group</button></div>
+    <div class="row" style="margin-top:8px"><button class="grow" onclick="joinDlg()">I have an invite link</button></div>
+  </div>
+  <p class="muted pad small">Signed in as ${esc(name(me()))}. <button type="button" class="ghost" onclick="logout()">Log out</button></p>`;
+}
+function joinDlg() {
+  dlg(`<h2>Paste your invite</h2><p class="muted">The whole link or just the code at the end of it.</p>
+    <form onsubmit="event.preventDefault();joinFromBox(this)">
+      <input name="code" placeholder="quota.app/#join-..." autocapitalize="off" autocorrect="off" spellcheck="false" required>
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Join</button></div>
+    </form>`);
+}
+async function joinFromBox(f) {
+  const code = codeFrom(f.code.value);
+  if (!code) return alert('That does not look like a Quota invite link.');
+  working(f, 'Joining…');
+  setPending(code);
+  dlg();
+  await takePendingJoin();
+}
+// Sharing one. The share sheet is how a link gets into a text message, and a copy is what
+// there is when the browser has no sheet to offer.
+async function shareInvite(gid) {
+  const g = S.groups.find(x => x.id === gid);
+  let code;
+  try { code = await q(sb.rpc('group_code', {gid})); }
+  catch (e) { return alert(`Could not make an invite link: ${(e && e.message) || e}\n\nThis needs the v33 block of schema.sql.`); }
+  const url = inviteLink(code), text = `Join ${g ? g.name : 'my group'} on Quota`;
+  try { if (navigator.share) return await navigator.share({title: 'Quota', text, url}); } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url); alert(`Invite link copied:\n\n${url}`); }
+  catch (e) { alert(`Your invite link:\n\n${url}`); }
+}
+
 // ---- looking back: the month, your own numbers, and the recaps
 // A screen pushed over the group or the profile. One key rather than a flag each, so
 // render() and go() have one thing to clear.
@@ -4226,10 +4326,15 @@ function openPost(id) {
 function closePost() { S.one = null; $('#one').hidden = true; $('#one').innerHTML = ''; watchClips(); }
 
 function welcomeView() {
+  // Arriving on somebody's link is a different arrival: the screen says which group, so
+  // signing up is joining that rather than signing up for nothing in particular.
+  const inv = pendingJoin() ? S.invited : null;
   return `<div class="welcome"><div class="mark">${LOGO(false)}</div>
-    <h1>Your friends will know if you skip.</h1>
-    <p>Set a daily goal with a group. Post a video proof before midnight. Every day.</p>
-    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">Get started</button>
+    ${inv ? `<h1>You have been invited to ${esc(inv.name)}.</h1>
+      <p>Make an account and you are in the group — no code to type, nothing else to accept.</p>`
+    : `<h1>Your friends will know if you skip.</h1>
+      <p>Set a daily goal with a group. Post a video proof before midnight. Every day.</p>`}
+    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">${inv ? 'Join ' + esc(inv.name) : 'Get started'}</button>
     <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button>
     ${legalLinks()}</div>`;
 }
@@ -4863,7 +4968,10 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
 function inviteDlg(gid) {
   const g = S.groups.find(x => x.id === gid), pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
   const list = S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
-  dlg(`<h2>Invite to ${esc(g.name)}</h2>${list.length ? list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
+  dlg(`<h2>Invite to ${esc(g.name)}</h2>
+    <button class="teal" style="width:100%" onclick="shareInvite(${gid})">Send an invite link</button>
+    <p class="muted small" style="margin:8px 0 14px">Anyone who opens it joins ${esc(g.name)} once they are signed in. Safe to forward.</p>
+    ${list.length ? `<p class="muted small" style="margin-bottom:4px">Or pick a friend:</p>` + list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
     : `<p class="muted" style="margin-top:10px">All your friends are in this group or already invited. Add more under Friends.</p>`}<button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
 }
 function profileDlg() {
@@ -5236,6 +5344,9 @@ async function auth(f, mode) {
       if (error) return alert(error.status === 400 ? 'Wrong username or password' : `Could not log in: ${error.message}`);
     }
     S.tab = 'feed'; await load();
+    // Whichever way in they came, the link they arrived on is taken now. This is what
+    // makes it "sign up and you are in the group" rather than "sign up, then go and join".
+    await takePendingJoin();
   } finally { render(); if (fresh) codesDlg(fresh, true); }
 }
 async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.open = null; S.tab = 'feed'; S.auth = 'welcome'; render(); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
@@ -6368,7 +6479,7 @@ function goToHash() {
 }
 // Out of whatever is open first, then in, so the way back out lands where it should.
 function clearTo(tab = 'feed') {
-  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = null; S.settings = false;
+  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = null; S.settings = false;
   backY.length = 0;
   closePost(); closeStory();
   render();
@@ -6435,8 +6546,11 @@ function goTarget(hash) {
 addEventListener('hashchange', goToHash);
 
 // Nothing here is allowed to leave the page blank. Paint first, then fill it in.
+// The invite comes off the address before the first paint, or the first render would wipe
+// the hash it is carried in.
+catchInvite();
 render();
-load();
+load().then(() => { takePendingJoin(); peekInvite(); });
 
 // ---- self-check: open index.html#test and look at the console
 if (location.hash === '#test') {
