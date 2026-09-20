@@ -88,6 +88,9 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .logo{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:17px;letter-spacing:.09em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:8px}
 .logo svg{width:24px;height:24px}
 .hdr .date{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.hdr .gback{padding:4px 0;font-size:13px;font-weight:700}
+/* What the pass has quietly done for the group, under the number it did it to. */
+.hdr .passline{margin:10px 0 0;padding-bottom:12px;font-size:12.5px;color:var(--muted);font-weight:600}
 .hdr h1{font-family:Oswald,system-ui,sans-serif;margin:16px 0;font-size:34px;font-weight:600;letter-spacing:0;text-transform:uppercase}
 .hdr .big{display:flex;align-items:flex-end;gap:13px;margin-top:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .hdr .big b{font-size:74px;letter-spacing:-.02em;line-height:.8;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em 0;
@@ -1274,6 +1277,47 @@ const best = (g, uid) => {
   for (const d of days) { n = prev && allRest(g, prev, d) ? n + 1 : 1; b = Math.max(b, n); prev = d; }
   return b;
 };
+// ---- the group's own streak, and the month's pass
+// A group day is a day every member hit the quota. One person short and the day is short,
+// which is the point of doing it together rather than beside each other.
+//
+// Walked backwards from today, the way a personal streak is, because a run only ever
+// reaches back as far as the thing that broke it. The pass then falls out for free: going
+// backwards, the first miss inside a calendar month is the one that month's pass covers,
+// and a second miss in the same month is where the run ends. Forwards you would have to
+// replay the whole history to learn the same thing.
+//
+// Today is never judged and never spends a pass: it is still in progress, and a group
+// that has until midnight has not missed anything yet.
+//
+// ponytail: this reads the quota alone, not the wheels. A challenge left unfinished breaks
+// the person's streak and not the group's. Pass wheelsOf(g) through brokeStreak() here if
+// that turns out to be the wrong call.
+// `from` is which day to stand on and look back from. It is today everywhere in the app;
+// the self-check hands it a fixed date, because a rule about calendar months tested on
+// relative days tests something different on the 1st than it does on the 15th.
+function groupRun(g, from = today()) {
+  const sets = g.members.map(id => hitDays(g, id));
+  const all = d => !!g.members.length && sets.every(x => x.has(d));
+  const began = g.created_at ? Date.parse(g.created_at) : 0;
+  const spent = new Set(), covered = new Set();
+  let n = 0, i = all(from) ? 0 : 1;
+  for (let guard = 0; guard < 400; guard++) {
+    const d = fromDayNo(dayNo(from) - i);
+    if (Date.parse(`${d}T23:59`) < began) break;   // before the group existed nobody missed anything
+    if (!onDay(g, d)) { i++; continue; }           // a rest day is stepped over, not missed
+    if (!all(d)) {
+      const mo = d.slice(0, 7);
+      if (spent.has(mo)) break;                    // the month's one pass is already gone
+      spent.add(mo); covered.add(d);               // covered: the run carries on over it
+    }
+    n++; i++;
+  }
+  // A covered day counts towards the run. "Your streak did not reset" and a number that
+  // quietly stopped going up for a day would be saying two different things.
+  return {n, covered, passLeft: spent.has(from.slice(0, 7)) ? 0 : 1};
+}
+
 // ---- wheels
 // Cycles are counted in whole days from the anchor, so everyone in the group is always on
 // the same one. Date strings are parsed as UTC on both sides, so a clock change in the
@@ -2783,10 +2827,22 @@ function groupsView() {
     + `<div class="row between" style="margin:18px 18px 0"><h3 style="margin:0">My groups</h3><button class="small teal" onclick="groupDlg()">＋ New group</button></div>`
     + (mine.length ? mine.map(groupCard).join('') : `<div class="card empty"><b>No groups yet</b><p class="muted">Start one and invite your friends.</p></div>`);
 }
+// The group screen leads with the group's streak, at the size the feed gives your own.
+// Everything else on the screen is about today; this is the only thing on it about all
+// the days at once, so it goes at the top and it goes big.
+function groupHdr(g) {
+  const r = groupRun(g), mo = new Date().toLocaleDateString(undefined, {month: 'long'});
+  return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeGroup()">‹ Groups</button>
+      <span class="date">${esc(g.name)}</span></div>
+    <div class="big"><b class="num">${r.n}</b><div>day group streak<small>${
+      r.n ? 'everyone, every day' : 'nobody has a run going'} · ${
+      r.passLeft ? '1 pass left this ' + esc(mo) : 'no pass left this ' + esc(mo)}</small></div></div>
+    ${r.covered.size ? `<p class="passline">${plural(r.covered.size, 'day')} covered by a pass${
+      [...r.covered].sort().reverse().slice(0, 1).map(d => ` · last was ${esc(dayLabel(d))}`).join('')}</p>` : ''}</div>`;
+}
 function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
-  return smallHdr(esc(g.name)) + `<button class="ghost back" onclick="closeGroup()">‹ Groups</button>
-  <div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
+  return groupHdr(g) + `<div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
       <span class="muted">${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}</span></div></div>
     ${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
@@ -6064,6 +6120,29 @@ if (location.hash === '#test') {
   console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
   console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
   console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
+  // The group's streak and the month's pass, on fixed dates: a rule about calendar months
+  // tested on relative days would be testing something different on the 1st of a month.
+  // Nobody hit anything before the 10th, so the walk runs off the end of the data — which
+  // is what makes the pass show itself: the 9th is covered, the 8th is where it stops.
+  const gg = {id: 3, quotas: [{metric: 'pushups', target: 50}], members: ['a', 'b']};
+  for (const d of ['2026-06-10', '2026-06-11', '2026-06-12']) for (const u of ['a', 'b']) S.totals.push({g: 3, u, d, m: 'pushups', n: 50});
+  const r3 = groupRun(gg, '2026-06-12');
+  console.assert(r3.n === 4, 'the group run carries on over the day its pass covered');
+  console.assert(r3.covered.size === 1 && r3.covered.has('2026-06-09'), 'one day covered, and it is the latest miss');
+  console.assert(r3.passLeft === 0, 'and the month it was spent in has none left');
+  // One member short is the whole group short: 'b' missed the 11th, so the 11th is a miss
+  // however well 'a' did, and it is the 11th the pass goes on.
+  const g4 = {id: 4, quotas: gg.quotas, members: ['a', 'b']};
+  for (const u of ['a', 'b']) S.totals.push({g: 4, u, d: '2026-06-12', m: 'pushups', n: 50});
+  S.totals.push({g: 4, u: 'a', d: '2026-06-11', m: 'pushups', n: 50});
+  const r4 = groupRun(g4, '2026-06-12');
+  console.assert(r4.n === 2 && r4.covered.has('2026-06-11'), 'a day one member missed is a day the group missed');
+  // Passes do not roll over. June's was spent on the 29th; standing on 1 July the group
+  // has July's, untouched.
+  const g5 = {id: 5, quotas: gg.quotas, members: ['a', 'b']};
+  for (const d of ['2026-06-30', '2026-07-01']) for (const u of ['a', 'b']) S.totals.push({g: 5, u, d, m: 'pushups', n: 50});
+  const r5 = groupRun(g5, '2026-07-01');
+  console.assert(r5.covered.has('2026-06-29') && r5.passLeft === 1, "a month's pass is its own, and July's is untouched");
   console.assert(name({username: 'sam'}) === 'sam' && name({username: 'sam', display_name: 'Sam D'}) === 'Sam D', 'display name falls back to username');
   console.log('self-check ok');
 }
