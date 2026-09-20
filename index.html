@@ -1140,7 +1140,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v79';
+const BUILD = 'quota-v80';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -4558,17 +4558,15 @@ const myChallenges = g => wheelsOf(g).filter(running)
 function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
-  recorded = null;
+  recorded = null; camAt = 0;              // a new form needs a new take, not the last one
   // The wheel comes first. The database enforces this too, so going around the page only
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
-    <label>Proof <span style="font-weight:500">(a clip or a picture, up to ${MAX_MB} MB)</span></label>
-    <div class="row"><button type="button" class="teal grow" onclick="openCam()">Record</button>
-      <button type="button" class="grow" onclick="this.closest('form').video.click()">Choose a file</button></div>
-    <input name="video" type="file" accept="video/*,image/*" hidden onchange="vidPick(this)">
+    <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
+    <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button></div>
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     ${challengeBlock(g)}
@@ -4636,12 +4634,6 @@ function sizeLine(f) {
   el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`
     : pic ? `${mb(f.size)} MB${shrinks ? ' · scaled down before it uploads' : ''}`
     : shrinks ? `${mb(f.size)} MB · shrunk to 720p first if that is quicker than sending it` : `${mb(f.size)} MB`;
-}
-function vidPick(input) {
-  const f = input.files[0];
-  recorded = null;                         // a chosen file replaces anything just recorded
-  if (!f) return $('#vsize').textContent = '';
-  sizeLine(f);
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
@@ -5156,16 +5148,28 @@ async function holdWake() {
 }
 function dropWake() { try { if (wake) wake.release(); } catch (e) {} wake = null; }
 
+// When the camera was opened. A take made in it cannot be older than this, and a file off
+// the camera roll almost always is — which is what makes the check worth having on the
+// phones that ignore `capture` and open the roll anyway, and on a desktop where it is
+// ignored entirely and the picker is all there is.
+//
+// File.lastModified falls back to the current time when the platform does not know it, so
+// a device that reports nothing reads as "just now" and is let through rather than a real
+// take being refused on a technicality.
+let camAt = 0;
+const FRESH_SLACK = 60e3;                  // a minute, for a coarse device clock
+
 function openCam(what = 'post') {
   camFor = what;
+  camAt = Date.now();
   holdWake();
   const i = $('#camin');
   i.value = '';                            // or taking the same shot twice reports nothing
   const pic = what === 'avatar';
   i.accept = pic ? 'image/*' : 'video/*,image/*';
   // A profile picture is of you, so it opens facing you. Everything else is of the world.
-  // A phone that ignores the hint opens its camera anyway; a desktop ignores the whole
-  // thing and offers the files, which is the same as "Choose a file" and no worse.
+  // A phone that ignores the hint opens its camera anyway; a desktop ignores it entirely
+  // and offers the files, which is why what comes back is checked rather than trusted.
   i.setAttribute('capture', pic ? 'user' : 'environment');
   i.click();
 }
@@ -5189,6 +5193,17 @@ async function camPicked(input) {
   if (!f) return;                          // backed out of the camera without taking one
   if (camFor === 'avatar') return openCrop(f, 'cam');
   if (camFor === 'story') { camFor = 'post'; return storyFrom(f); }
+  // Proof is recorded now or it is not proof. A phone that honours `capture` never offers
+  // the roll, but not all of them do and no desktop does, so the take is checked rather
+  // than trusted: anything written before the camera was opened came from somewhere else.
+  //
+  // ponytail: this is the ceiling of what a page can tell. It stops the roll, which is the
+  // way anybody would actually do it, but somebody set on it can still hand the input a
+  // file with a fresh timestamp. Proving a clip came from a camera needs attested capture,
+  // which is a native app, not a PWA.
+  if (!camAt || (f.lastModified && f.lastModified < camAt - FRESH_SLACK)) {
+    return alert('That one was not recorded just now. Proof has to be a take from the camera — tap Record and film it.');
+  }
   // Nothing stops the phone at two minutes, so the length is checked once it is back
   // rather than letting twenty minutes of something stand as a day's proof.
   if (!isPic(f)) {
@@ -5196,6 +5211,11 @@ async function camPicked(input) {
     if (secs > REC_MAX + 0.6) return alert(`That clip runs ${Math.round(secs)} seconds. Proof can be ${REC_MAX}.`);
   }
   recorded = f;
+  // The phone's own camera already offers a retake before it hands anything back. This is
+  // the one after that: a take you accepted, looked at on this screen, and thought better
+  // of. Nothing is uploaded until Post, so replacing it costs nothing.
+  const btn = $('#recbtn');
+  if (btn) btn.textContent = 'Record again';
   // Deliberately not marked as ours. The old camera recorded at the size we asked for and
   // said so, to skip the re-encode; the phone records at whatever it is set to, which can
   // be 4K, so it goes through the same shrink as anything else picked off the device.
@@ -5590,8 +5610,10 @@ function challengeBlock(g) {
 // the one that finished it, not for every clip after it.
 let wasDone = false, chalWas = new Set();
 async function addPost(f, gid) {
-  const fd = new FormData(f), picked = recorded || fd.get('video');
-  if (!picked || !picked.size) return alert('Record something, or choose a file.');
+  const fd = new FormData(f), picked = recorded;
+  // There is no other way in any more: the form has no file input, so proof is whatever
+  // the camera last handed back and nothing else.
+  if (!picked || !picked.size) return alert('Record your proof first \u2014 tap Record.');
   if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
   const bar = $('#uprog'), size = $('#vsize');
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
