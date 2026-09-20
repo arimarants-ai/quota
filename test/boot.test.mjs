@@ -245,12 +245,19 @@ await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
 // Uploading a phone video is the longest thing the app does, and supabase-js sends it
 // through fetch, which reports nothing at all. A motionless "Uploading…" is how a slow
 // connection and a stuck one look identical.
+// There is no file input on the form any more: proof comes back from the camera or it does
+// not come at all. So a test hands one over the way a person does — tap Record, and give
+// the chooser the phone opens whatever it was going to give.
+async function giveTake(page, file) {
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('#dlg #recbtn').click();
+  await (await chooser).setFiles(file);
+  await page.waitForTimeout(150);
+}
 async function submitProof(page) {
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
-  await page.locator('#dlg input[name=video]').setInputFiles({
-    name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4 * 1048576, 7),
-  });
+  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4 * 1048576, 7) });
   await page.locator('#dlg button.primary').click();
 }
 const labels = page => page.evaluate(() => self.__btn);
@@ -371,7 +378,7 @@ await withPage(NO_WHEEL, async page => {
   uploadReply = { status: 200, body: '{}', hold: null };
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
-  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
   await page.locator('#dlg button.primary').click();
   await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
 
@@ -393,7 +400,7 @@ await withPage(NO_WHEEL, async page => {
   uploadReply = { status: 200, body: '{}', hold: null };
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
-  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
   await page.locator('#dlg button.primary').click();
   await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
   const seen = await labels(page);
@@ -407,7 +414,7 @@ await withPage(NO_WHEEL, async page => {
   lastUpload = null;
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
-  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
   await page.locator('#dlg button.primary').click();
   await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
   check('  a slow one still gets the smaller file', lastUpload && lastUpload.length < clip.length / 2,
@@ -464,7 +471,7 @@ await withPage(NO_WHEEL, async page => {
   const junk = Buffer.alloc(7 * 1048576, 3);          // over the threshold, but not a video
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
-  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: junk });
+  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: junk });
   await page.locator('#dlg button.primary').click();
   await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
   check('an undecodable file falls back to the original', lastUpload && lastUpload.length === junk.length,
@@ -726,7 +733,7 @@ await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
 
   await page.locator('#dlg input[name=chal]').check();
   await page.locator('#dlg input[name=amount]').fill('50');
-  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
+  await giveTake(page, { name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
   await page.locator('#dlg button.primary').click();
   await page.waitForTimeout(900);
 
@@ -745,7 +752,7 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await page.waitForTimeout(300);
   // Left alone, which is now the default rather than something to undo.
   await page.locator('#dlg input[name=amount]').fill('50');
-  await page.locator('#dlg input[name=video]').setInputFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
+  await giveTake(page, { name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 5) });
   await page.locator('#dlg button.primary').click();
   await page.waitForTimeout(900);
   const sent = await page.evaluate(() => self.__posts.at(-1));
@@ -895,7 +902,7 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
   check('posting offers to record', await page.locator('button:has-text("Record")').count() > 0);
-  check('  and to choose a file instead', await page.locator('button:has-text("Choose a file")').count() > 0);
+  check('  and nothing else — the roll is not an option', await page.locator('#dlg button:has-text("Choose a file")').count() === 0);
 
   // Tapping Record really does open the chooser — on a phone that is the camera app, and
   // it is consumed here because a chooser nobody answers holds the browser open behind it.
@@ -989,6 +996,7 @@ await withPage(NO_WHEEL, async page => {
   page.on('dialog', d => said.push(d.message()));   // withPage dismisses it; this only listens
   await page.evaluate(async () => {
     self.clipSecs = async () => 400;       // what a long clip reads back as
+    camAt = Date.now();                    // this case is about the length, not the origin
     await camPicked({files: [new File([new Uint8Array(1024)], 'long.mp4', {type: 'video/mp4'})], value: ''});
   });
   await page.waitForTimeout(200);
@@ -3761,14 +3769,56 @@ await withPage({ ...SIGNED_IN, photos: true, noSign: true, resignFails: true }, 
     await page.locator('.reel.bust p').first().innerText());
 });
 
-// A file picked from the phone can be a picture too.
+// The roll. A phone that honours `capture` never offers it, but plenty do not and no
+// desktop does, so what comes back is checked rather than trusted. Playwright's setFiles
+// writes the buffer to a temp file, so a take is naturally fresh; an old one is made old
+// on the way in, which is exactly what a file off the roll looks like.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.locator('#dlg input[name=amount]').fill('20');
+  // Nothing recorded yet: Post has nothing to send.
+  await page.locator('#dlg button.primary').click();
+  await page.waitForTimeout(400);
+  check('posting with no take asks for one', alerts.some(a => /tap Record/i.test(a)), alerts.join(' | '));
+
+  // A file written last week, handed to the camera input.
+  await page.evaluate(() => { self.__realCamPicked = camPicked; });
+  await giveTake(page, { name: 'old.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(1024, 3) });
+  await page.evaluate(() => { recorded = null; camAt = Date.now();
+    const f = new File([new Uint8Array(1024)], 'roll.mp4', { type: 'video/mp4', lastModified: Date.now() - 7 * 864e5 });
+    const dt = new DataTransfer(); dt.items.add(f);
+    const i = document.querySelector('#camin'); i.files = dt.files; i.dispatchEvent(new Event('change'));
+  });
+  await page.waitForTimeout(500);
+  check('  a file older than the camera session is refused',
+    alerts.some(a => /not recorded just now/i.test(a)), alerts.join(' | '));
+  check('    and is not held as the take', await page.evaluate(() => recorded === null));
+
+  // And with no camera session behind it at all.
+  await page.evaluate(() => { recorded = null; camAt = 0;
+    const f = new File([new Uint8Array(1024)], 'sneak.mp4', { type: 'video/mp4', lastModified: Date.now() });
+    const dt = new DataTransfer(); dt.items.add(f);
+    const i = document.querySelector('#camin'); i.files = dt.files; i.dispatchEvent(new Event('change'));
+  });
+  await page.waitForTimeout(500);
+  check('  a fresh file with no camera session behind it is refused too',
+    await page.evaluate(() => recorded === null));
+});
+
+// Proof can be a picture as well as a clip — both come off the camera.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
-  check('choosing a file offers pictures as well as clips',
-    /image/.test(await page.locator('#dlg input[name=video]').getAttribute('accept')),
-    await page.locator('#dlg input[name=video]').getAttribute('accept'));
+  check('the form has no way to choose a file', await page.locator('#dlg input[type=file]').count() === 0,
+    'a file input is still on the proof form');
+  await page.evaluate(() => openCam());
+  check('  the camera takes pictures as well as clips',
+    /image/.test(await page.locator('#camin').getAttribute('accept')),
+    await page.locator('#camin').getAttribute('accept'));
+  check('  and asks the phone for a camera rather than the roll',
+    await page.locator('#camin').getAttribute('capture') === 'environment');
 });
 
 // ---- the days a group actually expects anything
