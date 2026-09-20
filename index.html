@@ -91,6 +91,55 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .hdr .gback{padding:4px 0;font-size:13px;font-weight:700}
 /* What the pass has quietly done for the group, under the number it did it to. */
 .hdr .passline{margin:10px 0 0;padding-bottom:12px;font-size:12.5px;color:var(--muted);font-weight:600}
+/* ---- the month's contact sheet, your numbers, and the recap list */
+.mlegend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 18px 0}
+.mlegend span{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.mlegend i{width:13px;height:13px;border-radius:3px;display:block}
+.mlegend i.none{background:var(--card);box-shadow:inset 0 0 0 1px var(--todo)}
+.mlegend i.cov{background:var(--soft);box-shadow:inset 0 0 0 1.5px var(--mkt)}
+.mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:8px 18px 0}
+.mgrid.head span{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center}
+.mgrid .d{position:relative;aspect-ratio:1;border-radius:4px;padding:0;overflow:hidden;background:var(--card);
+  box-shadow:inset 0 0 0 1px var(--line);display:block}
+.mgrid .d.gap{box-shadow:none;background:none}
+.mgrid .d.off,.mgrid .d.rest{background:var(--soft);box-shadow:none}
+.mgrid .d.pass{box-shadow:inset 0 0 0 1.5px var(--mkt)}
+.mgrid .d.now{box-shadow:inset 0 0 0 1.5px var(--text)}
+.mgrid .d .st{position:absolute;inset:0;display:flex;flex-direction:column}
+.mgrid .d .st i{flex:1;display:block}
+.mgrid .d b{position:absolute;left:4px;top:3px;font-family:Oswald,sans-serif;font-size:10px;font-weight:600;
+  line-height:1;color:var(--muted)}
+.mgrid .d.ondark b{color:rgba(255,255,255,.92)}
+.mgrid .d.off b,.mgrid .d.rest b{color:var(--todo)}
+.twoup{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 18px}
+.twoup .card{margin:0;padding:16px}
+.twoup .card span{display:block;margin-top:6px;font-size:12.5px;font-weight:700}
+.num.big2{font-size:34px;line-height:1;letter-spacing:-.01em}
+.dots{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:0 18px}
+.dots i{display:block;aspect-ratio:1;border-radius:4px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
+.dots i.on{background:var(--mk);box-shadow:none}
+.card.soft{background:var(--soft);border:0}
+.rlist{display:flex;flex-direction:column;gap:12px;margin:0 18px}
+.rcard{position:relative;display:block;width:100%;padding:0;border-radius:14px;overflow:hidden;
+  background:#0b0c0e;box-shadow:inset 0 0 0 1px var(--line);text-align:left;color:#fff}
+.rcard .sheet{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:1fr;gap:2px;height:170px}
+.rcard .sheet{position:relative}
+.rcard .sheet i{display:block;background:var(--mk);opacity:calc(.35 + (var(--n) * .08))}
+.rcard .sheet video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#0b0c0e}
+.rcard .sheet::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55),transparent 60%);pointer-events:none}
+.rcard .pl{position:absolute;left:50%;top:70px;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:50%;
+  background:rgba(0,0,0,.34);border:1.5px solid rgba(255,255,255,.75);display:grid;place-items:center}
+.rcard .pl svg{width:20px;height:20px;fill:#fff}
+.rcard .meta{display:block;padding:12px 14px;background:#0b0c0e}
+.rcard .meta b{display:block;font-family:Oswald,sans-serif;font-size:17px;font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+.rcard .meta em{display:block;margin-top:3px;font-style:normal;font-size:12px;font-weight:600;color:rgba(255,255,255,.66)}
+.rcard .new{position:absolute;right:12px;top:12px;background:var(--mk);color:var(--onmk);font-family:Oswald,sans-serif;
+  font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;padding:4px 9px}
+.prg2{display:block;margin-top:9px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
+.prg2 i{display:block;height:100%;width:var(--w);background:var(--mk)}
+.dot{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:999px;
+  background:var(--mk);color:var(--onmk);font-size:11px;font-style:normal;vertical-align:middle}
+.row.pad{margin:0 18px}
 /* Who is still out, with the clock on it. Sits between the heading and the list it is
    about, so it reads as the state of the day rather than as a notice pinned to the page. */
 .missline{margin:0 18px 10px;font-size:13.5px;font-weight:700;line-height:1.45}
@@ -205,9 +254,9 @@ button.rg{border:0;font:inherit}
 .face.tpl .type{text-shadow:0 2px 14px rgba(0,0,0,.35)}
 
 /* Watching. Full screen, because that is what it is for. */
-#story,#make{position:fixed;inset:0;z-index:70;background:#050706;display:grid;grid-template-columns:minmax(0,1fr);place-items:center}
-#story[hidden],#make[hidden]{display:none}
-#story .pane,#make .pane{position:relative;width:min(100%,430px);height:100%;display:flex;flex-direction:column;
+#story,#make,#recap{position:fixed;inset:0;z-index:70;background:#050706;display:grid;grid-template-columns:minmax(0,1fr);place-items:center}
+#story[hidden],#make[hidden],#recap[hidden]{display:none}
+#story .pane,#make .pane,#recap .pane{position:relative;width:min(100%,430px);height:100%;display:flex;flex-direction:column;
   padding:calc(8px + env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))}
 /* A strip rather than a single card, so the one you are heading for is already beside the
    one you are on and the whole thing can move with your finger. */
@@ -217,9 +266,9 @@ button.rg{border:0;font:inherit}
   transition:transform 320ms cubic-bezier(.32,.72,0,1)}
 #story .track.grab{transition:none}
 #story .track > .pane{flex:0 0 100%;width:100%}
-#story .bars{display:flex;gap:4px;padding:0 10px}
-#story .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
-#story .bars i.done{background:rgba(255,255,255,.85)}
+#story .bars,#recap .bars{display:flex;gap:4px;padding:0 10px}
+#story .bars i,#recap .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
+#story .bars i.done,#recap .bars i.done{background:rgba(255,255,255,.85)}
 /* The one being watched fills as it runs, which is the whole of what tells you how long is
    left — and, now that another of the same person's arrives with no slide, the only thing
    that moves when it does. Held still while a finger is down. */
@@ -228,10 +277,10 @@ button.rg{border:0;font:inherit}
   animation:barfill var(--run,5000ms) linear forwards}
 #story.held .bars i.now b{animation-play-state:paused}
 @keyframes barfill{to{width:100%}}
-#story .who{display:flex;align-items:center;gap:9px;padding:12px 12px 10px;color:#fff;position:relative;z-index:3}
-#story .who b{font-size:14.5px;font-weight:800}
-#story .who span{font-size:12px;color:rgba(255,255,255,.7)}
-#story .who .x{margin-left:auto;background:none;color:#fff;font-size:17px;padding:4px 6px}
+#story .who,#recap .who{display:flex;align-items:center;gap:9px;padding:12px 12px 10px;color:#fff;position:relative;z-index:3}
+#story .who b,#recap .who b{font-size:14.5px;font-weight:800}
+#story .who span,#recap .who span{font-size:12px;color:rgba(255,255,255,.7)}
+#story .who .x,#recap .who .x{margin-left:auto;background:none;color:#fff;font-size:17px;padding:4px 6px}
 /* Under the ✕ rather than beside it: the way out of a story and what to do with it are
    two different decisions, and the corner is where the thumb already is for both. The
    chip is there because a story can be a white photo and bare white on it is nothing. */
@@ -239,14 +288,14 @@ button.rg{border:0;font:inherit}
   background:rgba(0,0,0,.42);color:#fff;display:grid;place-items:center;line-height:0}
 #story .who .bin svg{width:20px;height:20px;display:block;fill:currentColor;
   filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))}
-#story .face{flex:1;aspect-ratio:auto;min-height:0}
+#story .face,#recap .face{flex:1;aspect-ratio:auto;min-height:0}
 /* Sideways is ours, so a swipe across is not taken as a page gesture first. Up and down
    is left alone, because the list of who watched scrolls. */
 #story{touch-action:pan-y}
 /* Half each, under everything: forward on the right the way every app does it. */
-#story .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
-#story .tap.back{left:0}
-#story .tap.fwd{right:0;width:62%}
+#story .tap,#recap .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
+#story .tap.back,#recap .tap.back{left:0}
+#story .tap.fwd,#recap .tap.fwd{right:0;width:62%}
 /* Who watched: only on your own, in the corner where the other app keeps it. */
 #story .eye{position:absolute;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3;display:flex;align-items:center;gap:6px;
   background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:999px}
@@ -1102,6 +1151,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
   <linearGradient id="bgGem" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2c0"/><stop offset="1" stop-color="#e0a92c"/></linearGradient>
 </defs></svg>
 <div id="story" hidden role="dialog" aria-label="Story"></div>
+<div id="recap" hidden role="dialog" aria-label="Recap"></div>
 <div id="make" hidden role="dialog" aria-label="New story"></div>
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
 <div id="drop" hidden aria-live="polite"></div>
@@ -1140,7 +1190,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v80';
+const BUILD = 'quota-v81';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1185,7 +1235,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {sub: null, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1674,6 +1724,7 @@ function screenHTML() {
   return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
     : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
     : S.settings ? settingsView()
+    : S.sub ? subScreen(S.sub)
     : S.who ? personView(S.who)
     : g ? groupView(g)
     : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
@@ -2860,6 +2911,215 @@ function missLine(g) {
   for (const x of part) bits.push(`${esc(names([x.id]))} ${x.id === me().id ? 'are' : 'is'} ${x.short.join(' and ')} short`);
   return `<p class="missline">${bits.join(' \u00b7 ')} \u2014 <b class="num" data-until="${endOfToday()}" data-coarse="1">${esc(leftLong(endOfToday()))}</b></p>`;
 }
+// ---- looking back: the month, your own numbers, and the recaps
+// A screen pushed over the group or the profile. One key rather than a flag each, so
+// render() and go() have one thing to clear.
+function openSub(kind, gid, day) { S.sub = {kind, gid, day}; stackOn(); }
+function closeSub() { S.sub = null; stackOff(); }
+function subScreen(v) {
+  const g = S.groups.find(x => x.id === v.gid);
+  return v.kind === 'stats' ? statsView()
+    : !g ? (closeSub(), '')
+    : v.kind === 'month' ? monthView(g)
+    : v.kind === 'day' ? dayView(g, v.day)
+    : recapsView(g);
+}
+const backTo = (label, fn = 'closeSub()') => `<button class="ghost back" onclick="${fn}">‹ ${esc(label)}</button>`;
+// One colour per member, held steady by their place in the group so a strip means the same
+// person on every row. The ramp is the app's own green at different weights.
+const MEMBER_INK = ['#1db061', '#0b5a34', '#11814a', '#25c56d', '#0f7f45', '#12934f', '#0e7044', '#2fd36f'];
+const inkOf = (g, id) => MEMBER_INK[Math.max(0, g.members.indexOf(id)) % MEMBER_INK.length];
+
+// ---- this month
+// A contact sheet for the whole group in one grid: a row per week, a cell per day, and the
+// cell split into a strip per member. A blank strip is a day that member missed; a ringed
+// cell is one the month's pass carried. Weeks run Monday first.
+const monthDays = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+const ymdOf = (y, m, n) => `${y}-${two(m + 1)}-${two(n)}`;
+function monthView(g) {
+  const now = new Date(), y = now.getFullYear(), mo = now.getMonth();
+  const run = groupRun(g), sets = g.members.map(id => hitDays(g, id));
+  const total = monthDays(y, mo), first = new Date(Date.UTC(y, mo, 1)).getUTCDay();
+  const lead = (first + 6) % 7;            // Monday-first, so Sunday leads by six
+  const t = today(), began = g.created_at ? Date.parse(g.created_at) : 0;
+  let full = 0, of = 0;
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push('<span class="d gap"></span>');
+  for (let n = 1; n <= total; n++) {
+    const d = ymdOf(y, mo, n), ahead = d > t, before = Date.parse(`${d}T23:59`) < began;
+    const rest = !onDay(g, d);
+    if (!ahead && !before && !rest) { of++; if (sets.every(x => x.has(d))) full++; }
+    const strips = ahead || before || rest ? ''
+      : g.members.map((id, i) => `<i style="background:${sets[i].has(d) ? inkOf(g, id) : 'transparent'}"></i>`).join('');
+    // The date has to be readable on a filled cell and on an empty one. The top strip is
+    // always the same member, so whether it is filled decides the ink: white over their
+    // colour, muted over the paper. A blend mode was tried and read as nothing at all.
+    const onInk = !ahead && !before && !rest && sets[0] && sets[0].has(d);
+    const cls = ['d', ahead || before ? 'off' : '', rest ? 'rest' : '', onInk ? 'ondark' : '',
+      run.covered.has(d) ? 'pass' : '', d === t ? 'now' : ''].filter(Boolean).join(' ');
+    cells.push(ahead || before || rest
+      ? `<span class="${cls}"><b>${n}</b></span>`
+      : `<button type="button" class="${cls}" onclick="openSub('day',${g.id},'${d}')" aria-label="${esc(dayLabel(d))}"><span class="st">${strips}</span><b>${n}</b></button>`);
+  }
+  const monthName = now.toLocaleDateString(undefined, {month: 'long'});
+  return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
+      <span class="date">${esc(monthName)}</span></div>
+    <div class="big"><b class="num">${full}</b><div>${full === 1 ? 'whole day' : 'whole days'}<small>of ${of} so far · ${plural(g.members.length, 'person').replace('persons', 'people')}</small></div></div></div>
+  <div class="mlegend">${g.members.map(id => `<span><i style="background:${inkOf(g, id)}"></i>${esc(id === me().id ? 'you' : name(user(id)))}</span>`).join('')}
+    <span><i class="none"></i>missed</span>${run.covered.size ? '<span><i class="cov"></i>pass</span>' : ''}</div>
+  <div class="mgrid head">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div>
+  <div class="mgrid">${cells.join('')}</div>
+  <p class="muted pad small">Tap a day to see what went in.${run.covered.size ? ` Ringed days were carried by the month's pass.` : ''}</p>`;
+}
+// One day of one group, which is the feed already knows how to draw.
+function dayView(g, day) {
+  const ps = S.posts.filter(p => p.groupId === g.id && p.day === day);
+  return smallHdr(esc(dayLabel(day))) + backTo(g.name, `openSub('month',${g.id})`)
+    + `<p class="muted pad">${esc(g.name)}</p>` + feed(ps);
+}
+
+// ---- your own numbers
+// No rank, no comparison, nobody else on the screen. The leaderboard is on the group
+// screen and that is where it stays: this one answers "how am I doing", which is a
+// different question and a worse one to answer with somebody else's number.
+function statsView() {
+  const m = me(), gs = myGroups();
+  const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
+  const mon = today().slice(0, 7);
+  const mine = new Set(S.posts.filter(p => p.userId === m.id && p.day.startsWith(mon)).map(p => p.day));
+  const dots = [];
+  for (let i = 29; i >= 0; i--) { const d = daysAgo(i); dots.push(`<i class="${gs.some(g => hit(g, m.id, d)) ? 'on' : ''}"></i>`); }
+  const on = dots.filter(x => x.includes('on')).length;
+  return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ Profile</button>
+      <span class="date">Your numbers</span></div>
+    <div class="big"><b class="num">${cur}</b><div>day streak<small>${cur ? 'keep it going' : 'nothing going right now'}</small></div></div></div>
+  <div class="twoup">
+    <div class="card"><b class="num big2">${bst}</b><span>longest ever</span></div>
+    <div class="card"><b class="num big2">${mine.size}</b><span>days this month</span></div>
+  </div>
+  <h3>The last thirty days</h3>
+  <div class="dots">${dots.join('')}</div>
+  <p class="muted pad small">${on} of the last 30.</p>
+  <div class="card soft"><b>This screen is yours alone</b><p class="muted">No ranking and nobody else's numbers. The leaderboard lives on the group screen; this is only about how you are doing.</p></div>`;
+}
+
+// ---- recaps
+// A recap is the clips a group already posted between two dates. That is a filter, not a
+// build, so there is nothing to generate and nothing to schedule: the moment a week closes
+// its recap exists, on every device at once, with no table behind it and no job to run.
+//
+// What Feature 12 will want stored is the rendered vertical video, which is a file and
+// belongs in storage when there is one. Storing this list as well would be keeping a copy
+// of a query — it could only ever go stale against the posts it names.
+//
+// Weeks run Monday to Sunday and only closed ones count; the same for whole months.
+const weekStart = d => fromDayNo(dayNo(d) - ((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
+const RECAP_BACK = 8;                      // how far back to offer; a year of months is a list nobody reads
+function recapsOf(g) {
+  const t = today(), out = [];
+  // Whole weeks, most recent first, starting with the one that closed before this one began.
+  let w = weekStart(t);
+  for (let i = 0; i < RECAP_BACK; i++) {
+    const to = fromDayNo(dayNo(w) - 1), from = weekStart(to);
+    out.push({kind: 'week', key: `w${from}`, from, to,
+      name: from.slice(0, 7) === to.slice(0, 7) ? `Week of ${dayLabel(from)}` : `Week of ${dayLabel(from)}`});
+    w = from;
+  }
+  // Whole months, the same way.
+  const now = new Date();
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() - i, 1));
+    const y = d.getUTCFullYear(), mo = d.getUTCMonth();
+    const from = ymdOf(y, mo, 1), to = ymdOf(y, mo, monthDays(y, mo));
+    // Named in UTC, because that is how it was built. Formatted in local time, the 1st of
+    // a month is the last of the month before for everybody west of Greenwich, and August
+    // comes out labelled July.
+    out.push({kind: 'month', key: `m${from}`, from, to,
+      name: d.toLocaleDateString(undefined, {month: 'long', timeZone: 'UTC', year: y === now.getFullYear() ? undefined : 'numeric'})});
+  }
+  return out.map(r => ({...r, posts: clipsBetween(g, r.from, r.to)}))
+    .filter(r => r.posts.length)
+    .sort((a, b) => (a.to < b.to ? 1 : a.to > b.to ? -1 : a.kind === 'month' ? 1 : -1));
+}
+// A montage is clips. A photo has no duration and would either flash past or need a rule
+// about how long to hold it, so the recap is the moving ones.
+const clipsBetween = (g, from, to) => S.posts
+  .filter(p => p.groupId === g.id && p.day >= from && p.day <= to && !isPhoto(p) && p.url)
+  .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.ts - b.ts));
+// The one still filling up, so the screen can say what is coming rather than only what has
+// been. Not a recap yet: it has no closing date behind it.
+function openPeriod(g) {
+  const t = today(), from = t.slice(0, 8) + '01';
+  return {name: new Date().toLocaleDateString(undefined, {month: 'long'}), posts: clipsBetween(g, from, t),
+    pct: Math.round(+t.slice(8) / monthDays(new Date().getFullYear(), new Date().getMonth()) * 100)};
+}
+// Which recaps this phone has not played. Per device on purpose: it is a nudge, not a
+// fact about the group, and a badge that followed you between phones would be worse.
+const watched = () => { try { return JSON.parse(localStorage.recapsSeen || '[]'); } catch (e) { return []; } };
+const markWatched = k => { try { localStorage.recapsSeen = JSON.stringify([...new Set([...watched(), k])].slice(-60)); } catch (e) {} };
+const freshRecaps = g => recapsOf(g).filter(r => !watched().includes(r.key)).length;
+
+function recapsView(g) {
+  const rs = recapsOf(g), open = openPeriod(g), seen = watched();
+  const card = r => `<button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
+    <span class="sheet">${r.posts.slice(0, 8).map((p, i) => `<i style="--n:${i}"></i>`).join('')}
+      <video class="proof" muted playsinline preload="metadata" data-src="${esc(r.posts[0].url)}"></video></span>
+    <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+    <span class="meta"><b>${esc(r.name)}</b><em>${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
+    ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>`;
+  return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
+      <span class="date">Recaps</span></div></div>
+  ${rs.length ? `<h3>Ready to watch</h3><div class="rlist">${rs.map(card).join('')}</div>`
+    : `<div class="card empty"><b>Nothing to look back on yet</b><p class="muted">A recap appears on its own the moment a week closes.</p></div>`}
+  <h3>Still filling up</h3>
+  <div class="card row"><div class="grow"><b>${esc(open.name)}</b>
+      <div class="muted">${plural(open.posts.length, 'clip')} so far. Lands on the 1st.</div>
+      <span class="prg2"><i style="--w:${open.pct}%"></i></span></div></div>
+  <p class="muted pad small">Recaps make themselves — a week's is there as soon as the week is over.</p>`;
+}
+
+// ---- the recap player
+// Clips one after another on one element, which is all a montage is. The story viewer is
+// not reused: it is a queue of people with seen marks and swipes between them, and forcing
+// a week of one group's clips into that shape would be more work than this whole player.
+let R = null;                              // {clips, i, key}
+function openRecap(gid, key) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return;
+  const r = recapsOf(g).find(x => x.key === key);
+  if (!r || !r.posts.length) return;
+  R = {clips: r.posts, i: 0, key, name: r.name};
+  markWatched(key);
+  $('#recap').hidden = false;
+  paintRecap();
+  trimClips();                             // the screen behind is covered: give its decoders back
+}
+function closeRecap() {
+  R = null;
+  const box = $('#recap');
+  box.hidden = true; box.innerHTML = '';
+  render(); watchClips();
+}
+function paintRecap() {
+  if (!R) return;
+  const p = R.clips[R.i], u = user(p.userId);
+  $('#recap').innerHTML = `<div class="pane">
+    <div class="bars">${R.clips.map((_, i) => `<i class="${i < R.i ? 'done' : ''}"></i>`).join('')}</div>
+    <div class="who">${av(u, 'sm')}<div><b>${esc(name(u))}</b><span>${esc(R.name)} · ${esc(dayLabel(p.day))}</span></div>
+      <button type="button" class="x" onclick="closeRecap()" aria-label="Close">✕</button></div>
+    <video class="face" playsinline autoplay src="${esc(p.url)}" onended="stepRecap(1)" onerror="stepRecap(1)"></video>
+    <button type="button" class="tap back" onclick="stepRecap(-1)" aria-label="Previous clip"></button>
+    <button type="button" class="tap fwd" onclick="stepRecap(1)" aria-label="Next clip"></button>
+  </div>`;
+}
+function stepRecap(d) {
+  if (!R) return;
+  const i = R.i + d;
+  if (i >= R.clips.length) return closeRecap();
+  R.i = Math.max(0, i);
+  paintRecap();
+}
+
 // The group screen leads with the group's streak, at the size the feed gives your own.
 // Everything else on the screen is about today; this is the only thing on it about all
 // the days at once, so it goes at the top and it goes big.
@@ -2884,7 +3144,9 @@ function groupView(g) {
       <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
       Group chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
-    <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div></div>
+    <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div>
+    <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
+      <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div></div>
   <h3>Today</h3>
   ${missLine(g)}
   <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
@@ -2963,7 +3225,7 @@ function releaseClip(v) {
 // loading video for a picture nobody will see again is what scoping this to #app fixed.
 // Leaving #one out went the other way — the clip you had just tapped through to was the
 // one element on the page that never got its source, so it sat there black.
-const CLIPS = '#app .reel .proof, #app .tile .proof, #one .reel .proof, #app .frow .th video';
+const CLIPS = '#app .reel .proof, #app .tile .proof, #one .reel .proof, #app .frow .th video, #app .rcard .sheet video';
 // A phone keeps only a handful of videos decoded at once. Past that they come up black,
 // they freeze with the sound still running, and in the end the page is killed for memory —
 // which is a browser tab saying "a problem repeatedly occurred" and a PWA that will not
@@ -3917,6 +4179,7 @@ function personView(uid) {
       <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
     <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
+    ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Your numbers</button></div>` : ''}
     ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
       : own ? `<p class="muted pad">Badges start at a 25 day streak.</p>` : ''}
     ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
@@ -4639,6 +4902,7 @@ const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disa
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
 function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = null; S.settings = false;
+  S.sub = null;
   backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
 
@@ -6184,6 +6448,23 @@ if (location.hash === '#test') {
   console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
   console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
   console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
+  // Weeks run Monday to Sunday, whatever day it is when this runs.
+  console.assert(weekStart('2026-09-20') === '2026-09-14' && weekStart('2026-09-14') === '2026-09-14'
+    && weekStart('2026-09-21') === '2026-09-21', 'a week starts on its Monday');
+  console.assert(monthDays(2026, 1) === 28 && monthDays(2024, 1) === 29 && monthDays(2026, 8) === 30,
+    'month lengths, leap year included');
+  console.assert(recapsOf({id: 999, quotas: [], members: []}).length === 0, 'a group with no clips has no recaps');
+  // A recap is the clips between two dates, so it is a filter and nothing else: no photos,
+  // in order, and only from its own group.
+  const g7 = {id: 7, quotas: [{metric: 'pushups', target: 50}], members: ['a']};
+  S.posts.push({id: 'r1', groupId: 7, userId: 'a', day: '2026-09-15', ts: 2, path: 'a.mp4', url: 'u'});
+  S.posts.push({id: 'r2', groupId: 7, userId: 'a', day: '2026-09-14', ts: 1, path: 'b.mp4', url: 'u'});
+  S.posts.push({id: 'r3', groupId: 7, userId: 'a', day: '2026-09-15', ts: 3, path: 'c.jpg', url: 'u'});
+  S.posts.push({id: 'r4', groupId: 7, userId: 'a', day: '2026-09-22', ts: 4, path: 'd.mp4', url: 'u'});
+  const cl = clipsBetween(g7, '2026-09-14', '2026-09-20');
+  console.assert(cl.length === 2 && cl[0].id === 'r2' && cl[1].id === 'r1',
+    'a recap is its own week, in order, clips only');
+
   // Who is still out. Somebody part-way through the day has posted, and saying they have
   // not would be wrong about a real person in front of their friends.
   const g6 = {id: 6, quotas: [{metric: 'pushups', target: 50}], members: ['a', 'b', 'c'], active_days: ALLDAYS};
