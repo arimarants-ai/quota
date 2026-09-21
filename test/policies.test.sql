@@ -50,15 +50,42 @@ begin
   if has_function_privilege('anon', 'public.wheel_due_now()', 'EXECUTE') then
     raise exception 'anyone with the anon key could spend everybody''s spin-day reminders';
   end if;
-  if has_function_privilege('anon', 'public.day_due_now()', 'EXECUTE') then
-    raise exception 'anyone with the anon key could spend everybody''s end-of-day reminders';
+  -- v34 replaced day_due_now() with one decision per person per day. The rule is the same
+  -- and it matters more: this one claims all three kinds, so a caller who could spend them
+  -- could silence somebody's whole day.
+  if has_function_privilege('anon', 'public.notices_due_now()', 'EXECUTE') then
+    raise exception 'anyone with the anon key could spend everybody''s notifications';
   end if;
-  if has_function_privilege('authenticated', 'public.day_due_now()', 'EXECUTE') then
-    raise exception 'any signed-in account could spend everybody''s end-of-day reminders';
+  if has_function_privilege('authenticated', 'public.notices_due_now()', 'EXECUTE') then
+    raise exception 'any signed-in account could spend everybody''s notifications';
   end if;
-  -- And the one caller that does need them still has them.
-  if not has_function_privilege('service_role', 'public.day_due_now()', 'EXECUTE') then
-    raise exception 'the cron cannot call day_due_now, so no reminder would ever go out';
+  -- And the one caller that does need it still has it.
+  if not has_function_privilege('service_role', 'public.notices_due_now()', 'EXECUTE') then
+    raise exception 'the cron cannot call notices_due_now, so no reminder would ever go out';
+  end if;
+  -- The hour a prompt lands is not anybody's to look up for somebody else.
+  if has_function_privilege('anon', 'public.slot_hour(uuid, date)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.slot_hour(uuid, date)', 'EXECUTE') then
+    raise exception 'the notification hour is readable by the app';
+  end if;
+  -- And the one v34 replaced is gone rather than left claiming rows under a default kind.
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'public' and p.proname = 'day_due_now') then
+    raise exception 'day_due_now is still here and would double-send against notices_due_now';
+  end if;
+  -- v33's invite link. code_group is deliberately open to anon: whoever follows a link has
+  -- no account yet, and it answers with a name and nothing else. The other two are not.
+  if not has_function_privilege('anon', 'public.code_group(text)', 'EXECUTE') then
+    raise exception 'somebody following an invite link cannot be told which group it is for';
+  end if;
+  if has_function_privilege('anon', 'public.join_by_code(text)', 'EXECUTE') then
+    raise exception 'a signed-out caller could add themselves to a group';
+  end if;
+  if has_function_privilege('anon', 'public.group_code(bigint, boolean)', 'EXECUTE') then
+    raise exception 'a signed-out caller could mint an invite link for any group';
+  end if;
+  if not has_function_privilege('authenticated', 'public.join_by_code(text)', 'EXECUTE') then
+    raise exception 'a signed-in account cannot take an invite link';
   end if;
   -- Closing a flag is the other way round: the app calls it on every load, and applying a
   -- rule that is already true costs nothing and claims nothing.
