@@ -24,7 +24,7 @@ const rest = async (path: string, init: RequestInit = {}) => {
   return res.status === 204 ? null : res.json();
 };
 
-import { endOfDayFor, remindersFor, type Due } from './message.ts';
+import { NOTICE_META, noticeBody, remindersFor, type Due, type Notice } from './message.ts';
 
 // One place that sends, because there are two reasons to now and they prune dead
 // subscriptions and count what went out identically.
@@ -72,22 +72,31 @@ Deno.serve(async (req) => {
   // Two questions on the same hourly beat, because both are "whose clock says so right
   // now" and neither is worth a cron job, a function and a secret of its own. Each claims
   // what it returns, so an overlapping run cannot wake anybody twice.
-  const [due, ending] = await Promise.all([
+  const [due, notices] = await Promise.all([
     rest('rpc/wheel_due_now', { method: 'POST', body: '{}' }) as Promise<Due[]>,
-    // A project that has not run the v29 block has no such function; that is not a reason
+    // A project that has not run the v34 block has no such function; that is not a reason
     // for spin day to stop working.
-    (rest('rpc/day_due_now', { method: 'POST', body: '{}' }) as Promise<{ user_id: string; line: string }[]>)
-      .catch(() => []),
+    (rest('rpc/notices_due_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>).catch(() => []),
   ]);
 
   const spin = due.length
     ? await blast(remindersFor(due), 'Today is wheel spin day', 'wheel-day')
     : { people: 0, sent: 0, pruned: 0 };
 
-  const late = ending.length
-    ? await blast(new Map(ending.map(r => [r.user_id, endOfDayFor(r.line)])),
-        'Your day is not done', 'day-end')
-    : { people: 0, sent: 0, pruned: 0 };
+  // The database already decided who gets what; all that is left is to say it. Each kind
+  // goes out as its own blast because the title and the tag differ, and the tag is what
+  // makes the lapsed message replace the window one instead of landing beside it.
+  const byKind = new Map<Notice['kind'], Map<string, string>>();
+  for (const n of notices) {
+    const m = byKind.get(n.kind) ?? new Map<string, string>();
+    m.set(n.user_id, noticeBody(n));
+    byKind.set(n.kind, m);
+  }
+  const day: Record<string, unknown> = {};
+  for (const [kind, msgs] of byKind) {
+    const meta = NOTICE_META[kind];
+    day[kind] = await blast(msgs, meta.title, meta.tag);
+  }
 
-  return Response.json({ due: due.length, spin, ending: ending.length, late });
+  return Response.json({ due: due.length, spin, notices: notices.length, day });
 });

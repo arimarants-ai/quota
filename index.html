@@ -1190,7 +1190,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v82';
+const BUILD = 'quota-v83';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1630,10 +1630,23 @@ async function storyPosts() {
 // that is for anyone. This is the only place that knows. Written once, and again if
 // someone travels; a failure here costs a reminder at the wrong hour, nothing more.
 async function keepTz() {
+  const patch = {};
   let tz = '';
   try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
-  if (!tz || tz === S.me.tz) return;
-  try { await sb.from('profiles').update({tz}).eq('id', S.me.id); S.me.tz = tz; } catch (e) {}
+  if (tz && tz !== S.me.tz) patch.tz = tz;
+  // Whether somebody still opens the app is the whole of what tells a lapsed message from
+  // a normal one, and only the app can say. Signing in is not the same thing: an account
+  // stays signed in for months without anybody looking at it.
+  //
+  // Once an hour is often enough to answer a question measured in days, and it keeps a
+  // screen left open overnight from writing a row every time it reloads.
+  const seen = S.me.seen_at ? Date.parse(S.me.seen_at) : 0;
+  if (!(Date.now() - seen < 36e5)) patch.seen_at = new Date().toISOString();
+  if (!Object.keys(patch).length) return;
+  try {
+    await sb.from('profiles').update(patch).eq('id', S.me.id);
+    Object.assign(S.me, patch);
+  } catch (e) {}                           // an older project has no seen_at; the app is not about to stop for it
 }
 
 // ---- loading, and what to do when it fails

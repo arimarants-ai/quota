@@ -1,6 +1,6 @@
 // node --experimental-strip-types supabase/functions/wheelday/message.test.ts
 import assert from 'node:assert/strict';
-import { endOfDayFor, remindersFor, type Due } from './message.ts';
+import { endOfDayFor, remindersFor, noticeBody, NOTICE_META, type Due, type Notice } from './message.ts';
 
 // Some of these are about what a sentence must and must not carry rather than its exact
 // wording, which is a thing worth being able to change without editing a test.
@@ -51,6 +51,45 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
   const none = endOfDayFor('');
   ok(none.length > 0 && !none.includes('undefined'),
     'a line that came back empty still reads as a sentence', none);
+}
+
+
+// ---- the day's one notification
+{
+  const n = (over: Partial<Notice> = {}): Notice =>
+    ({ user_id: 'a', kind: 'open', hours: 5, group_name: 'Mornings', others: 0, mates: 3, ...over }) as Notice;
+
+  const w = noticeBody(n({ kind: 'open', hours: 4 }));
+  ok(/4 hours/.test(w) && /Mornings/.test(w), 'the window one leads with how long is left', w);
+  ok(/1 hour\b/.test(noticeBody(n({ kind: 'open', hours: 1 }))), 'and says one hour, not one hours');
+
+  const alone = noticeBody(n({ kind: 'lastcall', others: 3, mates: 3, hours: 2 }));
+  ok(/Everyone in Mornings/.test(alone) && /streak/i.test(alone),
+    'last call with everyone else in says so, and says streak', alone);
+  const some = noticeBody(n({ kind: 'lastcall', others: 2, mates: 3, hours: 2 }));
+  ok(/2 of 3/.test(some) && /streak/i.test(some), 'and counts them when it is only some', some);
+  const nobody = noticeBody(n({ kind: 'lastcall', others: 0, mates: 3, hours: 2 }));
+  ok(!/streak/i.test(nobody) && /2 hours/.test(nobody),
+    'with nobody in there is nothing social to say, so it is just the clock', nobody);
+
+  const lap = noticeBody(n({ kind: 'lapsed', others: 2 }));
+  ok(/posted without you/.test(lap), 'the lapsed one says what was missed', lap);
+  ok(/still going/.test(noticeBody(n({ kind: 'lapsed', others: 0 }))),
+    'and does not claim they posted when nobody did');
+  ok(!/hour/.test(noticeBody(n({ kind: 'lapsed', others: 2 }))),
+    'a lapsed message is not a countdown', lap);
+
+  // The promise the whole block exists to keep: the lapsed message stands in for the
+  // window one, so it carries the same tag and replaces it rather than stacking beside it.
+  assert.equal(NOTICE_META.lapsed.tag, NOTICE_META.open.tag);
+  ok(NOTICE_META.lastcall.tag !== NOTICE_META.open.tag,
+    'and last call is its own, because it is allowed to arrive as well');
+
+  for (const kind of ['open', 'lastcall', 'lapsed'] as const) {
+    const body = noticeBody(n({ kind, group_name: '' }));
+    ok(body.length > 0 && !/undefined|null/.test(body),
+      `${kind} still reads as a sentence with no group to name`, body);
+  }
 }
 
 console.log('all wheelday message checks passed');
