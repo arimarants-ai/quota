@@ -3919,6 +3919,71 @@ await withPage(SIGNED_IN, async page => {
   check('  and offers the way back', await page.locator('button:has-text("Try again")').count() > 0);
 });
 
+// What leaves the app. The card is drawn here, so what it says can be read off the calls
+// rather than guessed at from a PNG.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const said = await page.evaluate(async () => {
+    const calls = [];
+    const real = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (t, ...r) { calls.push(String(t)); return real.call(this, t, ...r); };
+    const blob = await streakCard({id: 1, name: 'Mornings'}, 12);
+    CanvasRenderingContext2D.prototype.fillText = real;
+    return { calls, size: blob ? blob.size : 0, type: blob ? blob.type : '' };
+  });
+  check('the streak card is a picture', said.size > 1000 && said.type === 'image/png', JSON.stringify({s: said.size, t: said.type}));
+  check('  saying the number and the group name', said.calls.includes('12') && said.calls.includes('Mornings'), said.calls.join(' | '));
+  check('  and carrying the app\'s name', said.calls.includes('QUOTA'), said.calls.join(' | '));
+  // The whole of the brief for this card: nothing on it may assume anything about who is
+  // in the group. Every word is the number, the fixed label, the group's own name, or ours.
+  const allowed = new Set(['12', 'DAY STREAK', 'Mornings', 'QUOTA']);
+  check('  and nothing else at all \u2014 no phrasing about who is in it',
+    said.calls.every(t => allowed.has(t)), said.calls.filter(t => !allowed.has(t)).join(' | '));
+
+  // Driven by the group's name, not by a copy of it: a different group gets a different card.
+  const other = await page.evaluate(async () => {
+    const calls = [];
+    const real = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (t, ...r) { calls.push(String(t)); return real.call(this, t, ...r); };
+    await streakCard({id: 2, name: 'Evening Crew'}, 3);
+    CanvasRenderingContext2D.prototype.fillText = real;
+    return calls;
+  });
+  check('  and the next group gets its own', other.includes('Evening Crew') && other.includes('3') && !other.includes('Mornings'),
+    other.join(' | '));
+});
+
+// A montage that could not be built is not shared. The stub's clips are a data: URL that
+// decodes to nothing, so this is the real failure path, not a simulated one.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  const shared = await page.evaluate(async () => {
+    let handed = 0;
+    navigator.canShare = () => true;
+    navigator.share = async () => { handed++; };
+    try { await renderMontage([{url: 'data:video/mp4;base64,', day: '2026-09-01'}], () => {}); }
+    catch (e) { return { threw: e.message, handed }; }
+    return { threw: '', handed };
+  });
+  check('a montage that did not come out is not handed to anybody',
+    /did not come out right|cannot put a video together/.test(shared.threw) && shared.handed === 0,
+    JSON.stringify(shared));
+});
+
+// The unlock belongs to the group and happens once.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const out = await page.evaluate(async () => {
+    const g = S.groups.find(x => x.id === 1);
+    g.shared_at = null;
+    const first = await notchShare(1);
+    const second = await notchShare(1);
+    return { first, second, set: !!g.shared_at };
+  });
+  check('the first share unlocks the group', out.first === true && out.set === true, JSON.stringify(out));
+  check('  and the second does not unlock it again', out.second === false, JSON.stringify(out));
+});
+
 // Proof can be a picture as well as a clip — both come off the camera.
 await withPage(NO_WHEEL, async page => {
   await settle(page);

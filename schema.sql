@@ -2050,3 +2050,14 @@ drop function if exists public.day_due_now();
 revoke all on function public.slot_hour(uuid, date) from public, anon, authenticated;
 revoke all on function public.lastcall_hour(int) from public, anon, authenticated;
 revoke all on function public.notices_due_now() from public, anon, authenticated;
+
+-- v35 (something back for sharing): worth running.
+--
+-- The first time anybody in a group shares a recap or a streak card out of the app, the
+-- group gets to choose the mark that sits beside its streak. Once per group, not once per
+-- person: it is the group's streak on the card, so it is the group's to unlock.
+--
+-- No new table and no function. Members can already update their own group, which is
+-- exactly who is allowed to set these.
+alter table public.groups add column if not exists shared_at timestamptz;
+alter table public.groups add column if not exists mark text;
