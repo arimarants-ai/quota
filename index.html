@@ -137,6 +137,17 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;padding:4px 9px}
 .prg2{display:block;margin-top:9px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
 .prg2 i{display:block;height:100%;width:var(--w);background:var(--mk)}
+.rwrap{position:relative}
+.rshare{position:absolute;right:10px;bottom:10px}
+.hdr .big .gmark{width:34px;height:34px;fill:var(--mk);align-self:center;margin-left:-4px}
+.marks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.marks button{aspect-ratio:1;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.marks button.on{border-color:var(--mk);background:var(--mktint)}
+.marks svg{width:28px;height:28px;fill:var(--mkt)}
+.rendering{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:6px;text-align:center;
+  background:rgba(5,7,6,.92);color:#fff;padding:24px}
+.rendering b{font-family:Oswald,sans-serif;font-weight:600;font-size:17px}
+.rendering .muted{color:rgba(255,255,255,.6);font-size:13px}
 .card.pend{border-color:var(--mk);background:var(--mktint)}
 .card.pend .spin{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--mkring);
   border-top-color:var(--mk);animation:spin 1s linear infinite}
@@ -1195,7 +1206,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v84';
+const BUILD = 'quota-v85';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3191,12 +3202,13 @@ const freshRecaps = g => recapsOf(g).filter(r => !watched().includes(r.key)).len
 
 function recapsView(g) {
   const rs = recapsOf(g), open = openPeriod(g), seen = watched();
-  const card = r => `<button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
+  const card = r => `<div class="rwrap"><button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
     <span class="sheet">${r.posts.slice(0, 8).map((p, i) => `<i style="--n:${i}"></i>`).join('')}
       <video class="proof" muted playsinline preload="metadata" data-src="${esc(r.posts[0].url)}"></video></span>
     <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
     <span class="meta"><b>${esc(r.name)}</b><em>${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
-    ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>`;
+    ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>
+    <button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share this</button></div>`;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
       <span class="date">Recaps</span></div></div>
   ${rs.length ? `<h3>Ready to watch</h3><div class="rlist">${rs.map(card).join('')}</div>`
@@ -3206,6 +3218,206 @@ function recapsView(g) {
       <div class="muted">${plural(open.posts.length, 'clip')} so far. Lands on the 1st.</div>
       <span class="prg2"><i style="--w:${open.pct}%"></i></span></div></div>
   <p class="muted pad small">Recaps make themselves — a week's is there as soon as the week is over.</p>`;
+}
+
+// ---- taking it outside
+// Two things leave the app: a recap as a vertical clip, and the streak as a picture. Both
+// are drawn here rather than fetched, because there is no server to draw them on.
+const SHOT_W = 720, SHOT_H = 1280;         // 9:16, the shape every story wants
+const MONTAGE_EACH = 3;                    // seconds a clip gets
+const MONTAGE_MAX = 10;                    // clips, so the render is bounded at half a minute
+
+// The wordmark that goes on anything leaving the app. Small, bottom left, out of the way
+// of the part somebody is actually sharing — it is a signature, not a watermark.
+function drawMark(g, w, h) {
+  g.save();
+  g.globalAlpha = 0.9;
+  g.font = `600 ${Math.round(w * 0.042)}px Oswald, system-ui, sans-serif`;
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = 'rgba(0,0,0,.45)';
+  g.fillText('QUOTA', Math.round(w * 0.065) + 1, h - Math.round(h * 0.045) + 1);
+  g.fillStyle = '#fff';
+  g.fillText('QUOTA', Math.round(w * 0.065), h - Math.round(h * 0.045));
+  g.restore();
+}
+// Cover, not contain: a portrait canvas with a landscape clip letterboxed into it is
+// mostly black, and black is what people scroll past.
+function drawCover(g, v, w, h) {
+  const vw = v.videoWidth || w, vh = v.videoHeight || h;
+  const k = Math.max(w / vw, h / vh), dw = vw * k, dh = vh * k;
+  g.drawImage(v, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+
+// The montage. Same shape as the re-encoder that already works here: one canvas, one
+// recorder over its stream, frames pumped in as a <video> plays. The only new part is
+// that there are several clips and each gets a few seconds.
+async function renderMontage(clips, onProgress) {
+  const type = mp4Type();
+  if (!type) throw new Error('This browser cannot put a video together. Try sharing from a phone.');
+  const use = clips.slice(0, MONTAGE_MAX);
+  const c = document.createElement('canvas');
+  c.width = SHOT_W; c.height = SHOT_H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+  const stream = c.captureStream(30);
+  let ac = null, dest = null;
+  try {
+    ac = new (self.AudioContext || self.webkitAudioContext)();
+    await ac.resume();
+    dest = ac.createMediaStreamDestination();
+    dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+  } catch (e) { ac = null; }               // no audio route: the pictures still get through
+
+  const rec = new MediaRecorder(stream, {mimeType: type, videoBitsPerSecond: 2.6e6});
+  const chunks = [], stopped = new Promise(res => { rec.onstop = res; });
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.start();
+
+  let done = 0;
+  for (const p of use) {
+    const v = document.createElement('video');
+    v.src = p.url; v.playsInline = true; v.muted = !ac; v.crossOrigin = 'anonymous';
+    try {
+      await new Promise((res, rej) => {
+        v.onloadedmetadata = res; v.onerror = () => rej(new Error('clip'));
+        setTimeout(() => rej(new Error('slow')), 12000);
+      });
+      if (ac) { try { ac.createMediaElementSource(v).connect(dest); } catch (e) {} }
+      await v.play().catch(() => {});
+      const until = Date.now() + MONTAGE_EACH * 1000;
+      await new Promise(res => {
+        const pump = () => {
+          if (Date.now() >= until || v.ended) return res();
+          drawCover(g, v, c.width, c.height);
+          drawMark(g, c.width, c.height);
+          requestAnimationFrame(pump);
+        };
+        pump();
+      });
+    } catch (e) { /* a clip that will not open is skipped rather than ending the montage */ }
+    try { v.pause(); v.src = ''; v.load(); } catch (e) {}
+    onProgress(++done / use.length);
+  }
+  rec.stop();
+  await stopped;
+  try { if (ac) await ac.close(); } catch (e) {}
+  const blob = new Blob(chunks, {type: type.split(';')[0]});
+  // The same check the re-encoder makes: a file that will not decode is worse than none,
+  // because it is shared before anybody finds out.
+  if (!blob.size || !(await playable(blob, use.length * MONTAGE_EACH))) {
+    throw new Error('That recap did not come out right. Nothing was shared.');
+  }
+  return blob;
+}
+
+// The streak card. A picture, drawn the same way, with nothing on it that assumes anything
+// about who is in the group: the group's own name and its own number, and no other words.
+function streakCard(g0, n) {
+  const c = document.createElement('canvas');
+  c.width = SHOT_W; c.height = SHOT_H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#0b0c0e'; g.fillRect(0, 0, c.width, c.height);
+  const ring = getComputedStyle(document.documentElement).getPropertyValue('--mk').trim() || '#1db061';
+  g.fillStyle = ring;
+  g.fillRect(0, 0, c.width, Math.round(c.height * 0.012));
+  g.textAlign = 'center';
+  g.fillStyle = '#fff';
+  g.font = `600 ${Math.round(c.width * 0.30)}px Oswald, system-ui, sans-serif`;
+  g.fillText(String(n), c.width / 2, c.height * 0.52);
+  g.fillStyle = ring;
+  g.font = `600 ${Math.round(c.width * 0.075)}px Oswald, system-ui, sans-serif`;
+  g.fillText(n === 1 ? 'DAY STREAK' : 'DAY STREAK', c.width / 2, c.height * 0.60);
+  g.fillStyle = 'rgba(255,255,255,.82)';
+  g.font = `700 ${Math.round(c.width * 0.052)}px "Plus Jakarta Sans", system-ui, sans-serif`;
+  g.fillText(g0.name, c.width / 2, c.height * 0.66);
+  g.textAlign = 'left';
+  drawMark(g, c.width, c.height);
+  return new Promise(res => c.toBlob(res, 'image/png'));
+}
+
+// Handing a file to whatever the phone shares with. A browser with no file sharing gets a
+// download instead, which is still a file in the camera roll and still shareable.
+async function shareFile(file, text) {
+  try {
+    if (navigator.canShare && navigator.canShare({files: [file]})) {
+      await navigator.share({files: [file], text});
+      return true;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return false; }
+  const url = URL.createObjectURL(file);
+  const a = Object.assign(document.createElement('a'), {href: url, download: file.name});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 20000);
+  return true;
+}
+
+// The first share a group manages unlocks the mark beside its streak. Once for the group,
+// because it is the group's streak on the card, and a failure to record it is not worth
+// interrupting the share over — it will be recorded on the next one.
+async function notchShare(gid) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g || g.shared_at) return false;
+  try {
+    await sb.from('groups').update({shared_at: new Date().toISOString()}).eq('id', gid);
+    g.shared_at = new Date().toISOString();
+    return true;
+  } catch (e) { return false; }
+}
+
+async function shareRecap(gid, key) {
+  const g = S.groups.find(x => x.id === gid);
+  const r = g && recapsOf(g).find(x => x.key === key);
+  if (!r || !r.posts.length) return;
+  const box = $('#recap');
+  const say = t => { const el = box.querySelector('.rendering b'); if (el) el.textContent = t; };
+  box.insertAdjacentHTML('beforeend', `<div class="rendering"><b>Putting it together…</b>
+    <span class="muted">This runs at about the speed of the clips.</span></div>`);
+  try {
+    const blob = await renderMontage(r.posts, p => say(`Putting it together… ${Math.round(p * 100)}%`));
+    const file = new File([blob], `${g.name.replace(/[^\w]+/g, '-').toLowerCase()}-recap.mp4`, {type: blob.type});
+    if (await shareFile(file, `${r.name} — ${g.name} on Quota`)) await unlockedBy(gid);
+  } catch (e) {
+    alert((e && e.message) || 'That did not work.');
+  } finally { box.querySelector('.rendering')?.remove(); }
+}
+
+async function shareStreak(gid) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return;
+  const blob = await streakCard(g, groupRun(g).n);
+  if (!blob) return alert('That card could not be drawn.');
+  const file = new File([blob], `${g.name.replace(/[^\w]+/g, '-').toLowerCase()}-streak.png`, {type: 'image/png'});
+  if (await shareFile(file, `${g.name} on Quota`)) await unlockedBy(gid);
+}
+
+// What the group gets for it, said once.
+async function unlockedBy(gid) {
+  if (!(await notchShare(gid))) return render();
+  render();
+  dlg(`<h2>Unlocked</h2><p class="muted">First share out of the app. Your group can pick the mark that sits beside its streak.</p>
+    ${markPicker(gid)}<button style="width:100%;margin-top:14px" onclick="dlg()">Later</button>`);
+}
+const MARKS = {flame: 'M12 3c3 4 5 5.5 5 9a5 5 0 0 1-10 0c0-1.6.6-2.8 1.6-4 .2 1.2.8 2 1.7 2.4C10 8.6 10.6 5.7 12 3z',
+  bolt: 'M13 2 4 14h6l-1 8 9-12h-6l1-8z', star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+  leaf: 'M20 4c0 9-5 13-11 13a5 5 0 0 1-5-5C4 6 11 4 20 4zM4 20c2-5 6-8 11-9'};
+const markPath = k => MARKS[k] || '';
+function markDlg(gid) {
+  dlg(`<h2>Your group's mark</h2><p class="muted">It sits beside the streak on this screen.</p>
+    ${markPicker(gid)}<button style="width:100%;margin-top:14px" onclick="dlg()">Done</button>`);
+}
+function markPicker(gid) {
+  const g = S.groups.find(x => x.id === gid) || {};
+  return `<div class="marks">${Object.keys(MARKS).map(k => `<button type="button" class="${g.mark === k ? 'on' : ''}" onclick="pickMark(${gid},'${k}')" aria-label="${k}">
+    <svg viewBox="0 0 24 24"><path d="${MARKS[k]}"/></svg></button>`).join('')}</div>`;
+}
+async function pickMark(gid, k) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return;
+  const was = g.mark;
+  g.mark = g.mark === k ? null : k;
+  render(); dlg();
+  try { await sb.from('groups').update({mark: g.mark}).eq('id', gid); }
+  catch (e) { g.mark = was; render(); showErr('That did not save.', String(e && e.message || e)); }
 }
 
 // ---- the recap player
@@ -3257,7 +3469,7 @@ function groupHdr(g) {
   const r = groupRun(g), mo = new Date().toLocaleDateString(undefined, {month: 'long'});
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeGroup()">‹ Groups</button>
       <span class="date">${esc(g.name)}</span></div>
-    <div class="big"><b class="num">${r.n}</b><div>day group streak<small>${
+    <div class="big"><b class="num">${r.n}</b>${g.mark ? `<svg class="gmark" viewBox="0 0 24 24" aria-hidden="true"><path d="${markPath(g.mark)}"/></svg>` : ''}<div>day group streak<small>${
       r.n ? 'everyone, every day' : 'nobody has a run going'} · ${
       r.passLeft ? '1 pass left this ' + esc(mo) : 'no pass left this ' + esc(mo)}</small></div></div>
     ${r.covered.size ? `<p class="passline">${plural(r.covered.size, 'day')} covered by a pass${
@@ -3275,6 +3487,7 @@ function groupView(g) {
       Group chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div>
+    <div class="row" style="margin-top:8px"><button class="small grow" onclick="shareStreak(${g.id})">Share the streak</button>${g.shared_at ? `<button class="small grow" onclick="markDlg(${g.id})">Mark</button>` : ''}</div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
       <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div></div>
   <h3>Today</h3>
