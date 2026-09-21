@@ -46,6 +46,8 @@
     id: 90, wheel_id: 7, user_id: 'u2', cycle: cycleNow, sat_out: false, days_required: 2,
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
+  const GOOD_CODE = 'abc123XYZ789';
+  self.__joined = false;
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
   self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__clikes = []; self.__onprofile = {};
   // Stories were only ever pushed into S by hand from a test, which was enough while
@@ -70,7 +72,8 @@
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }]
       .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g)),
-    group_members: [{ group_id: 1, user_id: 'u1' }, { group_id: 1, user_id: 'u2' }],
+    group_members: (M().noGroup && !self.__joined ? [] : [{ group_id: 1, user_id: 'u1' }])
+      .concat([{ group_id: 1, user_id: 'u2' }]),
     // on_profile is the one thing about a post that can change after it is posted, so it
     // is read back through whatever the page last set rather than off the fixture.
     posts: [...(M().samToday ? [] : [M().noCaption ? { ...POST, caption: '' } : POST]), ...SAM_TODAY, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
@@ -221,6 +224,15 @@
   };
   // What an rpc actually does. Standalone so rpc() can hand back a thenable that runs it.
   const rpcRun = async (fn, args) => {
+    // An invite that travels as a link. GOOD_CODE is the one the fixture group answers to;
+    // anything else is a link that has been rotated out from under whoever forwarded it.
+    if (fn === 'code_group') return { data: args.code === GOOD_CODE ? [{ id: 1, name: 'Mornings' }] : [], error: null };
+    if (fn === 'group_code') return { data: GOOD_CODE, error: null };
+    if (fn === 'join_by_code') {
+      if (args.code !== GOOD_CODE) return { data: null, error: { message: 'that invite link is not valid' } };
+      self.__joined = true;
+      return { data: 1, error: null };
+    }
     if (fn === 'spin') {
       const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
       const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);

@@ -3806,6 +3806,55 @@ await withPage(NO_WHEEL, async (page, alerts) => {
     await page.evaluate(() => recorded === null));
 });
 
+// An account in no group is finished on one screen and nowhere else: Quota on your own is
+// a note-taking app with a camera.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  const html = await page.innerHTML('#app');
+  check('an account with no group is held on one screen', /Quota is a group thing/.test(html), html.slice(0, 300));
+  check('  with a way to start one and a way to take an invite',
+    await page.locator('button:has-text("Start a group")').count() === 1
+    && await page.locator('button:has-text("I have an invite link")').count() === 1);
+  check('  and a way out, which is not the feed', await page.locator('button:has-text("Log out")').count() === 1);
+  check('  the feed is not reachable behind it', !/class="post"/.test(html));
+});
+
+// The link. Opened by somebody who is already signed in, it just puts them in the group.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { setPending('abc123XYZ789'); return takePendingJoin(); });
+  await page.waitForTimeout(900);
+  check('an invite link taken while signed in joins the group',
+    !/Quota is a group thing/.test(await page.innerHTML('#app')), 'still gated after joining');
+  check('  and does not leave the code lying about', await page.evaluate(() => pendingJoin()) === '');
+});
+
+// A link that has been rotated out from under whoever forwarded it says so, once.
+await withPage({ ...NO_WHEEL, noGroup: true }, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => { setPending('deadcode0000'); return takePendingJoin(); });
+  await page.waitForTimeout(700);
+  check('a dead invite link says so', alerts.some(a => /expired or was rotated/.test(a)), alerts.join(' | '));
+  check('  and is not carried around afterwards', await page.evaluate(() => pendingJoin()) === '');
+});
+
+// The code survives the trip through the address bar, which is where it arrives.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const got = await page.evaluate(() => {
+    const out = {};
+    out.whole = codeFrom('https://quota-jet.vercel.app/#join-abc123XYZ789');
+    out.bare = codeFrom('abc123XYZ789');
+    out.hash = codeFrom('#join-abc123XYZ789');
+    out.junk = codeFrom('https://example.com/nothing');
+    return out;
+  });
+  check('a pasted invite is read as a link, a hash or a bare code',
+    got.whole === 'abc123XYZ789' && got.bare === 'abc123XYZ789' && got.hash === 'abc123XYZ789',
+    JSON.stringify(got));
+  check('  and anything else is not a code', got.junk === '');
+});
+
 // Proof can be a picture as well as a clip — both come off the camera.
 await withPage(NO_WHEEL, async page => {
   await settle(page);

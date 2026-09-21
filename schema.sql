@@ -1862,3 +1862,81 @@ grant execute on function public.day_due_now() to service_role;
 -- ============================================================
 revoke all on function public.close_due_flags() from public, anon;
 grant execute on function public.close_due_flags() to authenticated;
+
+-- v33 (an invite that travels as a link): worth running.
+--
+-- A group invite was only ever one account picking another out of their friends, which
+-- cannot reach somebody who is not here yet. A code on the group turns the same invite
+-- into a link that goes in a text message.
+--
+-- Multi-use and with no expiry, because that is what a link in a group chat has to be: one
+-- person forwards it to four others and all four should land in the group. A link that
+-- went somewhere it should not is taken out of service by rotating it, which is the second
+-- argument to group_code() — a new code, and the old link stops working.
+alter table public.groups add column if not exists join_code text unique;
+
+-- URL-safe and alphanumeric: base64's three odd characters are folded away rather than
+-- escaped, so the code survives being pasted into anything.
+--
+-- Built out of gen_random_uuid() rather than pgcrypto's gen_random_bytes(). On Supabase
+-- pgcrypto is installed into the extensions schema, so `set search_path = public` on this
+-- function puts it out of reach and the create fails with 42883. gen_random_uuid() has
+-- been in pg_catalog since Postgres 13, which no search_path can hide, so there is no
+-- extension to install and nothing to qualify. Twelve characters of a 16-byte value is 72
+-- bits, which is not worth guessing at.
+create or replace function public.new_join_code() returns text
+language sql volatile set search_path = public as $$
+  select substr(translate(encode(decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'base64'), '+/=', 'xyz'), 1, 12);
+$$;
+
+-- The code for a group you are in, made the first time anybody asks for it.
+create or replace function public.group_code(gid bigint, rotate boolean default false) returns text
+language plpgsql security definer set search_path = public as $$
+declare c text;
+begin
+  if not public.is_member(gid) then raise exception 'not a member of that group'; end if;
+  select join_code into c from public.groups where id = gid;
+  if c is null or rotate then
+    loop
+      c := public.new_join_code();
+      begin
+        update public.groups set join_code = c where id = gid;
+        exit;
+      exception when unique_violation then                  -- astronomically unlikely; still cheap to handle
+      end;
+    end loop;
+  end if;
+  return c;
+end $$;
+
+-- What a link may say before you are in: the name of the group it points at, and nothing
+-- else. Reachable without an account, because whoever opened the link has not got one yet.
+create or replace function public.code_group(code text) returns table (id bigint, name text)
+language sql security definer stable set search_path = public as $$
+  select g.id, g.name from public.groups g where g.join_code = code;
+$$;
+
+-- Joining. security definer because somebody who is not in the group yet has no business
+-- writing to its member list on their own account. Already in gives the same answer, so a
+-- link opened twice is not an error.
+create or replace function public.join_by_code(code text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare gid bigint;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  select id into gid from public.groups where join_code = code;
+  if gid is null then raise exception 'that invite link is not valid'; end if;
+  insert into public.group_members (group_id, user_id) values (gid, auth.uid()) on conflict do nothing;
+  return gid;
+end $$;
+
+-- Naming the roles, not PUBLIC: Supabase grants execute on functions in public to anon and
+-- authenticated directly, and revoking from PUBLIC leaves those grants standing. v32 is
+-- the same lesson.
+revoke all on function public.new_join_code() from public, anon, authenticated;
+revoke all on function public.group_code(bigint, boolean) from public, anon;
+revoke all on function public.join_by_code(text) from public, anon;
+revoke all on function public.code_group(text) from public;
+grant execute on function public.group_code(bigint, boolean) to authenticated;
+grant execute on function public.join_by_code(text) to authenticated;
+grant execute on function public.code_group(text) to anon, authenticated;
