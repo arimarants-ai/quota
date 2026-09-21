@@ -1940,3 +1940,113 @@ revoke all on function public.code_group(text) from public;
 grant execute on function public.group_code(bigint, boolean) to authenticated;
 grant execute on function public.join_by_code(text) to authenticated;
 grant execute on function public.code_group(text) to anon, authenticated;
+
+-- v34 (one decision a day, per person): worth running. Needs wheelday redeployed after.
+--
+-- There were two reminders and they did not know about each other: spin day, and a nudge
+-- at 20:00 for anybody short. Three would have been three ways to be woken by the same
+-- app on the same evening, so this replaces the second with a single decision taken once
+-- per person per day, which is the only way to promise what lands.
+--
+-- What it promises: somebody using the app gets the window opening, and possibly a last
+-- call. Somebody who has not opened it in three days gets one message instead of the
+-- window one, not as well as it. Nobody ever gets both.
+
+-- When the app was last opened. Not when they signed in — an account can stay signed in
+-- for months without anyone looking at it, and "lapsed" is about looking.
+alter table public.profiles add column if not exists seen_at timestamptz not null default now();
+
+-- day_reminders held one row per person per day, which was enough while there was one
+-- kind of reminder. The kind is part of what is claimed now.
+alter table public.day_reminders add column if not exists kind text not null default 'lastcall';
+alter table public.day_reminders drop constraint if exists day_reminders_pkey;
+alter table public.day_reminders add primary key (user_id, day, kind);
+
+-- A prompt that lands at the same minute every day is an alarm clock, and an alarm clock
+-- gets turned off. The hour is a hash of the person and the date, so it moves around the
+-- day for them but never moves within a day: the hourly cron can ask "is it now" without
+-- anything being written down in advance, and a retry an hour later cannot shift it.
+--
+-- hashtext can return the one negative number whose abs() overflows, so it is widened
+-- before it is made positive.
+create or replace function public.slot_hour(uid uuid, d date) returns int
+language sql immutable set search_path = public as $$
+  select 10 + (abs(hashtext(uid::text || d::text)::bigint) % 10)::int;   -- 10:00 to 19:00
+$$;
+
+-- The window runs from the prompt to midnight, so the last quarter of it depends on when
+-- the prompt went. Never later than 22:00: a message at ten to midnight is not a last
+-- call, it is a notification about something you can no longer do.
+create or replace function public.lastcall_hour(h int) returns int
+language sql immutable set search_path = public as $$
+  select least(22, h + ceil(0.75 * (24 - h))::int);
+$$;
+
+-- The one decision. Everything about who gets what today is settled here, and the claim is
+-- what makes it a decision rather than a suggestion: two callers racing, or a cron firing
+-- twice, cannot both take the same person and kind.
+create or replace function public.notices_due_now()
+returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone, p.seen_at
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+       -- nobody is reminded about a group they are not in
+       and exists (select 1 from public.group_members gm where gm.user_id = p.id)
+  ), whenIs as (
+    select id, zone, seen_at,
+           (now() at time zone zone)::date as day,
+           extract(hour from (now() at time zone zone))::int as hr
+      from folk
+  ), plan as (
+    select w.*,
+           public.slot_hour(w.id, w.day) as slot,
+           public.lastcall_hour(public.slot_hour(w.id, w.day)) as lc,
+           (w.seen_at < now() - interval '3 days') as lapsed,
+           exists (select 1 from public.posts po where po.user_id = w.id and po.day = w.day) as posted
+      from whenIs w
+  ), want as (
+    -- Exactly one of the first two can match, because they are the same hour and lapsed is
+    -- a yes or a no. The third is a different hour, and never fires for somebody lapsed.
+    select id, day, 'lapsed'::text as kind, 0 as hours from plan where hr = slot and lapsed
+    union all
+    select id, day, 'open'::text, 24 - slot from plan where hr = slot and not lapsed
+    union all
+    select id, day, 'lastcall'::text, 24 - hr from plan where hr = lc and not lapsed and not posted
+  ), pick as (
+    -- Which group the message is about: the one where the most other people have already
+    -- posted today, because that is the one worth mentioning.
+    select w.id, w.day, w.kind, w.hours, x.gname, x.others, x.mates
+      from want w
+      left join lateral (
+        select g.name as gname,
+               count(*) filter (where exists (
+                 select 1 from public.posts po
+                  where po.group_id = g.id and po.user_id = gm2.user_id and po.day = w.day)) as others,
+               count(*) as mates
+          from public.group_members gm
+          join public.groups g on g.id = gm.group_id
+          join public.group_members gm2 on gm2.group_id = g.id and gm2.user_id <> w.id
+         where gm.user_id = w.id
+         group by g.id, g.name
+         order by 2 desc, g.id
+         limit 1
+      ) x on true
+  ), claimed as (
+    insert into public.day_reminders (user_id, day, kind)
+    select id, day, kind from pick
+    on conflict do nothing
+    returning day_reminders.user_id as uid, day_reminders.kind as k
+  )
+  select p.id, p.kind, p.hours, coalesce(p.gname, ''), coalesce(p.others, 0)::int, coalesce(p.mates, 0)::int
+    from pick p join claimed c on c.uid = p.id and c.k = p.kind;
+$$;
+
+-- day_due_now() is what this replaces. Left in place would be a second claim on the same
+-- table under a default kind, which is the double-send this block exists to stop.
+drop function if exists public.day_due_now();
+
+revoke all on function public.slot_hour(uuid, date) from public, anon, authenticated;
+revoke all on function public.lastcall_hour(int) from public, anon, authenticated;
+revoke all on function public.notices_due_now() from public, anon, authenticated;
