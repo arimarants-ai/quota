@@ -2047,9 +2047,15 @@ $$;
 -- table under a default kind, which is the double-send this block exists to stop.
 drop function if exists public.day_due_now();
 
+-- The same shape as v31, and the grant matters as much as the revoke: on a plain Postgres
+-- every role reaches a new function through PUBLIC, so revoking from PUBLIC takes it away
+-- from the cron too. Only the edge function needs this one, and it connects as the service
+-- role. The two helpers are called from inside a security definer function, which runs as
+-- its owner, so nothing needs to reach them directly at all.
 revoke all on function public.slot_hour(uuid, date) from public, anon, authenticated;
 revoke all on function public.lastcall_hour(int) from public, anon, authenticated;
 revoke all on function public.notices_due_now() from public, anon, authenticated;
+grant execute on function public.notices_due_now() to service_role;
 
 -- v35 (something back for sharing): worth running.
 --
