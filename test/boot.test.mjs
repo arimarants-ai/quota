@@ -56,6 +56,9 @@ const server = createServer(async (req, res) => {
     req.on('data', c => parts.push(c));
     req.on('end', async () => {
       lastUpload = filePart(Buffer.concat(parts), req.headers['content-type']);
+      // A dropped connection, not an answer. Destroying the socket is what makes the
+      // browser fire xhr.onerror, which is the only failure the outbox keeps a clip for.
+      if (uploadReply.drop) return res.destroy();
       if (uploadReply.hold) await uploadReply.hold;
       res.writeHead(uploadReply.status, { 'content-type': 'application/json' });
       res.end(uploadReply.body);
@@ -3853,6 +3856,67 @@ await withPage(NO_WHEEL, async page => {
     got.whole === 'abc123XYZ789' && got.bare === 'abc123XYZ789' && got.hash === 'abc123XYZ789',
     JSON.stringify(got));
   check('  and anything else is not a code', got.junk === '');
+});
+
+// A clip that could not go up is not a clip to lose: it was recorded live and there is no
+// filming it again later. Dropping the socket is a dropped connection, not a refusal.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
+  uploadReply = { status: 200, body: '{}', hold: null, drop: true };
+  await submitProof(page);
+  await page.waitForTimeout(1500);
+  check('a dropped upload says the clip is kept', alerts.some(a => /saved on your phone/i.test(a)), alerts.join(' | '));
+  const waiting = await page.evaluate(() => outbox.length);
+  check('  and it really is on the device', waiting === 1, `outbox had ${waiting}`);
+  check('  with the feed saying so rather than pretending it went',
+    /waiting to send/i.test(await page.innerHTML('#app')), 'no pending card on the feed');
+
+  // On the device means in the store, not in a variable: the array is only a mirror, and
+  // what has to survive the app being shut is the row underneath it. Read back through a
+  // fresh query with the mirror emptied first, which is what the next launch does.
+  // (A reload cannot be used here: the service worker answers it with its precached
+  // index.html, which has not had the test's Supabase URL swapped into it.)
+  const onDisk = await page.evaluate(async () => { outbox = []; return (await outAll()).length; });
+  check('  and it is in the store, not just in memory', onDisk === 1, `the store held ${onDisk}`);
+  await page.evaluate(() => readOutbox());
+
+  // Network back. It goes on its own, and the day it was recorded for goes with it.
+  uploadReply = { status: 200, body: '{}', hold: null, drop: false };
+  const day = await page.evaluate(() => outbox[0].post.day);
+  await page.evaluate(() => flushOutbox());
+  await page.waitForTimeout(1600);
+  check('  then goes by itself once the network is back',
+    await page.evaluate(() => outbox.length) === 0, 'still queued after a flush');
+  check('    keeping the day it was recorded for', day === await page.evaluate(() => today()));
+  check('    and the card goes with it', !/waiting to send/i.test(await page.innerHTML('#app')));
+});
+uploadReply = { status: 200, body: '{}', hold: null, drop: false };
+
+// A refusal is not a dropped connection: a 413 will be a 413 again in an hour, so that one
+// is reported rather than queued.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
+  uploadReply = { status: 413, body: JSON.stringify({ message: 'too big' }), hold: null, drop: false };
+  await submitProof(page);
+  await page.waitForTimeout(1200);
+  check('a refused upload is not queued for ever', await page.evaluate(() => outbox.length) === 0,
+    'a 413 went into the outbox');
+  check('  and says what was wrong', alerts.some(a => /too big/.test(a)), alerts.join(' | '));
+});
+uploadReply = { status: 200, body: '{}', hold: null, drop: false };
+
+// A grid that could not load used to say "Nothing here yet", which is untrue and unhelpful
+// at once: it reports an empty grid to somebody whose grid is full.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.pro = {}; S.pro['u1'] = { loading: false, posts: [], err: true }; S.tab = 'profile'; render(); });
+  await page.waitForTimeout(300);
+  const html = await page.innerHTML('#app');
+  check('a grid that failed to load says so', /could not be loaded/i.test(html), html.slice(0, 200));
+  check('  rather than claiming it is empty', !/Nothing here yet/.test(html));
+  check('  and offers the way back', await page.locator('button:has-text("Try again")').count() > 0);
 });
 
 // Proof can be a picture as well as a clip — both come off the camera.

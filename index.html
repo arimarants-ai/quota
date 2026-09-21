@@ -137,6 +137,11 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;padding:4px 9px}
 .prg2{display:block;margin-top:9px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
 .prg2 i{display:block;height:100%;width:var(--w);background:var(--mk)}
+.card.pend{border-color:var(--mk);background:var(--mktint)}
+.card.pend .spin{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--mkring);
+  border-top-color:var(--mk);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.card.pend .spin{animation:none}}
 .dot{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:999px;
   background:var(--mk);color:var(--onmk);font-size:11px;font-style:normal;vertical-align:middle}
 .row.pad{margin:0 18px}
@@ -1190,7 +1195,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v83';
+const BUILD = 'quota-v84';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2030,6 +2035,17 @@ function boardView(g) {
   }).join('')}</div>`;
 }
 const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
+// What is waiting to go. Its own card rather than a fake post, because a row that looks
+// like it is in the feed when it is not on anybody else's is the wrong promise.
+function outboxCard() {
+  if (!outbox.length) return '';
+  const on = navigator.onLine !== false;
+  return `<div class="card pend"><div class="row">
+    <span class="spin" aria-hidden="true"></span>
+    <div class="grow"><b>${plural(outbox.length, 'clip')} waiting to send</b>
+      <div class="muted">${on ? 'Trying again now. Saved on this phone until it goes.' : 'No connection. It will go up on its own when you are back.'}</div></div>
+    ${on ? `<button type="button" class="small" onclick="flushOutbox()">Try now</button>` : ''}</div></div>`;
+}
 function feedView() {
   const m = me(), gs = myGroups();
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
@@ -2050,6 +2066,7 @@ function feedView() {
     + pushPrompt()
     + spinPrompt()
     + activityBox()
+    + outboxCard()
     + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
 // The way to everything being questioned right now. It is in the feed rather than behind a
@@ -4300,6 +4317,9 @@ function personView(uid) {
     <div class="ptabs"><span class="on">Proof${grid.length ? ` · ${grid.length}` : ''}</span></div>
     ${own && grid.length ? `<p class="muted pad small">Everything you have posted is here. The ${shown === 1 ? 'one marked' : `${shown} marked`} ${MARKED} ${shown === 1 ? 'is' : 'are'} on show to anyone who can see you; the rest only you can see. The ⋯ on a post changes that.</p>` : ''}
     ${pro.loading ? `<p class="muted pad">Loading…</p>`
+      : pro.err ? `<div class="card empty"><b>This grid could not be loaded</b>
+          <p class="muted">That was the network, not an empty grid.</p>
+          <button class="small" style="margin-top:12px" onclick="retryProfile('${esc(uid)}')">Try again</button></div>`
       : grid.length ? `<div class="pgrid">${grid.map(p => tile(p, own)).join('')}</div>`
       : `<p class="muted pad">${own ? 'Nothing here yet. Post some proof and it lands in this grid.'
         : `Only what ${esc(name(u))} chose to show here.`}</p>`}
@@ -5306,6 +5326,10 @@ function closeSettings() { S.settings = false; stackOff(); }
 // The filter is the only difference — what anyone else is served is decided by the policy
 // in the database, not by this line, so dropping it here cannot show your private posts to
 // anybody but you.
+// A grid that failed to load said "Nothing here yet", which is not only unhelpful but
+// untrue: it reported an empty grid to somebody whose grid is full. The error is kept and
+// drawn, with the way back.
+function retryProfile(uid) { delete S.pro[uid]; loadProfile(uid); render(); }
 async function loadProfile(uid) {
   if (S.pro[uid]) return;
   const own = uid === me().id;
@@ -5942,6 +5966,85 @@ function noteRate(bytes, secs) {
 // phone video sat on a motionless "Uploading…" for the whole transfer with no way to
 // tell a slow connection from a stuck one. This is the same request its storage client
 // builds — a multipart POST to the object endpoint — sent with XHR so it can be watched.
+// ---- the outbox
+// A clip that could not go up is not a clip to throw away. It was recorded live, in the
+// moment, and there is no filming it again later — so it is kept on the device, the app
+// says it is waiting rather than pretending it went, and it goes when the network comes
+// back.
+//
+// IndexedDB, because a File does not fit in localStorage. Two functions of it rather than
+// a wrapper: this store has one job and one shape.
+//
+// ponytail: tried again on load, when the browser says it is back online, and after any
+// post that works. Background Sync would send it with the app shut, but it is Chrome-only
+// and this has to work as a PWA on iOS, where there is no such thing.
+const OUTDB = 'quota-outbox', OUTSTORE = 'pending';
+function outOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(OUTDB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(OUTSTORE, {keyPath: 'id', autoIncrement: true});
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function outTx(mode, run) {
+  return outOpen().then(db => new Promise((res, rej) => {
+    const rq = run(db.transaction(OUTSTORE, mode).objectStore(OUTSTORE));
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  }));
+}
+const outAdd = row => outTx('readwrite', st => st.add(row));
+const outAll = () => outTx('readonly', st => st.getAll());
+const outDel = id => outTx('readwrite', st => st.delete(id));
+const outPut = row => outTx('readwrite', st => st.put(row));
+
+let outbox = [];                           // what the feed draws; the store is the truth
+async function readOutbox() {
+  try { outbox = (await outAll()) || []; } catch (e) { outbox = []; }   // private mode, or no IndexedDB
+  return outbox;
+}
+
+let flushing = false;
+// Everything waiting, oldest first, stopping at the first one that will not go: if the
+// network is still down the second will fail the same way, and a queue that retries all
+// of them on every wake is a queue that drains a battery.
+async function flushOutbox() {
+  if (flushing || !S.me || navigator.onLine === false) return;
+  flushing = true;
+  let sent = 0;
+  try {
+    for (const row of await readOutbox()) {
+      try {
+        // An upload that already worked is not done again. Otherwise a post whose insert
+        // failed after the file was up would leave one orphan in the bucket per attempt.
+        if (!row.upPath) {
+          await upload('proof', row.path, row.file, () => {});
+          row.upPath = row.path;
+          await outPut(row);
+        }
+        const {error} = await sb.from('posts').insert({...row.post, video_path: row.upPath});
+        if (error) throw error;
+        await outDel(row.id);
+        sent++;
+      } catch (e) { break; }
+    }
+  } catch (e) {} finally {
+    flushing = false;
+    await readOutbox();
+    if (sent) await load(); else render();
+  }
+}
+// Put one by. The day it was recorded for is kept with it: a clip that finally goes up on
+// Tuesday was still Monday's proof, and posting it as Tuesday's would be a lie about both
+// days.
+async function queuePost(post, path, file) {
+  await outAdd({post, path, file, at: Date.now()});
+  await readOutbox();
+  render();
+}
+const waitingIn = gid => outbox.filter(r => r.post.group_id === gid).length;
+
 async function upload(bucket, path, file, onProgress) {
   const {data: {session}} = await sb.auth.getSession();
   // A file with no type of its own is stored as octet-stream, which iOS then refuses to
@@ -5967,7 +6070,13 @@ async function upload(bucket, path, file, onProgress) {
       try { const j = JSON.parse(xhr.responseText); m = j.message || j.error || m; } catch (err) {}
       reject(new Error(m));
     };
-    xhr.onerror = () => reject(new Error('The upload was interrupted. Check your connection and try again.'));
+    xhr.onerror = () => {
+      // The one failure worth keeping the clip for. A 413 or a 403 will fail again in an
+      // hour just the same; a dropped connection will not.
+      const e = new Error('The upload was interrupted. Check your connection and try again.');
+      e.offline = true;
+      reject(e);
+    };
     xhr.onabort = () => reject(new Error('The upload was cancelled.'));
     xhr.send(body);
   });
@@ -6004,6 +6113,7 @@ async function addPost(f, gid) {
   if (!picked || !picked.size) return alert('Record your proof first \u2014 tap Record.');
   if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
   const bar = $('#uprog'), size = $('#vsize');
+  let row = null;
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
 
   // Shrink first, then check the size. A clip the camera recorded too big for the bucket
@@ -6034,16 +6144,27 @@ async function addPost(f, gid) {
     wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
     chalWas = doneChallengeIds();
     const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
-    await q(sb.from('posts').insert({group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
+    row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
       caption: fd.get('caption').trim(), video_path: path, day: today(),
       on_profile: !!fd.get('onprofile'),
-      challenge: chalText || null, spin_id: spinId ? +spinId : null}));
+      challenge: chalText || null, spin_id: spinId ? +spinId : null};
+    await q(sb.from('posts').insert(row));
   } catch (e) {
     if (bar) bar.hidden = true;
+    // A dropped connection is not a reason to lose the take. It goes in the outbox with
+    // the day it was for, and the feed says it is waiting.
+    if (e.offline || navigator.onLine === false) {
+      await queuePost(row || {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
+        caption: fd.get('caption').trim(), video_path: path, day: today(),
+        on_profile: !!fd.get('onprofile'), challenge: null, spin_id: null}, path, video);
+      dlg();
+      return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
+    }
     if (!e.shown) alert(e.message);                        // q() already showed its own
     return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false);
   }
   dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
+  flushOutbox();                           // the network is plainly up; take anything waiting with it
   // The post that finished the day is worth offering to say something about. The one after
   // it is not, which is what wasDone is for. Finishing the whole challenge is rarer than
   // finishing a day, so when one post does both, that is the one offered.
@@ -6562,8 +6683,12 @@ addEventListener('hashchange', goToHash);
 // The invite comes off the address before the first paint, or the first render would wipe
 // the hash it is carried in.
 catchInvite();
+readOutbox().then(render);                 // whatever was waiting when the app was last shut
 render();
-load().then(() => { takePendingJoin(); peekInvite(); });
+load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
+// The browser saying it is back is the one moment worth trying without being asked.
+addEventListener('online', () => { render(); flushOutbox(); });
+addEventListener('offline', render);
 
 // ---- self-check: open index.html#test and look at the console
 if (location.hash === '#test') {
