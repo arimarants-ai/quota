@@ -1873,15 +1873,20 @@ grant execute on function public.close_due_flags() to authenticated;
 -- person forwards it to four others and all four should land in the group. A link that
 -- went somewhere it should not is taken out of service by rotating it, which is the second
 -- argument to group_code() — a new code, and the old link stops working.
-create extension if not exists pgcrypto;
-
 alter table public.groups add column if not exists join_code text unique;
 
 -- URL-safe and alphanumeric: base64's three odd characters are folded away rather than
 -- escaped, so the code survives being pasted into anything.
+--
+-- Built out of gen_random_uuid() rather than pgcrypto's gen_random_bytes(). On Supabase
+-- pgcrypto is installed into the extensions schema, so `set search_path = public` on this
+-- function puts it out of reach and the create fails with 42883. gen_random_uuid() has
+-- been in pg_catalog since Postgres 13, which no search_path can hide, so there is no
+-- extension to install and nothing to qualify. Twelve characters of a 16-byte value is 72
+-- bits, which is not worth guessing at.
 create or replace function public.new_join_code() returns text
 language sql volatile set search_path = public as $$
-  select translate(encode(gen_random_bytes(9), 'base64'), '+/=', 'xyz');
+  select substr(translate(encode(decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'base64'), '+/=', 'xyz'), 1, 12);
 $$;
 
 -- The code for a group you are in, made the first time anybody asks for it.
