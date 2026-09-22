@@ -3865,7 +3865,9 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
   uploadReply = { status: 200, body: '{}', hold: null, drop: true };
   await submitProof(page);
-  await page.waitForTimeout(1500);
+  // Waited on rather than slept through: the upload is four megabytes and CI is slower
+  // than this machine, which is what made a fixed 1500ms pass here and fail there.
+  await page.waitForFunction(() => outbox.length > 0, null, { timeout: 20000 }).catch(() => {});
   check('a dropped upload says the clip is kept', alerts.some(a => /saved on your phone/i.test(a)), alerts.join(' | '));
   const waiting = await page.evaluate(() => outbox.length);
   check('  and it really is on the device', waiting === 1, `outbox had ${waiting}`);
@@ -3885,7 +3887,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   uploadReply = { status: 200, body: '{}', hold: null, drop: false };
   const day = await page.evaluate(() => outbox[0].post.day);
   await page.evaluate(() => flushOutbox());
-  await page.waitForTimeout(1600);
+  await page.waitForFunction(() => outbox.length === 0, null, { timeout: 20000 }).catch(() => {});
   check('  then goes by itself once the network is back',
     await page.evaluate(() => outbox.length) === 0, 'still queued after a flush');
   check('    keeping the day it was recorded for', day === await page.evaluate(() => today()));
@@ -3900,7 +3902,8 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
   uploadReply = { status: 413, body: JSON.stringify({ message: 'too big' }), hold: null, drop: false };
   await submitProof(page);
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => self.__btn.length && !!document.querySelector('#dlg button.primary'), null, { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(600);
   check('a refused upload is not queued for ever', await page.evaluate(() => outbox.length) === 0,
     'a 413 went into the outbox');
   check('  and says what was wrong', alerts.some(a => /too big/.test(a)), alerts.join(' | '));
