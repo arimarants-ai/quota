@@ -54,6 +54,16 @@ create schema if not exists net;
 create function net.http_post(url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
   headers jsonb default '{}'::jsonb, timeout_milliseconds int default 5000)
   returns bigint language sql as $fn$ select 1::bigint $fn$;
+-- pg_cron only exists on Supabase. Its scheduling calls are cut out of schema.sql before
+-- it is applied here, because a schedule is a call into a function rather than logic of
+-- its own — but a function that READS the run history is logic, and belongs under test
+-- like anything else. So the two tables it reads are stubbed instead of the function being
+-- cut, which is the same choice net.http_post gets and for the same reason: a function
+-- that cannot be created at all is very much the point.
+create schema if not exists cron;
+create table cron.job (jobid bigint primary key, jobname text);
+create table cron.job_run_details (jobid bigint, runid bigint, status text,
+  return_message text, start_time timestamptz);
 -- Enough of Supabase's storage schema for the bucket statements to run rather than be
 -- cut out of the file. Only the columns schema.sql actually touches.
 create schema if not exists storage;
