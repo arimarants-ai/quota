@@ -1206,7 +1206,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v86';
+const BUILD = 'quota-v87';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1708,6 +1708,15 @@ async function keepTz() {
 // that makes a fault like this findable is the stack and the build it happened on, and a
 // phone has no console to read them off. So the full text is kept and can be copied out.
 let lastErr = '';
+// ---- breadcrumbs, for the kind of stop that leaves nothing behind
+// A page the watchdog kills runs no more code: the try/catch below never gets its turn,
+// the error bar never goes up, and a phone has no console to read anyway. The only thing
+// that outlives the process is what was already written down. So each stage of a render
+// leaves its name behind and the end of a render takes it away again; anything still
+// there on the next boot is where the page stopped.
+// ponytail: four small localStorage writes per render, which is nothing beside the render
+// itself. Worth having only while something is actually dying — take it out after.
+const crumb = s => { try { if (s) localStorage.crumb = `${s} · ${BUILD}`; else delete localStorage.crumb; } catch (e) {} };
 // Safari says "Load failed" and Chrome says "Failed to fetch" when a request never
 // reached anything. Neither means a thing to somebody holding a phone, and both look
 // like a fault in the app rather than in the way there.
@@ -1863,8 +1872,13 @@ function render() {
   // One screen that cannot be drawn must not take the app with it. This runs inside
   // runLoad's finally, so a throw here escapes the load entirely and leaves whatever was
   // on screen — the splash, on a cold start — with a Retry that fails the same way.
+  // Named before anything expensive runs, so a stop has something to point at.
+  const where = S.open ? `group ${S.open}` : S.settings ? 'settings' : S.chat ? 'chat' : S.tab;
   try {
-    redraw('#app', screenHTML());
+    crumb(`building ${where}`);
+    const html = screenHTML();
+    crumb(`painting ${where}`);
+    redraw('#app', html);
     // A post opened on its own sits in its own layer, so a redraw of the screen behind it
     // left it as it was: a reply written there did not appear until it was closed and
     // opened again, and a like counted up everywhere except in front of you.
@@ -1881,6 +1895,7 @@ function render() {
   }
   const ico = {feed: '<path d="M4 6h16M4 12h16M4 18h10"/>', groups: '<circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/>', friends: '<circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/>', profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'};
   const tab = (t, l) => `<button data-tab="${t}" onclick="go('${t}')"><svg viewBox="0 0 24 24">${ico[t]}</svg>${l}</button>`;
+  crumb(`attaching clips on ${where}`);   // where the decoders get handed out
   watchClips();
   keepClocks();
   // A conversation is read from the bottom, and jumping there is right exactly when it has
@@ -1899,6 +1914,7 @@ function render() {
   const on = bar.querySelector('button.on'), ind = bar.querySelector('.ind');
   ind.style.setProperty('--o', on ? 1 : 0);
   if (on) ind.style.setProperty('--x', (on.offsetLeft + on.offsetWidth / 2 - 11) + 'px');
+  crumb(null);                            // got to the end, so there is nothing to report
 }
 
 // ---- words that do not go on Quota
@@ -6932,6 +6948,12 @@ addEventListener('hashchange', goToHash);
 // the hash it is carried in.
 catchInvite();
 readOutbox().then(render);                 // whatever was waiting when the app was last shut
+// Read before the first render, because the end of a render is what clears it. Said once,
+// softly, and taken away again: it is a note about last time, not something to act on now.
+try {
+  const stopped = localStorage.crumb;
+  if (stopped) { delete localStorage.crumb; setTimeout(() => showErr(`Last time, this stopped while ${stopped.split(' · ')[0]}`, stopped, true), 1800); }
+} catch (e) {}
 render();
 load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
 // The browser saying it is back is the one moment worth trying without being asked.
