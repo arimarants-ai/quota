@@ -38,11 +38,14 @@ export function remindersFor(due: Due[]): Map<string, string> {
 // What notices_due_now() hands back, per person per kind.
 export type Notice = {
   user_id: string;
-  kind: 'open' | 'lastcall' | 'lapsed';
+  kind: 'open' | 'lastcall' | 'lapsed' | 'challenge';
   hours: number;
-  group_name: string;
+  group_name: string;              // the group, or for a challenge the wheel
   others: number;                  // other people in that group who have posted today
   mates: number;                   // how many other people are in it at all
+  line: string;                    // what is still owed today: "40 pushups, 20 situps"
+  done: number;                    // challenge days done
+  needs: number;                   // challenge days required
 };
 
 const hrs = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
@@ -66,13 +69,35 @@ export function windowFor(n: Notice): string {
  */
 export function lastCallFor(n: Notice): string {
   const h = Math.max(1, Math.round(n.hours));
+  // What is actually left comes first. Being told the number is the difference between a
+  // nudge you can act on and one you have to open the app to understand — and somebody
+  // twenty of fifty in gets this too now, which the version before this did not do.
+  const owed = (n.line ?? '').trim();
+  const left = owed ? `${owed} to go.` : '';
   if (n.others > 0 && n.others === n.mates) {
-    return `Everyone in ${n.group_name} has posted but you. Your group's streak is on the line — don't be the one who breaks it.`;
+    return `${left} Everyone in ${n.group_name} has posted but you — don't be the one who breaks the streak.`.trim();
   }
   if (n.others > 0) {
-    return `${n.others} of ${n.mates} in ${n.group_name} have posted. ${hrs(h)} left — don't be the one who breaks the streak.`;
+    return `${left} ${n.others} of ${n.mates} in ${n.group_name} have posted. ${hrs(h)} left — don't be the one who breaks the streak.`.trim();
   }
-  return `${hrs(h)} left to post today.`;
+  return left ? `${left} ${hrs(h)} left today.` : `${hrs(h)} left to post today.`;
+}
+
+/**
+ * A challenge whose cycle shuts tonight, with days still owed on it.
+ *
+ * This takes the evening instead of last call rather than as well as it: a whole cycle's
+ * work about to be lost is the more urgent of the two, and two messages in an evening is
+ * how an app gets muted.
+ */
+export function challengeFor(n: Notice): string {
+  const h = Math.max(1, Math.round(n.hours));
+  const short = Math.max(0, (n.needs ?? 0) - (n.done ?? 0));
+  const what = n.group_name ? `${n.group_name} ends tonight` : 'Your challenge ends tonight';
+  const got = n.needs > 0 ? ` ${n.done} of ${n.needs} days done` : '';
+  return short === 1 && n.done > 0
+    ? `${what} —${got}, one more and it counts. ${hrs(h)} left.`
+    : `${what} —${got}. ${hrs(h)} left.`;
 }
 
 /**
@@ -83,7 +108,7 @@ export function lastCallFor(n: Notice): string {
 export function lapsedFor(n: Notice): string {
   if (!n.group_name) return 'Your group has been going without you.';
   return n.others > 0
-    ? `${n.group_name} posted without you today.`
+    ? `${n.group_name} posted without you today. Three days since your last one.`
     : `${n.group_name} is still going. Your spot is still there.`;
 }
 
@@ -93,8 +118,12 @@ export const NOTICE_META: Record<Notice['kind'], { title: string; tag: string }>
   open: { title: 'Your window is open', tag: 'day-open' },
   lastcall: { title: 'Last call', tag: 'day-last' },
   lapsed: { title: 'Quota', tag: 'day-open' },     // the one it stands in for
+  challenge: { title: 'Last call', tag: 'day-last' },   // likewise: it takes last call's place
 };
 
 export function noticeBody(n: Notice): string {
-  return n.kind === 'open' ? windowFor(n) : n.kind === 'lastcall' ? lastCallFor(n) : lapsedFor(n);
+  return n.kind === 'open' ? windowFor(n)
+    : n.kind === 'challenge' ? challengeFor(n)
+    : n.kind === 'lastcall' ? lastCallFor(n)
+    : lapsedFor(n);
 }

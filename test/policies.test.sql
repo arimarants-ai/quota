@@ -72,6 +72,11 @@ begin
   if not has_function_privilege('service_role', 'public.cron_health(int)', 'EXECUTE') then
     raise exception 'the cron cannot read its own health, so a failure stays silent';
   end if;
+  -- How far into a challenge somebody is, is theirs and their group's, not the world's.
+  if has_function_privilege('anon', 'public.challenge_day_count(bigint, date)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.challenge_required(bigint)', 'EXECUTE') then
+    raise exception 'a signed-out caller could read challenge progress';
+  end if;
   -- The hour a prompt lands is not anybody's to look up for somebody else.
   if has_function_privilege('anon', 'public.slot_hour(uuid, date)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.slot_hour(uuid, date)', 'EXECUTE') then
