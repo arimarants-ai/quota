@@ -57,7 +57,8 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
 // ---- the day's one notification
 {
   const n = (over: Partial<Notice> = {}): Notice =>
-    ({ user_id: 'a', kind: 'open', hours: 5, group_name: 'Mornings', others: 0, mates: 3, ...over }) as Notice;
+    ({ user_id: 'a', kind: 'open', hours: 5, group_name: 'Mornings', others: 0, mates: 3,
+       line: '', done: 0, needs: 0, ...over }) as Notice;
 
   const w = noticeBody(n({ kind: 'open', hours: 4 }));
   ok(/4 hours/.test(w) && /Mornings/.test(w), 'the window one leads with how long is left', w);
@@ -72,8 +73,29 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
   ok(!/streak/i.test(nobody) && /2 hours/.test(nobody),
     'with nobody in there is nothing social to say, so it is just the clock', nobody);
 
+  // The bug this restores: twenty of fifty in is short, and used to get nothing at all
+  // because it counted as "posted". What is owed leads, because it is what you act on.
+  const part = noticeBody(n({ kind: 'lastcall', line: '30 pushups', others: 0, mates: 3, hours: 2 }));
+  ok(/^30 pushups to go\./.test(part), 'somebody part-way through is told what is left', part);
+  const two = noticeBody(n({ kind: 'lastcall', line: '30 pushups, 20 situps', others: 2, mates: 3 }));
+  ok(/30 pushups, 20 situps to go/.test(two) && /2 of 3/.test(two),
+    '  and both quotas, alongside who else is in', two);
+
+  // The challenge one takes the evening instead of last call, never as well.
+  const ch = noticeBody(n({ kind: 'challenge', group_name: 'Challenge', done: 1, needs: 3, hours: 3 }));
+  ok(/ends tonight/.test(ch) && /1 of 3 days/.test(ch), 'a challenge closing tonight says how far in it is', ch);
+  const one = noticeBody(n({ kind: 'challenge', group_name: 'Challenge', done: 2, needs: 3, hours: 3 }));
+  ok(/one more and it counts/.test(one), '  and one day short is worth saying out loud', one);
+  const none = noticeBody(n({ kind: 'challenge', group_name: 'Challenge', done: 0, needs: 2, hours: 3 }));
+  ok(!/one more/.test(none) && /0 of 2/.test(none), '  but nothing done yet is not one more', none);
+  assert.equal(NOTICE_META.challenge.tag, NOTICE_META.lastcall.tag);
+  ok(NOTICE_META.challenge.title === NOTICE_META.lastcall.title,
+    '  and it wears last call\'s tag and title, because it stands in its place');
+
   const lap = noticeBody(n({ kind: 'lapsed', others: 2 }));
   ok(/posted without you/.test(lap), 'the lapsed one says what was missed', lap);
+  ok(/Three days since your last one/.test(lap),
+    '  and names the reason, which is three days without posting', lap);
   ok(/still going/.test(noticeBody(n({ kind: 'lapsed', others: 0 }))),
     'and does not claim they posted when nobody did');
   ok(!/hour/.test(noticeBody(n({ kind: 'lapsed', others: 2 }))),

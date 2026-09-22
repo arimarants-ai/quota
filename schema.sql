@@ -2111,3 +2111,177 @@ $$;
 
 revoke all on function public.cron_health(int) from public, anon, authenticated;
 grant execute on function public.cron_health(int) to service_role;
+
+-- v38 (three things the evening message was getting wrong): worth running. Needs wheelday
+-- redeployed after.
+--
+-- 1. Last call only fired for somebody who had posted NOTHING. v34 wrote it that way and
+--    narrowed what v29 used to do: the old 20:00 nudge went to anyone SHORT of the quota,
+--    so twenty of fifty pushups still got told. Under v34 it got silence — short, late,
+--    and nothing said. Worse, the check was not scoped to a group, so posting in one
+--    silenced the evening for every other one too.
+-- 2. Lapsed keyed on not having OPENED the app. Somebody who opens it every day and never
+--    posts is not drifting away, they are here and not doing the thing, and they were
+--    getting the cheerful window prompt as if all were well.
+-- 3. A wheel challenge could run out with nothing said. The only wheel notification was
+--    spin day, at the START of a cycle. Nothing ever looked at whether the challenge was
+--    actually finished before the cycle closed.
+--
+-- The evening still carries at most one message. A challenge about to run out is the more
+-- urgent of the two, so it takes the hour and last call stands down.
+
+-- How many days of a challenge are really done: days in the cycle where the posts marked
+-- with that spin meet the whole of that day's quota on their own. The same rule the app
+-- draws, in the one other place that has to know it. A post the group voided is left out,
+-- exactly as everywhere else.
+create or replace function public.challenge_day_count(p_spin bigint, p_today date)
+returns int language sql stable set search_path = public as $$
+  with s as (
+    select sp.id, sp.user_id, sp.cycle, w.every_days, w.starts_on, g.quotas
+      from public.spins sp
+      join public.wheels w on w.id = sp.wheel_id
+      join public.groups g on g.id = w.group_id
+     where sp.id = p_spin
+  ), span as (
+    select s.*, (s.starts_on + (s.cycle * s.every_days))::date as c0,
+                least((s.starts_on + ((s.cycle + 1) * s.every_days - 1))::date, p_today) as c1
+      from s
+  ), d as (
+    select span.*, gs::date as day
+      from span, lateral generate_series(span.c0, span.c1, interval '1 day') gs
+     where span.c1 >= span.c0
+  )
+  select count(*)::int from d
+   where jsonb_array_length(coalesce(d.quotas, '[]'::jsonb)) > 0
+     and not exists (
+       select 1 from jsonb_array_elements(d.quotas) q
+        where coalesce((
+                select sum(po.amount) from public.posts po
+                 where po.spin_id = d.id and po.user_id = d.user_id and po.day = d.day
+                   and po.metric = q->>'metric'
+                   and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld')
+              ), 0) < (q->>'target')::numeric);
+$$;
+
+-- How many it needs. A wheel with a day wheel on it says so on the spin; one without means
+-- every day it is running. Read off the wheel rather than the spin so it is right for
+-- spins taken before that rule existed, which is what the app does too.
+create or replace function public.challenge_required(p_spin bigint)
+returns int language sql stable set search_path = public as $$
+  select case when exists (select 1 from public.wheel_stages st
+                            where st.wheel_id = sp.wheel_id and st.kind = 'days')
+              then sp.days_required else w.every_days end
+    from public.spins sp join public.wheels w on w.id = sp.wheel_id
+   where sp.id = p_spin;
+$$;
+
+create or replace function public.notices_due_now()
+returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int,
+               line text, done int, needs int)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone, p.created_at
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+       and exists (select 1 from public.group_members gm where gm.user_id = p.id)
+  ), whenIs as (
+    select id, zone, created_at,
+           (now() at time zone zone)::date as day,
+           extract(hour from (now() at time zone zone))::int as hr
+      from folk
+  ), plan as (
+    select w.*,
+           public.slot_hour(w.id, w.day) as slot,
+           public.lastcall_hour(public.slot_hour(w.id, w.day)) as lc,
+           -- Lapsed is about not posting, not about not looking. An account younger than
+           -- the window is new rather than lapsed, and is left alone.
+           (w.created_at < now() - interval '3 days'
+            and not exists (select 1 from public.posts po
+                             where po.user_id = w.id and po.day > w.day - 3)) as lapsed
+      from whenIs w
+  ), short as (
+    -- Per group and per quota, what is still owed today. A rest day is not a day anybody
+    -- is behind on, and a voided post never counted.
+    select pl.id as uid, pl.day, g.id as gid, g.name as gname,
+           q->>'metric' as metric,
+           ((q->>'target')::numeric - coalesce((
+              select sum(po.amount) from public.posts po
+               where po.group_id = g.id and po.user_id = pl.id and po.day = pl.day
+                 and po.metric = q->>'metric'
+                 and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld')
+            ), 0))::bigint as owed
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral jsonb_array_elements(coalesce(g.quotas, '[]'::jsonb)) q
+     where (g.active_days is null or array_length(g.active_days, 1) is null
+            or extract(dow from pl.day)::int = any (g.active_days))
+  ), behind as (
+    select uid, day, string_agg(distinct owed::text || ' ' || metric, ', ') as line
+      from short where owed > 0 group by uid, day
+  ), closing as (
+    -- A challenge whose cycle shuts today and is not finished. Sitting a cycle out is a
+    -- decision about it, so it is not unfinished.
+    select pl.id as uid, pl.day, w.name as wname,
+           public.challenge_day_count(sp.id, pl.day) as done,
+           public.challenge_required(sp.id) as needs
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.wheels w on w.group_id = gm.group_id and w.active
+      join public.spins sp on sp.wheel_id = w.id and sp.user_id = pl.id
+                          and sp.cycle = public.wheel_cycle(w, pl.day)
+     where not sp.sat_out
+       and (w.starts_on + ((sp.cycle + 1) * w.every_days - 1))::date = pl.day
+  ), closingNow as (
+    select distinct on (uid) uid, day, wname, done, needs
+      from closing where done < needs order by uid, needs - done desc, wname
+  ), want as (
+    select id, day, 'lapsed'::text as kind, 0 as hours from plan where hr = slot and lapsed
+    union all
+    select id, day, 'open'::text, 24 - slot from plan where hr = slot and not lapsed
+    union all
+    -- The evening holds one message. A challenge running out tonight is the more urgent,
+    -- so last call stands down for anybody who is getting that instead.
+    select pl.id, pl.day, 'challenge'::text, 24 - pl.hr from plan pl
+      join closingNow c on c.uid = pl.id where pl.hr = pl.lc and not pl.lapsed
+    union all
+    select pl.id, pl.day, 'lastcall'::text, 24 - pl.hr from plan pl
+      join behind b on b.uid = pl.id
+     where pl.hr = pl.lc and not pl.lapsed
+       and not exists (select 1 from closingNow c where c.uid = pl.id)
+  ), pick as (
+    select w.id, w.day, w.kind, w.hours, x.gname, x.others, x.mates,
+           b.line, c.done, c.needs, c.wname
+      from want w
+      left join behind b on b.uid = w.id and b.day = w.day
+      left join closingNow c on c.uid = w.id and c.day = w.day
+      left join lateral (
+        select g.name as gname,
+               count(*) filter (where exists (
+                 select 1 from public.posts po
+                  where po.group_id = g.id and po.user_id = gm2.user_id and po.day = w.day)) as others,
+               count(*) as mates
+          from public.group_members gm
+          join public.groups g on g.id = gm.group_id
+          join public.group_members gm2 on gm2.group_id = g.id and gm2.user_id <> w.id
+         where gm.user_id = w.id
+         group by g.id, g.name
+         order by 2 desc, g.id
+         limit 1
+      ) x on true
+  ), claimed as (
+    insert into public.day_reminders (user_id, day, kind)
+    select id, day, kind from pick
+    on conflict do nothing
+    returning day_reminders.user_id as uid, day_reminders.kind as k
+  )
+  select p.id, p.kind, p.hours,
+         coalesce(nullif(p.wname, ''), p.gname, ''), coalesce(p.others, 0)::int, coalesce(p.mates, 0)::int,
+         coalesce(p.line, ''), coalesce(p.done, 0)::int, coalesce(p.needs, 0)::int
+    from pick p join claimed c on c.uid = p.id and c.k = p.kind;
+$$;
+
+revoke all on function public.challenge_day_count(bigint, date) from public, anon, authenticated;
+revoke all on function public.challenge_required(bigint) from public, anon, authenticated;
+revoke all on function public.notices_due_now() from public, anon, authenticated;
+grant execute on function public.notices_due_now() to service_role;
