@@ -14,6 +14,9 @@ const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:hello@quota.app';
 const HOOK_SECRET = Deno.env.get('HOOK_SECRET')!;
 const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://quota-jet.vercel.app';
+// Who to tell when the machinery stops. Unset and none of this runs: an alarm with nowhere
+// to ring is not worth a query an hour.
+const OWNER_USER_ID = Deno.env.get('OWNER_USER_ID') ?? '';
 
 const rest = async (path: string, init: RequestInit = {}) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -26,6 +29,7 @@ const rest = async (path: string, init: RequestInit = {}) => {
 
 import { NOTICE_META, noticeBody, remindersFor, type Due, type Notice } from './message.ts';
 import { SWEEP_MAX, sweepStories, type StoryRow } from './sweep.ts';
+import { cronAlertBody, cronAlertDue, type CronFail } from './health.ts';
 
 // One place that sends, because there are two reasons to now and they prune dead
 // subscriptions and count what went out identically.
@@ -116,5 +120,26 @@ Deno.serve(async (req) => {
     removeRows: async (ids) => { await rest(`stories?id=in.(${ids.join(',')})`, { method: 'DELETE' }); },
   }).catch(e => ({ rows: 0, files: 0, held: true, error: String(e) }));
 
-  return Response.json({ due: due.length, spin, notices: notices.length, day, swept, sweepMax: SWEEP_MAX });
+  // Is anything else on this schedule broken? Nothing else asks, which is how stories-expire
+  // managed to fail for a day without a word.
+  const health = await (async () => {
+    if (!OWNER_USER_ID) return { checked: false };
+    const rows: CronFail[] = await (rest('rpc/cron_health', { method: 'POST', body: '{}' }) as Promise<CronFail[]>)
+      .catch(() => []);
+    if (!cronAlertDue(rows)) return { checked: true, failing: 0 };
+    // Once a day, not once an hour: an alarm that goes off hourly gets silenced. The claim
+    // is day_reminders, which exists to say exactly this — one row per person per day per
+    // kind — so nothing new is needed to remember we have already said it.
+    const today = new Date().toISOString().slice(0, 10);
+    const claimed = await rest('day_reminders', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+      body: JSON.stringify([{ user_id: OWNER_USER_ID, day: today, kind: 'cronalert' }]),
+    }).catch(() => []);
+    if (!Array.isArray(claimed) || !claimed.length) return { checked: true, failing: rows.length, said: false };
+    const sent = await blast(new Map([[OWNER_USER_ID, cronAlertBody(rows)]]), 'Quota needs a look', 'cron-health');
+    return { checked: true, failing: rows.length, said: true, sent };
+  })();
+
+  return Response.json({ due: due.length, spin, notices: notices.length, day, swept, sweepMax: SWEEP_MAX, health });
 });
