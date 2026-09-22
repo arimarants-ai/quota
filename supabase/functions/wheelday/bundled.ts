@@ -1,4 +1,4 @@
-// GENERATED — do not edit. Built from ../notify/push.ts, message.ts, sweep.ts, index.ts by test/bundle.mjs.
+// GENERATED — do not edit. Built from ../notify/push.ts, message.ts, sweep.ts, health.ts, index.ts by test/bundle.mjs.
 // This is the same function in one file, for pasting into the Supabase dashboard when
 // the CLI is not to hand. Deploying either one gives the same behaviour.
 
@@ -263,6 +263,40 @@ export async function sweepStories(d: SweepDeps) {
   return { rows: old.length, files: paths.length, held: false };
 }
 
+// Telling somebody when the machinery itself has stopped.
+//
+// stories-expire failed 24 times out of 24 runs and nothing said so. That is the whole
+// problem with work that happens on a timer: when it stops, nothing happens — which looks
+// exactly like nothing needing to happen. No error in the app, nothing in the logs anybody
+// reads, no user complaint, because the thing that broke is the thing nobody watches.
+//
+// So the hourly function that is already running checks whether any of its siblings have
+// been failing, and if so pushes once to whoever owns the project. Once a day, not once an
+// hour: an alarm that goes off every hour is an alarm that gets silenced.
+//
+// Kept apart from index.ts, like message.ts and sweep.ts, so it can be run and checked
+// without a Deno runtime or any of the secrets.
+
+export type CronFail = { jobname: string; failures: number; last_message: string | null };
+
+// A cron job that runs every ten minutes will rack up a lot of failures, and one that runs
+// daily may only have the one. Both matter, so the count is reported rather than used as a
+// threshold — anything that failed at all in the last day is worth knowing about.
+export function cronAlertBody(rows: CronFail[]): string {
+  const real = rows.filter(r => r.failures > 0);
+  if (!real.length) return '';
+  const worst = real[0];
+  const why = (worst.last_message ?? '').split('\n')[0].trim().slice(0, 90);
+  const head = real.length === 1
+    ? `${worst.jobname} has failed ${worst.failures} ${worst.failures === 1 ? 'time' : 'times'} in the last day.`
+    : `${real.length} scheduled jobs are failing — worst is ${worst.jobname}, ${worst.failures} times.`;
+  return why ? `${head} ${why}` : head;
+}
+
+// Nothing is sent when nothing is wrong, which is the only way the one that does arrive
+// means anything.
+export const cronAlertDue = (rows: CronFail[]) => rows.some(r => r.failures > 0);
+
 // Tell people it is wheel spin day.
 //
 // Everything else the app pushes happens because someone did something. This one has to
@@ -278,6 +312,9 @@ const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:hello@quota.app';
 const HOOK_SECRET = Deno.env.get('HOOK_SECRET')!;
 const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://quota-jet.vercel.app';
+// Who to tell when the machinery stops. Unset and none of this runs: an alarm with nowhere
+// to ring is not worth a query an hour.
+const OWNER_USER_ID = Deno.env.get('OWNER_USER_ID') ?? '';
 
 const rest = async (path: string, init: RequestInit = {}) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -378,5 +415,26 @@ Deno.serve(async (req) => {
     removeRows: async (ids) => { await rest(`stories?id=in.(${ids.join(',')})`, { method: 'DELETE' }); },
   }).catch(e => ({ rows: 0, files: 0, held: true, error: String(e) }));
 
-  return Response.json({ due: due.length, spin, notices: notices.length, day, swept, sweepMax: SWEEP_MAX });
+  // Is anything else on this schedule broken? Nothing else asks, which is how stories-expire
+  // managed to fail for a day without a word.
+  const health = await (async () => {
+    if (!OWNER_USER_ID) return { checked: false };
+    const rows: CronFail[] = await (rest('rpc/cron_health', { method: 'POST', body: '{}' }) as Promise<CronFail[]>)
+      .catch(() => []);
+    if (!cronAlertDue(rows)) return { checked: true, failing: 0 };
+    // Once a day, not once an hour: an alarm that goes off hourly gets silenced. The claim
+    // is day_reminders, which exists to say exactly this — one row per person per day per
+    // kind — so nothing new is needed to remember we have already said it.
+    const today = new Date().toISOString().slice(0, 10);
+    const claimed = await rest('day_reminders', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+      body: JSON.stringify([{ user_id: OWNER_USER_ID, day: today, kind: 'cronalert' }]),
+    }).catch(() => []);
+    if (!Array.isArray(claimed) || !claimed.length) return { checked: true, failing: rows.length, said: false };
+    const sent = await blast(new Map([[OWNER_USER_ID, cronAlertBody(rows)]]), 'Quota needs a look', 'cron-health');
+    return { checked: true, failing: rows.length, said: true, sent };
+  })();
+
+  return Response.json({ due: due.length, spin, notices: notices.length, day, swept, sweepMax: SWEEP_MAX, health });
 });

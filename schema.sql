@@ -2080,3 +2080,34 @@ alter table public.groups add column if not exists mark text;
 -- on this beat and already holds the service key. Unscheduled rather than rewritten:
 -- two things deleting the same rows is the shape of bug v34 exists to prevent.
 select cron.unschedule('stories-expire') where exists (select 1 from cron.job where jobname = 'stories-expire');
+
+-- v37 (a failing cron job says so): worth running. Needs wheelday redeployed after.
+--
+-- stories-expire failed 24 times out of 24 runs and nothing anywhere said so. A cron
+-- failure is invisible: no error in the app, nothing in the logs anybody reads, no user
+-- complaint. The only record is cron.job_run_details, and nothing looks at it unless a
+-- person thinks to.
+--
+-- PostgREST only serves the public schema, so the edge function cannot read that table
+-- directly. This is the window onto it, and nothing but the cron's own function may look
+-- through it.
+--
+-- cron.job_run_details is written schema-qualified rather than left to the search_path.
+-- That is the v33 lesson: `set search_path = public` hid pgcrypto and the create failed
+-- with 42883, so anything outside public is named in full here.
+create or replace function public.cron_health(hours int default 24)
+returns table (jobname text, failures bigint, last_message text)
+language sql security definer set search_path = public as $$
+  select coalesce(j.jobname, 'unnamed job ' || r.jobid::text),
+         count(*),
+         (array_agg(r.return_message order by r.start_time desc))[1]
+    from cron.job_run_details r
+    left join cron.job j on j.jobid = r.jobid
+   where r.status = 'failed'
+     and r.start_time > now() - make_interval(hours => hours)
+   group by 1
+   order by 2 desc;
+$$;
+
+revoke all on function public.cron_health(int) from public, anon, authenticated;
+grant execute on function public.cron_health(int) to service_role;

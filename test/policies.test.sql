@@ -63,6 +63,15 @@ begin
   if not has_function_privilege('service_role', 'public.notices_due_now()', 'EXECUTE') then
     raise exception 'the cron cannot call notices_due_now, so no reminder would ever go out';
   end if;
+  -- The window onto cron.job_run_details is the cron's own. It reports what is broken
+  -- about the project, which is nobody else's business.
+  if has_function_privilege('anon', 'public.cron_health(int)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.cron_health(int)', 'EXECUTE') then
+    raise exception 'the app can read which scheduled jobs are failing';
+  end if;
+  if not has_function_privilege('service_role', 'public.cron_health(int)', 'EXECUTE') then
+    raise exception 'the cron cannot read its own health, so a failure stays silent';
+  end if;
   -- The hour a prompt lands is not anybody's to look up for somebody else.
   if has_function_privilege('anon', 'public.slot_hour(uuid, date)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.slot_hour(uuid, date)', 'EXECUTE') then
