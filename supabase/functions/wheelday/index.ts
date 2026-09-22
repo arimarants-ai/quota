@@ -25,6 +25,7 @@ const rest = async (path: string, init: RequestInit = {}) => {
 };
 
 import { NOTICE_META, noticeBody, remindersFor, type Due, type Notice } from './message.ts';
+import { SWEEP_MAX, sweepStories, type StoryRow } from './sweep.ts';
 
 // One place that sends, because there are two reasons to now and they prune dead
 // subscriptions and count what went out identically.
@@ -98,5 +99,22 @@ Deno.serve(async (req) => {
     day[kind] = await blast(msgs, meta.title, meta.tag);
   }
 
-  return Response.json({ due: due.length, spin, notices: notices.length, day });
+  // And the third thing on this beat: yesterday's stories. It is here rather than in
+  // pg_cron because deleting a file is the storage API's job and SQL is no longer allowed
+  // to do it — see sweep.ts.
+  const swept = await sweepStories({
+    list: (cutoff, limit) =>
+      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=id,media_path&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
+    removeFiles: async (paths) => {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/stories`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: paths }),
+      });
+      return res.ok;
+    },
+    removeRows: async (ids) => { await rest(`stories?id=in.(${ids.join(',')})`, { method: 'DELETE' }); },
+  }).catch(e => ({ rows: 0, files: 0, held: true, error: String(e) }));
+
+  return Response.json({ due: due.length, spin, notices: notices.length, day, swept, sweepMax: SWEEP_MAX });
 });
