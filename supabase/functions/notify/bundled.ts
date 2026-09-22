@@ -263,6 +263,19 @@ Deno.serve(async (req) => {
     });
   };
 
+  // Muting is a decision one person makes about one group, so it is read per recipient
+  // rather than off the group. A list of people is filtered in the query; a single
+  // recipient is asked about here.
+  //
+  // What muting covers: everything the group generates. What it does not: a flag or a
+  // verdict on your own post, because that decides whether your own day counted, and that
+  // is a consequence rather than chatter.
+  const hears = async (uid: string, gid: number | null | undefined) => {
+    if (!gid) return true;
+    const rows = await rest(`group_members?group_id=eq.${gid}&user_id=eq.${uid}&select=muted`);
+    return !rows.length || !rows[0].muted;
+  };
+
   // A notification is worth tapping only if it lands on the thing it is about: the post
   // for something about a post, and the comment itself for something about a comment.
   const atPost = (id: number) => `${SITE_URL}/#post-${id}`;
@@ -308,10 +321,12 @@ Deno.serve(async (req) => {
     const { comment_id, user_id: actor } = record ?? {};
     if (!comment_id || !actor) return new Response('ignored', { status: 200 });
     const [[comment], [from]] = await Promise.all([
-      rest(`comments?id=eq.${comment_id}&select=user_id,body`),
+      rest(`comments?id=eq.${comment_id}&select=user_id,body,post_id`),
       rest(`profiles?id=eq.${actor}&select=username,display_name`),
     ]);
     if (!comment || !from || comment.user_id === actor) return new Response('ignored', { status: 200 });
+    const [onPost] = await rest(`posts?id=eq.${comment.post_id}&select=group_id`);
+    if (!(await hears(comment.user_id, onPost?.group_id))) return new Response('muted', { status: 200 });
     return blast([comment.user_id], JSON.stringify({
       title: 'Quota',
       body: socialFor('comment_like', who(from), comment.body),
@@ -341,7 +356,7 @@ Deno.serve(async (req) => {
     if (!gid || !joined || actor !== joined) return new Response('ignored', { status: 200 });
     const [[group], members, [from]] = await Promise.all([
       rest(`groups?id=eq.${gid}&select=name`),
-      rest(`group_members?group_id=eq.${gid}&user_id=neq.${joined}&select=user_id`),
+      rest(`group_members?group_id=eq.${gid}&user_id=neq.${joined}&muted=is.false&select=user_id`),
       rest(`profiles?id=eq.${joined}&select=username,display_name`),
     ]);
     if (!group || !from || !members.length) return new Response('nobody to notify', { status: 200 });
@@ -362,7 +377,7 @@ Deno.serve(async (req) => {
     if (gid) {
       const [[group], members] = await Promise.all([
         rest(`groups?id=eq.${gid}&select=name`),
-        rest(`group_members?group_id=eq.${gid}&user_id=neq.${actor}&select=user_id`),
+        rest(`group_members?group_id=eq.${gid}&user_id=neq.${actor}&muted=is.false&select=user_id`),
       ]);
       if (!group) return new Response('ignored', { status: 200 });
       return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
@@ -387,6 +402,7 @@ Deno.serve(async (req) => {
       rest(`profiles?id=eq.${actor}&select=username,display_name`),
     ]);
     if (!msg || !from || msg.user_id === actor) return new Response('ignored', { status: 200 });
+    if (!(await hears(msg.user_id, msg.group_id))) return new Response('muted', { status: 200 });
     const where = msg.group_id ? `g:${msg.group_id}` : `u:${actor}`;
     return blast([msg.user_id], JSON.stringify({
       title: 'Quota', body: socialFor('message_reaction', who(from), emoji),
@@ -405,7 +421,7 @@ Deno.serve(async (req) => {
       by_user ? rest(`profiles?id=eq.${by_user}&select=username,display_name`) : Promise.resolve([{}]),
     ]);
     if (!post) return new Response('ignored', { status: 200 });
-    const members = await rest(`group_members?group_id=eq.${post.group_id}&select=user_id`);
+    const members = await rest(`group_members?group_id=eq.${post.group_id}&muted=is.false&select=user_id`);
     const what = `${post.amount} ${post.challenge ? `${post.challenge} ` : ''}${post.metric}`;
     const url = id ? `${SITE_URL}/#flag-${id}` : atPost(post_id);
     // The owner is told about their own; everyone else is asked. Two blasts rather than
@@ -429,6 +445,7 @@ Deno.serve(async (req) => {
     ]);
     // Nobody needs telling about their own.
     if (!post || !from || post.user_id === actor) return new Response('ignored', { status: 200 });
+    if (!(await hears(post.user_id, post.group_id))) return new Response('muted', { status: 200 });
     return blast([post.user_id], JSON.stringify({
       title: 'Quota',
       body: socialFor(kind, who(from), kind === 'comment' ? text : kind === 'reaction' ? emoji : null),
@@ -445,7 +462,7 @@ Deno.serve(async (req) => {
   const [[group], [poster], members, dayPosts] = await Promise.all([
     rest(`groups?id=eq.${group_id}&select=name,quotas`),
     rest(`profiles?id=eq.${user_id}&select=username,display_name`),
-    rest(`group_members?group_id=eq.${group_id}&user_id=neq.${user_id}&select=user_id`),
+    rest(`group_members?group_id=eq.${group_id}&user_id=neq.${user_id}&muted=is.false&select=user_id`),
     rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=eq.${day}&select=metric,amount`),
   ]);
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });

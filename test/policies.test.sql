@@ -101,6 +101,19 @@ begin
   if not has_function_privilege('authenticated', 'public.join_by_code(text)', 'EXECUTE') then
     raise exception 'a signed-in account cannot take an invite link';
   end if;
+  -- Muting is set through a function, not an update policy: a policy letting you write
+  -- your own membership row would also let you rewrite its group_id, which is joining any
+  -- group you can name. So there must be no update policy on that table at all.
+  if exists (select 1 from pg_policies
+              where schemaname = 'public' and tablename = 'group_members' and cmd = 'UPDATE') then
+    raise exception 'group_members has an update policy, which is a way into any group';
+  end if;
+  if has_function_privilege('anon', 'public.mute_group(bigint, boolean)', 'EXECUTE') then
+    raise exception 'a signed-out caller could mute somebody';
+  end if;
+  if not has_function_privilege('authenticated', 'public.mute_group(bigint, boolean)', 'EXECUTE') then
+    raise exception 'a member cannot mute their own group';
+  end if;
   -- Closing a flag is the other way round: the app calls it on every load, and applying a
   -- rule that is already true costs nothing and claims nothing.
   if not has_function_privilege('authenticated', 'public.close_due_flags()', 'EXECUTE') then

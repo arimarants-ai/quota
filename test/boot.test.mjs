@@ -3984,6 +3984,31 @@ await withPage(NO_WHEEL, async page => {
   check('  and the second does not unlock it again', out.second === false, JSON.stringify(out));
 });
 
+// Muting a group. One switch for the whole app meant somebody who found one group's chat
+// noisy had to turn off the reminders the app exists for in order to quiet it.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(400);
+  check('a group offers to be muted', await page.locator('button:has-text("Mute this group")').count() === 1);
+  await page.locator('button:has-text("Mute this group")').click();
+  await page.waitForTimeout(500);
+  check('  and says so once it is', await page.locator('button:has-text("Unmute this group")').count() === 1,
+    await page.innerHTML('#app').then(h => h.slice(0, 120)));
+  check('    with what it does and does not cover',
+    /own daily reminders still come/.test(await page.innerHTML('#app')));
+  check('    written down rather than only held on screen', await page.evaluate(() => !!self.__muted[1]));
+
+  // It survives the round trip: the flag comes back off the membership row, not off a
+  // variable this page happens to be holding.
+  await page.evaluate(() => load());
+  await page.waitForTimeout(900);
+  check('  and comes back from the server that way', await page.evaluate(() => !!S.groups.find(g => g.id === 1).muted));
+  await page.locator('button:has-text("Unmute this group")').click();
+  await page.waitForTimeout(500);
+  check('  and unmutes again', await page.evaluate(() => !self.__muted[1]));
+});
+
 // Proof can be a picture as well as a clip — both come off the camera.
 await withPage(NO_WHEEL, async page => {
   await settle(page);

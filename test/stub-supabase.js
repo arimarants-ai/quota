@@ -46,6 +46,7 @@
     id: 90, wheel_id: 7, user_id: 'u2', cycle: cycleNow, sat_out: false, days_required: 2,
     results: [{ seq: 0, kind: 'challenge', label: 'Your challenge', value: '5k run', i: 1, segs: STAGES[0].segments }],
   }] : [];
+  self.__muted = self.__muted || {};
   const GOOD_CODE = 'abc123XYZ789';
   self.__joined = false;
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
@@ -73,7 +74,8 @@
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }]
       .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g)),
     group_members: (M().noGroup && !self.__joined ? [] : [{ group_id: 1, user_id: 'u1' }])
-      .concat([{ group_id: 1, user_id: 'u2' }]),
+      .concat([{ group_id: 1, user_id: 'u2' }])
+      .map(m => ({ ...m, muted: m.user_id === 'u1' && !!self.__muted[m.group_id] })),
     // on_profile is the one thing about a post that can change after it is posted, so it
     // is read back through whatever the page last set rather than off the fixture.
     posts: [...(M().samToday ? [] : [M().noCaption ? { ...POST, caption: '' } : POST]), ...SAM_TODAY, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
@@ -226,6 +228,7 @@
   const rpcRun = async (fn, args) => {
     // An invite that travels as a link. GOOD_CODE is the one the fixture group answers to;
     // anything else is a link that has been rotated out from under whoever forwarded it.
+    if (fn === 'mute_group') { self.__muted[args.gid] = !!args.on_off; return { data: null, error: null }; }
     if (fn === 'code_group') return { data: args.code === GOOD_CODE ? [{ id: 1, name: 'Mornings' }] : [], error: null };
     if (fn === 'group_code') return { data: GOOD_CODE, error: null };
     if (fn === 'join_by_code') {
