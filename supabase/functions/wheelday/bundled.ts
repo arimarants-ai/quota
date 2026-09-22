@@ -1,4 +1,4 @@
-// GENERATED — do not edit. Built from ../notify/push.ts, message.ts, index.ts by test/bundle.mjs.
+// GENERATED — do not edit. Built from ../notify/push.ts, message.ts, sweep.ts, index.ts by test/bundle.mjs.
 // This is the same function in one file, for pasting into the Supabase dashboard when
 // the CLI is not to hand. Deploying either one gives the same behaviour.
 
@@ -208,6 +208,61 @@ export function noticeBody(n: Notice): string {
   return n.kind === 'open' ? windowFor(n) : n.kind === 'lastcall' ? lastCallFor(n) : lapsedFor(n);
 }
 
+// Clearing out yesterday's stories.
+//
+// This was two deletes in a pg_cron job. Supabase now refuses direct deletion from
+// storage.objects, and because pg_cron runs a job body as a single transaction the second
+// statement's error rolled back the first — so nothing expired at all. It was failing 24
+// times out of 24 runs, with ten stories still sitting there when it was found, and
+// nothing anywhere said so.
+//
+// Deleting a file is the storage API's job, so it belongs in the function that already
+// runs on this beat and already holds the service key.
+//
+// Kept apart from index.ts, like message.ts and push.ts, so it can be run and checked
+// without a Deno runtime or any of the secrets.
+
+export type StoryRow = { id: number; media_path: string | null };
+
+export type SweepDeps = {
+  // Expired rows, oldest first, at most `limit` of them.
+  list: (cutoff: string, limit: number) => Promise<StoryRow[]>;
+  // Remove these files from the stories bucket. Resolves false if the bucket said no.
+  removeFiles: (paths: string[]) => Promise<boolean>;
+  // Drop these rows.
+  removeRows: (ids: number[]) => Promise<void>;
+  now?: () => number;
+};
+
+export const STORY_HOURS = 24;
+export const SWEEP_MAX = 100;            // an hourly job has no business clearing a year at once
+
+/**
+ * Files first, then rows.
+ *
+ * The row is the only thing that knows where the file is, so deleting it first would
+ * strand the file with nothing left pointing at it — which is the one outcome worse than
+ * leaving both alone. If the bucket refuses, nothing is deleted and the whole lot comes
+ * round again next hour.
+ *
+ * A text story has no file, so it is only ever a row. A sweep of nothing but text stories
+ * must still delete them, and must not call the storage API to do it.
+ */
+export async function sweepStories(d: SweepDeps) {
+  const now = d.now ? d.now() : Date.now();
+  const cutoff = new Date(now - STORY_HOURS * 3600e3).toISOString();
+  const old = await d.list(cutoff, SWEEP_MAX);
+  if (!old.length) return { rows: 0, files: 0, held: false };
+
+  const paths = old.map(s => s.media_path).filter((p): p is string => !!p);
+  if (paths.length && !(await d.removeFiles(paths))) {
+    // Held rather than half-done: the rows stay, so next hour finds the same files again.
+    return { rows: 0, files: 0, held: true };
+  }
+  await d.removeRows(old.map(s => s.id));
+  return { rows: old.length, files: paths.length, held: false };
+}
+
 // Tell people it is wheel spin day.
 //
 // Everything else the app pushes happens because someone did something. This one has to
@@ -306,5 +361,22 @@ Deno.serve(async (req) => {
     day[kind] = await blast(msgs, meta.title, meta.tag);
   }
 
-  return Response.json({ due: due.length, spin, notices: notices.length, day });
+  // And the third thing on this beat: yesterday's stories. It is here rather than in
+  // pg_cron because deleting a file is the storage API's job and SQL is no longer allowed
+  // to do it — see sweep.ts.
+  const swept = await sweepStories({
+    list: (cutoff, limit) =>
+      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=id,media_path&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
+    removeFiles: async (paths) => {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/stories`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: paths }),
+      });
+      return res.ok;
+    },
+    removeRows: async (ids) => { await rest(`stories?id=in.(${ids.join(',')})`, { method: 'DELETE' }); },
+  }).catch(e => ({ rows: 0, files: 0, held: true, error: String(e) }));
+
+  return Response.json({ due: due.length, spin, notices: notices.length, day, swept, sweepMax: SWEEP_MAX });
 });

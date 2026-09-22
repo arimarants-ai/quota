@@ -2067,3 +2067,16 @@ grant execute on function public.notices_due_now() to service_role;
 -- exactly who is allowed to set these.
 alter table public.groups add column if not exists shared_at timestamptz;
 alter table public.groups add column if not exists mark text;
+
+-- v36 (the story sweep moves off pg_cron): worth running. Needs wheelday redeployed.
+--
+-- stories-expire deleted the rows and then the files. Supabase now refuses direct deletion
+-- from storage.objects, and pg_cron runs a job body as one transaction — so the second
+-- statement's error rolled back the first and nothing expired at all. Found on 2026-09-22
+-- failing 24 times out of 24 runs, with ten expired stories still sitting there. Nothing
+-- anywhere said so, because a cron failure is only visible in cron.job_run_details.
+--
+-- Deleting a file is the storage API's job, so it moves to the function that already runs
+-- on this beat and already holds the service key. Unscheduled rather than rewritten:
+-- two things deleting the same rows is the shape of bug v34 exists to prevent.
+select cron.unschedule('stories-expire') where exists (select 1 from cron.job where jobname = 'stories-expire');
