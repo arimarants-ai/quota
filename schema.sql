@@ -2175,7 +2175,12 @@ returns int language sql stable set search_path = public as $$
    where sp.id = p_spin;
 $$;
 
-create or replace function public.notices_due_now()
+-- Dropped rather than replaced: this one gains three columns, and Postgres will not let
+-- create-or-replace change a function's return type. Nothing depends on it by name except
+-- the edge function that calls it over REST.
+drop function if exists public.notices_due_now();
+
+create function public.notices_due_now()
 returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int,
                line text, done int, needs int)
 language sql security definer set search_path = public as $$
