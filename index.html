@@ -1206,7 +1206,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v85';
+const BUILD = 'quota-v86';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1259,12 +1259,47 @@ const name = u => u.display_name || u.username;
 const ymd = d => d.toLocaleDateString('en-CA');
 const today = () => ymd(new Date());
 const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
-const done = (g, uid, metric, day = today()) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day).reduce((a, t) => a + t.n, 0);
+// The whole history is held in S.totals, and reading a day out of it used to mean
+// scanning all of it. The group screen asks days x quotas x members, three times over —
+// once for the group's run, once for the member list, once for the board — so the work
+// grew faster than the history did. At a few thousand posts that was over a second on a
+// desktop and several on a phone, and iOS kills a page that blocks that long rather than
+// waiting for it. Nothing had to change for it to start happening; the data crossed a line.
+//
+// So the rows are bucketed once, by group, member, metric and day, and every read takes
+// the handful of rows it actually wants. Rebuilt when S.totals is replaced or appended to,
+// so no caller has to remember to do it.
+// ponytail: noticing means identity and length, which covers both things that actually
+// happen — load() assigns a fresh array, the self-check appends. Rows taken out and put
+// back to the same count between two reads would slip past; nothing does that, and a
+// version counter would be one more thing to keep in step.
+// ponytail: a Map is enough. The SQL view the old note here suggested is a great deal more
+// work for a problem this already takes off the table.
+const NO_ROWS = Object.freeze([]), NO_DAYS = Object.freeze(new Set());
+let tIdx = null, tFor = null, tLen = -1;
+function totalsIndex() {
+  if (tIdx && tFor === S.totals && tLen === S.totals.length) return tIdx;
+  const by = new Map(), days = new Map();
+  for (const t of S.totals) {
+    const k = `${t.g}|${t.u}|${t.m}|${t.d}`, b = by.get(k);
+    b ? b.push(t) : by.set(k, [t]);
+    const dk = `${t.g}|${t.u}`, s = days.get(dk);
+    s ? s.add(t.d) : days.set(dk, new Set([t.d]));
+  }
+  tFor = S.totals; tLen = S.totals.length; tIdx = {by, days};
+  return tIdx;
+}
+const totalsFor = (gid, uid, metric, day) => totalsIndex().by.get(`${gid}|${uid}|${metric}|${day}`) || NO_ROWS;
+const done = (g, uid, metric, day = today()) => totalsFor(g.id, uid, metric, day).reduce((a, t) => a + t.n, 0);
 // The same, but only what was done with one particular challenge. Matching the text as
 // well as the spin is the point: a post naming a different challenge — one somebody else
 // got, or one you have since swapped away from — does nothing for these days.
-const doneWith = (g, uid, metric, sp, day) => S.totals.filter(t => t.g === g.id && t.u === uid && t.m === metric && t.d === day
-  && t.sp === sp.id && t.ch === effChallenge(sp)).reduce((a, t) => a + t.n, 0);
+// effChallenge is read once rather than inside the test: it was being worked out again for
+// every row the old scan looked at.
+const doneWith = (g, uid, metric, sp, day) => {
+  const ch = effChallenge(sp);
+  return totalsFor(g.id, uid, metric, day).filter(t => t.sp === sp.id && t.ch === ch).reduce((a, t) => a + t.n, 0);
+};
 const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
 // ---- flags: one person saying a post does not meet the challenge, and the group deciding
 const flagOf = postId => S.flags.find(f => f.post === postId);
@@ -1304,7 +1339,7 @@ function locked(p, uid = S.me ? me().id : null) {
   return !!g && g.members.includes(uid) && !postedIn(g, uid);
 }
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
-const hitDays = (g, uid) => new Set([...new Set(S.totals.filter(t => t.g === g.id && t.u === uid).map(t => t.d))].filter(d => hit(g, uid, d)));
+const hitDays = (g, uid) => new Set([...(totalsIndex().days.get(`${g.id}|${uid}`) || NO_DAYS)].filter(d => hit(g, uid, d)));
 // A wheel set to break the streak does it on the day its cycle closes, not on the day it
 // was spun: you had the whole cycle to finish, so the day it runs out is the day it counts
 // against you. A cycle still running is never judged, and neither is one that ends today.
@@ -1516,7 +1551,7 @@ async function fetchAll() {
     q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
     // id, because a post the group decided did not count has to be left out of the day it
     // was posted on, and the flag names the post rather than the total.
-    q(sb.from('posts').select('id,group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side; move to a SQL view if it ever gets slow
+    q(sb.from('posts').select('id,group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side. Indexed on arrival by totalsIndex(), which is what makes that affordable; a SQL view would be a lot more work for the same answer.
     q(sb.from('wheels').select('*')),
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
@@ -6909,6 +6944,13 @@ if (location.hash === '#test') {
   S.totals = [{g: 1, u: 'a', d: T, m: 'pushups', n: 20}, {g: 1, u: 'a', d: T, m: 'pushups', n: 30}, {g: 1, u: 'a', d: Y, m: 'pushups', n: 50}, {g: 1, u: 'a', d: daysAgo(2), m: 'pushups', n: 50},
     {g: 1, u: 'a', d: daysAgo(4), m: 'pushups', n: 50}, {g: 1, u: 'b', d: Y, m: 'pushups', n: 60}, {g: 2, u: 'a', d: T, m: 'pushups', n: 7}];
   console.assert(done(g, 'a', 'pushups') === 50, 'sums only today, this user, this group');
+  // Nothing calls the totals index to rebuild itself, so a stale one would not throw — it
+  // would go on quietly answering with yesterday's numbers.
+  const keep = S.totals.slice();
+  S.totals.push({g: 1, u: 'a', d: T, m: 'pushups', n: 5});
+  console.assert(done(g, 'a', 'pushups') === 55, 'the totals index notices a row appended in place');
+  S.totals = keep;                     // a different array holding the original rows
+  console.assert(done(g, 'a', 'pushups') === 50, 'and notices the array being replaced wholesale');
   console.assert(streak(g, 'a') === 3, 'streak counts today + 2 previous days, gap at day 3');
   console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
   console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
