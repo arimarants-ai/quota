@@ -101,10 +101,22 @@ open(f'{w}/base.sql', 'w').write(
 # with it by accident, which is exactly the kind of thing a marker made of prose does.
 body = s[s.index('-- v6 (wheels)'):]
 body = body.replace('create extension if not exists pg_cron;\n', '')
+#
+# An unschedule is not always followed by a schedule. v36 retires stories-expire without
+# putting anything back, and this loop used to cut from the unschedule to the next
+# '$cron$);' whatever that was — with none left in the file it ran off the end and died
+# with "substring not found", which says nothing about what is wrong. So the pair is only
+# taken as a pair when a schedule really does follow it with nothing in between; otherwise
+# just the one statement goes.
 CRON = 'select cron.unschedule('
 while CRON in body:
     cut = body.index(CRON)
-    body = body[:cut] + body[body.index('$cron$);', cut) + len('$cron$);'):]
+    end = body.index(';', cut) + 1
+    nxt = body.find('select cron.schedule(', end)
+    close = body.find('$cron$);', end)
+    if nxt != -1 and close != -1 and not body[end:nxt].strip():
+        end = close + len('$cron$);')
+    body = body[:cut] + body[end:]
 open(f'{w}/v6.sql', 'w').write(body)
 EOF
 
