@@ -2290,3 +2290,28 @@ revoke all on function public.challenge_day_count(bigint, date) from public, ano
 revoke all on function public.challenge_required(bigint) from public, anon, authenticated;
 revoke all on function public.notices_due_now() from public, anon, authenticated;
 grant execute on function public.notices_due_now() to service_role;
+
+-- v39 (muting a group): worth running.
+--
+-- Notifications were one switch for the whole app. Somebody who found one group's chat
+-- noisy had to turn off the reminders the app exists for in order to quiet it, which is
+-- how an app gets its notifications switched off for good.
+--
+-- The flag sits on the membership rather than the group: it is one person's decision about
+-- one group, not a property of the group, and everybody else in it carries on as before.
+alter table public.group_members add column if not exists muted boolean not null default false;
+
+-- Set through a function rather than an update policy. A policy allowing `user_id =
+-- auth.uid()` on both sides would also allow rewriting group_id on your own row, which is
+-- joining any group you can name — the check sees the new row, and the new row is still
+-- yours. A function changes the one column and nothing else.
+create or replace function public.mute_group(gid bigint, on_off boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_member(gid) then raise exception 'not a member of that group'; end if;
+  update public.group_members set muted = on_off
+   where group_id = gid and user_id = auth.uid();
+end $$;
+
+revoke all on function public.mute_group(bigint, boolean) from public, anon;
+grant execute on function public.mute_group(bigint, boolean) to authenticated;

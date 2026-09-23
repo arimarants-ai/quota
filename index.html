@@ -1206,7 +1206,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v88';
+const BUILD = 'quota-v89';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1610,7 +1610,9 @@ async function fetchAll() {
   claimBadges();                           // anything the history says was earned but never written down
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
-    members: gm.filter(m => m.group_id === g.id).map(m => m.user_id)}));
+    members: gm.filter(m => m.group_id === g.id).map(m => m.user_id),
+    // Your own decision about this group, not anybody else's: the row that is yours.
+    muted: !!(gm.find(m => m.group_id === g.id && m.user_id === uid) || {}).muted}));
   S.flags = (flags || []).map(f => ({id: f.id, post: f.post_id, by: f.by_user, reason: f.reason,
     ts: Date.parse(f.created_at), closes: Date.parse(f.closes_at),
     outcome: f.outcome || null, closedAt: f.closed_at ? Date.parse(f.closed_at) : null}));
@@ -3544,6 +3546,9 @@ function groupView(g) {
     <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="shareStreak(${g.id})">Share the streak</button>${g.shared_at ? `<button class="small grow" onclick="markDlg(${g.id})">Mark</button>` : ''}</div>
+    <div class="row" style="margin-top:8px"><button class="small grow ${g.muted ? 'on' : ''}" onclick="toggleMute(${g.id})">${
+      g.muted ? 'Unmute this group' : 'Mute this group'}</button></div>
+    ${g.muted ? `<p class="muted small" style="margin:8px 0 0">No notifications from ${esc(g.name)}. Your own daily reminders still come, and so does anything questioning your proof.</p>` : ''}
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
       <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div></div>
   <h3>Today</h3>
@@ -5740,6 +5745,20 @@ async function inviteFriend(id) {
 async function accept(id) { await q(sb.rpc('accept_invite', {invite_id: id})); load(); }
 async function decline(id) { await q(sb.from('invites').delete().eq('id', id)); load(); }
 async function unfriend(id) { if (!confirm(`Remove ${name(user(id))} from your friends?`)) return; const [a, b] = [me().id, id].sort(); await q(sb.from('friendships').delete().eq('a', a).eq('b', b)); load(); }
+// One person's decision about one group. Flipped where you stand and written behind you,
+// because a switch that waits on the network feels broken; a failure puts it back.
+async function toggleMute(gid) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return;
+  const was = !!g.muted;
+  g.muted = !was;
+  render();
+  try { await sb.rpc('mute_group', {gid, on_off: g.muted}); }
+  catch (e) {
+    g.muted = was; render();
+    showErr('That did not save. This needs the v39 block of schema.sql.', String(e && e.message || e));
+  }
+}
 async function leaveGroup(gid) { const g = S.groups.find(x => x.id === gid); if (!confirm(`Leave ${g.name}? Your posts stay, but you won't see the group anymore.`)) return; await q(sb.from('group_members').delete().eq('group_id', gid).eq('user_id', me().id)); load(); }
 async function inviteToGroup(gid, uid) { await q(sb.from('invites').insert({type: 'group', from_user: me().id, to_user: uid, group_id: gid})); dlg(); load(); }
 async function saveGroup(f, id) {

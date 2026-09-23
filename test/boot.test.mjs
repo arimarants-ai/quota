@@ -3865,7 +3865,9 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
   uploadReply = { status: 200, body: '{}', hold: null, drop: true };
   await submitProof(page);
-  await page.waitForTimeout(1500);
+  // Waited on rather than slept through: the upload is four megabytes and CI is slower
+  // than this machine, which is what made a fixed 1500ms pass here and fail there.
+  await page.waitForFunction(() => outbox.length > 0, null, { timeout: 20000 }).catch(() => {});
   check('a dropped upload says the clip is kept', alerts.some(a => /saved on your phone/i.test(a)), alerts.join(' | '));
   const waiting = await page.evaluate(() => outbox.length);
   check('  and it really is on the device', waiting === 1, `outbox had ${waiting}`);
@@ -3885,7 +3887,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   uploadReply = { status: 200, body: '{}', hold: null, drop: false };
   const day = await page.evaluate(() => outbox[0].post.day);
   await page.evaluate(() => flushOutbox());
-  await page.waitForTimeout(1600);
+  await page.waitForFunction(() => outbox.length === 0, null, { timeout: 20000 }).catch(() => {});
   check('  then goes by itself once the network is back',
     await page.evaluate(() => outbox.length) === 0, 'still queued after a flush');
   check('    keeping the day it was recorded for', day === await page.evaluate(() => today()));
@@ -3900,7 +3902,8 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
   uploadReply = { status: 413, body: JSON.stringify({ message: 'too big' }), hold: null, drop: false };
   await submitProof(page);
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => self.__btn.length && !!document.querySelector('#dlg button.primary'), null, { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(600);
   check('a refused upload is not queued for ever', await page.evaluate(() => outbox.length) === 0,
     'a 413 went into the outbox');
   check('  and says what was wrong', alerts.some(a => /too big/.test(a)), alerts.join(' | '));
@@ -3982,6 +3985,31 @@ await withPage(NO_WHEEL, async page => {
   });
   check('the first share unlocks the group', out.first === true && out.set === true, JSON.stringify(out));
   check('  and the second does not unlock it again', out.second === false, JSON.stringify(out));
+});
+
+// Muting a group. One switch for the whole app meant somebody who found one group's chat
+// noisy had to turn off the reminders the app exists for in order to quiet it.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1));
+  await page.waitForTimeout(400);
+  check('a group offers to be muted', await page.locator('button:has-text("Mute this group")').count() === 1);
+  await page.locator('button:has-text("Mute this group")').click();
+  await page.waitForTimeout(500);
+  check('  and says so once it is', await page.locator('button:has-text("Unmute this group")').count() === 1,
+    await page.innerHTML('#app').then(h => h.slice(0, 120)));
+  check('    with what it does and does not cover',
+    /own daily reminders still come/.test(await page.innerHTML('#app')));
+  check('    written down rather than only held on screen', await page.evaluate(() => !!self.__muted[1]));
+
+  // It survives the round trip: the flag comes back off the membership row, not off a
+  // variable this page happens to be holding.
+  await page.evaluate(() => load());
+  await page.waitForTimeout(900);
+  check('  and comes back from the server that way', await page.evaluate(() => !!S.groups.find(g => g.id === 1).muted));
+  await page.locator('button:has-text("Unmute this group")').click();
+  await page.waitForTimeout(500);
+  check('  and unmutes again', await page.evaluate(() => !self.__muted[1]));
 });
 
 // Proof can be a picture as well as a clip — both come off the camera.
