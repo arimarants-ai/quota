@@ -744,10 +744,10 @@ button.rg{border:0;font:inherit}
 .m .mrx button b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:11px;color:var(--muted)}
 /* Wider than the bubble it hangs off, and allowed to be: a tray clipped to a short message
    is four answers and a cut edge. Everything behind the + scrolls sideways in place. */
-.m .reactpick.all{max-width:min(86vw,320px);overflow-x:auto;overscroll-behavior-x:contain;
+.reactpick.all{max-width:min(86vw,320px);overflow-x:auto;overscroll-behavior-x:contain;
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
-.m .reactpick.all::-webkit-scrollbar{display:none}
-.m .reactpick .more{font-size:17px;font-weight:800;color:var(--muted);min-width:26px}
+.reactpick.all::-webkit-scrollbar{display:none}
+.reactpick .more{font-size:17px;font-weight:800;color:var(--muted);min-width:26px}
 /* No paint of its own: a dimmed conversation would be a sheet, and what is being picked
    hangs off the line it belongs to rather than sitting over it. */
 .trayback{position:fixed;inset:0;z-index:1;background:none}
@@ -923,7 +923,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* Over the row it was opened from, not over the clip. */
 .reactpick{position:absolute;left:8px;bottom:calc(100% - 6px);z-index:5;display:flex;gap:2px;padding:6px;
   background:var(--card);border:1px solid var(--line);box-shadow:0 10px 26px -12px rgba(11,12,14,.5)}
-.reactpick button{background:none;padding:5px 7px;font-size:22px;line-height:1}
+.reactpick button{background:none;padding:5px 7px;font-size:22px;line-height:1;flex:none}
 .reactpick button:active{background:var(--soft)}
 /* The replies, and a box that is always ready. */
 .cmts{padding:6px 14px 12px}
@@ -1233,7 +1233,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v94';
+const BUILD = 'quota-v95';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3783,6 +3783,10 @@ function sweepClips() {
 // for the same reason every chat box has one: reaching emoji without leaving the field.
 const EMOJI = ['🔥', '💪', '👏', '😤', '😂', '😮', '🥵', '🫡', '🙌', '❤️', '🏆', '🐐',
   '👀', '😭', '💀', '🤝', '⚡', '✅', '🧊', '🚀'];
+// Behind the + on every tray, chat and post alike. Long enough to be worth scrolling and
+// short enough to stay one strip: a grid of every emoji there is would be a keyboard, and
+// the phone already has one of those.
+const ALL_EMOJI = '🔥 💪 👏 😤 😂 🫡 🙌 ❤️ 🏆 🐐 👀 😭 💀 🤝 ⚡ ✅ 🧊 🚀 🎉 ⭐ 🌟 💯 🥇 🏅 👑 💥 ✨ 🎯 📈 🧠 🦾 🫁 😀 😃 😄 😁 😆 😅 🤣 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😗 😚 🤪 😜 🤗 🤔 🤨 😐 😶 🙄 😮 😯 😴 🥱 😌 😔 😢 😩 🥺 😳 🥵 🥶 😱 🤯 😬 🫠 🤠 🥳 🤓 😎 🫶 🤲 👐 🙏 ✊ 👊 🤛 🤜 👍 👎 👌 🤌 ✌️ 🤞 🫰 👋 💅 💋 ❤️‍🔥 🧡 💛 💚 💙 💜 🖤 🤍 💔 💖 💫 💢 💤 🗿 👻 🤖 👽 🎃 🦁 🐯 🐺 🦅 🦈 🐢 🐌 🦋 🌱 🌵 🌊 ⛰️ ☀️ 🌙 ⛈️ ❄️ ⏰ 🗓️ 💧 🥤 🥗 🍎 🍌 🥑 🍕 🍺 ☕ 🧃 🏃 🏋️ 🚴 🏊 🧘 🤸 👟 🎸 🎹 🎵 📖 ✍️ 📝 💻 🧹 🕯️ 🎬'.split(' ');
 // One tray per post now that every post carries its own box to type in, so both of these
 // work off the post they were tapped in rather than the only one on the page. Found by
 // which post it is rather than by walking up from the button: a tap that lands as the
@@ -4170,7 +4174,7 @@ function moreMsgReact(ev, btn, id) {
   ev.stopPropagation();
   const box = btn.closest('.reactpick');
   box.classList.add('all');
-  box.innerHTML = [...new Set([...CHAT_REACTS, ...EMOJI, ...STICKER_MORE])].map(e => msgReactBtn(id, e)).join('');
+  box.innerHTML = ALL_EMOJI.map(e => msgReactBtn(id, e)).join('');
 }
 // Same as reacting to a post: shown at once and put back if the write is refused.
 async function toggleMsgReact(id, emoji) {
@@ -4430,6 +4434,79 @@ async function castVote(fid, yes) {
 // reel: one emoji per reaction, bare, each on its own slow bob with its own phase so they
 // never move in step. Yours are the ones that answer to a tap.
 const REACTS = ['🔥', '💪', '👏', '😤', '😂', '🫡'];
+// What you answer a post with should have something to do with what the group is for. One
+// group, one set: everybody in it is doing the same thing, so a post does not get its own.
+// Read off the goal, which is the sentence somebody wrote about what they are doing.
+//
+// A goal is free text, so matching cannot be exact. Words are looked for inside it first;
+// failing that, every word of the goal is compared to every word here and the nearest wins,
+// so "excercise", "push-ups" and "reading books" all land somewhere sensible. Nothing close
+// at all keeps the old six rather than forcing a bad guess — "call my mum every day" is not
+// secretly about the gym.
+// ponytail: substrings and an edit distance. Asking a model what a sentence is about would
+// be a network round trip, a key and a failure mode, for a row of six suggestions.
+const REACT_THEMES = [
+  {w: ['cold shower', 'cold plunge', 'ice bath', 'cold water', 'plunge', 'wim hof'], r: ['\u{1F9CA}', '\u{1F976}', '\u{1F624}', '\u{1F525}', '\u{1FAE1}', '\u{1F44F}']},
+  {w: ['tefillin', 'daven', 'pray', 'prayer', 'shul', 'torah', 'psalm', 'scripture', 'bible', 'rosary', 'church', 'mosque', 'quran', 'salah', 'shabbat'], r: ['\u{1F64F}', '\u{1F56F}\uFE0F', '\u2728', '\u{1FAF6}', '\u{1F54A}\uFE0F', '\u{1F44F}']},
+  {w: ['meditate', 'meditation', 'mindful', 'breathwork', 'breathing', 'stillness', 'journal gratitude'], r: ['\u{1F9D8}', '\u{1FAE7}', '\u2728', '\u{1FAF6}', '\u{1F56F}\uFE0F', '\u{1F44F}']},
+  {w: ['yoga', 'stretch', 'stretching', 'mobility', 'flexibility', 'pilates'], r: ['\u{1F9D8}', '\u{1F938}', '\u2728', '\u{1FAF6}', '\u{1F525}', '\u{1F44F}']},
+  {w: ['read', 'reading', 'book', 'books', 'pages', 'chapter', 'novel', 'study', 'studying', 'revision', 'flashcards', 'lecture', 'course', 'homework'], r: ['\u{1F4D6}', '\u{1F913}', '\u{1F9E0}', '\u{1F453}', '\u2728', '\u{1F44F}']},
+  {w: ['write', 'writing', 'words', 'journal', 'essay', 'draft', 'blog', 'diary', 'poem'], r: ['\u270D\uFE0F', '\u{1F4DD}', '\u{1F9E0}', '\u2615', '\u2728', '\u{1F44F}']},
+  {w: ['code', 'coding', 'commit', 'commits', 'leetcode', 'programming', 'build', 'ship', 'bug', 'project'], r: ['\u{1F4BB}', '\u{1F680}', '\u{1F9E0}', '\u26A1', '\u2705', '\u{1F44F}']},
+  {w: ['spanish', 'french', 'german', 'italian', 'hebrew', 'arabic', 'mandarin', 'japanese', 'duolingo', 'language', 'vocab', 'vocabulary'], r: ['\u{1F5E3}\uFE0F', '\u{1F30D}', '\u{1F9E0}', '\u2705', '\u2728', '\u{1F44F}']},
+  {w: ['practice', 'practise', 'guitar', 'piano', 'violin', 'drums', 'scales', 'instrument', 'singing', 'choir', 'song'], r: ['\u{1F3B8}', '\u{1F3B9}', '\u{1F3B5}', '\u{1F525}', '\u{1F929}', '\u{1F44F}']},
+  {w: ['run', 'running', 'runs', 'jog', 'jogging', 'sprint', 'miles', 'marathon', 'treadmill', 'walk', 'walking', 'steps', 'stairs', 'cardio', 'couch to 5k'], r: ['\u{1F3C3}', '\u{1F45F}', '\u{1F525}', '\u{1F4A8}', '\u{1FAC1}', '\u{1F44F}']},
+  {w: ['swim', 'swimming', 'laps', 'pool', 'freestyle', 'breaststroke'], r: ['\u{1F3CA}', '\u{1F30A}', '\u{1F4A6}', '\u{1F525}', '\u{1FAC1}', '\u{1F44F}']},
+  {w: ['bike', 'biking', 'cycle', 'cycling', 'ride', 'peloton', 'spin class'], r: ['\u{1F6B4}', '\u{1F525}', '\u{1F4A8}', '\u26F0\uFE0F', '\u{1F9B5}', '\u{1F44F}']},
+  {w: ['water', 'hydrate', 'hydration', 'litres', 'liters', 'gallon', 'drink water'], r: ['\u{1F4A7}', '\u{1F964}', '\u{1F9CA}', '\u2705', '\u{1F4A6}', '\u{1F44F}']},
+  {w: ['sleep', 'sleeping', 'bed', 'bedtime', 'rest', 'early night', 'lights out', 'asleep'], r: ['\u{1F634}', '\u{1F319}', '\u{1F6CF}\uFE0F', '\u23F0', '\u2728', '\u{1F44F}']},
+  {w: ['eat', 'eating', 'meal', 'meals', 'vegetables', 'salad', 'protein', 'calories', 'diet', 'sugar', 'fasting', 'cook', 'cooking'], r: ['\u{1F957}', '\u{1F34E}', '\u{1F4AA}', '\u2705', '\u{1F525}', '\u{1F44F}']},
+  {w: ['clean', 'cleaning', 'tidy', 'dishes', 'laundry', 'chores', 'declutter'], r: ['\u{1F9F9}', '\u2728', '\u2705', '\u{1FAE1}', '\u{1F605}', '\u{1F44F}']},
+  {w: ['pushup', 'pushups', 'push ups', 'pullup', 'pullups', 'situp', 'situps', 'squat', 'squats', 'bench', 'deadlift', 'burpee', 'burpees', 'plank', 'reps', 'lift', 'lifting', 'gym', 'weights', 'workout', 'exercise', 'training', 'muscle', 'abs', 'crunches'], r: ['\u{1F4AA}', '\u{1F525}', '\u{1F624}', '\u{1F9BE}', '\u{1F975}', '\u{1FAE1}']},
+];
+// How many single-letter changes turn one word into the other, capped: past two it is not
+// a typo, it is a different word, and there is no point counting how different.
+function near(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 99;
+  let prev = [...Array(b.length + 1).keys()];
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = row;
+  }
+  return prev[b.length];
+}
+// The goal, and nothing else. Every post in the group gets the same answer.
+function reactsFor(g) {
+  const goal = ((g && g.goal) || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ');
+  if (!goal.trim()) return REACTS;
+  // Said outright beats nearly said, so the whole goal is searched for each word first.
+  let best = null, score = 0;
+  for (const t of REACT_THEMES) {
+    const n = t.w.filter(w => goal.includes(w)).length;
+    if (n > score) { score = n; best = t; }
+  }
+  if (best) return best.r;
+  // Nothing said outright: take the nearest word in the goal to any word here, so a goal
+  // written "excercise" or "readng" still lands somewhere rather than nowhere.
+  // One letter out of a short word is a typo; two is usually a different word altogether.
+  // "call" and "walk" are two apart, and answering somebody ringing their mother with a
+  // running shoe is worse than answering it with nothing.
+  const said = goal.split(' ').filter(w => w.length > 3);
+  let bestGap = 99;
+  for (const t of REACT_THEMES) {
+    for (const w of t.w) {
+      const room = Math.min(w.length, 9) >= 7 ? 2 : 1;
+      for (const x of said) {
+        const gap = near(x, w);
+        if (gap <= room && gap < bestGap) { bestGap = gap; best = t; }
+      }
+    }
+  }
+  return best ? best.r : REACTS;
+}
 const FLOAT_MAX = 10;                      // past this it is a wall, not a feeling
 const reactsOn = id => S.reacts.filter(r => r.p === id);
 function reactBubbles(id) {
@@ -4449,7 +4526,19 @@ function pickReact(ev, id) {
   ev.stopPropagation();
   const row = ev.currentTarget.closest('.acts');
   if (row.querySelector('.reactpick')) return closeTrays();
-  openTray(row, REACTS.map(e => `<button type="button" onclick="toggleReact(${id},'${e}');closeTrays()">${e}</button>`).join(''));
+  // The group's, not the post's: everyone in it is doing the same thing.
+  const p = postById(id), g = p && S.groups.find(x => x.id === p.groupId);
+  openTray(row, reactsFor(g).map(e => postReactBtn(id, e)).join('')
+    + `<button type="button" class="more" onclick="morePostReact(event,this,${id})" aria-label="Any other emoji">+</button>`);
+}
+const postReactBtn = (id, e) => `<button type="button" onclick="toggleReact(${id},'${e}');closeTrays()">${e}</button>`;
+// The same trade the chat tray makes: everything else in the tray it was asked from, rather
+// than a sheet over the post, because what is being answered is the post behind it.
+function morePostReact(ev, btn, id) {
+  ev.stopPropagation();                    // the line below replaces this button, so the
+  const box = btn.closest('.reactpick');   // click has nowhere left to bubble from
+  box.classList.add('all');
+  box.innerHTML = ALL_EMOJI.map(e => postReactBtn(id, e)).join('');
 }
 
 // Same as a like: shown at once and put back if the write is refused.
