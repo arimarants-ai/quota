@@ -15,14 +15,34 @@ One static page (`index.html`) talking straight to Supabase (accounts, database,
 
 Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it behaves like an app.
 
-## Updating the database for the redesign
+## Updating the database
 
-The redesign adds comments. In Supabase → SQL Editor, paste and run the block at the bottom of `schema.sql` (from the line `-- v2 (redesign)` down). Until then the app shows "Comments are off".
+`schema.sql` is the base schema followed by numbered blocks, `v2` through `v38`, each
+appended when the change that needed it landed. Running the whole file is step 2 above,
+and that is only for a project with nothing in it yet. On a project that already has
+data, run the blocks it has not seen, oldest first; every block is written to be safe
+on a database that is already live.
+
+The app says which block it is missing rather than failing blankly: comments read
+"Comments are off until the v2 block of schema.sql is run", editing a profile asks for
+`v3`, a group picture for `v30`, an invite link for `v33`. That message is the block to
+go and run.
+
+Some blocks want an edge function deployed as well as SQL run, and each says so in its
+own comment: `notify` deployed *before* the SQL that starts calling it, `wheelday`
+redeployed *after*. The comment on the block is the instruction, because a list kept
+here would only go stale.
 
 ## Branches
 
-- `main` is the published app (what the live URL serves).
-- `redesign` is the unpublished work. Merge it into `main` and deploy to publish.
+`main` is the published app. Vercel serves whatever is on it, so merging is publishing.
+Everything else is a short-lived branch for one change — `nudges`, `cron-health`,
+`totals-index` — opened as a pull request against `main` and left behind once it lands.
+
+`redesign` is no longer the exception it was. It stopped at `quota-v40` on 14 September
+and `main` has gone on to `quota-v86`, so it is one of those spent branches rather than
+work waiting to be published, and merging it now would undo half a month. The others
+still on the remote are spent the same way.
 
 ## Installing it as an app
 
@@ -977,11 +997,10 @@ The `quota` Vercel project builds from this repo, so a push is the only deploy s
 `.vercelignore` keeps this README, the schema and the icon sources out of the
 served sites.
 
-| Push to    | URL                                              |
-| ---------- | ------------------------------------------------ |
-| `main`     | https://quota-jet.vercel.app (the real app)      |
-| `redesign` | https://quota-git-redesign-ari-d851.vercel.app   |
+| Push to          | URL                                              |
+| ---------------- | ------------------------------------------------ |
+| `main`           | https://quota-jet.vercel.app (the real app)      |
+| any other branch | `quota-git-<branch>-ari-d851.vercel.app`         |
 
-So `main` is the published version and `redesign` is the working one, same as
-before — the difference is that publishing now happens on push rather than by
-uploading files by hand.
+Every branch gets a URL of its own, built out of its name, which is how a change is
+opened on a phone before anybody merges it. Merging into `main` is what publishes it.
