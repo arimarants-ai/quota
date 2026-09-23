@@ -48,6 +48,8 @@
   }] : [];
   self.__muted = self.__muted || {};
   const GOOD_CODE = 'abc123XYZ789';
+  const SAM_CODE = 'samSAM123456', MY_CODE = 'mine12345678';
+  self.__friended = null;
   self.__joined = false;
   self.__ticks = []; self.__posts = []; self.__likes = []; self.__cmts = []; self.__reacts = [];
   self.__slikes = []; self.__sreacts = []; self.__edits = []; self.__badges = []; self.__clikes = []; self.__onprofile = {};
@@ -229,11 +231,22 @@
     // An invite that travels as a link. GOOD_CODE is the one the fixture group answers to;
     // anything else is a link that has been rotated out from under whoever forwarded it.
     if (fn === 'mute_group') { self.__muted[args.gid] = !!args.on_off; return { data: null, error: null }; }
-    if (fn === 'code_group') return { data: args.code === GOOD_CODE ? [{ id: 1, name: 'Mornings' }] : [], error: null };
+    // A person's link, as opposed to the group's: it knows who sent it, so joining through
+    // it makes a friendship as well as a membership.
+    if (fn === 'my_invite_code') return { data: MY_CODE, error: null };
+    if (fn === 'code_group') {
+      const hit = args.code === GOOD_CODE || args.code === SAM_CODE;
+      return { data: hit ? [{ id: 1, name: 'Mornings', inviter: args.code === SAM_CODE ? 'Sam' : null,
+        quotas: [{ metric: 'pushups', target: 50 }], members: 2 }] : [], error: null };
+    }
+    // Creating a group, which here means becoming a member of the one fixture group: the
+    // same outcome the real function has for somebody who had none.
+    if (fn === 'create_group') { self.__joined = true; return { data: 1, error: null }; }
     if (fn === 'group_code') return { data: GOOD_CODE, error: null };
     if (fn === 'join_by_code') {
-      if (args.code !== GOOD_CODE) return { data: null, error: { message: 'that invite link is not valid' } };
+      if (args.code !== GOOD_CODE && args.code !== SAM_CODE) return { data: null, error: { message: 'that invite link is not valid' } };
       self.__joined = true;
+      if (args.code === SAM_CODE) self.__friended = 'u2';
       return { data: 1, error: null };
     }
     if (fn === 'spin') {

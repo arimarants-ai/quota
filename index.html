@@ -137,6 +137,28 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
   font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;padding:4px 9px}
 .prg2{display:block;margin-top:9px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
 .prg2 i{display:block;height:100%;width:var(--w);background:var(--mk)}
+/* ---- text invites */
+#dlg .kicker{margin:0 0 4px;font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mkt)}
+.smsprev{margin:14px 0;background:var(--soft);border-radius:16px;padding:12px 14px}
+.smsprev span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.smsprev p{margin:10px 0 0 auto;max-width:88%;width:fit-content;background:#1d7cf2;color:#fff;padding:10px 13px;
+  border-radius:18px 18px 4px 18px;font-size:14px;line-height:1.4;font-weight:500;overflow-wrap:anywhere}
+/* A link, not a button, because iOS allows a navigation to Messages only straight from the
+   tap. So it is given the button's look by hand rather than inheriting button.primary. */
+.textbtn{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;box-sizing:border-box;
+  text-decoration:none;font-weight:800;background:var(--mk);color:var(--onmk);transition:opacity .1s ease}
+a.textbtn:active{opacity:.6}
+.textbtn[disabled]{opacity:.45}
+.textalt{width:100%;margin-top:8px;min-height:46px}
+.welcome .invchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.welcome .invchips span{padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:700}
+.welcome .invnext{margin:12px auto 0;text-align:center;font-size:12.5px;max-width:none}
+.welcome.installed .tick{width:56px;height:56px;border-radius:50%;background:var(--mktint);display:grid;place-items:center;margin-top:auto}
+.welcome.installed .tick svg{width:28px;height:28px;fill:none;stroke:var(--mkt);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.welcome.installed h1{margin-top:20px}
+.welcome .steps{margin:0 0 20px;padding:18px}
+.welcome .steps b{display:block;font-size:15.5px}
+.welcome .steps ol{margin:14px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-weight:600;font-size:14.5px}
 .rwrap{position:relative}
 .rshare{position:absolute;right:10px;bottom:10px}
 .hdr .big .gmark{width:34px;height:34px;fill:var(--mk);align-self:center;margin-left:-4px}
@@ -1206,7 +1228,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v91';
+const BUILD = 'quota-v92';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1251,7 +1273,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {sub: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1803,6 +1825,7 @@ function screenHTML() {
   // Nothing else is reachable until there is a group. Checked after the terms so the
   // order of the two screens is always the same one.
   if (!myGroups().length && !S.settings) return needGroupView();
+  if (S.installAfter) return installView(S.installAfter);
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
     : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
@@ -1861,7 +1884,9 @@ function render() {
   document.documentElement.dataset.stage = String(stageOf(myStreak()));
   // A document being read, and an account that has agreed to none of them, are both
   // whole-screen states: there is no tab bar over either, signed in or not.
-  const held = !m || !!S.legal || needsTerms(m);
+  // The install step after an invite is a whole screen too: the tab bar would sit on top
+  // of the way out of it, and none of the tabs lead anywhere until it is dealt with.
+  const held = !m || !!S.legal || needsTerms(m) || !!S.installAfter;
   // A conversation is a screen of its own, the way it is in every app that has one. The tab
   // bar would sit under the box you type in, and worse: the box is pinned to the bottom, so
   // it moved whenever the keyboard class flipped — including between the press and the
@@ -3051,7 +3076,14 @@ async function takePendingJoin() {
   try {
     const gid = await q(sb.rpc('join_by_code', {code}));
     setPending('');
-    if (gid) { await load(); openGroup(gid); }
+    if (gid) {
+      await load(); openGroup(gid);
+      // In a browser, the next thing is putting the app on the home screen. It comes after
+      // the account rather than before, on purpose: on iPhone an installed app cannot see
+      // anything Safari stored, so a code saved before installing would be lost on the way.
+      // By now the group and the friendship are facts on the server, and survive the move.
+      if (!isStandalone()) S.installAfter = {gid, inviter: (S.invited && S.invited.inviter) || ''};
+    }
   } catch (e) {
     setPending('');                        // a dead link is not something to carry around
     alert(e && e.message && /not valid/.test(e.message) ? 'That invite link has expired or was rotated. Ask whoever sent it for a new one.'
@@ -3099,15 +3131,66 @@ async function joinFromBox(f) {
 }
 // Sharing one. The share sheet is how a link gets into a text message, and a copy is what
 // there is when the browser has no sheet to offer.
+// What a group does, said the way a person would: "50 pushups a day", or "50 pushups and
+// 20 situps a day". Empty when the group has no quota yet, so nothing is invented for it.
+function doesLine(quotas) {
+  const qs = (quotas || []).filter(x => x && x.metric && x.target);
+  if (!qs.length) return '';
+  const parts = qs.map(x => `${x.target} ${x.metric}`);
+  return (parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`) + ' a day';
+}
+// The text somebody gets. Your name first, because a message from a person gets opened and
+// one from an app does not. It names nothing about who else is in the group.
+const inviteText = (from, g, url) => {
+  const does = doesLine(g && g.quotas);
+  return `${from} invited you to ${g ? g.name : 'a group'} on Quota${does ? ` — ${does}, with proof` : ''}. Get the app: ${url}`;
+};
+// Messages, with the words already written. iOS and Android disagree about the separator
+// after `sms:`; `?&body=` is the form both accept.
+const smsHref = text => `sms:?&body=${encodeURIComponent(text)}`;
+
+// Your own link for each group, fetched once. The sheet asks for it the moment it opens so
+// that "Text an invite" can be a real link under the thumb: a tap that has to wait on the
+// network before it navigates is one iOS is entitled to refuse, because by the time the
+// answer comes back the tap is no longer the reason for going.
+const myCodes = {};
+async function inviteCode(gid) {
+  if (!myCodes[gid]) myCodes[gid] = await q(sb.rpc('my_invite_code', {gid}));
+  return myCodes[gid];
+}
+function inviteSheet(gid, first) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return '';
+  const code = myCodes[gid], text = code ? inviteText(name(me()), g, inviteLink(code)) : '';
+  const pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
+  const list = first ? [] : S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
+  return `${first ? `<p class="kicker">${esc(g.name)} is ready</p><h2>Who is doing it with you?</h2>
+      <p class="muted">A group of one is a diary. Text somebody the invite — they are in the group and your friend as soon as they sign up.</p>`
+    : `<h2>Invite to ${esc(g.name)}</h2><p class="muted">They join the group and become your friend — nothing to accept.</p>`}
+    <div class="smsprev"><span>The text they get</span><p>${code ? esc(text) : 'Making your link…'}</p></div>
+    ${code ? `<a class="btn primary textbtn" href="${esc(smsHref(text))}">Text an invite</a>`
+      : `<button class="primary textbtn" disabled>Text an invite</button>`}
+    <button type="button" class="textalt" onclick="shareInvite(${gid})" ${code ? '' : 'disabled'}>Share another way</button>
+    ${list.length ? `<p class="muted small" style="margin:18px 0 4px">Or pick a friend already on Quota</p>` + list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('') : ''}
+    <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()">${first ? 'Skip for now' : 'Close'}</button>`;
+}
+async function inviteDlg(gid, first = false) {
+  dlg(inviteSheet(gid, first));
+  if (myCodes[gid]) return;
+  try { await inviteCode(gid); }
+  catch (e) { return dlg(`<h2>Could not make your link</h2><p class="muted">${esc((e && e.message) || String(e))}</p><p class="muted small">This needs the v40 block of schema.sql.</p><button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`); }
+  if ($('#dlg').open) dlg(inviteSheet(gid, first));
+}
+// Everything that is not Messages: WhatsApp, Instagram, a copy. The link is already in hand
+// by the time this can be pressed, so the share sheet opens on the tap itself.
 async function shareInvite(gid) {
   const g = S.groups.find(x => x.id === gid);
-  let code;
-  try { code = await q(sb.rpc('group_code', {gid})); }
-  catch (e) { return alert(`Could not make an invite link: ${(e && e.message) || e}\n\nThis needs the v33 block of schema.sql.`); }
-  const url = inviteLink(code), text = `Join ${g ? g.name : 'my group'} on Quota`;
-  try { if (navigator.share) return await navigator.share({title: 'Quota', text, url}); } catch (e) { if (e && e.name === 'AbortError') return; }
-  try { await navigator.clipboard.writeText(url); alert(`Invite link copied:\n\n${url}`); }
-  catch (e) { alert(`Your invite link:\n\n${url}`); }
+  const code = myCodes[gid];
+  if (!g || !code) return;
+  const text = inviteText(name(me()), g, inviteLink(code));
+  try { if (navigator.share) return await navigator.share({title: 'Quota', text}); } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); alert(`Copied:\n\n${text}`); }
+  catch (e) { alert(text); }
 }
 
 // ---- looking back: the month, your own numbers, and the recaps
@@ -4658,14 +4741,34 @@ function welcomeView() {
   // Arriving on somebody's link is a different arrival: the screen says which group, so
   // signing up is joining that rather than signing up for nothing in particular.
   const inv = pendingJoin() ? S.invited : null;
+  const does = inv ? doesLine(inv.quotas) : '';
   return `<div class="welcome"><div class="mark">${LOGO(false)}</div>
-    ${inv ? `<h1>You have been invited to ${esc(inv.name)}.</h1>
-      <p>Make an account and you are in the group — no code to type, nothing else to accept.</p>`
+    ${inv ? `<h1>${inv.inviter ? `${esc(inv.inviter)} invited you to ${esc(inv.name)}` : `You have been invited to ${esc(inv.name)}`}</h1>
+      <div class="invchips">${does ? `<span>${esc(does)}</span>` : ''}${inv.members ? `<span>${plural(inv.members, 'person').replace('persons', 'people')}</span>` : ''}</div>
+      <p>Everyone posts a video of themselves doing it, every day. Make an account and you are in the group${inv.inviter ? ` and friends with ${esc(inv.inviter)}` : ''} — nothing to accept.</p>`
     : `<h1>Your friends will know if you skip.</h1>
       <p>Set a daily goal with a group. Post a video proof before midnight. Every day.</p>`}
-    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">${inv ? 'Join ' + esc(inv.name) : 'Get started'}</button>
+    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">${inv ? 'Create your account' : 'Get started'}</button>
     <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button>
+    ${inv && !isStandalone() ? `<p class="invnext">You will add Quota to your home screen right after.</p>` : ''}
     ${legalLinks()}</div>`;
+}
+// Straight after an invite is taken in a browser. The only screen here that changes when
+// there is a native app: these steps become a button to the App Store.
+function installView(a) {
+  const g = S.groups.find(x => x.id === a.gid) || {name: 'the group'};
+  const safari = !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome/.test(navigator.userAgent);
+  const steps = isIOS()
+    ? (safari ? ['Tap Share in the bar at the bottom', 'Choose \u201cAdd to Home Screen\u201d', `Open it and log in \u2014 ${esc(g.name)} will be there`]
+              : ['Open this page in Safari \u2014 only Safari can add it to your home screen', 'Tap Share, then \u201cAdd to Home Screen\u201d', `Open it and log in \u2014 ${esc(g.name)} will be there`])
+    : ['Open your browser menu', 'Choose \u201cInstall app\u201d or \u201cAdd to Home screen\u201d', `Open it and log in \u2014 ${esc(g.name)} will be there`];
+  return `<div class="welcome installed"><div class="tick">${'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'}</div>
+    <h1>You are in ${esc(g.name)}</h1>
+    <p>${a.inviter ? `And you are friends with ${esc(a.inviter)}. ` : ''}It is all saved to your account.</p>
+    <div class="card steps"><b>Now put Quota on your home screen</b>
+      <span class="muted">So it works like an app, and reminders can reach you.</span>
+      <ol>${steps.map(t => `<li>${t}</li>`).join('')}</ol></div>
+    <button class="ghost" onclick="S.installAfter=null;render();scrollTo(0,0)">Keep using it in the browser</button></div>`;
 }
 function authView(mode) {
   const signup = mode === 'signup';
@@ -5294,15 +5397,6 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
     ${g.id ? '' : `<p class="muted" style="margin-top:12px">You can invite friends once the group is created.</p>`}
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
-function inviteDlg(gid) {
-  const g = S.groups.find(x => x.id === gid), pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
-  const list = S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
-  dlg(`<h2>Invite to ${esc(g.name)}</h2>
-    <button class="teal" style="width:100%" onclick="shareInvite(${gid})">Send an invite link</button>
-    <p class="muted small" style="margin:8px 0 14px">Anyone who opens it joins ${esc(g.name)} once they are signed in. Safe to forward.</p>
-    ${list.length ? `<p class="muted small" style="margin-bottom:4px">Or pick a friend:</p>` + list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
-    : `<p class="muted" style="margin-top:10px">All your friends are in this group or already invited. Add more under Friends.</p>`}<button style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
-}
 function profileDlg() {
   const m = me();
   clearAvatar();
@@ -5787,6 +5881,9 @@ async function saveGroup(f, id) {
   working(f, 'Saving…');
   // All seven, or none picked at all, is stored as all seven rather than as nothing: it
   // reads the same and leaves no row where "no days" could be mistaken for an empty group.
+  // A first group is the moment somebody is most likely to bring a person with them, so it
+  // goes straight to asking. Decided before the save, while the count still says none.
+  const first = !id && !myGroups().length;
   const picked = fd.get('somedays') ? fd.getAll('day').map(Number).sort() : [];
   const active_days = picked.length ? picked : [...ALLDAYS];
   const gid = id ? (await q(sb.from('groups').update({name: gname, goal, quotas, active_days}).eq('id', id)), id)
@@ -5809,6 +5906,7 @@ async function saveGroup(f, id) {
   }
   clearAvatar();
   dlg(); await load(); openGroup(gid);
+  if (first) inviteDlg(gid, true);
   // After the load, not before it: a load that goes well clears the bar, so saying this any
   // earlier is saying it to a bar that is about to be wiped. Nobody would ever have read it.
   if (picErr) {
@@ -6929,6 +7027,17 @@ function clearTo(tab = 'feed') {
   render();
 }
 function goTarget(hash) {
+  // An invite opened in a tab that was already running. The page does not reload for a
+  // change of hash, so the catch at boot never sees it, and a link tapped into an open tab
+  // used to do nothing at all. Signed in, it is taken; signed out, the welcome screen
+  // learns what it is for.
+  const jm = JOIN_RE.exec(hash || '');
+  if (jm) {
+    setPending(jm[1]);
+    S.invited = undefined;
+    if (S.me) takePendingJoin(); else peekInvite();
+    return;
+  }
   const m = /^#post-(\d+)$/.exec(hash || '');
   if (m) {
     const id = +m[1];
@@ -7023,6 +7132,16 @@ if (location.hash === '#test') {
   console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
   console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
   console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
+  // The invite text: the person first, what the group does, and nothing about who else is in it.
+  console.assert(doesLine([{metric: 'pushups', target: 50}]) === '50 pushups a day', 'one quota reads as a day of it');
+  console.assert(doesLine([{metric: 'pushups', target: 50}, {metric: 'situps', target: 20}]) === '50 pushups and 20 situps a day', 'two join with and');
+  console.assert(doesLine([]) === '' && doesLine(null) === '', 'no quota is no claim');
+  const itx = inviteText('Ari', {name: 'Mornings', quotas: [{metric: 'pushups', target: 50}]}, 'https://q.app/#join-abc');
+  console.assert(itx === 'Ari invited you to Mornings on Quota — 50 pushups a day, with proof. Get the app: https://q.app/#join-abc', 'the whole text');
+  console.assert(inviteText('Ari', {name: 'Mornings', quotas: []}, 'u').indexOf('with proof') < 0, 'a group with no quota is not said to have one');
+  // Messages gets it whole: the link and the dash both survive the trip through the URL.
+  console.assert(decodeURIComponent(smsHref(itx).split('body=')[1]) === itx && smsHref(itx).startsWith('sms:?&body='), 'sms link carries the text intact');
+
   // Weeks run Monday to Sunday, whatever day it is when this runs.
   console.assert(weekStart('2026-09-20') === '2026-09-14' && weekStart('2026-09-14') === '2026-09-14'
     && weekStart('2026-09-21') === '2026-09-21', 'a week starts on its Monday');

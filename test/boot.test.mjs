@@ -4012,6 +4012,69 @@ await withPage(NO_WHEEL, async page => {
   check('  and unmutes again', await page.evaluate(() => !self.__muted[1]));
 });
 
+// ---- text invites
+// The sheet. "Text an invite" is a real sms: link rather than a button that fetches and then
+// navigates, because iOS may refuse a navigation that happens after an await.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => inviteDlg(1));
+  await page.waitForFunction(() => !!document.querySelector('#dlg a.textbtn'), null, { timeout: 8000 }).catch(() => {});
+  const href = await page.locator('#dlg a.textbtn').getAttribute('href').catch(() => '');
+  const body = href ? decodeURIComponent(href.split('body=')[1] || '') : '';
+  check('texting an invite opens Messages with it already written', /^sms:\?&body=/.test(href || ''), href);
+  check('  from you, to that group, saying what it does', /^Ari invited you to Mornings on Quota — 50 pushups a day, with proof\./.test(body), body);
+  check('  with your own link in it, not the group\'s', /#join-mine12345678$/.test(body), body);
+  check('  and another way to share beside it', await page.locator('#dlg button:has-text("Share another way")').count() === 1);
+});
+
+// The page somebody lands on. It names who sent it, because a person is why anybody signs up.
+await withPage({ wheel: false }, async page => {
+  await page.goto(`${base}/?local#join-samSAM123456`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1400);
+  const html = await page.innerHTML('#app');
+  check('a link from somebody names them on the way in', /Sam invited you to Mornings/i.test(html), html.slice(0, 300));
+  check('  with what the group does', />50 pushups a day</.test(html));
+  check('  and says the friendship comes with it', /friends with Sam/.test(html));
+  check('  and that the home screen comes after', /home screen right after/i.test(html));
+});
+
+// Taking it in a browser. The install step comes after the account, not before: on iPhone the
+// installed app cannot see what Safari stored, so by now it has to be on the server.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.invited = {name: 'Mornings', inviter: 'Sam', quotas: [], members: 2}; setPending('samSAM123456'); return takePendingJoin(); });
+  await page.waitForTimeout(1000);
+  check('joining through a person also makes you their friend', await page.evaluate(() => self.__friended === 'u2'));
+  const html = await page.innerHTML('#app');
+  check('  and a browser is then shown how to install', /You are in Mornings/.test(html) && /home screen/i.test(html), html.slice(0, 200));
+  check('    naming the friendship it made', /friends with Sam/.test(html));
+  await page.locator('button:has-text("Keep using it in the browser")').click();
+  await page.waitForTimeout(400);
+  check('    and gets out of the way when asked', !/Now put Quota on your home screen/.test(await page.innerHTML('#app')));
+});
+
+// Already installed: nothing to install, so straight into the group.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { window.matchMedia = q => ({ matches: /standalone/.test(q), addEventListener() {}, removeEventListener() {} });
+    setPending('samSAM123456'); return takePendingJoin(); });
+  await page.waitForTimeout(1000);
+  check('inside the installed app the install step is skipped', !/Now put Quota on your home screen/.test(await page.innerHTML('#app')));
+});
+
+// A brand-new person's first group goes straight to asking who else is in it.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await page.locator('button:has-text("Start a group")').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=name]').fill('Mornings');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => /Who is doing it with you/.test(document.querySelector('#dlg').innerHTML), null, { timeout: 8000 }).catch(() => {});
+  const d = await page.locator('#dlg').innerHTML();
+  check('a first group goes straight to inviting somebody', /Who is doing it with you/.test(d), d.slice(0, 200));
+  check('  and it can be skipped', /Skip for now/.test(d));
+});
+
 // Proof can be a picture as well as a clip — both come off the camera.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
