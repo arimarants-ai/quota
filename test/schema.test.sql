@@ -550,3 +550,25 @@ begin
     raise exception 'the proof bucket should take both';
   end if;
 end $$;
+
+-- v40: the cron alert asks only about jobs that still run. An unscheduled job's failures
+-- stay in the run history for a day, and v37 alerted on them as "unnamed job 3" after the
+-- job had already been retired.
+do $$
+begin
+  insert into cron.job (jobid, jobname) values (901, 'still-here'), (902, 'switched-off');
+  update cron.job set active = false where jobid = 902;
+  insert into cron.job_run_details (jobid, runid, status, return_message, start_time) values
+    (901, 1, 'failed', 'ERROR: broken', now() - interval '1 hour'),
+    (902, 2, 'failed', 'ERROR: paused', now() - interval '1 hour'),
+    (903, 3, 'failed', 'ERROR: gone', now() - interval '1 hour'),   -- unscheduled: no cron.job row
+    (901, 4, 'failed', 'ERROR: old', now() - interval '30 hours');
+  if (select count(*) from public.cron_health()) <> 1
+     or (select jobname from public.cron_health()) <> 'still-here'
+     or (select failures from public.cron_health()) <> 1 then
+    raise exception 'cron_health should report only scheduled, active jobs inside the window: %',
+      (select json_agg(h) from public.cron_health() h);
+  end if;
+  delete from cron.job_run_details where jobid in (901, 902, 903);
+  delete from cron.job where jobid in (901, 902);
+end $$;

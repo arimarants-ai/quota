@@ -61,7 +61,7 @@ create function net.http_post(url text, body jsonb default '{}'::jsonb, params j
 -- cut, which is the same choice net.http_post gets and for the same reason: a function
 -- that cannot be created at all is very much the point.
 create schema if not exists cron;
-create table cron.job (jobid bigint primary key, jobname text);
+create table cron.job (jobid bigint primary key, jobname text, active boolean not null default true);
 create table cron.job_run_details (jobid bigint, runid bigint, status text,
   return_message text, start_time timestamptz);
 -- Enough of Supabase's storage schema for the bucket statements to run rather than be

@@ -2315,3 +2315,30 @@ end $$;
 
 revoke all on function public.mute_group(bigint, boolean) from public, anon;
 grant execute on function public.mute_group(bigint, boolean) to authenticated;
+
+-- v40 (a job that is gone is not failing): worth running. No redeploy needed.
+--
+-- v37 alerted on "unnamed job 3 has failed 17 times" at midnight UTC on 2026-09-23. Job 3
+-- was stories-expire, which v36 had already unscheduled that morning. Its failures were
+-- still in cron.job_run_details and still inside the 24-hour window, and the left join
+-- kept them while losing the name — so the alert described a problem already fixed, about
+-- a job it could no longer name.
+--
+-- Only jobs that are still scheduled and switched on are asked about. A failure on a job
+-- that no longer runs is history, not something anybody can act on.
+create or replace function public.cron_health(hours int default 24)
+returns table (jobname text, failures bigint, last_message text)
+language sql security definer set search_path = public as $$
+  select coalesce(j.jobname, 'job ' || r.jobid::text),
+         count(*),
+         (array_agg(r.return_message order by r.start_time desc))[1]
+    from cron.job_run_details r
+    join cron.job j on j.jobid = r.jobid and j.active
+   where r.status = 'failed'
+     and r.start_time > now() - make_interval(hours => hours)
+   group by 1
+   order by 2 desc;
+$$;
+
+revoke all on function public.cron_health(int) from public, anon, authenticated;
+grant execute on function public.cron_health(int) to service_role;
