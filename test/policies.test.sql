@@ -114,6 +114,20 @@ begin
   if not has_function_privilege('authenticated', 'public.mute_group(bigint, boolean)', 'EXECUTE') then
     raise exception 'a member cannot mute their own group';
   end if;
+  -- v40's per-person links. The table holds codes that make friendships, so nothing reads it
+  -- directly: RLS on, no policies, and the functions are the only way in.
+  if not (select relrowsecurity from pg_class where oid = 'public.invite_links'::regclass) then
+    raise exception 'invite_links is readable without row level security';
+  end if;
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'invite_links') then
+    raise exception 'invite_links has a policy, so somebody can read other people''s codes';
+  end if;
+  if has_function_privilege('anon', 'public.my_invite_code(bigint, boolean)', 'EXECUTE') then
+    raise exception 'a signed-out caller could mint an invite in somebody''s name';
+  end if;
+  if not has_function_privilege('authenticated', 'public.my_invite_code(bigint, boolean)', 'EXECUTE') then
+    raise exception 'a member cannot get their own invite link';
+  end if;
   -- Closing a flag is the other way round: the app calls it on every load, and applying a
   -- rule that is already true costs nothing and claims nothing.
   if not has_function_privilege('authenticated', 'public.close_due_flags()', 'EXECUTE') then

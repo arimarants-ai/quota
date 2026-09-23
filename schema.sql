@@ -2342,3 +2342,95 @@ $$;
 
 revoke all on function public.cron_health(int) from public, anon, authenticated;
 grant execute on function public.cron_health(int) to service_role;
+
+-- v40 (an invite from somebody, not just to something): worth running.
+--
+-- v33 put one invite link on each group. That link knew where it led but not who sent it,
+-- so joining put you in the group and left you a stranger to whoever brought you. A link
+-- per person per group knows both, and joining through one now makes you friends with the
+-- person who sent it as well as a member.
+--
+-- The inviter cannot travel in the URL beside the code: anybody could edit it and be made
+-- friends with whoever they liked. It lives here, against a code only the server hands out.
+--
+-- Links sent before this keep working. They were group links and still are; they just
+-- cannot make a friendship, because nothing ever recorded who sent them.
+create table if not exists public.invite_links (
+  code text primary key,
+  group_id bigint not null references public.groups on delete cascade,
+  inviter_id uuid not null references public.profiles on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (group_id, inviter_id)
+);
+-- Row level security on and no policies: the three functions below are the only way in,
+-- which keeps the codes themselves out of reach of anybody browsing the table.
+alter table public.invite_links enable row level security;
+
+-- Your own link for a group you are in, made the first time you ask. rotate => a new one,
+-- which is how a link that went somewhere it should not is taken out of service.
+create or replace function public.my_invite_code(gid bigint, rotate boolean default false) returns text
+language plpgsql security definer set search_path = public as $$
+declare c text;
+begin
+  if not public.is_member(gid) then raise exception 'not a member of that group'; end if;
+  select code into c from public.invite_links where group_id = gid and inviter_id = auth.uid();
+  if c is not null and not rotate then return c; end if;
+  loop
+    c := public.new_join_code();
+    -- Unique across both kinds of link, so a code can only ever mean one thing.
+    exit when not exists (select 1 from public.invite_links where code = c)
+          and not exists (select 1 from public.groups where join_code = c);
+  end loop;
+  insert into public.invite_links (code, group_id, inviter_id) values (c, gid, auth.uid())
+  on conflict (group_id, inviter_id) do update set code = excluded.code, created_at = now();
+  return c;
+end $$;
+
+-- What the landing page may say before anybody has an account: who sent it, which group,
+-- what the group does and how many are in it. Nothing else — no member names, no posts.
+-- Dropped rather than replaced because the columns it returns have changed.
+drop function if exists public.code_group(text);
+create function public.code_group(code text)
+returns table (id bigint, name text, inviter text, quotas jsonb, members int)
+language sql security definer stable set search_path = public as $$
+  select g.id, g.name,
+         coalesce(p.display_name, p.username),
+         coalesce(g.quotas, '[]'::jsonb),
+         (select count(*)::int from public.group_members gm where gm.group_id = g.id)
+    from public.groups g
+    left join public.invite_links l on l.code = code_group.code and l.group_id = g.id
+    left join public.profiles p on p.id = l.inviter_id
+   where g.id = coalesce(
+           (select l2.group_id from public.invite_links l2 where l2.code = code_group.code),
+           (select g2.id from public.groups g2 where g2.join_code = code_group.code));
+$$;
+
+-- Joining. A person's link also makes you friends with them; an old group link does not,
+-- because it never knew who sent it. Following your own link joins nothing new and makes
+-- nobody your friend.
+create or replace function public.join_by_code(code text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare gid bigint; who uuid; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'not signed in'; end if;
+  select l.group_id, l.inviter_id into gid, who from public.invite_links l where l.code = join_by_code.code;
+  if gid is null then
+    select g.id into gid from public.groups g where g.join_code = join_by_code.code;
+  end if;
+  if gid is null then raise exception 'that invite link is not valid'; end if;
+  insert into public.group_members (group_id, user_id) values (gid, me) on conflict do nothing;
+  if who is not null and who <> me then
+    insert into public.friendships (a, b) values (least(me, who), greatest(me, who)) on conflict do nothing;
+    -- A friend request already sitting between the two is answered by this, not left open.
+    delete from public.invites
+     where type = 'friend' and ((from_user = me and to_user = who) or (from_user = who and to_user = me));
+  end if;
+  return gid;
+end $$;
+
+revoke all on function public.my_invite_code(bigint, boolean) from public, anon;
+revoke all on function public.join_by_code(text) from public, anon;
+revoke all on function public.code_group(text) from public;
+grant execute on function public.my_invite_code(bigint, boolean) to authenticated;
+grant execute on function public.join_by_code(text) to authenticated;
+grant execute on function public.code_group(text) to anon, authenticated;
