@@ -1206,7 +1206,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v90';
+const BUILD = 'quota-v91';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1251,7 +1251,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {sub: null, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {sub: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -3571,10 +3571,21 @@ function groupView(g) {
 const lockedReel = p => `<div class="reel lockedreel">
   <svg class="sil" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
   <div class="lockmsg"><b>Post yours to unlock</b><span>${esc(name(user(p.userId)))} has posted today</span></div></div>`;
+// How many posts a feed puts on the screen before asking. Every post in a group used to
+// go up at once: 173 of them is 13,000 nodes and as many <video> elements as posts, built
+// in one go while the screen you came from is still in the document. A phone kills a page
+// for that, and it killed this one — the only group it happened in was the only group with
+// a history worth the name, at twenty times the posts of any other.
+// ponytail: a slice and a button. Attaching sources to only what is on screen would keep
+// the whole history scrollable, but the elements are the cost here, not the sources.
+const PAGE = 24;
 function feed(ps, showGroup, bare) {
   if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
+  // A single post opened on its own is already one post; there is nothing to page.
+  const shown = bare ? ps : ps.slice(0, PAGE * (1 + (S.more || 0)));
+  const older = ps.length - shown.length;
   let day = '';
-  return ps.map(p => {
+  return shown.map(p => {
     const h = p.day !== day ? `<p class="muted" style="margin:14px 18px 0">${dayLabel(p.day)}</p>` : ''; day = p.day;
     const u = user(p.userId), g = S.groups.find(x => x.id === p.groupId) || {name: ''}, cs = S.comments.filter(c => c.postId === p.id);
     // The header sits on the card above the clip, so the clip is only the clip. The
@@ -3595,8 +3606,11 @@ function feed(ps, showGroup, bare) {
       ${locked(p) ? '' : bare ? '' : acts(p, cs.length)}
       ${locked(p) || !p.caption ? '' : `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>`}
       ${locked(p) || bare ? '' : commentsFor(p, cs)}</div>`;
-  }).join('');
+  }).join('') + (older ? `<div class="row" style="margin:14px 18px"><button class="small grow" onclick="showOlder()">Show ${Math.min(older, PAGE)} older${older > PAGE ? ` · ${older} left` : ''}</button></div>` : '');
 }
+// Another page of them. Reset whenever the screen changes, so opening a group does not
+// inherit however far somebody had scrolled back through a different one.
+function showOlder() { S.more = (S.more || 0) + 1; render(); }
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
 // enough, or a post whose file could not be signed at all, ends up pointing at nothing.
 // Either way the player shows a black rectangle and a play button that does nothing,
@@ -5324,7 +5338,7 @@ function sizeLine(f) {
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
 // is a push, so it comes in from the right; coming back, from the left.
-function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = null; S.settings = false;
+function go(tab) { const back = !!(S.open || S.who || S.settings || S.flag || S.chat); S.more = 0; S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = null; S.settings = false;
   S.sub = null;
   backY.length = 0;                        // a tab is not a way back out of anything
   render(); scrollTo(0, 0); if (back) slide(-1); load(); if (tab === 'profile') refreshPush().then(render); }
@@ -5635,8 +5649,8 @@ const slide = dir => { if (matchMedia('(prefers-reduced-motion: reduce)').matche
   $('#app').animate([{opacity: .4, transform: `translateX(${dir * 28}px)`}, {opacity: 1, transform: 'none'}], {duration: 280, easing: 'cubic-bezier(.32,.72,0,1)'}); };
 // A group chip on somebody's profile used to set S.open behind a profile that was still
 // on screen, so the button did nothing at all: the profile is what render draws first.
-function openGroup(id) { S.open = id; S.who = null; S.tab = 'groups'; stackOn(); }
-function closeGroup() { S.open = null; stackOff(); }
+function openGroup(id) { S.open = id; S.who = null; S.more = 0; S.tab = 'groups'; stackOn(); }
+function closeGroup() { S.open = null; S.more = 0; stackOff(); }
 async function auth(f, mode) {
   const username = f.username.value.trim().toLowerCase(), password = f.password.value;
   working(f, '…');
