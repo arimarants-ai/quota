@@ -738,9 +738,9 @@ button.rg{border:0;font:inherit}
 .m .mrx{position:absolute;bottom:-10px;display:flex;gap:3px;z-index:2}
 .m.them .mrx{left:10px}
 .m.me .mrx{right:10px}
-.m .mrx button{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);
-  border-radius:999px;padding:1px 6px 2px;font-size:12.5px;line-height:1.3;color:var(--text)}
-.m .mrx button.mine{border-color:var(--mk)}
+.m .mrx button{display:flex;align-items:center;gap:2px;background:var(--soft);border:0;
+  border-radius:999px;padding:2px 7px 3px;font-size:12.5px;line-height:1.3;color:var(--text)}
+.m .mrx button.mine{background:var(--okbg)}
 .m .mrx button b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:11px;color:var(--muted)}
 /* Wider than the bubble it hangs off, and allowed to be: a tray clipped to a short message
    is four answers and a cut edge. Everything behind the + scrolls sideways in place. */
@@ -748,11 +748,16 @@ button.rg{border:0;font:inherit}
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
 .m .reactpick.all::-webkit-scrollbar{display:none}
 .m .reactpick .more{font-size:17px;font-weight:800;color:var(--muted);min-width:26px}
+/* No paint of its own: a dimmed conversation would be a sheet, and what is being picked
+   hangs off the line it belongs to rather than sitting over it. */
+.trayback{position:fixed;inset:0;z-index:1;background:none}
 .m .reactpick{position:absolute;bottom:100%;margin-bottom:6px;z-index:6;display:flex;gap:2px;background:var(--sheet);
   border:1px solid var(--line);border-radius:999px;padding:4px 6px;box-shadow:0 10px 26px -8px rgba(0,0,0,.35)}
 .m.them .reactpick{left:0}
 .m.me .reactpick{right:0}
-.m .reactpick button{background:none;padding:3px 4px;font-size:21px;line-height:1}
+/* flex:none or there is nothing to scroll: sixty emoji in a flex row shrink to fit the
+   tray instead of running off the end of it, and a strip that fits never overflows. */
+.m .reactpick button{background:none;padding:3px 4px;font-size:21px;line-height:1;flex:none}
 /* The composer sits over the screen rather than at the end of it, so it is where your
    thumb already is however far up the conversation you have read. */
 /* Follows the viewport the way the tab bar does, and rides the keyboard up on --kb. One
@@ -1228,7 +1233,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v92';
+const BUILD = 'quota-v93';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2667,12 +2672,9 @@ async function toggleStoryReact(id, emoji) {
 function pickStoryReact(ev, id) {
   ev.stopPropagation();
   clearTimeout(storyTimer);
-  const pane = ev.currentTarget.closest('.pane'), had = pane.querySelector('.reactpick');
-  if (had) return had.remove();
-  const box = document.createElement('div');
-  box.className = 'reactpick';
-  box.innerHTML = REACTS.map(e => `<button type="button" onclick="toggleStoryReact(${id},'${e}')">${e}</button>`).join('');
-  pane.querySelector('.answer').appendChild(box);
+  const pane = ev.currentTarget.closest('.pane');
+  if (pane.querySelector('.reactpick')) return closeTrays();
+  openTray(pane.querySelector('.answer'), REACTS.map(e => `<button type="button" onclick="toggleStoryReact(${id},'${e}')">${e}</button>`).join(''));
 }
 // What people have left on a story, drifting up its left side the way they drift up a post.
 function storyBubbles(id) {
@@ -3167,11 +3169,13 @@ function inviteSheet(gid, first) {
   return `${first ? `<p class="kicker">${esc(g.name)} is ready</p><h2>Who is doing it with you?</h2>
       <p class="muted">A group of one is a diary. Text somebody the invite — they are in the group and your friend as soon as they sign up.</p>`
     : `<h2>Invite to ${esc(g.name)}</h2><p class="muted">They join the group and become your friend — nothing to accept.</p>`}
+    ${list.length ? `<p class="kicker" style="margin-top:14px">Already on Quota</p>`
+      + list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('')
+      + `<p class="kicker" style="margin-top:18px">Not on Quota yet</p>` : ''}
     <div class="smsprev"><span>The text they get</span><p>${code ? esc(text) : 'Making your link…'}</p></div>
     ${code ? `<a class="btn primary textbtn" href="${esc(smsHref(text))}">Text an invite</a>`
       : `<button class="primary textbtn" disabled>Text an invite</button>`}
     <button type="button" class="textalt" onclick="shareInvite(${gid})" ${code ? '' : 'disabled'}>Share another way</button>
-    ${list.length ? `<p class="muted small" style="margin:18px 0 4px">Or pick a friend already on Quota</p>` + list.map(id => `<div class="row" style="margin:12px 0">${av(user(id), 'lg')}<b class="grow">${esc(name(user(id)))}</b><button class="small primary" onclick="inviteToGroup(${gid},'${id}')">Invite</button></div>`).join('') : ''}
     <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()">${first ? 'Skip for now' : 'Close'}</button>`;
 }
 async function inviteDlg(gid, first = false) {
@@ -3630,14 +3634,10 @@ function groupView(g) {
     ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
       <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
       Group chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
-    <div class="row" style="margin-top:14px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button><button onclick="groupDlg(S.groups.find(x=>x.id===${g.id}))">Edit</button></div>
-    <div class="row" style="margin-top:8px"><button class="small grow" onclick="wheelDlg(${g.id})">+ add a wheel</button></div>
-    <div class="row" style="margin-top:8px"><button class="small grow" onclick="shareStreak(${g.id})">Share the streak</button>${g.shared_at ? `<button class="small grow" onclick="markDlg(${g.id})">Mark</button>` : ''}</div>
-    <div class="row" style="margin-top:8px"><button class="small grow ${g.muted ? 'on' : ''}" onclick="toggleMute(${g.id})">${
-      g.muted ? 'Unmute this group' : 'Mute this group'}</button></div>
-    ${g.muted ? `<p class="muted small" style="margin:8px 0 0">No notifications from ${esc(g.name)}. Your own daily reminders still come, and so does anything questioning your proof.</p>` : ''}
+    <div class="row" style="margin-top:8px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button></div>
     ${at('recaps')}<div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
-      <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div></div>
+      <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div>
+    <div class="row" style="margin-top:8px"><button class="ghost grow" onclick="manageDlg(${g.id})">Manage group${g.muted ? ' \u00b7 muted' : ''}</button></div></div>
   ${at('today')}<h3>Today</h3>
   ${missLine(g)}
   ${at('members')}<div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
@@ -4155,18 +4155,34 @@ function chatToEnd() {
 // answers are agreeing with it, not agreeing with it, or laughing. Six, and then everything
 // else behind the +, because six is never quite the one you wanted.
 const CHAT_REACTS = ['❤️', '👍', '👎', '😂', '😮', '🙏'];
+// A tray is put away by tapping anywhere that is not it. On a phone that cannot be left to
+// a listener on the document: Safari does not report a tap on something that is not itself
+// clickable, so tapping the empty part of a conversation sent no click at all, the tray sat
+// there, and every tap after it went to a tray nobody could see the point of — which is
+// what "the whole screen freezes" was. A sheet of nothing behind the tray is a real element
+// with a handler of its own, and every browser reports a tap on one of those.
+function openTray(parent, html, cls) {
+  closeTrays();
+  const back = document.createElement('div');
+  back.className = 'trayback';
+  back.onclick = closeTrays;
+  document.body.appendChild(back);
+  const box = document.createElement('div');
+  box.className = 'reactpick' + (cls ? ' ' + cls : '');
+  box.innerHTML = html;
+  parent.appendChild(box);
+  return box;
+}
+function closeTrays() {
+  document.querySelectorAll('.reactpick, .trayback').forEach(x => x.remove());
+}
 function pickMsgReact(ev, id) {
   ev.stopPropagation();
   const row = ev.currentTarget.closest('.m');
-  const had = row.querySelector('.reactpick');
-  if (had) return had.remove();
-  document.querySelectorAll('#app .m .reactpick').forEach(x => x.remove());
-  const box = document.createElement('div');
-  box.className = 'reactpick';
-  box.innerHTML = msgReactRow(id);
-  row.appendChild(box);
+  if (row.querySelector('.reactpick')) return closeTrays();
+  openTray(row, msgReactRow(id));
 }
-const msgReactBtn = (id, e) => `<button type="button" onclick="toggleMsgReact(${id},'${e}');this.closest('.reactpick').remove()">${e}</button>`;
+const msgReactBtn = (id, e) => `<button type="button" onclick="toggleMsgReact(${id},'${e}');closeTrays()">${e}</button>`;
 const msgReactRow = id => CHAT_REACTS.map(e => msgReactBtn(id, e)).join('')
   + `<button type="button" class="more" onclick="moreMsgReact(event,this,${id})" aria-label="Any other emoji">+</button>`;
 // Everything else, in the same tray rather than in a sheet over the conversation: the
@@ -4457,12 +4473,8 @@ function reactBubbles(id) {
 function pickReact(ev, id) {
   ev.stopPropagation();
   const row = ev.currentTarget.closest('.acts');
-  const had = row.querySelector('.reactpick');
-  if (had) return had.remove();
-  const box = document.createElement('div');
-  box.className = 'reactpick';
-  box.innerHTML = REACTS.map(e => `<button type="button" onclick="toggleReact(${id},'${e}');this.parentNode.remove()">${e}</button>`).join('');
-  row.appendChild(box);
+  if (row.querySelector('.reactpick')) return closeTrays();
+  openTray(row, REACTS.map(e => `<button type="button" onclick="toggleReact(${id},'${e}');closeTrays()">${e}</button>`).join(''));
 }
 
 // Same as a like: shown at once and put back if the write is refused.
@@ -5376,6 +5388,23 @@ function submitDlg(gid) {
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
 const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
+// Everything you do to a group rather than in it. These were all on the group screen at
+// once — nine buttons under its name — which made the two anybody actually uses hard to
+// find among the seven they do not. Nothing has been taken away; it is behind one door.
+function manageDlg(gid) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return;
+  dlg(`<h2>Manage ${esc(g.name)}</h2>
+    <div class="menu">
+      <button type="button" onclick="dlg();groupDlg(S.groups.find(x=>x.id===${gid}))">Edit name, goal and quota</button>
+      <button type="button" onclick="dlg();wheelDlg(${gid})">Add a wheel</button>
+      <button type="button" onclick="dlg();shareStreak(${gid})">Share the streak</button>
+      ${g.shared_at ? `<button type="button" onclick="dlg();markDlg(${gid})">Mark</button>` : ''}
+      <button type="button" onclick="dlg();toggleMute(${gid})">${g.muted ? 'Unmute this group' : 'Mute this group'}</button>
+    </div>
+    ${g.muted ? `<p class="muted small" style="margin:12px 0 0">No notifications from ${esc(g.name)}. Your own daily reminders still come, and so does anything questioning your proof.</p>` : ''}
+    <button type="button" style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
+}
 function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 100}]}) {
   clearAvatar();                           // nothing carried over from the last thing that was cropped
   dlg(`<h2>${g.id ? 'Edit' : 'New'} group</h2><form onsubmit="event.preventDefault();saveGroup(this,${g.id || 0})">
@@ -6589,12 +6618,36 @@ function postMenu(id) {
   if (!p) return;
   dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <div class="menu">
+      <button type="button" onclick="dlg();captionDlg(${id})">Edit the caption</button>
       <button type="button" onclick="dlg();sharePost(${id})">Share this to my story</button>
       <button type="button" onclick="dlg();showOnProfile(${id},${p.onProfile ? 'false' : 'true'})">${
         p.onProfile ? 'Take this off my profile' : 'Show this on my profile'}</button>
       <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete this post</button>
     </div>`);
 }
+// The words, not the clip. What was done is what the camera saw and the number says; the
+// caption is the part that was typed, so it is the part that can be typed again.
+function captionDlg(id) {
+  const p = postById(id);
+  if (!p) return;
+  dlg(`<h2>Caption</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
+    <form onsubmit="event.preventDefault();saveCaption(this,${id})">
+      <input name="caption" maxlength="140" autocomplete="off" placeholder="Say something about it" value="${esc(p.caption || '')}">
+      <button class="primary" style="width:100%;margin-top:12px">Save</button>
+    </form>
+    <button type="button" style="width:100%;margin-top:8px" onclick="dlg()">Cancel</button>`);
+}
+// Shown at once and put back if the write is refused, the way every other small edit is.
+async function saveCaption(f, id) {
+  const caption = new FormData(f).get('caption').trim();
+  const p = postById(id);
+  if (!p) return dlg();
+  const was = p.caption;
+  p.caption = caption; dlg(); render();
+  try { await q(sb.from('posts').update({caption}).eq('id', id)); }
+  catch (e) { p.caption = was; render(); }
+}
+
 // Proof you already posted, put on a story. The story points at the post rather than
 // carrying a copy of it, so the people who can watch the story have to be people who can
 // open the post: on your profile is exactly that set — can_see_user() decides both — which
@@ -6753,7 +6806,7 @@ async function disablePush() {
 // click, so this can never close the tray that click just opened.
 addEventListener('click', e => {
   if (e.target.closest('.reactpick')) return;
-  document.querySelectorAll('.reactpick').forEach(x => x.remove());
+  closeTrays();
 });
 
 // One channel for the whole app rather than one per screen: what you can see changes as you
