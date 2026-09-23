@@ -1206,7 +1206,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v89';
+const BUILD = 'quota-v90';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3535,7 +3535,11 @@ function groupHdr(g) {
 }
 function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
-  return groupHdr(g) + `<div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
+  // "building group N" told us it dies in here. These say where in here. A template's
+  // expressions run left to right, so a marker that returns nothing can be interleaved
+  // without taking the screen apart to do it.
+  const at = s => (crumb(`group ${g.id}: ${s}`), '');
+  return at('header') + groupHdr(g) + `<div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
       <span class="muted">${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}</span></div></div>
     ${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
@@ -3549,15 +3553,15 @@ function groupView(g) {
     <div class="row" style="margin-top:8px"><button class="small grow ${g.muted ? 'on' : ''}" onclick="toggleMute(${g.id})">${
       g.muted ? 'Unmute this group' : 'Mute this group'}</button></div>
     ${g.muted ? `<p class="muted small" style="margin:8px 0 0">No notifications from ${esc(g.name)}. Your own daily reminders still come, and so does anything questioning your proof.</p>` : ''}
-    <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
+    ${at('recaps')}<div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
       <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div></div>
-  <h3>Today</h3>
+  ${at('today')}<h3>Today</h3>
   ${missLine(g)}
-  <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
+  ${at('members')}<div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row">${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="muted">${st ? `${st} day streak` : 'no streak'}</div></div>${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div>`; }).join('')}</div>
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
-  ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
-  ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
-  <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
+  ${at('wheels')}${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
+  ${at('board')}${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
+  ${at('proof')}<h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
 }
 // bare is the flag screen: the post, and nothing you do to a post. What is being asked
 // there is one question with two answers, and putting the reel, the reason and the vote on
