@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v98';
+const BUILD = 'quota-v99';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6074,7 +6074,7 @@ function showTake(f) {
   // With controls, because watching it back means being able to stop halfway and go again.
   box.innerHTML = isPic(f)
     ? `<img src="${takeUrl}" alt="The picture you just took">`
-    : `<video src="${takeUrl}" controls playsinline preload="metadata" onclick="playTake(this)"></video>
+    : `<video src="${takeUrl}" playsinline preload="metadata" onclick="playTake(this)"></video>
        <button type="button" class="takeplay" onclick="playTake(this.previousElementSibling)" aria-label="Watch it back"><i></i></button>`;
   const v = box.querySelector('video');
   if (v) {
@@ -6083,15 +6083,13 @@ function showTake(f) {
   }
   box.hidden = false;
 }
-// The form is a <dialog> opened with showModal(), which puts it in the top layer, and iOS
-// will not play a clip that is up there: the controls are drawn and answer to nothing. The
-// phone's own full screen player is not in the top layer and has never had the problem, so
-// that is where a take gets watched. Everywhere else plays it where it sits.
+// Played where it sits, the way a clip in the feed is. What was wrong before was never the
+// native controls being in the top layer — it was that there was nothing calling play():
+// the controls drew and answered to nothing, and a tap that asks outright always worked.
+// So no controls, no scrubber, no full screen button, nothing that makes a browser out of
+// a form. Tap it to watch it, tap it again to stop.
 function playTake(v) {
   if (!v || v.tagName !== 'VIDEO') return;
-  if (typeof v.webkitEnterFullscreen === 'function') {
-    try { v.webkitEnterFullscreen(); v.play().catch(() => {}); return; } catch (e) { /* fall through */ }
-  }
   if (v.paused) v.play().catch(() => {}); else v.pause();
 }
 const REC_MAX = 120;                       // seconds; the phone will not stop itself
@@ -6585,7 +6583,14 @@ async function flushOutbox() {
         if (error) throw error;
         await outDel(row.id);
         sent++;
-      } catch (e) { break; }
+      } catch (e) {
+        // The connection going is about all of them, so there is no point trying the rest.
+        // Anything else is about this one clip, and leaving it to block everything behind
+        // it is how an outbox stops being a queue and starts being a wall.
+        if (e && (e.offline || navigator.onLine === false)) break;
+        row.tries = (row.tries || 0) + 1;
+        try { await outPut(row); } catch (err) {}
+      }
     }
   } catch (e) {} finally {
     flushing = false;
@@ -6603,7 +6608,22 @@ async function queuePost(post, path, file) {
 }
 const waitingIn = gid => outbox.filter(r => r.post.group_id === gid).length;
 
-async function upload(bucket, path, file, onProgress) {
+// A dropped request is not the same as having no connection, and treating them the same is
+// how "check your connection" ends up in front of somebody who has tried two of them. A
+// long upload on a slow link gets cut off for all sorts of reasons that go away on the next
+// try, so it gets three before anyone is told anything.
+async function upload(bucket, path, file, onProgress, tries = 3) {
+  for (let go = 1; ; go++) {
+    try { return await uploadOnce(bucket, path, file, onProgress); }
+    catch (e) {
+      // Only a cut-off is worth repeating. A 413 or a 403 will say the same thing in a
+      // second's time, and being genuinely offline is what the outbox is for.
+      if (!e.offline || go >= tries || navigator.onLine === false) throw e;
+      await new Promise(r => setTimeout(r, 800 * go));
+    }
+  }
+}
+async function uploadOnce(bucket, path, file, onProgress) {
   const {data: {session}} = await sb.auth.getSession();
   // A file with no type of its own is stored as octet-stream, which iOS then refuses to
   // play. The camera always sets one; a file picked from somewhere else might not.
@@ -6624,6 +6644,10 @@ async function upload(bucket, path, file, onProgress) {
     };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) { noteRate(part.size, (Date.now() - t0) / 1000); return resolve(); }
+      // The bytes are already there. That happens when a try was cut off after the file
+      // landed but before the answer came back, and the next try is told it is a duplicate
+      // — which for our purposes is the upload having worked.
+      if (xhr.status === 409) return resolve();
       let m = `The upload failed (${xhr.status}).`;
       try { const j = JSON.parse(xhr.responseText); m = j.message || j.error || m; } catch (err) {}
       reject(new Error(m));
@@ -6870,7 +6894,11 @@ document.addEventListener('visibilitychange', () => {
   // Whatever the camera was doing is over once the app is in front again, and a lock left
   // held is a phone that never sleeps.
   if (!document.hidden) dropWake();
-  if (document.hidden || !me() || Date.now() - lastLoad < 15000) return;
+  if (document.hidden || !me()) return;
+  // Coming back is the moment worth trying again on: an installed app sits suspended for
+  // hours, and anything that failed to go up did so on a connection it no longer has.
+  flushOutbox();
+  if (Date.now() - lastLoad < 15000) return;
   load();
 });
 
