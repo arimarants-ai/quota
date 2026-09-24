@@ -229,16 +229,20 @@ button.rg{border:0;font:inherit}
 .stories .s.me.has .rg.new{background:linear-gradient(135deg,#0b5a34,#2fd36f 52%,#7ef0b0);box-shadow:none}
 .stories .s.me.has .rg.old{box-shadow:inset 0 0 0 2px var(--line)}
 .stories .rg .av{width:100%;height:100%;font-size:17px;box-shadow:0 0 0 2px var(--bg)}
+/* A drawn plus, not a typed one. The glyph sits on the baseline with its ink high in the
+   em box, so centring the box leaves the mark itself sitting low — which is what it was
+   doing in both of these circles. A path has no baseline to sit on. */
 .stories .rg i{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:var(--mk);
-  color:var(--onmk);display:grid;place-items:center;font-style:normal;font-weight:800;font-size:15px;line-height:1;border:2px solid var(--bg)}
+  color:var(--onmk);display:grid;place-items:center;font-style:normal;border:2px solid var(--bg)}
+.stories .rg i svg{width:12px;height:12px;stroke:var(--onmk);stroke-width:3;display:block}
 /* A day is not one story. Once you have posted one, your own circle keeps the plus — the
    face watches back what is there, the plus adds to it. They are separate taps because
    they are separate things, and a button cannot live inside a button. */
 .stories .s.me.has{position:relative}
 .stories .s.me .own{background:none;padding:0;border-radius:50%;line-height:0}
 .stories .s.me .plus{position:absolute;right:1px;top:38px;z-index:2;width:22px;height:22px;padding:0;border-radius:50%;
-  background:var(--mk);color:var(--onmk);font-weight:800;font-size:16px;line-height:1;display:grid;place-items:center;
-  border:2px solid var(--bg)}
+  background:var(--mk);color:var(--onmk);display:grid;place-items:center;border:2px solid var(--bg)}
+.stories .s.me .plus svg{width:13px;height:13px;stroke:var(--onmk);stroke-width:3;display:block}
 .stories .nm{font-size:11px;font-weight:700;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stories .s.me .nm{color:var(--text)}
 
@@ -1247,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v97';
+const BUILD = 'quota-v98';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2345,10 +2349,10 @@ function storyRow() {
     ${mine ? `<div class="s me has">
       <button type="button" class="own" onclick="openStory('${m.id}')" aria-label="Watch your story">
         <span class="rg${unseenOf(m.id).length ? ' new' : ' old'}">${av(m)}</span></button>
-      <button type="button" class="plus" onclick="storyKind()" aria-label="Add another story">+</button>
+      <button type="button" class="plus" onclick="storyKind()" aria-label="Add another story"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
       <span class="nm">Your story</span></div>`
     : `<button type="button" class="s me" onclick="storyKind()">
-      <span class="rg">${av(m)}<i>+</i></span>
+      <span class="rg">${av(m)}<i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i></span>
       <span class="nm">Add story</span></button>`}
     ${order.map(id => { const u = user(id), fresh = unseenOf(id).length;
       return `<button type="button" class="s" onclick="openStory('${id}')">
