@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v99';
+const BUILD = 'quota-v100';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2133,14 +2133,25 @@ function boardView(g) {
 const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span></div><h1>${title}</h1></div>`;
 // What is waiting to go. Its own card rather than a fake post, because a row that looks
 // like it is in the feed when it is not on anybody else's is the wrong promise.
+// Each clip by name and what is happening to it. "Waiting to send" for everything hid the
+// one thing worth knowing — that a particular clip was never going to go, and why.
 function outboxCard() {
   if (!outbox.length) return '';
   const on = navigator.onLine !== false;
+  const rows = outbox.map(r => {
+    const p = r.post || {}, g = S.groups.find(x => x.id === p.group_id);
+    const what = `${p.amount || ''} ${p.metric || ''}${g ? ` \u00b7 ${g.name}` : ''}${p.day ? ` \u00b7 ${dayLabel(p.day)}` : ''}`;
+    const why = r.dead ? 'This phone cleared the clip before it could be sent, so it cannot go up. Remove it to clear this.'
+      : r.err ? `Could not post: ${r.err}` : on ? 'Waiting to send' : 'Waiting for a connection';
+    return `<div class="row" style="margin-top:10px"><div class="grow"><b>${esc(what.trim())}</b>
+        <div class="muted small">${esc(why)}</div></div>
+      ${r.dead || r.err ? `<button type="button" class="small ghost" onclick="dropQueued(${r.id})">Remove</button>` : ''}</div>`;
+  }).join('');
   return `<div class="card pend"><div class="row">
     <span class="spin" aria-hidden="true"></span>
     <div class="grow"><b>${plural(outbox.length, 'clip')} waiting to send</b>
-      <div class="muted">${on ? 'Trying again now. Saved on this phone until it goes.' : 'No connection. It will go up on its own when you are back.'}</div></div>
-    ${on ? `<button type="button" class="small" onclick="flushOutbox()">Try now</button>` : ''}</div></div>`;
+      <div class="muted">${on ? 'Saved on this phone until it goes.' : 'No connection. It will go up on its own when you are back.'}</div></div>
+    ${on ? `<button type="button" class="small" onclick="flushOutbox()">Try now</button>` : ''}</div>${rows}</div>`;
 }
 function feedView() {
   const m = me(), gs = myGroups();
@@ -6571,24 +6582,36 @@ async function flushOutbox() {
   let sent = 0;
   try {
     for (const row of await readOutbox()) {
+      if (row.dead) continue;                // already known to be unreadable; nothing to try
       try {
         // An upload that already worked is not done again. Otherwise a post whose insert
         // failed after the file was up would leave one orphan in the bucket per attempt.
         if (!row.upPath) {
+          // Read before sending. A clip whose bytes are gone fails the upload the same way
+          // a dropped connection does, and was being taken for one: the oldest dead clip
+          // stopped the queue, and everything behind it waited forever on perfect wifi.
+          if (!(await readable(row.file))) throw Object.assign(new Error('gone'), {dead: true});
           await upload('proof', row.path, row.file, () => {});
           row.upPath = row.path;
           await outPut(row);
         }
-        const {error} = await sb.from('posts').insert({...row.post, video_path: row.upPath});
-        if (error) throw error;
+        // An insert can land while its answer is lost on the way back, and the next try
+        // would post it twice. The file's path is unique to this clip, so ask first.
+        const {data: already} = await sb.from('posts').select('id').eq('video_path', row.upPath).limit(1);
+        if (!already || !already.length) {
+          const {error} = await sb.from('posts').insert({...row.post, video_path: row.upPath});
+          if (error) throw error;
+        }
         await outDel(row.id);
         sent++;
       } catch (e) {
         // The connection going is about all of them, so there is no point trying the rest.
-        // Anything else is about this one clip, and leaving it to block everything behind
-        // it is how an outbox stops being a queue and starts being a wall.
-        if (e && (e.offline || navigator.onLine === false)) break;
+        // Anything else is about this one clip, and it is kept — with the reason, so the
+        // card can say what is actually wrong instead of "trying again" forever.
+        if (e && !e.dead && (e.offline || navigator.onLine === false)) break;
         row.tries = (row.tries || 0) + 1;
+        row.dead = !!(e && e.dead);
+        row.err = row.dead ? '' : ((e && e.message) || String(e));
         try { await outPut(row); } catch (err) {}
       }
     }
@@ -6602,11 +6625,27 @@ async function flushOutbox() {
 // Tuesday was still Monday's proof, and posting it as Tuesday's would be a lie about both
 // days.
 async function queuePost(post, path, file) {
-  await outAdd({post, path, file, at: Date.now()});
+  // The bytes, not the camera's file. On iOS what the camera hands back points at a file
+  // the system is free to delete once the app is closed: the pointer survives in
+  // IndexedDB, the clip behind it does not, and the outbox is left holding a name.
+  let keep = file;
+  try { keep = new Blob([await file.arrayBuffer()], {type: file.type || 'video/mp4'}); } catch (e) {}
+  await outAdd({post, path, file: keep, at: Date.now()});
   await readOutbox();
   render();
 }
 const waitingIn = gid => outbox.filter(r => r.post.group_id === gid).length;
+// Whether the bytes are still there, by reading one of them.
+async function readable(f) {
+  try { return !!f && f.size > 0 && (await f.slice(0, 1).arrayBuffer()).byteLength === 1; }
+  catch (e) { return false; }
+}
+// The only copy, so it asks first.
+async function dropQueued(id) {
+  if (!confirm('Remove this clip? It is the only copy of it, and it will not be posted.')) return;
+  try { await outDel(id); } catch (e) {}
+  await readOutbox(); render();
+}
 
 // A dropped request is not the same as having no connection, and treating them the same is
 // how "check your connection" ends up in front of somebody who has tried two of them. A
@@ -6689,6 +6728,10 @@ function challengeBlock(g) {
 // the one that finished it, not for every clip after it.
 let wasDone = false, chalWas = new Set();
 async function addPost(f, gid) {
+  // Taken the moment Post is tapped. Compressing and uploading can run past midnight, and
+  // a clip that finally lands at 00:04 was still done yesterday — reading the date after
+  // the upload is how a finished day turns into a missed one.
+  const day = today();
   const fd = new FormData(f), picked = recorded;
   // There is no other way in any more: the form has no file input, so proof is whatever
   // the camera last handed back and nothing else.
@@ -6727,7 +6770,7 @@ async function addPost(f, gid) {
     chalWas = doneChallengeIds();
     const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
     row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
-      caption: fd.get('caption').trim(), video_path: path, day: today(),
+      caption: fd.get('caption').trim(), video_path: path, day,
       on_profile: !!fd.get('onprofile'),
       challenge: chalText || null, spin_id: spinId ? +spinId : null};
     await q(sb.from('posts').insert(row));
@@ -6737,7 +6780,7 @@ async function addPost(f, gid) {
     // the day it was for, and the feed says it is waiting.
     if (e.offline || navigator.onLine === false) {
       await queuePost(row || {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
-        caption: fd.get('caption').trim(), video_path: path, day: today(),
+        caption: fd.get('caption').trim(), video_path: path, day,
         on_profile: !!fd.get('onprofile'), challenge: null, spin_id: null}, path, video);
       dlg();
       return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
