@@ -1238,7 +1238,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v96';
+const BUILD = 'quota-v99';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -4884,9 +4884,11 @@ function resetView() {
 // Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
 // against each account, so it is always possible to say which wording somebody agreed to.
 const TERMS_VERSION = '2026-09-15';
+// ponytail: placeholder until the Quota address exists. Swap this one line before merging.
+const CONTACT = 'hello@quota.app';
 const LEGAL = {
   privacy: {title: 'Privacy policy', sub: 'What Quota keeps, and who can see it', body: `
-<p>Quota is run by one person. Contact: <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a>. This says what Quota holds about you, why it holds it, and who else can see it.</p>
+<p>Quota is run by its two co-founders, Ari Marants and Justin Smith. Contact: <a href="mailto:${CONTACT}">${CONTACT}</a>. This says what Quota holds about you, why it holds it, and who else can see it.</p>
 <h3>What Quota keeps</h3>
 <ul>
 <li><b>Your account.</b> A username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Recovery codes are stored the same way.</li>
@@ -4919,7 +4921,7 @@ const LEGAL = {
 <h3>How long it is kept</h3>
 <p>Posts, comments and profiles are kept until you delete them or ask for the account to go. Deleting a post deletes its file. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
 <h3>What you can ask for</h3>
-<p>You can ask for a copy of everything held about you, ask for it to be corrected, or ask for the account and everything in it to be deleted. Email <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a> and it will be done within 30 days.</p>
+<p>You can ask for a copy of everything held about you, ask for it to be corrected, or ask for the account and everything in it to be deleted. Email <a href="mailto:${CONTACT}">${CONTACT}</a> and it will be done within 30 days.</p>
 <h3>Age</h3>
 <p>Quota is not for anyone under 13. If you know of an account belonging to someone younger, email the address above and it will be removed.</p>
 <h3>Where it is</h3>
@@ -4974,7 +4976,7 @@ const LEGAL = {
 <h3>Age</h3>
 <p>You have to be 13 or older to use Quota.</p>
 <h3>If these are broken</h3>
-<p>Posts, comments and stories that break these guidelines are taken down. An account that keeps breaking them is removed, and for slurs, threats, or sexual content involving anybody under 18 it goes on the first time. To report something, email <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a> with enough detail to find it.</p>`},
+<p>Posts, comments and stories that break these guidelines are taken down. An account that keeps breaking them is removed, and for slurs, threats, or sexual content involving anybody under 18 it goes on the first time. To report something, email <a href="mailto:${CONTACT}">${CONTACT}</a> with enough detail to find it.</p>`},
 };
 const legalLinks = () => `<p class="legallinks">${Object.entries(LEGAL).map(([k, d]) =>
   `<button type="button" onclick="openLegal('${k}')">${esc(d.title)}</button>`).join('')}</p>`;
