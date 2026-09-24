@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v100';
+const BUILD = 'quota-v101';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5472,6 +5472,7 @@ function submitDlg(gid) {
     <div id="takeprev" hidden></div>
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
+    <p class="muted small" id="keepopen" hidden style="margin-top:6px">Keep Quota open until this is done. Leaving the app stops the upload.</p>
     ${challengeBlock(g)}
     <label class="check chk" style="margin-top:16px"><input type="checkbox" name="onprofile">
       <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label>
@@ -6658,7 +6659,14 @@ async function upload(bucket, path, file, onProgress, tries = 3) {
       // Only a cut-off is worth repeating. A 413 or a 403 will say the same thing in a
       // second's time, and being genuinely offline is what the outbox is for.
       if (!e.offline || go >= tries || navigator.onLine === false) throw e;
-      await new Promise(r => setTimeout(r, 800 * go));
+      // Suspended is not failed. A page iOS froze mid-upload wakes with its request dead
+      // and its radio still coming back, so a retry fired the instant it wakes is a retry
+      // thrown away. Wait until it is in front again, then give the connection a moment.
+      if (document.hidden) await new Promise(r => {
+        const back = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', back); r(); } };
+        document.addEventListener('visibilitychange', back);
+      });
+      await new Promise(r => setTimeout(r, go === 1 ? 2000 : 5000));
     }
   }
 }
@@ -6727,7 +6735,18 @@ function challengeBlock(g) {
 // Whether today was already in the bag before this post went in: the suggestion is for
 // the one that finished it, not for every clip after it.
 let wasDone = false, chalWas = new Set();
+// A post runs for as long as the clip takes to compress and upload, which on a phone can
+// be a minute. The screen auto-locking in that minute suspends the page, and a suspended
+// page's upload is cut off — which is how clips ended up in the outbox on perfect wifi. So
+// the screen is kept on for exactly as long as a post is going, and the person is told that
+// leaving the app is the one thing that still stops it.
 async function addPost(f, gid) {
+  const note = $('#keepopen');
+  holdWake(); if (note) note.hidden = false;
+  try { return await sendPost(f, gid); }
+  finally { dropWake(); if (note) note.hidden = true; }
+}
+async function sendPost(f, gid) {
   // Taken the moment Post is tapped. Compressing and uploading can run past midnight, and
   // a clip that finally lands at 00:04 was still done yesterday — reading the date after
   // the upload is how a finished day turns into a missed one.
@@ -7352,6 +7371,9 @@ render();
 load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
 // The browser saying it is back is the one moment worth trying without being asked.
 addEventListener('online', () => { render(); flushOutbox(); });
+// Tried again every so often while the app is open, rather than only at the few moments
+// that happen to come along. Not for clips already known to be gone: there is nothing to try.
+setInterval(() => { if (!document.hidden && outbox.some(r => !r.dead)) flushOutbox(); }, 45000);
 addEventListener('offline', render);
 
 // ---- self-check: open index.html#test and look at the console
