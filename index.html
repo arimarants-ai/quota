@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v103';
+const BUILD = 'quota-v104';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -4174,7 +4174,13 @@ function openTray(parent, html, cls) {
   const back = document.createElement('div');
   back.className = 'trayback';
   back.onclick = closeTrays;
-  document.body.appendChild(back);
+  // In the same layer as the tray, never above the screen it came from. On <body> it sat
+  // over the whole app whenever the app became a layer of its own — which it does for the
+  // length of every press, to be ready for the swipe back — so the tray fell underneath
+  // it mid-tap: the press began on "+", the release landed on this, and the tray shut.
+  // Inside a layer that moves, fixed covers that layer rather than the viewport, and that
+  // layer is the screen, which is all this has to cover.
+  parent.appendChild(back);
   const box = document.createElement('div');
   box.className = 'reactpick' + (cls ? ' ' + cls : '');
   box.innerHTML = html;
@@ -4203,7 +4209,7 @@ function moreMsgReact(ev, btn, id) {
   ev.stopPropagation();
   const box = btn.closest('.reactpick');
   box.classList.add('all');
-  box.innerHTML = ALL_EMOJI.map(e => msgReactBtn(id, e)).join('');
+  box.innerHTML = [...new Set([...CHAT_REACTS, ...ALL_EMOJI])].map(e => msgReactBtn(id, e)).join('');   // the quick ones first
 }
 // Same as reacting to a post: shown at once and put back if the write is refused.
 async function toggleMsgReact(id, emoji) {
@@ -4567,7 +4573,8 @@ function morePostReact(ev, btn, id) {
   ev.stopPropagation();                    // the line below replaces this button, so the
   const box = btn.closest('.reactpick');   // click has nowhere left to bubble from
   box.classList.add('all');
-  box.innerHTML = ALL_EMOJI.map(e => postReactBtn(id, e)).join('');
+  const p = postById(id), g = p && S.groups.find(x => x.id === p.groupId);
+  box.innerHTML = [...new Set([...reactsFor(g), ...ALL_EMOJI])].map(e => postReactBtn(id, e)).join('');   // this group's first
 }
 
 // Same as a like: shown at once and put back if the write is refused.

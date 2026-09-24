@@ -2434,3 +2434,22 @@ revoke all on function public.code_group(text) from public;
 grant execute on function public.my_invite_code(bigint, boolean) to authenticated;
 grant execute on function public.join_by_code(text) to authenticated;
 grant execute on function public.code_group(text) to anon, authenticated;
+
+-- ============================================================
+-- v41 (editing a caption): safe to run on an existing project.
+-- Editing a caption was added to the app and never reached the database. post_edit_guard()
+-- puts every column of a post back as it was except the profile flag, the caption among
+-- them, so an edit showed on the phone that made it and was gone on the next load.
+-- The caption is the one part of a post that was typed rather than done, so it is the one
+-- part let through. The numbers, the day, the file and the challenge stay exactly as the
+-- group saw them.
+-- ============================================================
+create or replace function public.post_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.id := old.id; new.user_id := old.user_id; new.group_id := old.group_id;
+  new.metric := old.metric; new.amount := old.amount; new.day := old.day;
+  new.video_path := old.video_path; new.created_at := old.created_at;
+  new.challenge := old.challenge; new.spin_id := old.spin_id;
+  return new;
+end $$;
