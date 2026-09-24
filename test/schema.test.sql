@@ -572,3 +572,24 @@ begin
   delete from cron.job_run_details where jobid in (901, 902, 903);
   delete from cron.job where jobid in (901, 902);
 end $$;
+
+-- v41: the author can change a caption, and nothing the group saw moves with it.
+reset role;
+update public.wheels set active = false where group_id = 1;   -- no spin barrier in the way
+set role app;
+do $$
+declare pid bigint; p public.posts;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day, caption)
+    values (1, auth.uid(), 'pushups', 30, 'caption.mp4', current_date, 'before') returning id into pid;
+  update public.posts set caption = 'after', amount = 999, day = current_date - 5,
+    challenge = 'forged', video_path = 'swapped.mp4' where id = pid;
+  select * into p from public.posts where id = pid;
+  if p.caption is distinct from 'after' then
+    raise exception 'a caption edit did not save, it is still %', p.caption;
+  end if;
+  if p.amount <> 30 or p.day <> current_date or p.video_path <> 'caption.mp4' or p.challenge is not null then
+    raise exception 'something the group saw changed after posting: %', row_to_json(p);
+  end if;
+end $$;
