@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v101';
+const BUILD = 'quota-v102';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6777,6 +6777,16 @@ async function sendPost(f, gid) {
   working(f, 'Uploading…');
   if (bar) bar.style.setProperty('--w', '0%');
   const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
+  // The whole post is put together before anything is sent, so a clip that ends up in the
+  // outbox is the post that was asked for. It used to be built only after the upload
+  // worked, and the fallback for a failed one was written out again without the challenge
+  // box — so a challenge post that had to wait went up as a plain one, counted for the
+  // quota and not for the wheel, and a streak that depends on the wheel broke over it.
+  const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
+  row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
+    caption: fd.get('caption').trim(), video_path: path, day,
+    on_profile: !!fd.get('onprofile'),
+    challenge: chalText || null, spin_id: spinId ? +spinId : null};
   try {
     await upload('proof', path, video, (sent, total, rate) => {
       const pct = Math.round(sent / total * 100);
@@ -6787,20 +6797,13 @@ async function sendPost(f, gid) {
     working(f, 'Posting…');
     wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
     chalWas = doneChallengeIds();
-    const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
-    row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
-      caption: fd.get('caption').trim(), video_path: path, day,
-      on_profile: !!fd.get('onprofile'),
-      challenge: chalText || null, spin_id: spinId ? +spinId : null};
     await q(sb.from('posts').insert(row));
   } catch (e) {
     if (bar) bar.hidden = true;
     // A dropped connection is not a reason to lose the take. It goes in the outbox with
     // the day it was for, and the feed says it is waiting.
     if (e.offline || navigator.onLine === false) {
-      await queuePost(row || {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
-        caption: fd.get('caption').trim(), video_path: path, day,
-        on_profile: !!fd.get('onprofile'), challenge: null, spin_id: null}, path, video);
+      await queuePost(row, path, video);
       dlg();
       return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
     }
