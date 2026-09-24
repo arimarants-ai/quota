@@ -1251,7 +1251,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v102';
+const BUILD = 'quota-v103';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6591,8 +6591,14 @@ async function flushOutbox() {
           // Read before sending. A clip whose bytes are gone fails the upload the same way
           // a dropped connection does, and was being taken for one: the oldest dead clip
           // stopped the queue, and everything behind it waited forever on perfect wifi.
-          if (!(await readable(row.file))) throw Object.assign(new Error('gone'), {dead: true});
-          await upload('proof', row.path, row.file, () => {});
+          // And sent as a fresh copy, read into memory here, rather than as what came back
+          // out of the store. On iOS a clip loaded back out of IndexedDB can be read by the
+          // page and still go out empty when it is handed to an upload — the server says
+          // "No content provided", on every try, on every connection, and it looked for all
+          // the world like a network problem while the clip sat there intact.
+          const bytes = await clipBytes(row.file);
+          if (!bytes) throw Object.assign(new Error('gone'), {dead: true});
+          await upload('proof', row.path, new Blob([bytes], {type: row.file.type || 'video/mp4'}), () => {});
           row.upPath = row.path;
           await outPut(row);
         }
@@ -6636,10 +6642,15 @@ async function queuePost(post, path, file) {
   render();
 }
 const waitingIn = gid => outbox.filter(r => r.post.group_id === gid).length;
-// Whether the bytes are still there, by reading one of them.
-async function readable(f) {
-  try { return !!f && f.size > 0 && (await f.slice(0, 1).arrayBuffer()).byteLength === 1; }
-  catch (e) { return false; }
+// The whole clip, read into memory, or nothing if it cannot all be read. All of it rather
+// than a byte: a clip that reads short is a clip nobody can play, and posting half of one
+// as proof is worse than saying it is gone.
+async function clipBytes(f) {
+  try {
+    if (!f || !f.size) return null;
+    const b = await f.arrayBuffer();
+    return b.byteLength === f.size ? b : null;
+  } catch (e) { return null; }
 }
 // The only copy, so it asks first.
 async function dropQueued(id) {
