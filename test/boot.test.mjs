@@ -559,7 +559,8 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => { S.spins = [{ wheel_id: 7, user_id: 'u1', cycle: 2, id: 1, results: [], days_required: 0 }]; render(); openGroup(1); });
   await page.waitForTimeout(200);
-  await page.locator('button:has-text("+ add a wheel")').click();
+  await page.locator('button:has-text("Manage group")').click();          // v93 moved it here
+  await page.locator('#dlg button:has-text("Add a wheel")').click();
   await page.locator('#dlg textarea[name=segments]').fill('cold plunge\nsauna\nrun');
   await page.locator('#dlg input[name=name]').fill('Recovery');
   await page.locator('#dlg input[name=every]').fill('4');
@@ -578,7 +579,8 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   await settle(page);
   await page.evaluate(() => { S.spins = [{ wheel_id: 7, user_id: 'u1', cycle: 2, id: 1, results: [], days_required: 0 }]; render(); openGroup(1); });
   await page.waitForTimeout(200);
-  await page.locator('button:has-text("+ add a wheel")').click();
+  await page.locator('button:has-text("Manage group")').click();          // v93 moved it here
+  await page.locator('#dlg button:has-text("Add a wheel")').click();
   await page.locator('#dlg input[name=name]').fill('Bad');
   await page.locator('#dlg textarea[name=segments]').fill('a\nb');
   await page.locator('#dlg input[name=every]').fill('3');
@@ -1967,7 +1969,8 @@ await withPage(NO_WHEEL, async page => {
 
   // The story points at the post rather than carrying a copy, so the people who can watch
   // the story have to be people who can open the post. On your profile is that exact set.
-  await page.locator('#dlg .menu button').first().click();
+  // By name: the menu is not in a fixed order (v93 put editing the caption first).
+  await page.locator('#dlg .menu button:has-text("Share this to my story")').click();
   await page.waitForTimeout(350);
   check('  and says first that it also goes on your profile',
     /profile/i.test(await page.locator('#dlg').innerText()), await page.locator('#dlg').innerText());
@@ -1980,7 +1983,7 @@ await withPage(NO_WHEEL, async page => {
 
   await page.locator('.post .head .more').first().click();
   await page.waitForTimeout(300);
-  await page.locator('#dlg .menu button').first().click();
+  await page.locator('#dlg .menu button:has-text("Share this to my story")').click();
   await page.waitForTimeout(300);
   await page.locator('#dlg .row button.teal').click();
   await page.waitForTimeout(800);
@@ -2342,7 +2345,10 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick').count() === 1);
   // Put away by tapping anywhere that is not it, which is what tapping away from an open
   // thing means everywhere else on a phone. It used to want the same message tapped again.
-  await page.locator('#app .cbar').click();
+  // A tap where a finger would land, not a click on a particular element: since v93 a
+  // sheet of nothing sits behind an open tray (Safari reports no tap on anything that is
+  // not itself clickable), so the tap lands on that and it is what puts the tray away.
+  { const b = await page.locator('#app .cbar').boundingBox(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); }
   await page.waitForTimeout(200);
   check('    and tapping anywhere else puts it away',
     await page.locator('#app .m .reactpick').count() === 0);
@@ -3993,13 +3999,18 @@ await withPage(NO_WHEEL, async page => {
   await settle(page);
   await page.evaluate(() => openGroup(1));
   await page.waitForTimeout(400);
-  check('a group offers to be muted', await page.locator('button:has-text("Mute this group")').count() === 1);
-  await page.locator('button:has-text("Mute this group")').click();
+  // Behind Manage since v93, with the rest of what you do to a group rather than in it.
+  await page.locator('button:has-text("Manage group")').click();
+  check('a group offers to be muted', await page.locator('#dlg button:has-text("Mute this group")').count() === 1);
+  await page.locator('#dlg button:has-text("Mute this group")').click();
   await page.waitForTimeout(500);
-  check('  and says so once it is', await page.locator('button:has-text("Unmute this group")').count() === 1,
-    await page.innerHTML('#app').then(h => h.slice(0, 120)));
+  check('  and the group says so once it is', /Manage group · muted/.test(await page.innerText('#app')),
+    await page.innerText('#app').then(h => h.slice(0, 200)));
+  await page.locator('button:has-text("Manage group")').click();
+  check('  and offers to unmute', await page.locator('#dlg button:has-text("Unmute this group")').count() === 1);
   check('    with what it does and does not cover',
-    /own daily reminders still come/.test(await page.innerHTML('#app')));
+    /own daily reminders still come/.test(await page.innerHTML('#dlg')));
+  await page.evaluate(() => dlg());
   check('    written down rather than only held on screen', await page.evaluate(() => !!self.__muted[1]));
 
   // It survives the round trip: the flag comes back off the membership row, not off a
@@ -4007,7 +4018,8 @@ await withPage(NO_WHEEL, async page => {
   await page.evaluate(() => load());
   await page.waitForTimeout(900);
   check('  and comes back from the server that way', await page.evaluate(() => !!S.groups.find(g => g.id === 1).muted));
-  await page.locator('button:has-text("Unmute this group")').click();
+  await page.locator('button:has-text("Manage group")').click();
+  await page.locator('#dlg button:has-text("Unmute this group")').click();
   await page.waitForTimeout(500);
   check('  and unmutes again', await page.evaluate(() => !self.__muted[1]));
 });
