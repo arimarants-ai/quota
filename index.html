@@ -746,7 +746,16 @@ button.rg{border:0;font:inherit}
    is four answers and a cut edge. Everything behind the + scrolls sideways in place. */
 /* Portrait, because that is how a phone films, and capped so the rest of the form is still
    on the screen behind it. */
-#takeprev{margin-top:10px}
+#takeprev{margin-top:10px;position:relative}
+/* Something to aim at, since the controls underneath cannot be trusted on a phone. It goes
+   as soon as the clip is running, and comes back when it is not. */
+#takeprev .takeplay{position:absolute;inset:0;width:100%;background:none;padding:0;
+  display:grid;place-items:center;border-radius:14px}
+#takeprev .takeplay i{width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.45);
+  border:1.5px solid rgba(255,255,255,.75);display:grid;place-items:center;backdrop-filter:blur(6px)}
+#takeprev .takeplay i::after{content:"";border-left:15px solid #fff;border-top:10px solid transparent;
+  border-bottom:10px solid transparent;margin-left:4px}
+#takeprev.playing .takeplay{display:none}
 #takeprev video,#takeprev img{display:block;width:100%;max-height:46vh;object-fit:contain;
   background:#000;border-radius:14px}
 .reactpick.all{max-width:min(86vw,320px);overflow-x:auto;overscroll-behavior-x:contain;
@@ -1238,7 +1247,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v96';
+const BUILD = 'quota-v97';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6051,7 +6060,7 @@ let takeUrl = null;
 function dropTake() {
   if (takeUrl) { try { URL.revokeObjectURL(takeUrl); } catch (e) {} takeUrl = null; }
   const box = $('#takeprev');
-  if (box) { box.innerHTML = ''; box.hidden = true; }
+  if (box) { box.innerHTML = ''; box.hidden = true; box.classList.remove('playing'); }
 }
 function showTake(f) {
   const box = $('#takeprev');
@@ -6061,8 +6070,25 @@ function showTake(f) {
   // With controls, because watching it back means being able to stop halfway and go again.
   box.innerHTML = isPic(f)
     ? `<img src="${takeUrl}" alt="The picture you just took">`
-    : `<video src="${takeUrl}" controls playsinline preload="metadata"></video>`;
+    : `<video src="${takeUrl}" controls playsinline preload="metadata" onclick="playTake(this)"></video>
+       <button type="button" class="takeplay" onclick="playTake(this.previousElementSibling)" aria-label="Watch it back"><i></i></button>`;
+  const v = box.querySelector('video');
+  if (v) {
+    v.onplay = () => box.classList.add('playing');
+    v.onpause = v.onended = () => box.classList.remove('playing');
+  }
   box.hidden = false;
+}
+// The form is a <dialog> opened with showModal(), which puts it in the top layer, and iOS
+// will not play a clip that is up there: the controls are drawn and answer to nothing. The
+// phone's own full screen player is not in the top layer and has never had the problem, so
+// that is where a take gets watched. Everywhere else plays it where it sits.
+function playTake(v) {
+  if (!v || v.tagName !== 'VIDEO') return;
+  if (typeof v.webkitEnterFullscreen === 'function') {
+    try { v.webkitEnterFullscreen(); v.play().catch(() => {}); return; } catch (e) { /* fall through */ }
+  }
+  if (v.paused) v.play().catch(() => {}); else v.pause();
 }
 const REC_MAX = 120;                       // seconds; the phone will not stop itself
 const STORY_SECS = 10;                     // a story is a moment, not a clip
