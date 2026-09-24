@@ -744,6 +744,11 @@ button.rg{border:0;font:inherit}
 .m .mrx button b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:11px;color:var(--muted)}
 /* Wider than the bubble it hangs off, and allowed to be: a tray clipped to a short message
    is four answers and a cut edge. Everything behind the + scrolls sideways in place. */
+/* Portrait, because that is how a phone films, and capped so the rest of the form is still
+   on the screen behind it. */
+#takeprev{margin-top:10px}
+#takeprev video,#takeprev img{display:block;width:100%;max-height:46vh;object-fit:contain;
+  background:#000;border-radius:14px}
 .reactpick.all{max-width:min(86vw,320px);overflow-x:auto;overscroll-behavior-x:contain;
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
 .reactpick.all::-webkit-scrollbar{display:none}
@@ -1233,7 +1238,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v95';
+const BUILD = 'quota-v96';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5318,7 +5323,7 @@ $('#dlg').addEventListener('click', e => {
 let dlgT = null;
 function dlg(html) {
   const d = $('#dlg'); clearTimeout(dlgT); d.classList.remove('out');
-  if (!html) { if (!d.open) return; d.classList.add('out'); dlgT = setTimeout(() => { d.close(); d.classList.remove('out'); }, 240); return; }
+  if (!html) { if (!d.open) return; dropTake(); d.classList.add('out'); dlgT = setTimeout(() => { d.close(); d.classList.remove('out'); }, 240); return; }
   d.innerHTML = html; if (!d.open) d.showModal();
 }
 // What is on a wheel, for anyone in the group. You have to spin it, so you get to see it
@@ -5431,6 +5436,7 @@ function submitDlg(gid) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
   recorded = null; camAt = 0;              // a new form needs a new take, not the last one
+  dropTake();
   // The wheel comes first. The database enforces this too, so going around the page only
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
@@ -5439,6 +5445,7 @@ function submitDlg(gid) {
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
     <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
     <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button></div>
+    <div id="takeprev" hidden></div>
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     ${challengeBlock(g)}
@@ -6036,6 +6043,27 @@ async function saveProfile(f) {
 // zoom, flash and a review screen before you accept the take — all of it the phone's, none
 // of it ours to break. What comes back is an ordinary file, and an ordinary file already
 // had a path through here.
+// The take, played back on the form before it is posted. It gets a URL of its own rather
+// than being read again every time, and there is only ever one: a blob URL has to be handed
+// back or the clip sits in memory for as long as the page does, so taking another take
+// releases the one before it, and so does closing the form.
+let takeUrl = null;
+function dropTake() {
+  if (takeUrl) { try { URL.revokeObjectURL(takeUrl); } catch (e) {} takeUrl = null; }
+  const box = $('#takeprev');
+  if (box) { box.innerHTML = ''; box.hidden = true; }
+}
+function showTake(f) {
+  const box = $('#takeprev');
+  if (!box) return;
+  dropTake();
+  takeUrl = URL.createObjectURL(f);
+  // With controls, because watching it back means being able to stop halfway and go again.
+  box.innerHTML = isPic(f)
+    ? `<img src="${takeUrl}" alt="The picture you just took">`
+    : `<video src="${takeUrl}" controls playsinline preload="metadata"></video>`;
+  box.hidden = false;
+}
 const REC_MAX = 120;                       // seconds; the phone will not stop itself
 const STORY_SECS = 10;                     // a story is a moment, not a clip
 let recorded = null;                       // what came back, used in place of a picked file
@@ -6120,6 +6148,9 @@ async function camPicked(input) {
     if (secs > REC_MAX + 0.6) return alert(`That clip runs ${Math.round(secs)} seconds. Proof can be ${REC_MAX}.`);
   }
   recorded = f;
+  // Watch it back before it goes anywhere. The phone's review screen is gone by the time
+  // you are here, and posting is the one thing on this form you cannot take back.
+  showTake(f);
   // The phone's own camera already offers a retake before it hands anything back. This is
   // the one after that: a take you accepted, looked at on this screen, and thought better
   // of. Nothing is uploaded until Post, so replacing it costs nothing.
