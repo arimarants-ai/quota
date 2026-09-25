@@ -67,11 +67,12 @@
   // A group's picture, read back through whatever the page last saved, the same way a
   // post's on_profile is: a test that sets it on S would lose it to the next load.
   self.__gpic = {};
+  self.__signups = []; self.__logins = []; self.__sessions = []; self.__resends = []; self.__resets = []; self.__userEdits = []; self.__otps = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
   const rows = t => ({
-    profiles: [{ id: 'u1', username: 'ari', display_name: 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
+    profiles: [{ id: 'u1', username: M().noUsername ? null : 'ari', display_name: M().noUsername ? null : 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }]
       .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g)),
@@ -189,6 +190,12 @@
       if (t === 'chat_reads') self.__reads = [...self.__reads.filter(r => r.chat !== row.chat), { ...row }];
       return chain(t, { ...st, op: 'upsert' });
     };
+    // One row or none, which is how the page asks whether a username is taken. Without
+    // this the ask threw, and a throw there reads as "free" to anybody not looking.
+    const one = () => ({ then: (res, rej) => Promise.resolve(run()).then(r =>
+      r.error ? r : { data: (r.data && r.data[0]) || null, error: null }).then(res, rej) });
+    p.maybeSingle = one;
+    p.single = one;
 
     p.or = expr => chain(t, { ...st, or: expr });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
@@ -295,6 +302,33 @@
         },
         onAuthStateChange: cb => { self.__authCb = cb; return { data: { subscription: { unsubscribe() {} } } }; },
         signOut: async () => ({ error: null }),
+        // Signing up, confirming and resetting, recorded so a test can see what the page
+        // asked for rather than only what it drew afterwards.
+        getUser: async () => ({ data: { user: { id: 'u1', email: M().email ?? 'ari@example.com' } }, error: null }),
+        signUp: async (args) => {
+          self.__signups.push({ ...args });
+          if (M().signUpError) return { data: {}, error: err(M().signUpError) };
+          // Confirmation is on, so a fresh signup has no session behind it.
+          return { data: { session: M().confirmOff ? { user: { id: 'u1' } } : null, user: { id: 'u1' } }, error: null };
+        },
+        signInWithPassword: async (args) => {
+          self.__logins.push({ ...args });
+          if (M().unconfirmed) return { data: {}, error: err('Email not confirmed') };
+          if (M().loginError) return { data: {}, error: Object.assign(err('Invalid login credentials'), { status: 400 }) };
+          return { data: { session: { user: { id: 'u1' } } }, error: null };
+        },
+        setSession: async (args) => { self.__sessions.push({ ...args }); return { data: {}, error: null }; },
+        resend: async (args) => { self.__resends.push({ ...args }); return { data: {}, error: null }; },
+        resetPasswordForEmail: async (email, opts) => { self.__resets.push({ email, ...opts }); return { data: {}, error: null }; },
+        updateUser: async (args) => { self.__userEdits.push({ ...args }); return { data: {}, error: M().updateError ? err(M().updateError) : null }; },
+        // The code from the email. A wrong one is refused the way the real one refuses it;
+        // a right one leaves a session behind, which is the whole point of typing it.
+        verifyOtp: async (args) => {
+          self.__otps.push({ ...args });
+          if (M().otpError) return { data: {}, error: err(M().otpError) };
+          M().session = { user: { id: 'u1' } };
+          return { data: { session: M().session, user: { id: 'u1' } }, error: null };
+        },
       },
       from: t => chain(t),
       // A thenable and not a Promise, which is what the real library hands back: it has

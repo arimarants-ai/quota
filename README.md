@@ -20,7 +20,7 @@ in `app/`, and `schema.sql` means `supabase/schema.sql`.
 
 1. **Supabase project** — at supabase.com create a project (free tier). Pick a strong database password and save it somewhere.
 2. **Run the schema** — in the Supabase dashboard open *SQL Editor*, paste the whole of `supabase/schema.sql`, click *Run*. It should finish with no errors.
-3. **Turn off email confirmation** — *Authentication → Providers → Email* → switch **Confirm email** off, save. (Accounts use usernames, not real emails.)
+3. **Set up email** — the Supabase settings under *Signing up with an email* below. Sign-up sends a code, so nobody can make an account until this works.
 4. **Copy the keys** — *Project Settings → API*: copy the **Project URL** and the **anon public** key.
 5. **Paste them** into the top of `app/index.html` (`SUPABASE_URL`, `SUPABASE_KEY`).
 6. **Deploy** — push to GitHub (Vercel redeploys automatically) or run `npx vercel --prod`.
@@ -762,7 +762,7 @@ npx playwright install chromium  # once
 npm test
 ```
 
-`npm test` runs everything, including the recovery-code and notification tests
+`npm test` runs everything, including the notification tests
 documented further down. The two worth knowing about:
 
 `test/static.test.mjs` needs nothing installed and checks that `index.html` and
@@ -917,46 +917,59 @@ Two things it deliberately will not do:
 Because it is the re-encoded file that has to fit under the cap, a clip the camera made
 too big for the bucket now usually gets through anyway rather than being turned away.
 
-- Accounts are username + password only. Reset uses recovery codes, not email — see below.
 - "Today" is whatever the poster's phone says.
 
-## Password recovery
+## Signing up with an email
 
-Accounts have no real email address (`emailFor` makes `you@users.quota.local`), so
-Supabase's own reset email can never arrive. Recovery codes take its place.
+Signing up is an email and a password. Supabase emails a code, and the next screen is
+where it goes: a code rather than a link, because on iPhone a link opens in Safari, and
+somebody who signed up in the app on their home screen would be confirmed in a browser
+they were not using and still stuck in the app. Then the username, the full name, the
+date of birth and the gender, and the app draws nothing else until they are filled in: a
+person with no username cannot be found, invited or named on a post. A null username is
+what "not finished" means, and `is_set_up()` is how the database says the same thing.
+The terms ticked on the signup form are written down at that step too, since it is the
+first moment there is a signed-in row to write them on.
 
-At signup the app issues **8 single-use codes** and shows them once. To reset, the
-user gives their username, one unused code, and a new password. That's it — no email,
-no phone, no third-party service.
+Logging in takes an email **or** a username. Supabase signs people in by email, so a
+username has to be turned into one first — and a database function that handed back the
+address behind a name would let anybody who can guess a name read the email behind it.
+So the swap happens in the `signin` edge function with the service key, and what comes
+back is a session or the same refusal either way.
 
-The codes are bound to the account **when they are issued**. That is the security
-property: knowing a username gets you nothing, so nobody can take a name that is
-already in use by "resetting" it. It also means an account created before this shipped
-has no codes, and can only be reset by hand in the Supabase dashboard.
+A forgotten password is reset with a code sent to the account's email, typed in with the
+new password. The form asks for the email and not the username on purpose, and answers
+the same whether or not the address has an account.
 
-Also in place: SHA-256 hashes stored rather than the codes themselves, a limit of 5
-failed tries per username and per IP every 15 minutes, the same wording whether the
-username or the code was wrong, and codes spent before the password changes so a
-partial failure can't leave one replayable.
+Accounts made before this were given `username@users.quota.local`, which no email can
+reach. The app notices (`FAKEMAIL`) and puts an "Add your email" screen in front of them
+on every open until there is one, with "Not now" and a card on the feed meanwhile. The
+address is not on the account until the code sent to it is typed in. Settings → Email
+changes it later through the same screen.
 
-Sessions already signed in on other devices are **not** forcibly ended — GoTrue has no
-admin endpoint to revoke them, and "single session per user" is a Pro plan setting.
+Recovery codes are gone. Email does their job, and v42 drops their tables.
+
+### Supabase settings this depends on
+
+- *Authentication → Emails → SMTP Settings*: Resend (`smtp.resend.com`, port 465, user
+  `resend`, password a Resend API key), sender `accounts@hitquota.app`, name `Quota`.
+  Codes come from `accounts@`; `hello@` is the address people write to. Both forward to
+  the same inbox through Cloudflare Email Routing.
+- *Authentication → Providers → Email*: **Confirm email** on, **Secure email change**
+  off. Secure email change also emails the old address, and an old account's old address
+  is made up, so the change could never be finished.
+- *Authentication → Emails → Templates*: "Confirm signup", "Reset password" and "Change
+  email address" each show `{{ .Token }}`. The app has nowhere for a link to land.
+- *Authentication → URL Configuration → Site URL*: `https://app.hitquota.app`.
+- `signin` deployed with JWT verification off, since it is called before anybody has a
+  token: `supabase functions deploy signin --no-verify-jwt`.
 
 | Where | What |
 | ----- | ---- |
-| `schema.sql` v5 | `recovery_codes` and `recovery_attempts`, both RLS-on with no policies |
-| `supabase/functions/recovery/` | issues and redeems codes, using the service role key |
-| `index.html` | the codes dialog, the reset screen, and the Profile button for a new set |
-
-Deploy the function and run the v5 block before this works:
-
-```bash
-supabase functions deploy recovery
-node --experimental-strip-types supabase/functions/recovery/codes.test.ts
-```
-
-It needs no new secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are already
-in every function's environment.
+| `schema.sql` v42 | username nullable, `birthday`, `gender`, `is_set_up()`, a guard so a username cannot be swapped once taken, and the recovery code tables dropped |
+| `schema.sql` v43 | `private.people`: one row per person, address included, for the SQL editor only |
+| `supabase/functions/signin/` | username to email, server-side, so the address never leaves |
+| `app/index.html` | signup, the code screen, login by either, the reset screens, the setup screen, and the email step for old accounts |
 
 ## Notifications
 

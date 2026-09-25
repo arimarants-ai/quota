@@ -44,7 +44,16 @@ do $r$ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
 end $r$;
 create schema if not exists auth;
-create table auth.users (id uuid primary key);
+-- Only the columns schema.sql touches. The view in v25 reads four of them, so a shim with
+-- nothing but an id would make that statement uncheckable rather than checked.
+create table auth.users (
+  id uuid primary key,
+  email text,
+  email_confirmed_at timestamptz,
+  last_sign_in_at timestamptz,
+  raw_user_meta_data jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
 create function auth.uid() returns uuid language sql stable as
   $fn$ select nullif(current_setting('test.uid', true), '')::uuid $fn$;
 -- pg_net only exists on Supabase. Stubbed rather than cut out, so the triggers that call

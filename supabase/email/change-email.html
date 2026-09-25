@@ -1,0 +1,9 @@
+<!-- Pasted into Supabase: Authentication → Emails → Templates. Keep {{ .Token }}: the app
+     takes a code, not a link, because a link opens in Safari rather than the home-screen app. -->
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;max-width:440px;margin:0 auto;padding:32px 24px;color:#0b0c0e">
+  <p style="font-size:13px;font-weight:700;letter-spacing:.12em;color:#12934f;margin:0 0 24px">QUOTA</p>
+  <h1 style="font-size:22px;margin:0 0 12px">Confirm your email</h1>
+  <p style="font-size:16px;line-height:1.5;margin:0 0 20px">Type this code into Quota to add {{ .NewEmail }} to your account.</p>
+  <p style="font-size:34px;font-weight:700;letter-spacing:.18em;margin:0 0 20px;font-variant-numeric:tabular-nums">{{ .Token }}</p>
+  <p style="font-size:14px;line-height:1.5;color:#6e6e73;margin:0">It lasts an hour. If you did not ask for this, you can ignore this email.</p>
+</div>
