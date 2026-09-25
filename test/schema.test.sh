@@ -84,7 +84,7 @@ EOF
 # out of schema.sql so this cannot drift from what actually gets run in Supabase.
 python3 - "$WORK" <<'EOF'
 import sys
-s = open('schema.sql').read()
+s = open('supabase/schema.sql').read()
 w = sys.argv[1]
 # The tables, the helper every policy leans on, and every block of row level security up
 # to the wheels. Without the RLS statements the base tables come up with it switched off,

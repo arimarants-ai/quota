@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
 const src = (html.match(/\/\/ filter:start[\s\S]*?\/\/ filter:end/) || [])[0];
 assert.ok(src, 'index.html has no filter:start/filter:end block. If the filter moved, move these markers with it.');

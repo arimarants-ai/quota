@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
 const src = (html.match(/\/\/ crop:start[\s\S]*?\/\/ crop:end/) || [])[0];
 assert.ok(src, 'index.html has no crop:start/crop:end block. If the crop maths moved, move these markers with it.');

@@ -2,15 +2,27 @@
 
 Daily goals with friends. Proof or it didn't happen.
 
-One static page (`index.html`) talking straight to Supabase (accounts, database, video storage). Hosted on Vercel.
+One static page talking straight to Supabase (accounts, database, video storage). Hosted on Vercel.
+
+## What lives where
+
+| Folder | What it is | Deployed as |
+|---|---|---|
+| `app/` | The app: `index.html`, `sw.js`, the manifest and icons. No build step. | Vercel project `quota`, Root Directory `app` |
+| `site/` | The website about Quota, one static page. No build step. | Vercel project `quota-site`, Root Directory `site` |
+| `supabase/` | `schema.sql` and the edge functions. Both of the above share this one project. | Supabase |
+| `test/` | Every check, for all of the above. CI runs them on each push. | Not deployed |
+
+Paths below that name a file on its own (`index.html`, `sw.js`, the icons) mean the one
+in `app/`, and `schema.sql` means `supabase/schema.sql`.
 
 ## One-time setup
 
 1. **Supabase project** — at supabase.com create a project (free tier). Pick a strong database password and save it somewhere.
-2. **Run the schema** — in the Supabase dashboard open *SQL Editor*, paste the whole of `schema.sql`, click *Run*. It should finish with no errors.
+2. **Run the schema** — in the Supabase dashboard open *SQL Editor*, paste the whole of `supabase/schema.sql`, click *Run*. It should finish with no errors.
 3. **Turn off email confirmation** — *Authentication → Providers → Email* → switch **Confirm email** off, save. (Accounts use usernames, not real emails.)
 4. **Copy the keys** — *Project Settings → API*: copy the **Project URL** and the **anon public** key.
-5. **Paste them** into the top of `index.html` (`SUPABASE_URL`, `SUPABASE_KEY`).
+5. **Paste them** into the top of `app/index.html` (`SUPABASE_URL`, `SUPABASE_KEY`).
 6. **Deploy** — push to GitHub (Vercel redeploys automatically) or run `npx vercel --prod`.
 
 Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it behaves like an app.
@@ -61,7 +73,7 @@ slice of the ramp — which is why both SVGs are generated rather than hand-writ
 pads the canvas with white below about 256px, so never render small directly:
 
 ```bash
-mkdir -p /tmp/ql && qlmanage -t -s 512 -o /tmp/ql "$PWD/icon-src.svg"   # needs an absolute path
+cd app && mkdir -p /tmp/ql && qlmanage -t -s 512 -o /tmp/ql "$PWD/icon-src.svg"   # needs an absolute path
 cp /tmp/ql/icon-src.svg.png icon-512.png
 sips -z 192 192 icon-512.png --out icon-192.png
 sips -z 180 180 icon-512.png --out apple-touch-icon.png

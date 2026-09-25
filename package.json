@@ -2,7 +2,7 @@
   "name": "quota",
   "private": true,
   "type": "module",
-  "description": "Tests only. The app itself is index.html and has no build step; this file is kept out of the deploy by .vercelignore.",
+  "description": "Tests only. The app (app/) and the site (site/) have no build step, and neither deploys this file.",
   "scripts": {
     "test": "node test/static.test.mjs && node test/language.test.mjs && node test/crop.test.mjs && test/schema.test.sh && node test/boot.test.mjs && node --experimental-strip-types supabase/functions/recovery/codes.test.ts && node --experimental-strip-types supabase/functions/notify/push.test.ts && node --experimental-strip-types supabase/functions/notify/message.test.ts && node --experimental-strip-types supabase/functions/wheelday/message.test.ts && node --experimental-strip-types supabase/functions/wheelday/sweep.test.ts && node --experimental-strip-types supabase/functions/wheelday/health.test.ts"
   },

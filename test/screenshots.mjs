@@ -13,8 +13,8 @@ import { extname, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const STUB = await readFile(join(ROOT, 'test/stub-supabase.js'), 'utf8');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
+const STUB = await readFile(join(ROOT, '../test/stub-supabase.js'), 'utf8');
 const LIB = '**/vendor/supabase-js-2.49.4/supabase.js';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
