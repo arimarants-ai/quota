@@ -510,6 +510,12 @@ button.rg{border:0;font:inherit}
 .chalpick{margin-top:8px}
 .chalpick[hidden]{display:none}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
+/* Something the app needs from you before it can do its job. Marked, not alarming. */
+.warn-card{border-left:3px solid var(--mk)}
+.warn-card b{font-size:15px}
+.warn-card p{margin-top:5px;line-height:1.45}
+/* The setup form's two extra fields, which are the only select and date input in the app. */
+.auth select,.auth input[type=date]{font:inherit;font-size:16px}
 .prog{display:block;height:3px;background:var(--line);border-radius:0;overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--mk);width:var(--w,0%);transition:width .25s}
 .prog[hidden]{display:none}
@@ -1251,17 +1257,15 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v104';
+const BUILD = 'quota-v105';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
 // To raise it: upgrade the Supabase project to Pro, bump MAX_MB here, and run
 //   update storage.buckets set file_size_limit = <bytes> where id = 'proof';
 const MAX_MB = 50;
-// Username-only login. Supabase Auth wants an email, so each account gets a synthetic one.
-// Those addresses go nowhere, so password reset runs on recovery codes instead: see
-// supabase/functions/recovery/ and the v5 block in schema.sql.
-const emailFor = u => `${u}@users.quota.local`;
+// Accounts sign up with a real email. Ones made before that have a made-up address
+// (FAKEMAIL) and are asked for a real one; see emailView().
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // quiet is raised while load() is running. A failure there is handled by load() itself
 // and reported in the banner, so it must not also throw a modal alert in the way.
@@ -1275,6 +1279,7 @@ const q = async p => { const {data, error} = await p; if (error) { if (!quiet) {
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t;
   document.querySelector('#tc')?.setAttribute('content', t === 'dark' ? '#0a0b0c' : '#ffffff'); };
 setTheme(localStorage.theme || 'light');
+const FAKEMAIL = /@users\.quota\.local$/i;   // what the old accounts were given in place of an address
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };
 
@@ -1296,7 +1301,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1652,6 +1657,11 @@ async function fetchAll() {
     urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; });
   }
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
+  // An account from before there were real addresses has a made-up one. Worth asking
+  // about, because the reset email is the way back and it cannot reach that.
+  try { const {data} = await sb.auth.getUser(); const e = data?.user?.email || '';
+    S.needEmail = !e || FAKEMAIL.test(e); S.email = S.needEmail ? '' : e; }
+  catch (e) {}
   claimBadges();                           // anything the history says was earned but never written down
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
   S.groups = groups.map(g => ({...g, quotas: Array.isArray(g.quotas) ? g.quotas : [],
@@ -1829,8 +1839,18 @@ function screenHTML() {
   if (S.legal) return legalView(S.legal);
   // Until the first load lands we do not know whether there is a session, and guessing
   // means flashing the sign-in screen at someone who is already signed in.
-  if (!m) return S.booting ? splashView() : S.auth === 'welcome' ? welcomeView() : S.auth === 'reset' ? resetView() : authView(S.auth);
+  if (!m) return S.booting ? splashView()
+    : S.auth === 'welcome' ? welcomeView()
+    : S.auth === 'verify' ? verifyView()
+    : S.auth === 'forgot' ? forgotView()
+    : S.auth === 'resetcode' ? resetCodeView()
+    : authView(S.auth);
+  // Signed in with the account still half made. Nothing else is drawn until it is
+  // finished: a person with no username cannot be found, invited or named on a post, so
+  // letting them into the app would be letting them into a version of it that is broken.
+  if (!m.username) return setupView();
   if (needsTerms(m)) return acceptView();
+  if (emailGate()) return emailView();
   // Nothing else is reachable until there is a group. Checked after the terms so the
   // order of the two screens is always the same one.
   if (!myGroups().length && !S.settings) return needGroupView();
@@ -1895,7 +1915,7 @@ function render() {
   // whole-screen states: there is no tab bar over either, signed in or not.
   // The install step after an invite is a whole screen too: the tab bar would sit on top
   // of the way out of it, and none of the tabs lead anywhere until it is dealt with.
-  const held = !m || !!S.legal || needsTerms(m) || !!S.installAfter;
+  const held = !m || !!S.legal || !m.username || needsTerms(m) || emailGate() || !!S.installAfter;
   // A conversation is a screen of its own, the way it is in every app that has one. The tab
   // bar would sit under the box you type in, and worse: the box is pinned to the bottom, so
   // it moved whenever the keyboard class flipped — including between the press and the
@@ -2020,9 +2040,9 @@ function badWords(v) {
   return [...hits].map(([word, why]) => ({word, why})).sort((a, b) => rank[a.why] - rank[b.why]);
 }
 // filter:end
-// Typed text only. A password is never read here, and neither is a recovery code: its
-// alphabet can spell a short word by accident, and being locked out of your own account by
-// a coincidence is worse than the word.
+// Typed text only. A password is never read here, and neither is anything marked data-raw,
+// like a code from an email: being locked out of your own account by a coincidence is
+// worse than the word.
 const TYPED = 'input:not([type]):not([data-raw]),input[type=text]:not([data-raw]),input[type=search],textarea';
 // What was refused, without saying it back. Whoever typed it knows which word it was, and
 // quoting it puts the thing the filter exists to keep off the screen onto the screen — in
@@ -2170,6 +2190,7 @@ function feedView() {
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
     + storyRow()
     + flagsBar()
+    + emailPrompt()
     + pushPrompt()
     + spinPrompt()
     + activityBox()
@@ -4721,7 +4742,7 @@ function settingsView() {
     <p class="sec">Account</p>
     <div class="list">
       ${srow('lock', 'Change password', '', '<span class="go">\u203a</span>', 'passwordDlg()')}
-      ${srow('shield', 'Recovery codes', 'The only way back in if you forget', '<span class="go">\u203a</span>', 'newCodes()')}
+      ${srow('doc', 'Email', S.email ? esc(S.email) : 'None yet', '<span class="go">\u203a</span>', "S.editEmail=true;S.emailTo='';render();scrollTo(0,0)")}
       ${srow('out', 'Log out', `Signed in as @${esc(m.username)}`, '', 'logout()', 'danger')}
     </div>
     <p class="muted pad" style="text-align:center">${BUILD}</p>`;
@@ -4742,7 +4763,7 @@ async function saveShownGroups(f) {
   dlg(); await load();
 }
 function passwordDlg() {
-  dlg(`<h2>Change password</h2><p class="muted">There is no reset email, because accounts have no email address. If you forget this one, a recovery code is the way back.</p>
+  dlg(`<h2>Change password</h2><p class="muted">If you forget it, you can reset it with a code sent to your email.</p>
     <form onsubmit="event.preventDefault();savePassword(this)">
       <label>New password</label><input name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="at least 6 characters">
       <label>Again</label><input name="again" type="password" required minlength="6" autocomplete="new-password" placeholder="the same one">
@@ -4881,30 +4902,77 @@ function installView(a) {
 function authView(mode) {
   const signup = mode === 'signup';
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>${signup ? 'Create your account' : 'Welcome back'}</h2><p>${signup ? 'Pick a username your friends can find you by.' : 'Log in with your username.'}</p>
+    <h2>${signup ? 'Create your account' : 'Welcome back'}</h2>
+    <p>${signup ? 'An email and a password. You pick a username next.' : 'Your email or your username, and your password.'}</p>
     <div class="card"><form onsubmit="event.preventDefault();auth(this,'${mode}')">
-    <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 letters, numbers or underscores" placeholder="yourname">
+    ${signup
+      ? `<label>Email</label><input name="id" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`
+      : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`}
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
     ${signup ? `<label class="check agree"><input type="checkbox" name="agree" required>
       <span>I am 13 or over, and I agree to Quota's privacy policy, its note on cookies and storage, and its community guidelines.</span></label>` : ''}
     <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
     ${signup ? legalLinks() : ''}
     <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
-    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='reset';render()">Use a recovery code</button></div>`}
+    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='forgot';render()">Send me a reset link</button></div>`}
     <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
 }
-
-function resetView() {
+// Signed up, and now waiting on the code in the email. A code rather than a link on purpose:
+// on iPhone a link opens in Safari, and somebody who signed up in the app on their home
+// screen would be confirmed in a browser they were not using and still stuck in the app.
+// The email box is here too, for arriving from a log in with a username, when the address
+// behind it is not something this page gets to know.
+const CODE = `<label>Code</label><input name="code" type="text" data-raw required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" title="The number in the email" placeholder="123456">`;
+function verifyView() {
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>Reset your password</h2><p>Use one of the recovery codes you saved when you signed up. Each code works once.</p>
-    <div class="card"><form onsubmit="event.preventDefault();resetPassword(this)">
-    <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" placeholder="yourname">
-    <label>Recovery code</label><input name="code" data-raw required autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCDE-FGHJK">
-    <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
-    <button class="primary">Set new password</button></form></div>
-    <p class="muted" style="margin:14px 18px">No codes saved? They can't be recovered, and no one can reset an account without one \u2014 that is what stops someone taking a username that is already in use. Ask whoever runs the app to reset it for you.</p>
-    <div><button class="ghost" onclick="S.auth='login';render()">\u2039 Back to log in</button></div></div>`;
+    <h2>Check your email</h2>
+    <p>${S.sentTo ? `We sent a code to <b>${esc(S.sentTo)}</b>. Type it in here.` : 'Your email is not confirmed yet. Type your email, and the code we sent to it.'}</p>
+    <div class="card"><form onsubmit="event.preventDefault();verifyEmail(this)">
+      <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(S.sentTo)}">
+      ${CODE}
+      <button class="primary">Confirm</button></form>
+      <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first. Codes last an hour.</p>
+      <button class="small" style="margin-top:10px" onclick="resendCode(this)">Send a new code</button></div>
+    <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
 }
+function forgotView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Reset your password</h2><p>We will email you a code, and you choose a new password with it.</p>
+    <div class="card"><form onsubmit="event.preventDefault();sendReset(this)">
+      <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
+      <button class="primary">Send the code</button></form></div>
+    <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
+}
+function resetCodeView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Set a new password</h2><p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
+    <div class="card"><form onsubmit="event.preventDefault();finishReset(this)">
+      ${CODE}
+      <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
+      <label>Again</label><input name="again" type="password" required autocomplete="new-password" minlength="6" placeholder="the same one">
+      <button class="primary">Save it and log in</button></form></div>
+    <div><button class="ghost" onclick="S.auth='forgot';render()">‹ Use a different email</button></div></div>`;
+}
+// The rest of the account. Asked for after signing up rather than during it, because an
+// email and a password is as much as anybody should have to type before they are let in
+// far enough to see what they are signing up to.
+const GENDERS = [['woman', 'Woman'], ['man', 'Man'], ['other', 'Something else'], ['unsaid', 'Rather not say']];
+function setupView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Finish your account</h2><p>Your friends find you by your username, and it cannot be changed later.</p>
+    <div class="card"><form onsubmit="event.preventDefault();saveSetup(this)">
+      <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" spellcheck="false"
+        pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" placeholder="yourname">
+      <p class="muted" id="unick" style="margin-top:6px">Lowercase letters, numbers and underscores.</p>
+      <label>Full name</label><input name="display_name" required maxlength="40" autocomplete="name" placeholder="Ari Marants">
+      <label>Date of birth</label><input name="birthday" type="date" required max="${today()}" min="1900-01-02">
+      <label>Gender</label><select name="gender" required>
+        <option value="">Choose one</option>
+        ${GENDERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+      <button class="primary">Into the app</button></form></div>
+    <div><button class="ghost" onclick="logout()">Log out instead</button></div></div>`;
+}
+
 
 // ---- what you agree to
 // Three documents, kept here rather than as separate pages: the app is one file with a
@@ -4914,13 +4982,13 @@ function resetView() {
 //
 // Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
 // against each account, so it is always possible to say which wording somebody agreed to.
-const TERMS_VERSION = '2026-09-15';
+const TERMS_VERSION = '2026-09-24';
 const LEGAL = {
   privacy: {title: 'Privacy policy', sub: 'What Quota keeps, and who can see it', body: `
-<p>Quota is run by one person. Contact: <a href="mailto:arimarants@gmail.com">arimarants@gmail.com</a>. This says what Quota holds about you, why it holds it, and who else can see it.</p>
+<p>Quota is run by one person. Contact: <a href="mailto:hello@hitquota.app">hello@hitquota.app</a>. This says what Quota holds about you, why it holds it, and who else can see it.</p>
 <h3>What Quota keeps</h3>
 <ul>
-<li><b>Your account.</b> A username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Recovery codes are stored the same way.</li>
+<li><b>Your account.</b> Your email address, a username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Your email is used to confirm the account and to reset your password, and is never shown to anyone else.</li><li><b>About you.</b> Your full name, date of birth and gender, which you give when you finish signing up.</li>
 <li><b>Your profile.</b> A display name, a bio and a picture, if you add them, and which of your groups you have chosen to show on it.</li>
 <li><b>What you post.</b> Proof clips and pictures, the amount and the metric, the caption, the day, and whether you put it on your profile.</li>
 <li><b>What you write.</b> Comments, stories, and the words on them.</li>
@@ -4941,10 +5009,11 @@ const LEGAL = {
 <li>Your password is visible to nobody.</li>
 </ul>
 <h3>Who else handles it</h3>
-<p>Two companies hold the data on Quota's behalf and are not allowed to use it for anything else:</p>
+<p>Three companies hold the data on Quota's behalf and are not allowed to use it for anything else:</p>
 <ul>
 <li><b>Supabase</b> — the database, the sign-in, and the storage your clips and pictures sit in.</li>
 <li><b>Vercel</b> — serves the app itself, and keeps ordinary server logs (an address, a time, a page) for a short period.</li>
+<li><b>Resend</b> — sends the emails with your codes in them, so it sees your email address and the code.</li>
 </ul>
 <p>If you turn notifications on, the message is delivered by your browser's own push service — Apple, Google or Mozilla, depending on the phone. They see that a message is going to your device.</p>
 <h3>How long it is kept</h3>
@@ -5298,49 +5367,6 @@ async function afterSpin(gid) {
   // More than one wheel can be due at once; keep going until the group is clear.
   if (dueIn(S.groups.find(x => x.id === gid)).length) return spinDlg(gid);
   openGroup(gid);
-}
-
-// ---- recovery codes
-// Two things to know about functions.invoke here.
-// 1. supabase-js 2.49.4 builds its functions client from the headers fixed at
-//    createClient time, which carry the anon key, and never rewrites them when the
-//    user signs in. Without passing the token by hand, 'issue' always comes back
-//    "Sign in first." even for a signed-in user.
-// 2. It collapses every non-2xx into a generic error, so dig out the real message.
-async function callRecovery(action, body = {}) {
-  const {data: {session}} = await sb.auth.getSession();
-  const headers = session ? {Authorization: `Bearer ${session.access_token}`} : undefined;
-  const {data, error} = await sb.functions.invoke('recovery', {body: {action, ...body}, headers});
-  if (!error) return data;
-  let msg = 'Could not reach the server. Check your connection and try again.';
-  try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {}
-  throw new Error(msg);
-}
-// The one moment the codes exist in readable form. Nothing stores them after this.
-function codesDlg(codes, isNew) {
-  dlg(`<h2>${isNew ? 'Save your recovery codes' : 'Your new recovery codes'}</h2>
-    <p class="muted">These are the only way back into your account if you forget your password. Save them somewhere safe now \u2014 you will not be shown them again.</p>
-    <div class="card" style="margin-top:12px"><div class="row wrap" style="gap:8px;font-family:ui-monospace,monospace;font-size:15px">${codes.map(c => `<span class="chip">${esc(c)}</span>`).join('')}</div></div>
-    <div class="row" style="margin-top:18px"><button type="button" onclick="copyCodes(${JSON.stringify(JSON.stringify(codes)).replace(/"/g, '&quot;')},this)">Copy all</button><button type="button" class="primary grow" onclick="dlg()">I've saved them</button></div>`);
-}
-function copyCodes(json, btn) {
-  navigator.clipboard.writeText(JSON.parse(json).join('\n')).then(() => { btn.textContent = 'Copied'; }).catch(() => { btn.textContent = 'Copy failed'; });
-}
-async function newCodes() {
-  try { codesDlg(await callRecovery('issue').then(d => d.codes), false); }
-  catch (e) { alert(e.message); }
-}
-async function resetPassword(f) {
-  const username = f.username.value.trim().toLowerCase().replace(/^@/, '');
-  const code = f.code.value.trim(), password = f.password.value;
-  working(f, '\u2026');
-  try {
-    const {remaining} = await callRecovery('redeem', {username, code, password});
-    // Sign straight in rather than making them type the new password again.
-    const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
-    if (error) { S.auth = 'login'; alert('Password changed. Log in with your new password.'); }
-    else { S.tab = 'feed'; await load(); alert(`Password changed. ${remaining} recovery ${remaining === 1 ? 'code' : 'codes'} left.`); }
-  } catch (e) { alert(e.message); } finally { render(); }
 }
 
 // ---- dialogs
@@ -5874,35 +5900,154 @@ const slide = dir => { if (matchMedia('(prefers-reduced-motion: reduce)').matche
 function openGroup(id) { S.open = id; S.who = null; S.more = 0; S.tab = 'groups'; stackOn(); }
 function closeGroup() { S.open = null; S.more = 0; stackOff(); }
 async function auth(f, mode) {
-  const username = f.username.value.trim().toLowerCase(), password = f.password.value;
+  const id = f.id.value.trim(), password = f.password.value;
   working(f, '…');
-  let fresh = null;
   try {
     if (mode === 'signup') {
-      if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) return alert('That username is taken');
-      const {data, error} = await sb.auth.signUp({email: emailFor(username), password, options: {data: {username}}});
+      const {data, error} = await sb.auth.signUp({email: id, password});
       if (error) return alert(error.message);
-      if (!data.session) return alert('Account created but email confirmation is still on. In Supabase: Authentication → Providers → Email → turn off "Confirm email", then log in.');
-      // The box was ticked to get here. Written down with the wording it was ticked
-      // against, so it is always possible to say what somebody agreed to. A failure is not
-      // fatal: the column stays null and the accept screen asks again on the next open.
-      try { await sb.from('profiles').update({terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION}).eq('id', data.user.id); } catch (e) {}
-      // Issue recovery codes now: there is no reset email, so this is the only way back
-      // in later. A failure here is not fatal — the profile has a button for it.
-      try { fresh = (await callRecovery('issue')).codes; }
-      catch (e) { alert(`Account created, but recovery codes could not be issued: ${e.message} You can get a set from your profile.`); }
+      // Confirmation is on, so there is no session yet: the email carries a code, and the
+      // next screen is where it goes. The terms they just ticked are written down when the
+      // account is finished, which is the first moment there is a row to write them on.
+      if (!data.session) { S.sentTo = id; S.auth = 'verify'; return; }
     } else {
-      const {error} = await sb.auth.signInWithPassword({email: emailFor(username), password});
-      // Only a 400 means the credentials were genuinely wrong. Reporting every failure
-      // — offline, rate limited, project paused — as a bad password sends people hunting
-      // for the wrong problem.
-      if (error) return alert(error.status === 400 ? 'Wrong username or password' : `Could not log in: ${error.message}`);
+      // Email or username, and the app cannot tell which is which without asking a
+      // function that will not say. See supabase/functions/signin.
+      const out = await signIn(id, password);
+      if (out.error) {
+        if (out.unconfirmed) { S.sentTo = id.includes('@') ? id : ''; S.auth = 'verify'; return; }
+        return alert(out.error);
+      }
     }
     S.tab = 'feed'; await load();
     // Whichever way in they came, the link they arrived on is taken now. This is what
     // makes it "sign up and you are in the group" rather than "sign up, then go and join".
     await takePendingJoin();
-  } finally { render(); if (fresh) codesDlg(fresh, true); }
+  } finally { render(); }
+}
+// The username-to-email swap happens on the server so the address never comes back here.
+async function signIn(id, password) {
+  if (id.includes('@')) {
+    const {error} = await sb.auth.signInWithPassword({email: id, password});
+    if (!error) return {};
+    if (/not confirmed/i.test(error.message)) return {error: error.message, unconfirmed: true};
+    return {error: error.status === 400 ? 'Wrong email, username or password' : `Could not log in: ${error.message}`};
+  }
+  let out;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/signin`, {
+      method: 'POST', headers: {'Content-Type': 'application/json', apikey: SUPABASE_KEY},
+      body: JSON.stringify({id, password}),
+    });
+    out = await res.json();
+  } catch (e) { return {error: 'Could not reach the server. Check your connection.'}; }
+  if (out.error) return out;
+  const {error} = await sb.auth.setSession({access_token: out.access_token, refresh_token: out.refresh_token});
+  return error ? {error: error.message} : {};
+}
+async function resendCode(btn) {
+  const email = (btn.closest('.card').querySelector('input[name=email]') || {}).value?.trim() || S.sentTo;
+  if (!email) return alert('Type your email first, then ask for a new code.');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const {error} = await sb.auth.resend({type: 'signup', email});
+  btn.disabled = false; btn.textContent = 'Send a new code';
+  alert(error ? (/rate|seconds|many/i.test(error.message) ? 'Wait a minute, then ask again.' : error.message) : 'Sent. Check your inbox, and spam.');
+}
+async function verifyEmail(f) {
+  const email = f.email.value.trim(), token = f.code.value.trim();
+  working(f, 'Checking…');
+  const {error} = await sb.auth.verifyOtp({email, token, type: 'signup'});
+  if (error) { working(f, 'Confirm'); f.querySelectorAll('button').forEach(b => b.disabled = false); return alert('That code is wrong or has expired. Send a new one and try again.'); }
+  S.auth = 'login'; S.sentTo = ''; S.tab = 'feed';
+  await load(); render(); scrollTo(0, 0);
+}
+async function sendReset(f) {
+  const email = f.email.value.trim();
+  working(f, 'Sending…');
+  const {error} = await sb.auth.resetPasswordForEmail(email);
+  working(f, 'Send the code'); f.querySelectorAll('button').forEach(b => b.disabled = false);
+  // An address nobody has is answered the same as one somebody does: saying which is
+  // which would turn this box into a way of asking who has an account here.
+  if (error && /rate|seconds|many/i.test(error.message)) return alert('That is a lot of tries in a row. Wait a minute and ask again.');
+  S.sentTo = email; S.auth = 'resetcode'; render(); scrollTo(0, 0);
+}
+async function finishReset(f) {
+  if (f.password.value !== f.again.value) return alert('Those two do not match.');
+  const undo = () => { working(f, 'Save it and log in'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
+  working(f, 'Saving…');
+  const {error} = await sb.auth.verifyOtp({email: S.sentTo, token: f.code.value.trim(), type: 'recovery'});
+  if (error) { undo(); return alert('That code is wrong or has expired. Go back and send a new one.'); }
+  // The code signed them in. The new password is set from inside that session.
+  const {error: e2} = await sb.auth.updateUser({password: f.password.value});
+  if (e2) { undo(); return alert(e2.message); }
+  S.auth = 'login'; S.sentTo = ''; S.tab = 'feed';
+  await load(); render(); scrollTo(0, 0);
+}
+// The rest of the account, written in one go. The username is checked here for a friendly
+// answer and by a unique index underneath for a true one: two people claiming the same
+// name in the same second both pass the check and only one passes the index.
+async function saveSetup(f) {
+  const fd = new FormData(f), username = String(fd.get('username') || '').trim().toLowerCase();
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) return alert('A username is 3 to 20 letters, numbers or underscores.');
+  working(f, 'Saving…');
+  const done = () => { working(f, 'Into the app'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
+  try {
+    if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) { done(); return alert('That username is taken. Try another.'); }
+  } catch (e) { done(); return; }
+  // The box on the signup form was ticked to get here. Written down now, with the wording
+  // it was ticked against, because signing up no longer ends with a row to write it on.
+  const patch = {username, display_name: String(fd.get('display_name') || '').trim() || null,
+    birthday: fd.get('birthday') || null, gender: fd.get('gender') || null,
+    terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION};
+  const {error} = await sb.from('profiles').update(patch).eq('id', me().id);
+  if (error) { done(); return alert(/duplicate|unique/i.test(error.message) ? 'That username was taken a moment ago. Try another.' : error.message); }
+  $('#bar').hidden = false;
+  await load(); render();
+  // Whichever way in they came, the link they arrived on is taken now: signing up went
+  // through an email and a code, and this is the first moment the account can join.
+  await takePendingJoin();
+}
+// An account made before there were real addresses has a made-up one, and a forgotten
+// password comes back through the email, so it is asked for as a screen of its own. "Not
+// now" puts it off until the next open, and a card on the feed keeps it in view meanwhile.
+// The same screen changes the address from Settings.
+function emailGate() { return !!S.editEmail || (!!S.needEmail && !S.emailLater); }
+function emailView() {
+  const change = S.editEmail && !S.needEmail;
+  const later = change ? `S.editEmail=false;S.emailTo='';render()` : `S.emailLater=true;S.editEmail=false;S.emailTo='';render()`;
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>${change ? 'Change your email' : 'Add your email'}</h2>
+    ${S.emailTo
+      ? `<p>We sent a code to <b>${esc(S.emailTo)}</b>. Type it in here.</p>
+        <div class="card"><form onsubmit="event.preventDefault();confirmEmail(this)">${CODE}<button class="primary">Confirm</button></form>
+        <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first.</p>
+        <div class="row" style="margin-top:10px;gap:8px"><button class="small" onclick="sendEmailCode(S.emailTo,this)">Send a new code</button><button class="small" onclick="S.emailTo='';render()">Different email</button></div></div>`
+      : `<p>${change ? `It is <b>${esc(S.email)}</b> now. We send a code to the new one to check it is yours.` : 'If you ever forget your password, this is how you get back in. We send a code to check it is yours.'}</p>
+        <div class="card"><form onsubmit="event.preventDefault();sendEmailCode(this.email.value.trim(),this.querySelector('button'))">
+          <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
+          <button class="primary">Send the code</button></form></div>`}
+    <div><button class="ghost" onclick="${later}">${change ? 'Cancel' : 'Not now'}</button></div></div>`;
+}
+function emailPrompt() {
+  if (!S.needEmail) return '';
+  return `<div class="card warn-card"><b>Add your email</b>
+    <p class="muted">Without one, a forgotten password cannot be reset.</p>
+    <button class="teal small" style="margin-top:12px" onclick="S.emailLater=false;render();scrollTo(0,0)">Add it</button></div>`;
+}
+async function sendEmailCode(email, btn) {
+  if (!email) return;
+  const was = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
+  const {error} = await sb.auth.updateUser({email});
+  btn.disabled = false; btn.textContent = was;
+  if (error) return alert(/rate|seconds|many/i.test(error.message) ? 'Wait a minute, then ask again.' : error.message);
+  S.emailTo = email; render(); scrollTo(0, 0);
+}
+async function confirmEmail(f) {
+  working(f, 'Checking…');
+  const {error} = await sb.auth.verifyOtp({email: S.emailTo, token: f.code.value.trim(), type: 'email_change'});
+  if (error) { working(f, 'Confirm'); f.querySelectorAll('button').forEach(b => b.disabled = false); return alert('That code is wrong or has expired. Send a new one and try again.'); }
+  S.email = S.emailTo; S.emailTo = ''; S.needEmail = false; S.editEmail = false;
+  render(); scrollTo(0, 0);
 }
 async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.open = null; S.tab = 'feed'; S.auth = 'welcome'; render(); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add

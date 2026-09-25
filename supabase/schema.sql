@@ -2453,3 +2453,122 @@ begin
   new.challenge := old.challenge; new.spin_id := old.spin_id;
   return new;
 end $$;
+
+-- ============================================================
+-- v42 (real email, and a username chosen after signing up): safe to run on an existing
+-- project, but DO NOT run it until the app on main is the one that expects it — an
+-- account created between the two is an account with no username and no screen asking
+-- for one, and the old app still offers recovery codes this block takes away.
+--
+-- Signing up becomes email and a password, confirmed with a code from the email. The
+-- username, the name and the rest are the next step rather than part of it, so a profile
+-- exists before it is filled in: a null username is what "not set up yet" means, and the
+-- app will not let anybody past that screen until it is not null.
+--
+-- Recovery codes go. A forgotten password is reset with a code sent to the account's
+-- email, which every new account has and every old one is asked for.
+-- ============================================================
+
+-- The check only applied to a value, so it already tolerates null; the NOT NULL is what
+-- has to go. Unique still holds, and Postgres lets any number of rows be null under it.
+alter table public.profiles alter column username drop not null;
+
+alter table public.profiles add column if not exists birthday date;
+alter table public.profiles add column if not exists gender text;
+alter table public.profiles drop constraint if exists profiles_gender_ok;
+alter table public.profiles add constraint profiles_gender_ok
+  check (gender is null or gender in ('woman', 'man', 'other', 'unsaid'));
+-- A birthday in the future is a typo, and one before 1900 is a different typo. Neither is
+-- worth a screen of its own, and both are worth refusing.
+alter table public.profiles drop constraint if exists profiles_birthday_sane;
+alter table public.profiles add constraint profiles_birthday_sane
+  check (birthday is null or (birthday > date '1900-01-01' and birthday < current_date));
+
+-- A signup no longer carries a username, so the row is created without one. Written to
+-- cope with either, because accounts made by the old app still arrive with one.
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, username)
+    values (new.id, nullif(lower(coalesce(new.raw_user_meta_data->>'username', '')), ''));
+  return new;
+end $$;
+
+-- Whether somebody has finished setting up. Used by the app to decide what to draw, and
+-- by the policy below so half-made accounts cannot be found or invited.
+create or replace function public.is_set_up(uid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = uid and username is not null);
+$$;
+
+-- Usernames stay readable — that is how anybody is found — but a row with no username on
+-- it yet is nobody's business but its owner's.
+drop policy if exists "usernames are public" on public.profiles;
+create policy "usernames are public" on public.profiles for select
+  using (username is not null or id = auth.uid());
+
+-- Claiming a username is an edit of your own row, which was already allowed. What was not
+-- checked is that it only happens once: a username people have learned is not a thing to
+-- swap out from under them, and the app offers no way to.
+create or replace function public.profile_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.username is not null and new.username is distinct from old.username then
+    raise exception 'a username cannot be changed once it is taken';
+  end if;
+  new.id := old.id;
+  return new;
+end $$;
+
+drop trigger if exists profiles_edit_guard on public.profiles;
+create trigger profiles_edit_guard before update on public.profiles
+  for each row execute function public.profile_edit_guard();
+
+-- The codes and the record of failed tries. The function that used them is deleted
+-- alongside this (supabase functions delete recovery); nothing else reads either table.
+drop table if exists public.recovery_attempts;
+drop table if exists public.recovery_codes;
+
+-- ============================================================
+-- v43 (one row per person, for you rather than for the app): run it after v42.
+--
+-- The app keeps a person in two places because Supabase does: the address and whether it
+-- has been confirmed live in auth.users, and everything they chose about themselves lives
+-- in public.profiles. Looking somebody up therefore means two screens in the dashboard.
+--
+-- This is the join, and it lives in `private` on purpose. PostgREST serves the schemas it
+-- is told to, which are public and graphql_public; a view of email addresses in public
+-- would be an endpoint handing them out. Nothing is granted on `private`, so only the
+-- owner reaches it — which is what the SQL editor runs as.
+--
+--   select * from private.people;
+--   select * from private.people where email ilike '%@gmail.com';
+--   select * from private.people where not confirmed;
+-- ============================================================
+create schema if not exists private;
+
+-- Dropped rather than replaced: CREATE OR REPLACE VIEW can only add columns on the end,
+-- so a version of this that was run before v42 and had no birthday in it could never be
+-- replaced by this one.
+drop view if exists private.people;
+create view private.people as
+  select
+    p.id,
+    u.email,
+    u.email_confirmed_at is not null           as confirmed,
+    p.username,
+    p.display_name                             as full_name,
+    p.birthday,
+    -- Worked out rather than stored, because an age written down is wrong within a year.
+    case when p.birthday is null then null
+         else extract(year from age(p.birthday))::int end as age,
+    p.gender,
+    p.bio,
+    p.username is not null                     as finished_setup,
+    u.created_at                               as signed_up,
+    u.last_sign_in_at                          as last_seen
+  from public.profiles p
+  join auth.users u on u.id = p.id;
+
+comment on view private.people is
+  'Everything about one person in one row: the address from auth.users, the rest from public.profiles. Private on purpose — a view of email addresses in the public schema would be served by the API.';

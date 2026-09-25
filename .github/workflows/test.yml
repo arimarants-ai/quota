@@ -47,7 +47,6 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node test/boot.test.mjs
 
-      - run: node --experimental-strip-types supabase/functions/recovery/codes.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
       - run: node --experimental-strip-types supabase/functions/wheelday/message.test.ts

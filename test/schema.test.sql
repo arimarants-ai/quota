@@ -593,3 +593,87 @@ begin
     raise exception 'something the group saw changed after posting: %', row_to_json(p);
   end if;
 end $$;
+
+-- v42: an account can exist before it has a username, and a username once taken stays.
+reset role;
+insert into auth.users (id, email) values ('77777777-7777-7777-7777-777777777777', 'new@example.com');
+insert into public.profiles (id) values ('77777777-7777-7777-7777-777777777777');
+do $$
+begin
+  if to_regclass('public.recovery_codes') is not null or to_regclass('public.recovery_attempts') is not null then
+    raise exception 'recovery codes are gone with email resets, and their tables should be too';
+  end if;
+end $$;
+set role app;
+do $$
+declare n int;
+begin
+  -- Somebody else cannot see an account that is not finished: it has no name to find it by.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  select count(*) into n from public.profiles where id = '77777777-7777-7777-7777-777777777777';
+  if n <> 0 then raise exception 'a half-made account showed up for somebody else'; end if;
+
+  -- Its owner can see it, and finish it.
+  perform set_config('test.uid', '77777777-7777-7777-7777-777777777777', true);
+  select count(*) into n from public.profiles where id = auth.uid();
+  if n <> 1 then raise exception 'you should always see your own row, finished or not'; end if;
+  update public.profiles set username = 'newbie' where id = auth.uid();
+  if (select username from public.profiles where id = auth.uid()) is distinct from 'newbie' then
+    raise exception 'claiming a username on your own unfinished account did not save';
+  end if;
+
+  -- And then it is fixed.
+  begin
+    update public.profiles set username = 'renamed' where id = auth.uid();
+    raise exception 'a username changed after it was taken';
+  exception when raise_exception then
+    if sqlerrm = 'a username changed after it was taken' then raise; end if;
+  end;
+end $$;
+
+
+reset role;
+-- v43: one row per person, and it had better not be an endpoint.
+do $$
+declare full_id uuid := '55555555-5555-5555-5555-555555555555';
+        half_id uuid := '66666666-6666-6666-6666-666666666666';
+        got record;
+begin
+  -- The whole point of putting it in `private`: PostgREST serves public, so a view of
+  -- email addresses there would be a URL that hands them out.
+  if exists (select 1 from information_schema.views where table_schema = 'public' and table_name = 'people') then
+    raise exception 'private.people must not have a twin in the public schema';
+  end if;
+  if not exists (select 1 from information_schema.views where table_schema = 'private' and table_name = 'people') then
+    raise exception 'private.people is missing';
+  end if;
+
+  -- The profile row is inserted rather than left to the signup trigger: this harness
+  -- applies the tables without it, so an update here would quietly touch nothing.
+  insert into auth.users (id, email, email_confirmed_at) values (full_id, 'nobody@example.com', now());
+  insert into public.profiles (id, username, display_name, birthday, gender)
+    values (full_id, 'viewtest', 'View Test', current_date - interval '30 years', 'unsaid');
+
+  select * into got from private.people where id = full_id;
+  if got is null then raise exception 'the view has no row for somebody who exists'; end if;
+  if got.email is distinct from 'nobody@example.com' then raise exception 'the address did not come through'; end if;
+  if got.full_name is distinct from 'View Test' then raise exception 'the name did not come through'; end if;
+  if got.username is distinct from 'viewtest' then raise exception 'the username did not come through'; end if;
+  if got.gender is distinct from 'unsaid' then raise exception 'the gender did not come through'; end if;
+  if got.confirmed is not true then raise exception 'confirmed should be true'; end if;
+  if got.finished_setup is not true then raise exception 'a row with a username is finished'; end if;
+  -- Worked out rather than stored, so it cannot go stale.
+  if got.age is distinct from 30 then raise exception 'age should be 30, got %', got.age; end if;
+
+  -- Somebody who signed up and never finished. A second account rather than unpicking the
+  -- first, because v42 refuses to let a username be changed once it is taken.
+  insert into auth.users (id, email) values (half_id, 'halfway@example.com');
+  insert into public.profiles (id) values (half_id);
+
+  select * into got from private.people where id = half_id;
+  if got is null then raise exception 'an unfinished account should still be in the view'; end if;
+  if got.finished_setup is not false then raise exception 'a row with no username is not finished'; end if;
+  if got.confirmed is not false then raise exception 'an unconfirmed address is not confirmed'; end if;
+  if got.email is distinct from 'halfway@example.com' then raise exception 'the address is there either way'; end if;
+  if got.age is not null then raise exception 'no birthday means no age'; end if;
+end $$;

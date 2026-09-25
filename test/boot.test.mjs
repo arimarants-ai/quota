@@ -1525,6 +1525,228 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// ---- signing up with an email, and finishing the account afterwards
+// Signing up is an address and a password. The email carries a code rather than a link:
+// on iPhone a link opens in Safari, not in the app on the home screen.
+await withPage({ session: null }, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.auth = 'signup'; render(); });
+  await page.waitForTimeout(250);
+  const fields = await page.evaluate(() => [...document.querySelectorAll('#app input')].map(i => i.name));
+  check('signing up asks for an email and a password, and the terms', fields.join() === 'id,password,agree',
+    fields.join());
+  check('  with the email field typed as one', await page.locator('#app input[name=id]').getAttribute('type') === 'email');
+  await page.locator('#app input[name=id]').fill('new@example.com');
+  await page.locator('#app input[name=password]').fill('hunter22');
+  await page.locator('#app input[name=agree]').check();
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(400);
+  const up = await page.evaluate(() => self.__signups);
+  check('  and it goes up as a real address', up.length === 1 && up[0].email === 'new@example.com', JSON.stringify(up));
+  check('  confirmation is on, so there is no session and the screen asks for the code',
+    await page.evaluate(() => S.auth) === 'verify'
+    && /check your email/i.test(await page.locator('#app h2').innerText())
+    && await page.locator('#app input[name=code]').count() === 1);
+  check('    naming the address it went to', /new@example\.com/.test(await page.innerText('#app'))
+    && await page.locator('#app input[name=email]').inputValue() === 'new@example.com');
+  check('    with a keypad for the code, and the phone offered it from the email',
+    await page.locator('#app input[name=code]').getAttribute('inputmode') === 'numeric'
+    && await page.locator('#app input[name=code]').getAttribute('autocomplete') === 'one-time-code');
+  await page.locator('#app button:has-text("Send a new code")').click();
+  await page.waitForTimeout(300);
+  const again = await page.evaluate(() => self.__resends);
+  check('    and offering to send a new one', again.length === 1 && again[0].email === 'new@example.com' && again[0].type === 'signup',
+    JSON.stringify(again));
+
+  // A wrong code is refused and leaves them where they are.
+  await page.evaluate(() => { self.__MODE.otpError = 'Token has expired or is invalid'; self.__alerts = []; window.alert = m => self.__alerts.push(m); });
+  await page.locator('#app input[name=code]').fill('000000');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(400);
+  check('  a wrong code says so and stays on the screen', await page.evaluate(() => S.auth) === 'verify'
+    && /wrong or has expired/i.test((await page.evaluate(() => self.__alerts)).join(' ')));
+
+  await page.evaluate(() => { self.__MODE.otpError = null; self.__otps = []; });
+  await page.locator('#app input[name=code]').fill('123456');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(700);
+  const otp = await page.evaluate(() => self.__otps);
+  check('  the right code is checked against the address', otp.length === 1 && otp[0].email === 'new@example.com'
+    && otp[0].token === '123456' && otp[0].type === 'signup', JSON.stringify(otp));
+  check('    and it lets them in', await page.evaluate(() => !!me() && S.auth !== 'verify'));
+});
+
+// Logging in takes either, and the username never reveals the address behind it.
+await withPage({ session: null }, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.auth = 'login'; render(); });
+  await page.waitForTimeout(250);
+  check('logging in accepts an email or a username', /email or your username/i.test(await page.innerText('#app')));
+  await page.locator('#app input[name=id]').fill('ari@example.com');
+  await page.locator('#app input[name=password]').fill('hunter22');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(500);
+  const ins = await page.evaluate(() => self.__logins);
+  check('  an address is used as it is', ins.length === 1 && ins[0].email === 'ari@example.com', JSON.stringify(ins));
+
+  // A username goes through the function, which does the swap where the address cannot
+  // be read off the wire.
+  await page.evaluate(() => { self.__logins = []; self.__fnCalls = [];
+    const real = window.fetch;
+    window.fetch = (u, o) => {
+      if (String(u).includes('/functions/v1/signin')) {
+        self.__fnCalls.push(JSON.parse(o.body));
+        return Promise.resolve(new Response(JSON.stringify({access_token: 'a', refresh_token: 'r'}), {status: 200, headers: {'content-type': 'application/json'}}));
+      }
+      return real(u, o);
+    };
+    S.me = null; S.auth = 'login'; render();
+  });
+  await page.waitForTimeout(250);
+  await page.locator('#app input[name=id]').fill('ari');
+  await page.locator('#app input[name=password]').fill('hunter22');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(600);
+  const calls = await page.evaluate(() => self.__fnCalls);
+  check('  a username is handed to the function instead', calls.length === 1 && calls[0].id === 'ari',
+    JSON.stringify(calls));
+  check('    and the page never asks the database which address it is',
+    (await page.evaluate(() => self.__logins)).length === 0);
+  check('    the session it returns is the one that gets used',
+    (await page.evaluate(() => self.__sessions)).length === 1);
+});
+
+// Logging in before the code was typed goes back to the code screen, not a dead end.
+await withPage({ session: null, unconfirmed: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.auth = 'login'; render(); });
+  await page.waitForTimeout(250);
+  await page.locator('#app input[name=id]').fill('new@example.com');
+  await page.locator('#app input[name=password]').fill('hunter22');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(500);
+  check('an unconfirmed login is sent to type the code', await page.evaluate(() => S.auth) === 'verify'
+    && await page.locator('#app input[name=email]').inputValue() === 'new@example.com');
+});
+
+// Forgetting the password sends a code, and says nothing about who has an account.
+await withPage({ session: null }, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.auth = 'forgot'; render(); });
+  await page.waitForTimeout(250);
+  check('the reset screen asks for the email, not the username',
+    await page.locator('#app input[name=email]').count() === 1
+    && await page.locator('#app input[name=username]').count() === 0);
+  check('  and offers no recovery code', !/recovery/i.test(await page.innerText('#app')));
+  await page.locator('#app input[name=email]').fill('ari@example.com');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(400);
+  const sent = await page.evaluate(() => self.__resets);
+  check('  the code is asked for', sent.length === 1 && sent[0].email === 'ari@example.com', JSON.stringify(sent));
+  check('  and the next screen takes it with the new password', await page.evaluate(() => S.auth) === 'resetcode'
+    && await page.locator('#app input[name=code]').count() === 1
+    && /if ari@example\.com has an account/i.test(await page.innerText('#app')));
+  await page.locator('#app input[name=code]').fill('654321');
+  await page.locator('#app input[name=password]').fill('brandnew1');
+  await page.locator('#app input[name=again]').fill('brandnew1');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(700);
+  const otp = await page.evaluate(() => self.__otps);
+  check('  the code is checked as a reset', otp.length === 1 && otp[0].type === 'recovery'
+    && otp[0].email === 'ari@example.com' && otp[0].token === '654321', JSON.stringify(otp));
+  const edits = await page.evaluate(() => self.__userEdits);
+  check('  and the new password is set', edits.length === 1 && edits[0].password === 'brandnew1',
+    JSON.stringify(edits));
+  check('    which leaves them signed in', await page.evaluate(() => !!me()));
+});
+
+// An account that is signed in but not finished sees one screen and nothing else.
+await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page => {
+  await settle(page);
+  check('a half-made account is asked to finish', /finish your account/i.test(await page.locator('#app h2').innerText()));
+  const asks = await page.evaluate(() => [...document.querySelectorAll('#app input,#app select')].map(i => i.name));
+  check('  for a username, a name, a birthday and a gender',
+    asks.join() === 'username,display_name,birthday,gender', asks.join());
+  check('  every one of them required', await page.evaluate(() =>
+    [...document.querySelectorAll('#app input,#app select')].every(i => i.required)));
+  check('  and the rest of the app is not reachable around it',
+    await page.locator('#bar').isHidden() && await page.locator('.post').count() === 0);
+  check('    with a way out that is logging out, not skipping',
+    /log out/i.test(await page.innerText('#app')));
+
+  // A name somebody already has is refused before it is sent.
+  await page.evaluate(() => { self.__alerts = []; window.alert = m => self.__alerts.push(m); });
+  await page.locator('#app input[name=username]').fill('sam');
+  await page.locator('#app input[name=display_name]').fill('Sam Two');
+  await page.locator('#app input[name=birthday]').fill('1999-04-02');
+  await page.locator('#app select[name=gender]').selectOption('unsaid');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(600);
+  check('  a username somebody already has is refused', /taken/i.test((await page.evaluate(() => self.__alerts)).join(' ')),
+    JSON.stringify(await page.evaluate(() => self.__alerts)));
+  check('    and nothing was written', (await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && e.username))).length === 0);
+
+  await page.locator('#app input[name=username]').fill('newname');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(700);
+  const wrote = await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && e.username));
+  check('  a free one is written with the rest of it', wrote.length === 1 && wrote[0].username === 'newname'
+    && wrote[0].display_name === 'Sam Two' && wrote[0].birthday === '1999-04-02' && wrote[0].gender === 'unsaid',
+    JSON.stringify(wrote));
+  check('    along with the terms ticked at signup', !!wrote[0].terms_accepted_at && wrote[0].terms_version === await page.evaluate(() => TERMS_VERSION),
+    JSON.stringify(wrote));
+});
+
+// An account made before there were real addresses gets a screen asking for one.
+await withPage({ session: { user: { id: 'u1' } }, email: 'ari@users.quota.local' }, async page => {
+  await settle(page);
+  check('an account with a made-up address is asked for a real one',
+    await page.evaluate(() => S.needEmail) === true && /add your email/i.test(await page.locator('#app h2').innerText())
+    && await page.locator('#bar').isHidden() && await page.locator('.post').count() === 0);
+  check('  saying why it matters', /forget your password/i.test(await page.innerText('#app')));
+
+  // "Not now" lets them in, with a card that brings the screen back.
+  await page.locator('#app button:has-text("Not now")').click();
+  await page.waitForTimeout(400);
+  check('  "Not now" lets them in', await page.locator('.post').count() > 0 && await page.locator('#bar').isVisible());
+  check('    with a card on the feed that keeps asking', await page.locator('.warn-card').count() === 1);
+  await page.locator('.warn-card button').click();
+  await page.waitForTimeout(400);
+  check('    which brings the screen back', /add your email/i.test(await page.locator('#app h2').innerText()));
+
+  await page.locator('#app input[name=email]').fill('ari@example.com');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(500);
+  const edits = await page.evaluate(() => self.__userEdits);
+  check('  adding one asks for a code', edits.length === 1 && edits[0].email === 'ari@example.com',
+    JSON.stringify(edits));
+  check('    and the screen takes it', await page.locator('#app input[name=code]').count() === 1
+    && /ari@example\.com/.test(await page.innerText('#app')));
+  await page.locator('#app input[name=code]').fill('111222');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(500);
+  const otp = await page.evaluate(() => self.__otps);
+  check('  the code is checked as a change of address', otp.length === 1 && otp[0].type === 'email_change'
+    && otp[0].email === 'ari@example.com' && otp[0].token === '111222', JSON.stringify(otp));
+  check('    and then it stops asking', await page.evaluate(() => S.needEmail) === false
+    && await page.locator('.warn-card').count() === 0 && await page.locator('.post').count() > 0);
+});
+await withPage({ session: { user: { id: 'u1' } }, email: 'ari@example.com' }, async page => {
+  await settle(page);
+  check('an account that already has one is not asked', await page.evaluate(() => S.needEmail) === false
+    && await page.locator('.warn-card').count() === 0 && await page.locator('.post').count() > 0);
+  // And it can change it from Settings, through the same screen.
+  await page.evaluate(() => { S.tab = 'profile'; S.settings = true; render(); });
+  await page.waitForTimeout(300);
+  await page.locator('.li:has-text("Email")').click();
+  await page.waitForTimeout(300);
+  check('  Settings changes it through the same screen', /change your email/i.test(await page.locator('#app h2').innerText())
+    && /ari@example\.com/.test(await page.innerText('#app')));
+  await page.locator('#app button:has-text("Cancel")').click();
+  await page.waitForTimeout(300);
+  check('    and Cancel goes back', await page.evaluate(() => S.editEmail) === false && await page.evaluate(() => S.settings) === true);
+});
+
 // The bar is the whole gradient, and how far along you are is how much of it shows. A
 // fill that carried the gradient itself would squeeze dark-to-light into every width, so
 // a quarter done would look the same as finished.
@@ -1661,7 +1883,7 @@ await withPage(SIGNED_IN, async page => {
     && await page.locator('.list').count() === 4);
   check('  carrying everything the profile used to', /bio/i.test(set) && /Groups on your profile/i.test(set)
     && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
-    && /Recovery codes/i.test(set) && /Log out/i.test(set), set);
+    && /Email/.test(set) && /ari@example\.com/.test(set) && /Log out/i.test(set), set);
   // Whatever somebody agreed to at signup has to stay readable afterwards, or agreeing to
   // it was a box they ticked once and can never look at again.
   check('  and the documents, which have to stay reachable', /Privacy policy/i.test(set)
