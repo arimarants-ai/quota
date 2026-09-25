@@ -753,8 +753,6 @@ button.rg{border:0;font:inherit}
 .m.them .say{background:var(--soft);color:var(--text);border-bottom-left-radius:4px}
 .m.me .say{background:var(--mk);color:var(--onmk);border-bottom-right-radius:4px}
 .m.pending{opacity:.55}
-.m .drop{background:none;color:var(--muted);font-size:12px;padding:4px;opacity:0;flex:none}
-.m:hover .drop{opacity:1}
 /* Reactions hang off the bottom corner, the way every chat does them. */
 .m .mrx{position:absolute;bottom:-10px;display:flex;gap:3px;z-index:2}
 .m.them .mrx{left:10px}
@@ -982,7 +980,6 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .c{display:flex;gap:8px;padding:7px 0;font-size:14px;align-items:flex-start}
 .c b{font-weight:800;flex:none}
 .c span{color:var(--muted);flex:1;font-weight:500}
-.c .x{background:none;padding:0 4px;color:var(--muted);font-weight:600;font-size:13px}
 /* A heart on a reply, the same gesture as the one on the post, at the size of a reply. */
 .c .clk{background:none;padding:2px 3px;flex:none;display:flex;align-items:center;gap:3px;color:var(--muted);align-self:flex-start}
 .c .clk svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -990,6 +987,37 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .c .clk.on{color:#ff3b5c}
 .c .clk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
 .c .clk:active{opacity:1;transform:scale(.85)}
+/* ---- replies, and what holding a comment or a message opens */
+.clist .c{position:relative;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.clist .c.reply{margin-left:34px}
+.clist .c .at{font-style:normal;font-weight:700;color:var(--mk)}
+.clist .c .creply{display:inline-block;background:none;padding:3px 0 0;font-size:12px;font-weight:800;color:var(--muted)}
+.replying{display:flex;align-items:center;gap:8px;margin:2px 0 6px;padding:7px 10px;background:var(--soft);font-size:13px;color:var(--muted)}
+.replying span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.replying b{color:var(--text)}
+.replying em{font-style:normal;margin-left:6px}
+.replying button{background:none;padding:2px 6px;color:var(--muted);font-size:13px;flex:none}
+.replying.chat{flex:none;margin:6px 12px -4px}
+.reactpick.opts{flex-direction:column;align-items:stretch;gap:0;padding:4px;bottom:auto;top:100%;margin-top:6px;min-width:150px;border-radius:12px}
+.reactpick.opts button{font-size:15px;font-weight:700;text-align:left;padding:10px 12px;line-height:1.2}
+.reactpick.opts button.bad{color:#d1344f}
+.clist .c .reactpick.opts{left:40px;top:calc(100% - 4px)}
+.m .reactpick.opts{border-radius:12px}
+.m.them .reactpick.opts{left:0}
+.m.me .reactpick.opts{right:0}
+.m{touch-action:pan-y}
+.m .say{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.m::before{content:"\21A9";position:absolute;left:-30px;top:50%;margin-top:-11px;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;background:var(--soft);color:var(--muted);font-size:13px;opacity:0;transition:opacity .15s}
+.m.armed::before{opacity:1;color:var(--mk)}
+.m.lit .say{animation:lit 1.2s ease-out}
+@keyframes lit{0%,40%{box-shadow:0 0 0 4px var(--mkveil)}}
+.cquote{display:flex;flex-direction:column;max-width:72%;background:none;padding:0;margin:10px 0 2px;text-align:left}
+.cquote.me{align-self:flex-end;align-items:flex-end}
+.cquote.them{align-self:flex-start;align-items:flex-start}
+.cquote b{font-size:11px;font-weight:700;color:var(--muted);margin:0 6px 3px}
+.cquote span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:7px 12px;
+  border-radius:14px;background:var(--soft);color:var(--muted);font-size:13.5px;line-height:1.35;opacity:.75}
 /* Arrived here from a notification: say which reply it was, then stop saying it. */
 .clist .c.found{background:var(--mktint);box-shadow:0 0 0 6px var(--mktint);animation:foundit 2.2s ease-out}
 @keyframes foundit{0%,55%{background:var(--mkveil);box-shadow:0 0 0 6px var(--mkveil)}}
@@ -1268,7 +1296,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v107';
+const BUILD = 'quota-v108';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1312,7 +1340,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1687,7 +1715,7 @@ async function fetchAll() {
   // Oldest first, which is the order a conversation is read in. The query asks for the
   // newest so the limit takes the right end of a long one.
   S.msgs = (msgs || []).map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
-    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at)})).sort((x, y) => x.ts - y.ts);
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null})).sort((x, y) => x.ts - y.ts);
   S.mreacts = (mreacts || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
   S.reads = (reads || []).map(r => ({k: r.chat, ts: Date.parse(r.seen_at)}));
   // A post the group decided did not count is left out of the day it was posted on, which
@@ -1711,7 +1739,7 @@ async function fetchAll() {
   // one of the names asked for or the card on the story has nobody on it.
   await storyPosts();
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
-  S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at)}));
+  S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null}));
   const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
@@ -1901,10 +1929,22 @@ function redraw(sel, html) {
     const old = keep.get(r.parentNode.dataset.post); if (!old) return;
     const np = r.querySelector('.proof'), op = old.querySelector('.proof');
     if (!np || !op || np.tagName !== op.tagName) return;          // a different thing now: take the new one
-    if (np.dataset.src) op.dataset.src = np.dataset.src;         // a reload re-signs every URL; the old one is still good for an hour
+    if (np.dataset.src) op.dataset.src = np.dataset.src;         // a reload re-signs every URL; see below for when the kept one moves to it
     const nr = r.querySelector('.reacts'), or = old.querySelector('.reacts');   // the one other thing on a reel that changes
     if (or) or.remove(); if (nr) old.appendChild(nr);
     r.replaceWith(old);
+    if (op.tagName !== 'VIDEO' || !op.paused) return;
+    // A kept clip keeps the link it was first given, and links last an hour — an installed
+    // app sits in the background for longer than that all the time. A paused one on an old
+    // link moves to the one this load just signed, before it is ever asked to play.
+    if (op.getAttribute('src') && op.dataset.src && op.getAttribute('src') !== op.dataset.src
+        && Date.now() - (op._srcAt || 0) > 45 * 60e3) {
+      op.removeAttribute('src'); delete op.dataset.retried; attachClip(op);
+    } else if (op.readyState >= 2) {
+      // Taken out of the page and put back, a paused video on iPhone drops the frame it
+      // was showing and sits black. Asking for the same moment again paints it.
+      try { op.currentTime = op.currentTime; } catch (e) {}
+    }
   });
   typed.forEach((v, id) => { const i = document.querySelector(`${sel} .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
   trays.forEach(id => { const t = document.querySelector(`${sel} .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
@@ -3743,7 +3783,7 @@ let clipObs = null;
 const attachClip = v => {
   delete v.dataset.idle;
   if (v.getAttribute('src') || !v.dataset.src) return;
-  v.src = v.dataset.src;
+  v.src = v.dataset.src; v._srcAt = Date.now();
   // preload="metadata" fetches the header and stops, and a video element that has never
   // decoded a frame paints nothing — which is the black rectangle where the first frame
   // of somebody's clip should be. Nudging off zero makes it decode one and show it.
@@ -3903,12 +3943,16 @@ async function clipBust(v, postId, play) {
   // — the clip was recorded in something this device has no decoder for.
   if (v.error && v.error.code === 4) return bustMsg(v, 'This clip is in a format this device cannot play.');
   const what = v.tagName === 'IMG' ? 'picture' : 'clip';
-  if (v.dataset.retried) return bustMsg(v, `This ${what} could not be loaded.`);
-  v.dataset.retried = '1';
+  // Once per link, not once per clip. A clip kept on screen through redraws keeps the link
+  // it was first given, and a flag set by one hiccup hours ago used to turn the next one
+  // straight into this message. A link that has simply run out gets a fresh one; only a
+  // fresh one failing as well is worth saying anything about.
+  if (v.dataset.retried && v.dataset.retried === (v.getAttribute('src') || '')) return bustMsg(v, `This ${what} could not be loaded.`);
   const url = await freshUrl(postId);
   if (!url) return bustMsg(v, `This ${what} could not be loaded.`);
+  v.dataset.retried = url;
   v.dataset.src = url;
-  v.src = url;
+  v.src = url; v._srcAt = Date.now();
   if (v.tagName === 'VIDEO') { v.load(); if (play) v.play().catch(() => {}); }
 }
 function playClip(v, postId) {
@@ -4007,7 +4051,7 @@ async function refreshChat() {
   ]);
   if (!rows) return;
   const msgs = rows.map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
-    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at)})).sort((x, y) => x.ts - y.ts);
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null})).sort((x, y) => x.ts - y.ts);
   const mreacts = (rx || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
   const same = msgs.length === S.msgs.length && mreacts.length === S.mreacts.length
     && msgs.every((x, i) => x.id === S.msgs[i].id);
@@ -4126,11 +4170,16 @@ function chatBody(key) {
       mine: rx.some(r => r.e === e && r.u === m.id)}));
     // Nothing is hung on a line that has not landed yet: it has no real id to react to or
     // delete by until load() brings the row back.
-    return head + nameLine + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
+    // What it answers, above it, the way every chat shows it. Tapping it goes there.
+    const to = msg.replyTo ? S.msgs.find(x => x.id === msg.replyTo) : null;
+    const whoTo = to && (to.userId === m.id ? (mine ? 'yourself' : 'you') : esc(name(user(to.userId))));
+    const quote = to ? `<button type="button" class="cquote ${mine ? 'me' : 'them'}" onclick="jumpToMsg(${to.id})"><b>${
+      mine ? 'You' : esc(name(user(msg.userId)))} replied to ${whoTo}</b><span>${esc(clip(to.body, 90))}</span></button>` : '';
+    return head + nameLine + quote + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
       <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}</button>
       ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
         onclick="toggleMsgReact(${msg.id},'${r.e}')">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
-      ${mine && !msg.pending ? `<button type="button" class="drop" onclick="delMessage(${msg.id})" aria-label="Delete">\u2715</button>` : ''}</div>`;
+</div>`;
   }).join('');
 }
 
@@ -4150,6 +4199,7 @@ function chatView(key) {
     </div>
     <div class="msgs" id="msgs">${chatBody(key)}</div>
     <div class="emoji cemoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putChatEmoji(this,'${e}')">${e}</button>`).join('')}</div>
+    ${replyBar(key)}
     <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
       <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
       <input name="body" placeholder="Message" maxlength="2000" required autocomplete="off">
@@ -4165,10 +4215,11 @@ async function sendMessage(f, key) {
   if (!body) return;
   f.body.value = '';                       // before the redraw, the same as a comment
   const m = me(), isGroup = key.startsWith('g:');
-  const row = isGroup ? {group_id: +key.slice(2), user_id: m.id, body}
-    : {...pairOf(key.slice(2)), user_id: m.id, body};
+  const replyTo = S.mreply && S.mreply.key === key ? S.mreply.id : null;
+  S.mreply = null;
+  const row = {...(isGroup ? {group_id: +key.slice(2)} : pairOf(key.slice(2))), user_id: m.id, body, ...(replyTo ? {reply_to: replyTo} : {})};
   const tmp = {id: -Date.now(), groupId: isGroup ? +key.slice(2) : null,
-    a: isGroup ? null : row.a, b: isGroup ? null : row.b, userId: m.id, body, ts: Date.now(), pending: true};
+    a: isGroup ? null : row.a, b: isGroup ? null : row.b, userId: m.id, body, ts: Date.now(), pending: true, replyTo};
   S.msgs = [...S.msgs, tmp];
   render(); chatToEnd();
   try { await q(sb.from('messages').insert(row)); }
@@ -4176,6 +4227,7 @@ async function sendMessage(f, key) {
     S.msgs = S.msgs.filter(x => x !== tmp);
     const back = document.querySelector('#app .csend input');
     if (back) back.value = body;           // it did not send: give them back what they wrote
+    if (replyTo) S.mreply = {key, id: replyTo};
     render();
     return showErr('That message did not send.', String(e && e.message || e));
   }
@@ -4226,8 +4278,104 @@ function pickMsgReact(ev, id) {
   ev.stopPropagation();
   const row = ev.currentTarget.closest('.m');
   if (row.querySelector('.reactpick')) return closeTrays();
-  openTray(row, msgReactRow(id));
+  msgMenu(row, id);
 }
+// Reactions above the line, as ever, and underneath it everything else that can be done
+// with it. The same whether it was tapped or held.
+function msgMenu(row, id) {
+  const msg = S.msgs.find(x => x.id === id);
+  if (!msg) return;
+  openTray(row, msgReactRow(id));
+  const opts = document.createElement('div');
+  opts.className = 'reactpick opts';
+  opts.innerHTML = `<button type="button" onclick="startMsgReply(${id})">Reply</button>
+    <button type="button" onclick="closeTrays();copyText(${id},'m')">Copy</button>
+    ${msg.userId === me().id ? `<button type="button" class="bad" onclick="closeTrays();delMessage(${id})">Delete</button>` : ''}`;
+  row.appendChild(opts);
+  // The last few lines sit right on the box you type in, and a menu under one of them would
+  // open underneath it. The conversation scrolls far enough to show all of it.
+  requestAnimationFrame(() => opts.scrollIntoView({block: 'nearest'}));
+}
+// A reply: the bar over the box says what it answers, and the keyboard comes up.
+function startMsgReply(id) {
+  closeTrays();
+  if (!S.chat || S.chat === 'list') return;
+  S.mreply = {key: S.chat, id};
+  render();
+  const box = $('#app .csend input'); if (box) box.focus();
+}
+function replyBar(key) {
+  const to = S.mreply && S.mreply.key === key ? S.msgs.find(x => x.id === S.mreply.id) : null;
+  if (!to) return '';
+  return `<div class="replying chat"><span>Replying to <b>${to.userId === me().id ? 'yourself' : esc(name(user(to.userId)))}</b>
+      <em>${esc(clip(to.body, 70))}</em></span>
+    <button type="button" onclick="S.mreply=null;render()" aria-label="Stop replying">\u2715</button></div>`;
+}
+// Where a quoted line is, briefly lit so the eye lands on the right one.
+function jumpToMsg(id) {
+  const el = document.querySelector(`#msgs .m[data-msg="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({block: 'center', behavior: 'smooth'});
+  el.classList.remove('lit'); void el.offsetWidth; el.classList.add('lit');
+}
+const clip = (t, n) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '\u2026' : t; };
+function copyText(id, kind) {
+  const x = kind === 'm' ? S.msgs.find(y => y.id === id) : S.comments.find(y => y.id === id);
+  if (x && navigator.clipboard) navigator.clipboard.writeText(x.body).catch(() => {});
+}
+
+// Holding a comment or a line in a conversation opens what can be done with it; swiping a
+// line to the right answers it. Both are watched from the document, because the elements
+// are rebuilt on every redraw and a listener on one would go with it.
+let press = null, pressDone = false, swipe = null;
+const MENU_HOLD_MS = 450;          // longer than a story pause: this one opens something
+function unpress() { if (press) { clearTimeout(press.t); press = null; } }
+document.addEventListener('pointerdown', e => {
+  pressDone = false;
+  if (e.button > 0) return;
+  const c = e.target.closest('.clist .c:not(.pending)');
+  const m = e.target.closest('#msgs .m:not(.pending)');
+  if ((c || m) && !e.target.closest('.reactpick, .clk, .creply, .mrx')) {
+    press = {x: e.clientX, y: e.clientY, t: setTimeout(() => {
+      press = null; pressDone = true;
+      try { navigator.vibrate && navigator.vibrate(8); } catch (x) {}
+      closeTrays();
+      if (m) msgMenu(m, +m.dataset.msg); else commentMenu(c);
+    }, MENU_HOLD_MS)};
+  }
+  swipe = m && e.clientX > 24 ? {row: m, x: e.clientX, y: e.clientY, dx: 0, live: false} : null;
+}, true);
+document.addEventListener('pointermove', e => {
+  if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) unpress();
+  if (!swipe) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  if (!swipe.live) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    if (dx <= 0 || Math.abs(dx) <= Math.abs(dy)) { swipe = null; return; }   // a scroll, not a swipe
+    swipe.live = true; unpress(); closeTrays();
+  }
+  swipe.dx = Math.min(72, Math.max(0, dx));
+  swipe.row.style.transform = `translateX(${swipe.dx}px)`;
+  swipe.row.classList.toggle('armed', swipe.dx >= 56);
+}, true);
+function unswipe() {
+  unpress();
+  if (!swipe) return;
+  const {row, live, dx} = swipe; swipe = null;
+  if (!live) return;
+  row.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)';
+  row.style.transform = '';
+  row.classList.remove('armed');
+  setTimeout(() => { row.style.transition = ''; }, 220);
+  pressDone = true;                        // the release is the swipe, not a tap on the line
+  if (dx >= 56) startMsgReply(+row.dataset.msg);
+}
+document.addEventListener('pointerup', unswipe, true);
+document.addEventListener('pointercancel', unswipe, true);
+// The release after a hold or a swipe still arrives as a click on the thing under it, and
+// that click is the hold, not a tap. Some phones send none, so the flag is also reset on
+// the next press rather than trusted to be used up.
+document.addEventListener('click', e => { if (pressDone) { pressDone = false; e.stopPropagation(); e.preventDefault(); } }, true);
 const msgReactBtn = (id, e) => `<button type="button" onclick="toggleMsgReact(${id},'${e}');closeTrays()">${e}</button>`;
 const msgReactRow = id => CHAT_REACTS.map(e => msgReactBtn(id, e)).join('')
   + `<button type="button" class="more" onclick="moreMsgReact(event,this,${id})" aria-label="Any other emoji">+</button>`;
@@ -4346,18 +4494,36 @@ function flagStrip(p) {
 // are already looking at, the thing to say is the thing in front of you.
 function commentsFor(p, cs) {
   if (S.noComments) return `<div class="cmts"><p class="muted">Comments are off until the v2 block of schema.sql is run.</p></div>`;
+  const byId = new Map(cs.map(c => [c.id, c]));
+  const replying = S.creply && S.creply.post === p.id ? byId.get(S.creply.id) : null;
   return `<div class="cmts">
-    ${cs.length ? `<div class="clist">${cs.map(c => `<div class="c${c.pending ? ' pending' : ''}" data-cmt="${c.id}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
-      <span>${esc(c.body)}</span></div>${c.pending ? '' : `<button type="button" class="clk${iLikeComment(c.id) ? ' on' : ''}" onclick="toggleCommentLike(${c.id})" aria-label="${iLikeComment(c.id) ? 'Unlike' : 'Like'} this comment">${HEART}${
-        commentLikes(c.id).length ? `<i>${num(commentLikes(c.id).length)}</i>` : ''}</button>`}${
-        c.userId === me().id && !c.pending ? `<button class="x" onclick="delComment(${c.id})" aria-label="Delete">✕</button>` : ''}</div>`).join('')}</div>` : ''}
+    ${cs.length ? `<div class="clist">${threaded(cs).map(c => {
+      const to = c.replyTo ? byId.get(c.replyTo) : null;
+      // A reply to a reply says who it is answering; a reply to the comment it sits under
+      // does not need to, because that is the one right above it.
+      const at = to && to.replyTo ? `<em class="at">@${esc(user(to.userId).username || '')}</em> ` : '';
+      return `<div class="c${c.pending ? ' pending' : ''}${to ? ' reply' : ''}" data-cmt="${c.id}" data-cpost="${p.id}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
+      <span>${at}${esc(c.body)}</span>${c.pending ? '' : `<button type="button" class="creply" onclick="replyComment(${p.id},${c.id})">Reply</button>`}</div>${
+        c.pending ? '' : `<button type="button" class="clk${iLikeComment(c.id) ? ' on' : ''}" onclick="toggleCommentLike(${c.id})" aria-label="${iLikeComment(c.id) ? 'Unlike' : 'Like'} this comment">${HEART}${
+        commentLikes(c.id).length ? `<i>${num(commentLikes(c.id).length)}</i>` : ''}</button>`}</div>`;
+    }).join('')}</div>` : ''}
+    ${replying ? `<div class="replying"><span>Replying to <b>${esc(name(user(replying.userId)))}</b></span>
+      <button type="button" onclick="S.creply=null;render()" aria-label="Stop replying">✕</button></div>` : ''}
     <form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})">
       <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">${SMILEY}</button>
-      <input name="body" placeholder="Write a comment" maxlength="500" required autocomplete="off">
+      <input name="body" placeholder="${replying ? 'Write a reply' : 'Write a comment'}" maxlength="500" required autocomplete="off">
       <button class="primary">Send</button>
     </form>
     <div class="emoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putEmoji(this,'${e}')">${e}</button>`).join('')}</div>
   </div>`;
+}
+// Each comment followed by every reply under it, however deep, in the order they were
+// written: one level of indent, the way every comment section does it.
+function threaded(cs) {
+  const byId = new Map(cs.map(c => [c.id, c]));
+  const rootOf = c => { let r = c; for (let n = 0; r.replyTo && byId.has(r.replyTo) && n < 50; n++) r = byId.get(r.replyTo); return r; };
+  const roots = new Map(cs.map(c => [c, rootOf(c)]));
+  return cs.filter(c => roots.get(c) === c).flatMap(t => [t, ...cs.filter(c => c !== t && roots.get(c) === t)]);
 }
 
 // ---- raising one
@@ -5726,6 +5892,8 @@ function navDown(e) {
   if (nav || $('#dlg').open || $('#crop').open) return;
   if (!$('#story').hidden || !$('#make').hidden || !$('#one').hidden) return;
   if (e.target.closest('.stories, input, textarea, [contenteditable]')) return;
+  // Across a line in a conversation is a reply. Back is still there from the edge.
+  if (e.target.closest('#msgs .m') && e.clientX > 24) return;
   if (still() || !backAction()) return;
   document.documentElement.classList.add('grabbing');   // the layer exists before the first move
   nav = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
@@ -7106,22 +7274,52 @@ async function addComment(f, postId) {
   // Show it, and count it, before the round trip finishes — a count that only moves once
   // the server answers reads as a tap that did nothing. It carries no real id yet, so it
   // is marked pending and offers no delete until load() brings back the real row.
-  const tmp = {id: -Date.now(), postId, userId: me().id, body, pending: true};
+  const replyTo = S.creply && S.creply.post === postId ? S.creply.id : null;
+  S.creply = null;
+  const tmp = {id: -Date.now(), postId, userId: me().id, body, pending: true, replyTo};
   S.comments = [...S.comments, tmp];
   render();
   try {
-    await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body}));
+    await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body, ...(replyTo ? {reply_to: replyTo} : {})}));
   } catch (e) {
     S.comments = S.comments.filter(c => c !== tmp);
     const back = document.querySelector(`#app .post[data-post="${postId}"] .cin input`);
     if (back) back.value = body;           // it did not send: give them back what they wrote
+    if (replyTo) S.creply = {post: postId, id: replyTo};
     render();
     throw e;
   }
   const y = scrollY; await load(); scrollTo(0, y);
 }
+// Starts a reply: the box under that post says who it is to, and has the keyboard.
+function replyComment(postId, id) {
+  closeTrays();
+  S.creply = {post: postId, id};
+  render();
+  const box = document.querySelector(`#onewrap .post[data-post="${postId}"] .cin input`)
+    || document.querySelector(`#app .post[data-post="${postId}"] .cin input`);
+  if (box) { box.focus(); box.closest('.cmts').scrollIntoView({block: 'nearest', behavior: 'smooth'}); }
+}
+// Held: what can be done with a comment. Yours can be deleted from here; there is no X.
+function commentMenu(el) {
+  const id = +el.dataset.cmt, postId = +el.dataset.cpost, c = S.comments.find(x => x.id === id);
+  if (!c) return;
+  const mine = c.userId === me().id, liked = iLikeComment(id);
+  openTray(el, `<button type="button" onclick="replyComment(${postId},${id})">Reply</button>
+    <button type="button" onclick="closeTrays();toggleCommentLike(${id})">${liked ? 'Unlike' : 'Like'}</button>
+    <button type="button" onclick="closeTrays();copyText(${id},'c')">Copy</button>
+    ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete comment</button>` : ''}`, 'opts');
+}
+// A comment with replies under it takes them with it, so that is said first.
+function delCommentAsk(id) {
+  const under = S.comments.filter(c => c.replyTo === id).length;
+  if (under && !confirm(`Delete this comment? The ${under === 1 ? 'reply' : `${under} replies`} under it go too.`)) return;
+  delComment(id);
+}
 async function delComment(id) {
-  S.comments = S.comments.filter(c => c.id !== id); render();
+  const gone = new Set([id]);                        // and everything answering it, as the database does
+  for (let grew = true; grew;) { grew = false; for (const c of S.comments) if (c.replyTo && gone.has(c.replyTo) && !gone.has(c.id)) { gone.add(c.id); grew = true; } }
+  S.comments = S.comments.filter(c => !gone.has(c.id)); render();
   try {
     await q(sb.from('comments').delete().eq('id', id));
   } catch (e) { await load(); throw e; }

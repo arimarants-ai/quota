@@ -118,6 +118,13 @@ const SIGNED_IN = { session: { user: { id: 'u1' } } };
 // no wheel on it rather than spinning one first every time.
 const NO_WHEEL = { ...SIGNED_IN, wheel: false };
 const settle = p => p.waitForTimeout(700);
+// Press and keep pressing, the way a finger opens the menu on a comment or a message.
+async function hold(page, loc) {
+  const b = await loc.boundingBox();
+  await page.mouse.move(b.x + 12, b.y + b.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(600); await page.mouse.up();
+  await page.waitForTimeout(200);
+}
 
 // The session read never coming back is the one that showed nothing at all: no alert to
 // dismiss, no screen, no way to tell whether it was working.
@@ -1396,8 +1403,8 @@ await withPage(SIGNED_IN, async page => {
   check('  a comment counts before the write comes back', /^1 comment$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
   check('    and shows under the post that soon too', /nice one/.test(await list()), await list());
-  check('      with no delete on it until it is really saved',
-    await page.locator('.post .clist .x').count() === 0);
+  check('      with nothing to act on until it is really saved',
+    await page.locator('.post .clist .creply').count() === 0);
   // The box is emptied before the redraw, not after. render() carries a half-typed reply
   // across a rebuild so a like elsewhere on the page cannot eat it, and a box still
   // holding what it had just sent looked exactly like one being carried across — so it
@@ -1409,9 +1416,14 @@ await withPage(SIGNED_IN, async page => {
   check('  a comment written there stays there', /nice one/.test(await list()), await list());
   check('    and the box is still empty once it has really saved', await box.inputValue() === '',
     JSON.stringify(await box.inputValue()));
-  check('    and it can be taken back once it is saved', await page.locator('.post .clist .x').count() === 1);
+  check('    and it can be answered once it is saved', await page.locator('.post .clist .creply').count() === 1);
+  check('    with no X on it: deleting is in the menu a hold opens', await page.locator('.post .clist .x').count() === 0);
 
-  await page.locator('.post .clist .x').first().click();
+  await hold(page, page.locator('.post .clist .c').first());
+  const opts = await page.locator('.post .clist .reactpick.opts button').allInnerTexts();
+  check('  holding your comment offers reply, like, copy and delete',
+    opts.join('|') === 'Reply|Like|Copy|Delete comment', JSON.stringify(opts));
+  await page.locator('.post .clist .reactpick.opts button:has-text("Delete comment")').click();
   await page.waitForTimeout(900);
   check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
@@ -2542,7 +2554,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   check('    emptying the box it was typed into', await box.inputValue() === '',
     JSON.stringify(await box.inputValue()));
   check('    and offering nothing to react to until it has really landed',
-    await page.locator('.m.pending .drop').count() === 0);
+    await page.evaluate(() => !document.querySelector('.m.pending .say').onclick));
   await page.evaluate(() => { const g = self.__go; self.__stall = null; g(); });
   await page.waitForTimeout(900);
   const sent = await page.evaluate(() => self.__msgs.at(-1));
@@ -2564,7 +2576,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   // Reacting to one, which is the same gesture as reacting to a post.
   await page.locator('#app .m .say').last().click();
   await page.waitForTimeout(300);
-  check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick').count() === 1);
+  check('  tapping a line offers a reaction', await page.locator('#app .m .reactpick:not(.opts)').count() === 1);
   // Put away by tapping anywhere that is not it, which is what tapping away from an open
   // thing means everywhere else on a phone. It used to want the same message tapped again.
   // A tap where a finger would land, not a click on a particular element: since v93 a
@@ -2577,10 +2589,13 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.locator('#app .m .say').last().click();
   await page.waitForTimeout(250);
   check('    while tapping the tray itself leaves it up',
-    await page.locator('#app .m .reactpick').count() === 1);
+    await page.locator('#app .m .reactpick:not(.opts)').count() === 1);
   // What you answer a message with is not what you answer a post with: a post gets cheers,
   // a line in a conversation gets agreeing with it or not.
-  const quick = await page.locator('#app .m .reactpick button').allInnerTexts();
+  const quick = await page.locator('#app .m .reactpick:not(.opts) button').allInnerTexts();
+  const under = await page.locator('#app .m .reactpick.opts button').allInnerTexts();
+  check('    and under the line, what else can be done with it', under.join('|') === 'Reply|Copy|Delete',
+    JSON.stringify(under));
   check('    with answers a conversation actually takes',
     quick.includes('❤️') && quick.includes('👍') && quick.includes('👎') && !quick.includes('💪'),
     JSON.stringify(quick));
@@ -2589,19 +2604,55 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   // The + opens the rest in the same tray rather than a sheet over the conversation.
   await page.locator('#app .m .reactpick .more').click();
   await page.waitForTimeout(250);
-  const all = await page.locator('#app .m .reactpick button').allInnerTexts();
+  const all = await page.locator('#app .m .reactpick:not(.opts) button').allInnerTexts();
   check('    which opens the rest in place, and scrolls',
     all.length > 20 && !all.includes('+')
     && await page.evaluate(() => getComputedStyle(document.querySelector('#app .m .reactpick')).overflowX === 'auto'),
     `${all.length} to pick from`);
   check('      still offering the quick ones first', all[0] === '❤️', JSON.stringify(all.slice(0, 3)));
 
-  await page.locator('#app .m .reactpick button').first().click();
+  await page.locator('#app .m .reactpick:not(.opts) button').first().click();
   await page.waitForTimeout(700);
   check('    and picking one sticks it on',
     await page.locator('#app .m .mrx button').count() === 1
     && await page.evaluate(() => self.__mreacts.length) === 1,
     JSON.stringify(await page.evaluate(() => self.__mreacts)));
+
+  // Answering a line: from the menu, then from a swipe.
+  await page.locator('#app .m .say').last().click();
+  await page.waitForTimeout(250);
+  await page.locator('#app .m .reactpick.opts button:has-text("Reply")').click();
+  await page.waitForTimeout(300);
+  check('  Reply puts what it answers over the box', /replying to/i.test(await page.locator('#app .replying').innerText())
+    && /6am one/.test(await page.locator('#app .replying').innerText()), await page.locator('#app .replying').innerText().catch(() => ''));
+  check('    and gives the box the keyboard', await page.evaluate(() => document.activeElement === document.querySelector('#app .csend input')));
+  const answered = await page.evaluate(() => S.mreply && S.mreply.id);
+  await page.locator('.csend input').fill('me, probably');
+  await page.locator('.csend button.primary').click();
+  await page.waitForTimeout(900);
+  const reply = await page.evaluate(() => self.__msgs.at(-1));
+  check('  the reply is sent pointing at what it answers', reply && reply.reply_to === answered && /probably/.test(reply.body),
+    JSON.stringify(reply));
+  check('    the bar goes once it is sent', await page.locator('#app .replying').count() === 0);
+  check('    and the reply shows what it answered above it',
+    await page.locator('#app .cquote').count() === 1 && /6am one/.test(await page.locator('#app .cquote').innerText()));
+  // A swipe to the right on a line does the same, and does not go back a screen.
+  { const b = await page.locator('#app .m .say').first().boundingBox();
+    await page.mouse.move(b.x + 20, b.y + b.height / 2); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(b.x + 20 + i * 10, b.y + b.height / 2); await page.waitForTimeout(16); }
+    await page.mouse.up(); await page.waitForTimeout(400); }
+  check('  swiping a line to the right answers it', await page.locator('#app .replying').count() === 1
+    && await page.evaluate(() => S.chat) !== 'list', await page.evaluate(() => JSON.stringify(S.mreply)));
+  check('    without opening the menu on the way', await page.locator('#app .m .reactpick').count() === 0);
+  await page.locator('#app .replying button').click();
+  await page.waitForTimeout(250);
+  check('    and the X next to it lets it go', await page.locator('#app .replying').count() === 0);
+  // Holding opens the same menu as a tap.
+  await hold(page, page.locator('#app .m .say').first());
+  check('  holding a line opens the reactions and the menu under it',
+    await page.locator('#app .m .reactpick:not(.opts)').count() === 1 && await page.locator('#app .m .reactpick.opts').count() === 1);
+  { const b = await page.locator('#app .cbar').boundingBox(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); }
+  await page.waitForTimeout(200);
 
   // Back to the list, because that is where this was opened from.
   await page.locator('#app .cbar .backx').click();
@@ -2609,8 +2660,75 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   check('  and the way back is the list it was opened from',
     await page.evaluate(() => S.chat) === 'list' && await page.locator('.crow').count() >= 1);
   check('    with the last thing said on the row',
-    /6am one/.test(await page.locator('.crow').first().innerText()),
+    /probably/.test(await page.locator('.crow').first().innerText()),
     await page.locator('.crow').first().innerText());
+});
+
+// Answering a comment: the Reply under it, where the answer sits, and the menu on somebody
+// else's, which has no delete on it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const pid = await page.evaluate(() => {
+    const p = S.posts[0];
+    self.__cmts.push({id: 801, post_id: p.id, user_id: 'u2', body: 'first!', created_at: new Date(Date.now() - 60e3).toISOString()});
+    return p.id;
+  });
+  await page.evaluate(() => load());
+  await page.waitForTimeout(700);
+  const post = page.locator(`#app .post[data-post="${pid}"]`);
+  await post.locator('.clist .creply').first().click();
+  await page.waitForTimeout(300);
+  check('Reply under a comment says who the answer is to',
+    /replying to/i.test(await post.locator('.replying').innerText()) && /sam/i.test(await post.locator('.replying').innerText()),
+    await post.locator('.replying').innerText().catch(() => ''));
+  check('  and gives its box the keyboard', await page.evaluate(id =>
+    document.activeElement === document.querySelector(`#app .post[data-post="${id}"] .cin input`), pid));
+  await post.locator('.cin input').fill('second');
+  await post.locator('.cin button.primary').click();
+  await page.waitForTimeout(900);
+  const sent = await page.evaluate(() => self.__cmts.at(-1));
+  check('  the answer is saved pointing at the comment it answers', sent && sent.reply_to === 801 && sent.body === 'second',
+    JSON.stringify(sent));
+  check('  and sits indented under it', await post.locator('.clist .c.reply').count() === 1
+    && (await post.locator('.clist .c').allInnerTexts()).map(t => t.includes('first!') ? 'top' : t.includes('second') ? 'reply' : '?').join() === 'top,reply');
+  // Answering the answer names who it is to, since it is not the one right above it.
+  await post.locator('.clist .c.reply .creply').click();
+  await page.waitForTimeout(250);
+  await post.locator('.cin input').fill('third');
+  await post.locator('.cin button.primary').click();
+  await page.waitForTimeout(900);
+  check('  a reply to a reply stays in the same thread, naming who it answers',
+    await post.locator('.clist .c.reply').count() === 2 && /@ari/.test(await post.locator('.clist .c.reply').last().innerText()),
+    await post.locator('.clist').innerText());
+  await hold(page, post.locator('.clist .c').first());
+  const opts = await post.locator('.clist .reactpick.opts button').allInnerTexts();
+  check('  holding somebody else\'s comment has no delete in it', opts.join('|') === 'Reply|Like|Copy', JSON.stringify(opts));
+});
+
+// A clip kept through redraws: the same element stays, an old link gets a fresh one rather
+// than the error, and only a fresh link failing too says the clip could not be loaded.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const out = await page.evaluate(async () => {
+    const v = document.querySelector('#app .post video.proof');
+    if (!v) return {none: true};
+    v.__mine = 1;
+    const pid = +v.closest('.post').dataset.post;
+    render(); render();
+    const same = document.querySelector(`#app .post[data-post="${pid}"] video.proof`).__mine === 1;
+    self.__resigned = 0;
+    v.dataset.retried = 'https://old.example/expired';     // retried once, long ago, on a link since replaced
+    v.setAttribute('src', 'https://old.example/also-old');
+    await clipBust(v, pid);
+    // The stub's links cannot really play, so what matters is that it asked for a fresh one
+    // and put it on, rather than going straight to the message.
+    const resignedOnce = self.__resigned === 1 && v.getAttribute('src') === v.dataset.retried && !!v.dataset.retried;
+    await clipBust(v, pid);                                  // and now the fresh one fails as well
+    return {same, resignedOnce, bustAfter: v.closest('.reel').classList.contains('bust'), resigned: self.__resigned};
+  });
+  check('a redraw keeps the very same clip element on screen', out.same, JSON.stringify(out));
+  check('  a clip on an old link gets a fresh one instead of the error', out.resignedOnce, JSON.stringify(out));
+  check('    and only a fresh link failing too says it could not be loaded', out.bustAfter && out.resigned === 1, JSON.stringify(out));
 });
 
 // A private one, the pair it is stored as, and what the filter says about language it

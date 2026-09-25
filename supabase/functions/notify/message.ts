@@ -46,25 +46,16 @@ export function verdictFor(what: string, upheld: boolean, mine: boolean): string
   return upheld ? `The group says ${what} needs redoing.` : `The group let ${what} stand.`;
 }
 
-/** Somebody's own words, trimmed to what a lock screen can hold. The rest is one tap away. */
-export const snippet = (s: string | null | undefined, max = 80) => {
-  const t = (s ?? '').replace(/\s+/g, ' ').trim();
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-};
-
 /**
  * A message in a chat. `where` is the group's name when it is a group's chat, and nothing
- * when it is between two people.
+ * when it is between two people. `replied` is when it answers something you said.
  *
- * It says what happened before it says what was said. "Sam: see you tomorrow" on a lock
- * screen could be a message, a comment, a reply to a story or a caption — every one of
- * which lands somewhere different when it is tapped. Naming the action is what makes the
- * tap predictable, and the words are still there after it.
+ * Who, and what they did, but never the words: a notification is a reason to open the app,
+ * and what somebody said is read there, in the conversation it belongs to.
  */
-export function chatFor(name: string, body: string, where?: string | null): string {
-  const said = snippet(body, 60);
-  const did = where ? `${name} messaged ${where}` : `${name} sent you a message`;
-  return said ? `${did}: ${said}` : did;
+export function chatFor(name: string, where?: string | null, replied = false): string {
+  if (replied) return where ? `${name} replied to you in ${where}` : `${name} replied to your message`;
+  return where ? `${name} messaged ${where}` : `${name} sent you a message`;
 }
 
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
@@ -75,7 +66,7 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'reply' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
   // Somebody said yes. Worth hearing: an invitation sent and never spoken of again is the
@@ -88,16 +79,8 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'react
   // A story says so, because it is gone in a day and the post it is not is still there.
   if (kind === 'story_like') return `${name} liked your story`;
   if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
-  // Which comment, so a notification about one of several reads as being about one.
-  if (kind === 'comment_like') {
-    const said = (extra ?? '').replace(/\s+/g, ' ').trim();
-    const short = said.length > 60 ? `${said.slice(0, 59)}\u2026` : said;
-    return short ? `${name} liked your comment: ${short}` : `${name} liked your comment`;
-  }
-  // A comment is worth reading in the notification itself, but a long one turns the whole
-  // thing into a wall; the rest is one tap away. What it is comes first either way — the
-  // words alone could be a message, a reply to a story, or a caption, and each of those
-  // lands somewhere different when it is tapped.
-  const short = snippet(extra, 60);
-  return short ? `${name} commented on your proof: ${short}` : `${name} commented on your proof`;
+  // Who, not what. The words are read in the app, under the post they belong to.
+  if (kind === 'comment_like') return `${name} liked your comment`;
+  if (kind === 'reply') return `${name} replied to your comment`;
+  return `${name} commented on your proof`;
 }

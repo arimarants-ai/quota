@@ -155,25 +155,16 @@ export function verdictFor(what: string, upheld: boolean, mine: boolean): string
   return upheld ? `The group says ${what} needs redoing.` : `The group let ${what} stand.`;
 }
 
-/** Somebody's own words, trimmed to what a lock screen can hold. The rest is one tap away. */
-export const snippet = (s: string | null | undefined, max = 80) => {
-  const t = (s ?? '').replace(/\s+/g, ' ').trim();
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-};
-
 /**
  * A message in a chat. `where` is the group's name when it is a group's chat, and nothing
- * when it is between two people.
+ * when it is between two people. `replied` is when it answers something you said.
  *
- * It says what happened before it says what was said. "Sam: see you tomorrow" on a lock
- * screen could be a message, a comment, a reply to a story or a caption — every one of
- * which lands somewhere different when it is tapped. Naming the action is what makes the
- * tap predictable, and the words are still there after it.
+ * Who, and what they did, but never the words: a notification is a reason to open the app,
+ * and what somebody said is read there, in the conversation it belongs to.
  */
-export function chatFor(name: string, body: string, where?: string | null): string {
-  const said = snippet(body, 60);
-  const did = where ? `${name} messaged ${where}` : `${name} sent you a message`;
-  return said ? `${did}: ${said}` : did;
+export function chatFor(name: string, where?: string | null, replied = false): string {
+  if (replied) return where ? `${name} replied to you in ${where}` : `${name} replied to your message`;
+  return where ? `${name} messaged ${where}` : `${name} sent you a message`;
 }
 
 /** Who did it, by the name they chose, falling back to the one they signed up with. */
@@ -184,7 +175,7 @@ export const who = (p: Who) => p.display_name || p.username;
  * Text for everything that is not a post. Kept here with the rest so it can be read
  * beside what a post says, and tested without Deno or a database.
  */
-export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
+export function socialFor(kind: 'friend' | 'group' | 'comment' | 'reply' | 'like' | 'reaction' | 'story_like' | 'story_reaction' | 'comment_like' | 'message_reaction' | 'accepted_friend' | 'joined_group', name: string, extra?: string | null): string {
   if (kind === 'friend') return `${name} sent you a friend request`;
   if (kind === 'message_reaction') return `${name} reacted ${extra ?? ''} to your message`.replace(/ {2,}/g, ' ');
   // Somebody said yes. Worth hearing: an invitation sent and never spoken of again is the
@@ -197,18 +188,10 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'like' | 'react
   // A story says so, because it is gone in a day and the post it is not is still there.
   if (kind === 'story_like') return `${name} liked your story`;
   if (kind === 'story_reaction') return `${name} reacted ${extra ?? ''} to your story`.replace(/ {2,}/g, ' ');
-  // Which comment, so a notification about one of several reads as being about one.
-  if (kind === 'comment_like') {
-    const said = (extra ?? '').replace(/\s+/g, ' ').trim();
-    const short = said.length > 60 ? `${said.slice(0, 59)}\u2026` : said;
-    return short ? `${name} liked your comment: ${short}` : `${name} liked your comment`;
-  }
-  // A comment is worth reading in the notification itself, but a long one turns the whole
-  // thing into a wall; the rest is one tap away. What it is comes first either way — the
-  // words alone could be a message, a reply to a story, or a caption, and each of those
-  // lands somewhere different when it is tapped.
-  const short = snippet(extra, 60);
-  return short ? `${name} commented on your proof: ${short}` : `${name} commented on your proof`;
+  // Who, not what. The words are read in the app, under the post they belong to.
+  if (kind === 'comment_like') return `${name} liked your comment`;
+  if (kind === 'reply') return `${name} replied to your comment`;
+  return `${name} commented on your proof`;
 }
 
 // Fan out a push notification to a group when someone posts proof.
@@ -329,7 +312,7 @@ Deno.serve(async (req) => {
     if (!(await hears(comment.user_id, onPost?.group_id))) return new Response('muted', { status: 200 });
     return blast([comment.user_id], JSON.stringify({
       title: 'Quota',
-      body: socialFor('comment_like', who(from), comment.body),
+      body: socialFor('comment_like', who(from)),
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
     }));
@@ -370,25 +353,35 @@ Deno.serve(async (req) => {
   // other half of the pair. The link is the chat as the person reading it names it, which
   // for a private one is the sender rather than themselves.
   if (kind === 'message') {
-    const { group_id: gid, a, b, user_id: actor, body: said } = record ?? {};
+    const { group_id: gid, a, b, user_id: actor, reply_to } = record ?? {};
     if (!actor) return new Response('ignored', { status: 200 });
-    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    const [[from], [answered]] = await Promise.all([
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+      reply_to ? rest(`messages?id=eq.${reply_to}&select=user_id`) : Promise.resolve([]),
+    ]);
     if (!from) return new Response('ignored', { status: 200 });
+    // Whoever wrote what this answers, unless that is the person answering it.
+    const to = answered && answered.user_id !== actor ? answered.user_id : null;
     if (gid) {
       const [[group], members] = await Promise.all([
         rest(`groups?id=eq.${gid}&select=name`),
         rest(`group_members?group_id=eq.${gid}&user_id=neq.${actor}&muted=is.false&select=user_id`),
       ]);
       if (!group) return new Response('ignored', { status: 200 });
-      return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
-        title: group.name, body: chatFor(who(from), said, group.name),
-        url: `${SITE_URL}/#chat-g:${gid}`, tag: `chat-g-${gid}`,
+      const everyone = members.map((m: { user_id: string }) => m.user_id);
+      const url = `${SITE_URL}/#chat-g:${gid}`, tag = `chat-g-${gid}`;
+      // A muted group is muted for replies too: `members` already leaves them out.
+      if (to && everyone.includes(to)) {
+        await blast([to], JSON.stringify({ title: group.name, body: chatFor(who(from), group.name, true), url, tag }));
+      }
+      return blast(everyone.filter((u: string) => u !== to), JSON.stringify({
+        title: group.name, body: chatFor(who(from), group.name), url, tag,
       }));
     }
-    const to = a === actor ? b : a;
-    if (!to) return new Response('ignored', { status: 200 });
-    return blast([to], JSON.stringify({
-      title: 'Quota', body: chatFor(who(from), said),
+    const other = a === actor ? b : a;
+    if (!other) return new Response('ignored', { status: 200 });
+    return blast([other], JSON.stringify({
+      title: 'Quota', body: chatFor(who(from), null, to === other),
       url: `${SITE_URL}/#chat-u:${actor}`, tag: `chat-u-${actor}`,
     }));
   }
@@ -436,8 +429,32 @@ Deno.serve(async (req) => {
     return blast(others, JSON.stringify({ title: 'Quota', body: line(false), url, tag }));
   }
 
-  if (kind === 'comment' || kind === 'like' || kind === 'reaction') {
-    const { post_id, user_id: actor, body: text, emoji } = record ?? {};
+  // A comment tells whoever owns the post. A reply also tells whoever wrote the comment it
+  // answers, and says it is a reply; nobody is told twice about the same one.
+  if (kind === 'comment') {
+    const { id, post_id, user_id: actor, reply_to } = record ?? {};
+    if (!post_id || !actor) return new Response('ignored', { status: 200 });
+    const [[post], [from], [answered]] = await Promise.all([
+      rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+      reply_to ? rest(`comments?id=eq.${reply_to}&select=user_id`) : Promise.resolve([]),
+    ]);
+    if (!post || !from) return new Response('ignored', { status: 200 });
+    const url = id ? atComment(id) : atPost(post_id);
+    const to = answered && answered.user_id !== actor ? answered.user_id : null;
+    if (to && await hears(to, post.group_id)) {
+      await blast([to], JSON.stringify({ title: 'Quota', body: socialFor('reply', who(from)), url, tag: `reply-${reply_to}` }));
+    }
+    if (post.user_id === actor || post.user_id === to || !(await hears(post.user_id, post.group_id))) {
+      return new Response(to ? 'replied' : 'ignored', { status: 200 });
+    }
+    return blast([post.user_id], JSON.stringify({
+      title: 'Quota', body: socialFor('comment', who(from)), url, tag: `comment-${post_id}`,
+    }));
+  }
+
+  if (kind === 'like' || kind === 'reaction') {
+    const { post_id, user_id: actor, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
     const [[post], [from]] = await Promise.all([
       rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
@@ -448,9 +465,8 @@ Deno.serve(async (req) => {
     if (!(await hears(post.user_id, post.group_id))) return new Response('muted', { status: 200 });
     return blast([post.user_id], JSON.stringify({
       title: 'Quota',
-      body: socialFor(kind, who(from), kind === 'comment' ? text : kind === 'reaction' ? emoji : null),
-      // A comment lands on the comment; a like or a reaction is about the post itself.
-      url: kind === 'comment' && record.id ? atComment(record.id) : atPost(post_id),
+      body: socialFor(kind, who(from), kind === 'reaction' ? emoji : null),
+      url: atPost(post_id),
       // A reaction is tagged by the emoji so two different ones do not replace each other.
       tag: kind === 'reaction' ? `reaction-${post_id}-${emoji}` : `${kind}-${post_id}`,
     }));
