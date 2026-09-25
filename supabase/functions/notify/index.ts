@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
     if (!(await hears(comment.user_id, onPost?.group_id))) return new Response('muted', { status: 200 });
     return blast([comment.user_id], JSON.stringify({
       title: 'Quota',
-      body: socialFor('comment_like', who(from), comment.body),
+      body: socialFor('comment_like', who(from)),
       url: atComment(comment_id),
       tag: `comment-like-${comment_id}`,
     }));
@@ -159,25 +159,35 @@ Deno.serve(async (req) => {
   // other half of the pair. The link is the chat as the person reading it names it, which
   // for a private one is the sender rather than themselves.
   if (kind === 'message') {
-    const { group_id: gid, a, b, user_id: actor, body: said } = record ?? {};
+    const { group_id: gid, a, b, user_id: actor, reply_to } = record ?? {};
     if (!actor) return new Response('ignored', { status: 200 });
-    const [from] = await rest(`profiles?id=eq.${actor}&select=username,display_name`);
+    const [[from], [answered]] = await Promise.all([
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+      reply_to ? rest(`messages?id=eq.${reply_to}&select=user_id`) : Promise.resolve([]),
+    ]);
     if (!from) return new Response('ignored', { status: 200 });
+    // Whoever wrote what this answers, unless that is the person answering it.
+    const to = answered && answered.user_id !== actor ? answered.user_id : null;
     if (gid) {
       const [[group], members] = await Promise.all([
         rest(`groups?id=eq.${gid}&select=name`),
         rest(`group_members?group_id=eq.${gid}&user_id=neq.${actor}&muted=is.false&select=user_id`),
       ]);
       if (!group) return new Response('ignored', { status: 200 });
-      return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
-        title: group.name, body: chatFor(who(from), said, group.name),
-        url: `${SITE_URL}/#chat-g:${gid}`, tag: `chat-g-${gid}`,
+      const everyone = members.map((m: { user_id: string }) => m.user_id);
+      const url = `${SITE_URL}/#chat-g:${gid}`, tag = `chat-g-${gid}`;
+      // A muted group is muted for replies too: `members` already leaves them out.
+      if (to && everyone.includes(to)) {
+        await blast([to], JSON.stringify({ title: group.name, body: chatFor(who(from), group.name, true), url, tag }));
+      }
+      return blast(everyone.filter((u: string) => u !== to), JSON.stringify({
+        title: group.name, body: chatFor(who(from), group.name), url, tag,
       }));
     }
-    const to = a === actor ? b : a;
-    if (!to) return new Response('ignored', { status: 200 });
-    return blast([to], JSON.stringify({
-      title: 'Quota', body: chatFor(who(from), said),
+    const other = a === actor ? b : a;
+    if (!other) return new Response('ignored', { status: 200 });
+    return blast([other], JSON.stringify({
+      title: 'Quota', body: chatFor(who(from), null, to === other),
       url: `${SITE_URL}/#chat-u:${actor}`, tag: `chat-u-${actor}`,
     }));
   }
@@ -225,8 +235,32 @@ Deno.serve(async (req) => {
     return blast(others, JSON.stringify({ title: 'Quota', body: line(false), url, tag }));
   }
 
-  if (kind === 'comment' || kind === 'like' || kind === 'reaction') {
-    const { post_id, user_id: actor, body: text, emoji } = record ?? {};
+  // A comment tells whoever owns the post. A reply also tells whoever wrote the comment it
+  // answers, and says it is a reply; nobody is told twice about the same one.
+  if (kind === 'comment') {
+    const { id, post_id, user_id: actor, reply_to } = record ?? {};
+    if (!post_id || !actor) return new Response('ignored', { status: 200 });
+    const [[post], [from], [answered]] = await Promise.all([
+      rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
+      rest(`profiles?id=eq.${actor}&select=username,display_name`),
+      reply_to ? rest(`comments?id=eq.${reply_to}&select=user_id`) : Promise.resolve([]),
+    ]);
+    if (!post || !from) return new Response('ignored', { status: 200 });
+    const url = id ? atComment(id) : atPost(post_id);
+    const to = answered && answered.user_id !== actor ? answered.user_id : null;
+    if (to && await hears(to, post.group_id)) {
+      await blast([to], JSON.stringify({ title: 'Quota', body: socialFor('reply', who(from)), url, tag: `reply-${reply_to}` }));
+    }
+    if (post.user_id === actor || post.user_id === to || !(await hears(post.user_id, post.group_id))) {
+      return new Response(to ? 'replied' : 'ignored', { status: 200 });
+    }
+    return blast([post.user_id], JSON.stringify({
+      title: 'Quota', body: socialFor('comment', who(from)), url, tag: `comment-${post_id}`,
+    }));
+  }
+
+  if (kind === 'like' || kind === 'reaction') {
+    const { post_id, user_id: actor, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
     const [[post], [from]] = await Promise.all([
       rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
@@ -237,9 +271,8 @@ Deno.serve(async (req) => {
     if (!(await hears(post.user_id, post.group_id))) return new Response('muted', { status: 200 });
     return blast([post.user_id], JSON.stringify({
       title: 'Quota',
-      body: socialFor(kind, who(from), kind === 'comment' ? text : kind === 'reaction' ? emoji : null),
-      // A comment lands on the comment; a like or a reaction is about the post itself.
-      url: kind === 'comment' && record.id ? atComment(record.id) : atPost(post_id),
+      body: socialFor(kind, who(from), kind === 'reaction' ? emoji : null),
+      url: atPost(post_id),
       // A reaction is tagged by the emoji so two different ones do not replace each other.
       tag: kind === 'reaction' ? `reaction-${post_id}-${emoji}` : `${kind}-${post_id}`,
     }));

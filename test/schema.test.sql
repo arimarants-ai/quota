@@ -677,3 +677,40 @@ begin
   if got.email is distinct from 'halfway@example.com' then raise exception 'the address is there either way'; end if;
   if got.age is not null then raise exception 'no birthday means no age'; end if;
 end $$;
+
+-- v44: a reply stays on the post or in the chat of what it answers, and a comment's
+-- replies go with it.
+reset role;
+update public.wheels set active = false where group_id = 1;
+do $$
+declare p1 bigint; p2 bigint; top bigint; rep bigint; m1 bigint; n int;
+begin
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (1, '11111111-1111-1111-1111-111111111111', 'pushups', 10, 'r1.mp4', current_date) returning id into p1;
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (1, '22222222-2222-2222-2222-222222222222', 'pushups', 10, 'r2.mp4', current_date) returning id into p2;
+  insert into public.comments (post_id, user_id, body) values (p1, '22222222-2222-2222-2222-222222222222', 'top') returning id into top;
+  insert into public.comments (post_id, user_id, body, reply_to) values (p1, '11111111-1111-1111-1111-111111111111', 'reply', top) returning id into rep;
+  begin
+    insert into public.comments (post_id, user_id, body, reply_to) values (p2, '11111111-1111-1111-1111-111111111111', 'stray', top);
+    raise exception 'a reply on another post went in';
+  exception when raise_exception then
+    if sqlerrm = 'a reply on another post went in' then raise; end if;
+  end;
+  delete from public.comments where id = top;
+  select count(*) into n from public.comments where id = rep;
+  if n <> 0 then raise exception 'a reply outlived the comment it answered'; end if;
+
+  insert into public.messages (group_id, user_id, body) values (1, '11111111-1111-1111-1111-111111111111', 'hi') returning id into m1;
+  insert into public.messages (group_id, user_id, body, reply_to) values (1, '22222222-2222-2222-2222-222222222222', 'hey', m1);
+  begin
+    insert into public.messages (a, b, user_id, body, reply_to)
+      values ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'elsewhere', m1);
+    raise exception 'a reply in another chat went in';
+  exception when raise_exception then
+    if sqlerrm = 'a reply in another chat went in' then raise; end if;
+  end;
+  delete from public.messages where id = m1;
+  select count(*) into n from public.messages where body = 'hey' and reply_to is null;
+  if n <> 1 then raise exception 'a message reply should stay, quoting nothing, when the original is deleted'; end if;
+end $$;

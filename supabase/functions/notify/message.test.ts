@@ -1,5 +1,5 @@
 // Run: node --experimental-strip-types message.test.ts
-import { flagFor, messageFor, socialFor, verdictFor } from './message.ts';
+import { chatFor, flagFor, messageFor, socialFor, verdictFor } from './message.ts';
 let n = 0;
 const eq = (got: string, want: string, msg: string) => {
   if (got !== want) throw new Error(`FAIL ${msg}\n  got:  ${got}\n  want: ${want}`);
@@ -60,16 +60,9 @@ console.log(`\nall ${n} message checks passed`);
   eq(socialFor('friend', 'Ari'), 'Ari sent you a friend request', 'a friend request says who');
   eq(socialFor('group', 'Ari', 'Lock In'), 'Ari added you to Lock In', 'a group invite names the group');
   eq(socialFor('like', 'Ari'), 'Ari liked your proof', 'a like says whose');
-  // What happened comes before what was said. The words on their own could be a message, a
-  // reply to a story or a caption, and each of those lands somewhere different when tapped.
-  eq(socialFor('comment', 'Ari', 'nice one'), 'Ari commented on your proof: nice one',
-    'a comment says it is a comment, and carries what was said');
-  eq(socialFor('comment', 'Ari', '  nice\n  one  '), 'Ari commented on your proof: nice one', '  tidied onto one line');
-  eq(socialFor('comment', 'Ari', ''), 'Ari commented on your proof', '  and stands up with nothing to quote');
-  const long = 'x'.repeat(200);
-  const got = socialFor('comment', 'Ari', long);
-  eq(String(got.length <= 100), 'true', '  a long one is cut rather than filling the screen');
-  eq(String(got.endsWith('…')), 'true', '  and says it was cut');
+  // Who, and what they did, and never the words: those are read in the app.
+  eq(socialFor('comment', 'Ari', 'nice one'), 'Ari commented on your proof', 'a comment says who, not what');
+  eq(socialFor('reply', 'Ari', 'nice one'), 'Ari replied to your comment', 'a reply says it is a reply to yours');
 }
 eq(socialFor('reaction', 'Ari', '🔥'), 'Ari reacted 🔥 to your proof', 'a reaction carries the emoji and says what it was on');
 eq(socialFor('reaction', 'Ari'), 'Ari reacted to your proof', '  and reads properly without one');
@@ -77,15 +70,13 @@ eq(socialFor('reaction', 'Ari'), 'Ari reacted to your proof', '  and reads prope
 eq(socialFor('story_like', 'Ari'), 'Ari liked your story', 'a story like says so');
 eq(socialFor('story_reaction', 'Ari', '🔥'), 'Ari reacted 🔥 to your story', '  and a story reaction carries the emoji');
 eq(socialFor('story_reaction', 'Ari'), 'Ari reacted to your story', '  reading properly without one');
-// A comment like says which comment, because "liked your comment" is no help to somebody
-// who has left twenty.
-eq(socialFor('comment_like', 'Ari', 'nice one'), 'Ari liked your comment: nice one', 'a comment like quotes the comment');
-eq(socialFor('comment_like', 'Ari'), 'Ari liked your comment', '  and reads properly with nothing to quote');
-{
-  const got = socialFor('comment_like', 'Ari', 'y'.repeat(200));
-  eq(String(got.length <= 90), 'true', '  a long one is cut rather than filling the screen');
-  eq(String(got.endsWith('…')), 'true', '  and says it was cut');
-}
+eq(socialFor('comment_like', 'Ari', 'nice one'), 'Ari liked your comment', 'a comment like does not quote the comment');
+
+// A chat notification names the chat and the person, never the words.
+eq(chatFor('Ari', 'Lock In'), 'Ari messaged Lock In', 'a group message names the group');
+eq(chatFor('Ari'), 'Ari sent you a message', 'a private one says so');
+eq(chatFor('Ari', 'Lock In', true), 'Ari replied to you in Lock In', 'a reply in a group says it answers you');
+eq(chatFor('Ari', null, true), 'Ari replied to your message', 'and in a private chat');
 
 // ---- questioning somebody's proof
 // The same two events, four different sentences, because being asked to vote and being

@@ -2572,3 +2572,42 @@ create view private.people as
 
 comment on view private.people is
   'Everything about one person in one row: the address from auth.users, the rest from public.profiles. Private on purpose — a view of email addresses in the public schema would be served by the API.';
+
+-- ============================================================
+-- v44 (replying to a comment or a message): safe to run on an existing project. Run it
+-- before the app that uses it goes out, and redeploy notify after it.
+--
+-- A reply is a comment or a message that points at the one it answers. A comment's reply
+-- goes when the comment it answers goes, the way every comment section does it; a message
+-- keeps its reply when the one it quoted is deleted, and just stops quoting it.
+-- ============================================================
+alter table public.comments add column if not exists reply_to bigint
+  references public.comments (id) on delete cascade;
+alter table public.messages add column if not exists reply_to bigint
+  references public.messages (id) on delete set null;
+
+-- A reply stays where the thing it answers is. Without this a reply could point at a
+-- comment on a post in another group, and the notification it sends would tell somebody
+-- about a conversation they cannot open.
+create or replace function public.reply_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.reply_to is null then return new; end if;
+  if tg_table_name = 'comments' then
+    if not exists (select 1 from public.comments c where c.id = new.reply_to and c.post_id = new.post_id) then
+      raise exception 'a reply has to be on the same post as the comment it answers';
+    end if;
+  elsif not exists (select 1 from public.messages m where m.id = new.reply_to
+        and m.group_id is not distinct from new.group_id
+        and m.a is not distinct from new.a and m.b is not distinct from new.b) then
+    raise exception 'a reply has to be in the same chat as the message it answers';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists comments_reply_guard on public.comments;
+create trigger comments_reply_guard before insert or update of reply_to on public.comments
+  for each row execute function public.reply_guard();
+drop trigger if exists messages_reply_guard on public.messages;
+create trigger messages_reply_guard before insert or update of reply_to on public.messages
+  for each row execute function public.reply_guard();
