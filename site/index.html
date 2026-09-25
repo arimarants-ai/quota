@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quota: Daily goals with friends</title>
+<meta name="description" content="One goal a day. A photo or a few seconds of video before midnight. A streak the whole group holds together.">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Oswald:wght@600&display=swap">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>
+:root{--bg:#ffffff;--alt:#f5f5f7;--ink:#1d1d1f;--mute:#6e6e73;--line:#d2d2d7;--g0:#0b5a34;--g1:#12934f;--g2:#2fd36f;--red:#ff3b5c;--dark:#0b0c0e;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 Geist,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.011em;font-feature-settings:"ss01"}
+h1,h2,h3{font-family:Geist,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;margin:0;text-wrap:balance;font-weight:600;letter-spacing:-.025em}
+a{color:var(--g1);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:980px;margin-inline:auto;padding-inline:22px}
+p{margin:0 0 18px}
+/* nav */
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(255,255,255,.8);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(0,0,0,.08)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.03em;font-size:21px;color:var(--ink)}
+.logo:hover{text-decoration:none}
+.logo svg{width:26px;height:26px;border-radius:6px}
+nav ul{display:flex;gap:28px;list-style:none;margin:0;padding:0;font-size:15px;font-weight:500;letter-spacing:-.005em}
+nav ul a{color:var(--ink);opacity:.75}
+nav ul a:hover,nav ul a[aria-current]{opacity:1;text-decoration:none}
+nav ul a[aria-current]{color:var(--g0)}
+/* pages */
+.page{display:none}
+.page.on{display:block;animation:fade .5s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}}
+/* hero */
+.hero{background:var(--dark);color:#fff;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding-block:80px 0;min-height:560px}
+.hero h1{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;font-size:clamp(44px,7vw,76px);font-weight:600;letter-spacing:-.012em;line-height:1.04}
+.hero h1 span{color:var(--g2)}
+.hero p{font-size:clamp(19px,2.6vw,26px);line-height:1.25;color:#a1a1a6;margin:20px 0 28px;max-width:26ch;font-weight:400;letter-spacing:-.015em}
+.hero .links{font-size:19px;display:flex;gap:28px;flex-wrap:wrap}
+.hero .links a{color:var(--g2)}
+.hero .links a::after{content:" \203A"}
+/* sections */
+section{padding-block:96px}
+section.alt{background:var(--alt)}
+.eyebrow{font-size:14px;color:var(--mute);margin-bottom:8px}
+h2{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;margin-bottom:20px}
+h3{font-size:21px;letter-spacing:.011em;margin-bottom:8px}
+.lead{font-size:clamp(19px,2.4vw,24px);line-height:1.35;font-weight:400;letter-spacing:-.015em;max-width:34ch}
+.center{text-align:center}.center .lead{margin-inline:auto}
+.prose{max-width:640px}
+.prose p{margin-bottom:18px}
+.prose .mute{color:var(--mute)}
+.prose h3{margin-top:40px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:56px;text-align:left}
+.card{background:var(--alt);border-radius:18px;padding:32px 28px}
+.alt .card{background:var(--bg)}
+.card .ic{width:40px;height:40px;border-radius:50%;background:var(--g1);display:grid;place-content:center;margin-bottom:22px}
+.card .ic svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card p{color:var(--mute);margin:0;font-size:15px;line-height:1.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start}
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;max-width:520px;margin:44px auto 0}
+.day{aspect-ratio:1;border-radius:12px;display:grid;place-content:center;font-size:13px;font-weight:600;background:var(--g1);color:#fff}
+.day.miss{background:var(--red)}
+.day.rest{background:transparent;border:1px dashed var(--line);color:var(--mute);font-weight:400}
+.cap{font-size:14px;color:var(--mute);margin-top:14px}
+.founders{display:flex;gap:40px;margin-top:8px}
+.founders b{display:block;font-size:17px}.founders span{font-size:14px;color:var(--mute)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;text-align:left;counter-reset:s}
+.step{border-top:1px solid var(--line);padding-top:20px}
+.step::before{counter-increment:s;content:counter(s);display:inline-grid;place-content:center;width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;font-weight:600;margin-bottom:14px}
+.step h3{font-size:19px}.step p{color:var(--mute);font-size:15px;margin:0}
+.badges{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:44px}
+.badge{border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:15px;background:var(--bg)}
+.badge small{display:block;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.02em}
+.badge.soon{border-style:dashed;color:var(--mute)}
+.ph{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-right:6px}
+.platform{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:48px;text-align:left}
+.platform div{background:var(--alt);border-radius:18px;padding:28px}
+.platform ol{margin:10px 0 0;padding-left:20px;color:var(--mute);font-size:15px}
+.platform li{margin-bottom:6px}
+.faq{max-width:692px;margin-inline:auto}
+.faq h3{font-size:14px;color:var(--mute);font-weight:400;margin:44px 0 6px}
+.faq details{border-bottom:1px solid var(--line);padding:22px 0}
+.faq summary{cursor:pointer;font-size:19px;font-weight:600;letter-spacing:.011em;list-style:none;display:flex;justify-content:space-between;gap:20px;align-items:center}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";width:9px;height:9px;border-right:1.5px solid var(--mute);border-bottom:1.5px solid var(--mute);transform:rotate(45deg);flex:none;transition:transform .25s;margin-right:4px}
+.faq details[open] summary::after{transform:rotate(-135deg)}
+.faq details p{color:var(--mute);margin:14px 0 0;font-size:17px;max-width:62ch}
+.more{text-align:center;margin-top:40px;font-size:19px}.more a::after{content:" \203A"}
+footer{background:var(--alt);padding-block:28px;font-size:12px;color:var(--mute);border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+footer nav2,footer ul{display:flex;gap:18px;list-style:none;margin:0;padding:0}
+footer a{color:var(--mute)}
+@media (max-width:820px){.cards,.steps,.two,.platform{grid-template-columns:1fr}section{padding-block:64px}nav ul{gap:16px}.hero .wrap{grid-template-columns:1fr;padding-block:56px 0;min-height:0}.phone{width:250px}.screen{height:440px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.bigring .ar{stroke-dashoffset:110}}
+
+/* phone: mirrors the real feed screen */
+.phone{width:300px;justify-self:center;background:#000;border-radius:44px;padding:11px;box-shadow:0 30px 60px rgba(0,0,0,.5),0 0 0 2px #2c2c2e;transform:translateY(40px)}
+.screen{background:#fff;color:var(--ink);border-radius:34px;height:600px;overflow:hidden;position:relative;font-size:12px}
+.screen .top{display:flex;align-items:center;padding:24px 18px 12px}
+.screen .top>span{display:flex;align-items:center;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase}
+.screen .top small{color:var(--mute);font-weight:500;font-size:9px;letter-spacing:.1em}
+.screen .top>span svg{width:17px;height:17px;margin-right:6px}
+.screen .streak{display:flex;align-items:center;gap:12px;padding:6px 18px 12px;border-bottom:1px solid #eee}
+.screen .streak b{font-size:52px;line-height:1;background:linear-gradient(#0b5a34,#2fd36f);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;font-variant-numeric:tabular-nums}
+.screen .streak div{font-size:12px}.screen .streak div b{font-size:13px;background:none;color:var(--ink);display:block}
+.screen .streak small{color:var(--mute);font-size:10px}
+.qrow{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:4px solid #f2f2f2;font-weight:600}
+.qrow i{flex:1;height:3px;border-radius:2px;background:linear-gradient(90deg,#0b5a34,#2fd36f)}
+.qrow i span.part{animation:bar2 1.6s ease .4s forwards}
+@keyframes bar2{from{width:60%}to{width:40%}}
+.qrow i span{display:block;height:100%;width:0;background:#e5e5ea;margin-left:auto;animation:bar 1.6s ease .4s forwards}
+@keyframes bar{from{width:60%}to{width:0}}
+.stories{display:flex;gap:14px;padding:12px 18px 6px}.stories div{text-align:center;font-size:9px;font-weight:600}.stories .av{width:40px;height:40px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-size:14px;margin:0 auto 4px;box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--g1);position:relative}.stories .av.g{background:#e5e5ea;color:#111;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #e5e5ea}.stories .av i{position:absolute;right:-3px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:var(--g1);color:#fff;font-style:normal;font-size:11px;line-height:1;display:grid;place-content:center;padding-bottom:1px;border:1.5px solid #fff}
+.screen .lbl{color:var(--mute);padding:12px 18px 6px}
+.card2{margin:0 12px;border:1px solid #e5e5ea}
+.card2 .who{display:flex;align-items:center;gap:8px;padding:10px}
+.card2 .av{width:26px;height:26px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-weight:600;font-size:11px}
+.card2 .who b{display:block;font-size:12px}.card2 .who small{color:var(--mute);font-size:10px}
+.vid{height:150px;background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%);position:relative}
+.vid::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 70%,rgba(255,255,255,.12),transparent 40%),radial-gradient(circle at 20% 80%,rgba(255,255,255,.08),transparent 35%)}
+.vid .tag{position:absolute;top:10px;right:10px;background:var(--g2);color:#06230f;font-weight:700;font-size:10px;padding:5px 8px;letter-spacing:.04em;z-index:1}
+.tabs{position:absolute;left:12px;right:12px;bottom:12px;background:#fff;border-radius:999px;box-shadow:0 4px 18px rgba(0,0,0,.14);display:flex;justify-content:space-around;align-items:center;padding:8px 6px;font-size:9px;color:var(--mute)}
+.tabs span{text-align:center}.tabs span b{display:block;width:16px;height:12px;margin:0 auto 3px;border-radius:3px;background:#c7c7cc}
+.tabs .on{color:var(--ink);font-weight:600}.tabs .on b{background:var(--ink)}
+.tabs .plus{width:40px;height:40px;border-radius:50%;background:var(--g1);color:#fff;font-size:22px;display:grid;place-content:center;margin-top:-22px;font-weight:300}
+/* explainer figures */
+.fig{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;font-size:14px;max-width:420px;width:100%}
+section:not(.alt) .fig{background:var(--alt);border-color:transparent}
+.fig .h{font-weight:600;font-size:15px;margin-bottom:12px;display:flex;justify-content:space-between}
+.fig .h small{color:var(--mute);font-weight:400}
+.mem{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.mem .av{width:32px;height:32px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-weight:600;font-size:12px}
+.mem .av.g{background:#e5e5ea;color:var(--ink)}
+.mem .t{flex:1}.mem .t small{display:block;color:var(--mute);font-size:12px}
+.chip{border:1px solid var(--line);padding:4px 8px;font-weight:600;font-size:12px}
+.chip.ok{border-color:var(--g1);color:var(--g0)}
+.fig .btn{background:#111;color:#fff;text-align:center;padding:10px;font-weight:600;margin-top:12px}
+.fig .btn.g{background:var(--g1)}
+.fig .pill{display:inline-block;border:1px solid var(--line);padding:6px 10px;font-weight:600;margin-bottom:12px}
+.two .fig{justify-self:end}
+.vote{display:flex;gap:8px;margin-top:12px}
+.vote div{flex:1;text-align:center;border:1px solid var(--line);padding:9px;font-weight:600}
+.vote .y{border-color:var(--red);color:var(--red)}
+.cam{height:200px;background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%);border-radius:12px;position:relative;display:grid;place-content:center}
+.cam .rec{width:56px;height:56px;border-radius:50%;border:4px solid #fff;background:var(--red);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(.9)}}
+.cam .tm{position:absolute;top:12px;left:12px;color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+.cam .tag{position:absolute;top:12px;right:12px;background:var(--g2);color:#06230f;font-weight:700;font-size:11px;padding:5px 8px}
+.bub{max-width:70%;padding:10px 14px;border-radius:18px;margin-bottom:8px;font-size:15px}
+.bub.me{background:var(--g1);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.bub.them{background:#e5e5ea;border-bottom-left-radius:4px}
+.bub.vid{padding:0;overflow:hidden;background:none}
+.bub.vid .cam{height:120px;width:200px;border-radius:18px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:48px;text-align:left}
+.cmp .fig{max-width:none}
+.cmp .no{opacity:.55}
+.cmp .cap{margin-top:16px}
+.two.rev .fig{justify-self:start}
+@media (max-width:820px){.two .fig,.two.rev .fig{justify-self:stretch;max-width:none}.cmp{grid-template-columns:1fr}.phone{width:260px}.screen{height:470px}}
+
+/* extra figures */
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:64px 1fr;gap:14px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.tl li:first-child{border:0;padding-top:0}
+.tl time{color:var(--mute);font-variant-numeric:tabular-nums}
+.tl b{display:block}
+.tl small{color:var(--mute)}
+.tl .dot{width:8px;height:8px;border-radius:50%;background:var(--g1);display:inline-block;margin-right:8px}
+.tl .dot.r{background:var(--red)}
+.notif{background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:12px 14px;display:flex;gap:12px;align-items:center;font-size:14px;max-width:360px;margin-inline:auto}
+.notif svg{width:34px;height:34px;border-radius:8px;flex:none}
+.notif b{display:block}.notif small{color:var(--mute)}
+.notif+.notif{margin-top:10px}
+.strike{list-style:none;margin:0;padding:0;font-size:17px}
+.strike li{padding:10px 0;border-top:1px solid var(--line);color:var(--mute);text-decoration:line-through}
+.strike li:first-child{border:0;padding-top:0}
+.strike li.keep{color:var(--ink);text-decoration:none;font-weight:600}
+.strike li.keep::before{content:"✓ ";color:var(--g1)}
+.cities{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;gap:12px;max-width:640px;margin:48px auto 0}
+.city{background:var(--alt);border-radius:18px;padding:24px;text-align:center}
+.alt .city{background:#fff}
+.city b{display:block;font-size:21px}.city span{color:var(--mute);font-size:14px}
+.city .av{width:48px;height:48px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-weight:600;margin:0 auto 12px;font-size:18px}
+.city .av.g{background:#e5e5ea;color:#111}
+.cities .ln{height:2px;background:repeating-linear-gradient(90deg,var(--g1) 0 6px,transparent 6px 12px)}
+.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:32px}
+.icons div{background:var(--alt);border-radius:14px;padding:18px;font-size:15px}
+.alt .icons div{background:#fff}
+.icons b{display:block;margin-bottom:4px}
+.icons span{color:var(--mute)}
+.note{border-left:3px solid var(--g1);padding-left:16px;color:var(--mute);font-size:15px;max-width:52ch}
+@media (max-width:820px){.cities{grid-template-columns:1fr}.cities .ln{width:2px;height:28px;margin:0 auto;background:repeating-linear-gradient(180deg,var(--g1) 0 6px,transparent 6px 12px)}.icons{grid-template-columns:1fr}}
+
+.chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:760px;margin:40px auto 0}
+.chips span{border:1px solid var(--line);border-radius:999px;padding:10px 16px;font-size:15px;font-weight:500;background:var(--bg)}
+.chips span.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bigring{position:relative;width:min(100%,300px);aspect-ratio:1;margin:40px auto 0}
+.bigring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.bigring .tr{fill:none;stroke:var(--line);stroke-width:14}
+.bigring .ar{fill:none;stroke:var(--g1);stroke-width:14;stroke-linecap:round;stroke-dasharray:848;stroke-dashoffset:848;animation:arc2 2s cubic-bezier(.2,.8,.2,1) .3s forwards}
+@keyframes arc2{to{stroke-dashoffset:110}}
+.bigring div{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.bigring b{font-size:88px;line-height:1;font-variant-numeric:tabular-nums;background:linear-gradient(#0b5a34,#2fd36f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bigring small{font-size:13px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase}
+.clock{font-size:clamp(40px,7vw,72px);font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:24px}
+.sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px}
+.sizes>div{background:var(--alt);border-radius:18px;padding:28px 20px;text-align:center}
+.sizes .avs{display:flex;justify-content:center;margin-bottom:16px}
+.sizes .avs i{width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #fff;margin-left:-10px;display:grid;place-content:center;color:#fff;font-style:normal;font-size:12px;font-weight:600}
+.sizes .avs i:first-child{margin:0}
+.sizes .avs i.g{background:#e5e5ea;color:#111}
+.sizes .avs i.n{background:var(--g1)}
+.sizes b{display:block;font-size:19px}.sizes span{color:var(--mute);font-size:15px}
+.links3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;text-align:left}
+.links3 a{display:block;background:var(--alt);border-radius:18px;padding:28px;color:var(--ink)}
+.links3 a:hover{text-decoration:none;background:#ececf0}
+.links3 b{display:block;font-size:21px;margin-bottom:6px}
+.links3 span{color:var(--mute);font-size:15px;display:block;margin-bottom:14px}
+.links3 em{font-style:normal;color:var(--g1)}
+.links3 em::after{content:" \203A"}
+@media (max-width:820px){.sizes,.links3{grid-template-columns:1fr}}
+
+/* faq graphics */
+.seg{display:inline-flex;background:var(--alt);border-radius:999px;padding:4px;gap:2px;margin:28px auto 0;flex-wrap:wrap;justify-content:center}
+.seg button{font:inherit;font-size:14px;font-weight:500;border:0;background:transparent;color:var(--mute);padding:8px 16px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.seg button:focus-visible{outline:2px solid var(--g1)}
+.fcat h3{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--mute);font-weight:500;margin:44px 0 6px}
+.fcat h3 .ic{width:28px;height:28px;border-radius:50%;background:var(--g1);display:grid;place-content:center}
+.fcat h3 .ic svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.mini{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--mute)}
+.mini .cam{width:180px;height:100px;border-radius:12px}
+.mini .cam .rec{width:30px;height:30px;border-width:3px}
+.mini .strip{margin:0;max-width:300px;gap:6px}
+.mini .day{border-radius:8px;font-size:11px}
+.mini .tz{background:var(--alt);border-radius:12px;padding:10px 14px;text-align:center}
+.mini .tz b{display:block;font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums}
+.mini .arrow{font-size:18px}
+.mini .vote{margin:0;min-width:260px}
+.mini .gchip{background:var(--alt);border-radius:999px;padding:8px 14px;color:var(--ink);font-weight:500}
+.mini .gchip i{font-style:normal;color:var(--g1);margin-left:6px}
+.mini .tier{background:var(--alt);border-radius:12px;padding:12px 16px;min-width:140px}
+.mini .tier b{display:block;color:var(--ink);font-size:15px}
+.mini .tier.on{background:var(--g1);color:#d8f5e3}.mini .tier.on b{color:#fff}
+.ask{display:flex;align-items:center;gap:18px;background:var(--alt);border-radius:18px;padding:24px 28px;margin-top:56px}
+.ask .ic{width:44px;height:44px;border-radius:50%;background:var(--ink);display:grid;place-content:center;flex:none}
+.ask .ic svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ask b{display:block;font-size:19px}.ask span{color:var(--mute);font-size:15px}
+
+/* scrollable phone feed */
+.screen{display:flex;flex-direction:column}
+.feedscroll{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:18px}
+.feedscroll::-webkit-scrollbar{display:none}
+.screen .top{justify-content:space-between}
+.screen .top .chat{width:18px;height:18px;fill:none;stroke:var(--ink);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pact{margin:9px 12px 0;border:1px solid #e5e5ea;padding:0}
+.pact summary{display:flex;align-items:center;gap:6px;padding:7px 9px;cursor:pointer;list-style:none;font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.pact summary::-webkit-details-marker{display:none}
+.pact summary::after{content:none}
+.pact .dt{width:5px;height:5px;border-radius:50%;background:var(--g1)}
+.pact .n{margin-left:auto;color:var(--g0)}
+.pact svg{width:10px;height:10px;stroke:var(--mute);fill:none;stroke-width:2.2;transition:transform .2s}
+.pact[open] svg{transform:rotate(180deg)}
+.pact .e{display:flex;align-items:center;gap:7px;padding:6px 9px;border-top:1px solid #e5e5ea;font-size:9.5px;line-height:1.2}
+.pact .e p{margin:0;font-size:9.5px;min-width:0;color:var(--mute);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pact .e p b{color:var(--ink);font-weight:700}
+.pact .pav{width:17px;height:17px;font-size:8px}
+.pact .e .t{margin-left:auto;color:var(--mute);font-size:8px;white-space:nowrap}
+.pav{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-content:center;font-size:9.5px;font-weight:700;color:#fff;background:#111}
+.pav.b{width:28px;height:28px;font-size:11px}
+.dayl{color:var(--mute);padding:14px 16px 6px;font-size:11px}
+.pp{margin:0 12px 10px;border:1px solid #e5e5ea}
+.pp .hd{display:flex;align-items:center;gap:8px;padding:9px 10px}
+.pp .hd b{display:block;font-size:11.5px}.pp .hd small{color:var(--mute);font-size:9.5px}
+.pp .rl{position:relative;aspect-ratio:4/5;overflow:hidden}
+.pp .rl .bd{position:absolute;top:9px;right:9px;background:var(--g2);color:#06230f;font-weight:700;font-size:9.5px;padding:4px 7px;letter-spacing:.03em;text-transform:uppercase}
+.pp .rl .pl{position:absolute;left:50%;top:50%;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;background:rgba(0,0,0,.35);display:grid;place-content:center}
+.pp .rl .pl i{border-left:12px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent;margin-left:3px}
+.pp .rl .rx{position:absolute;left:9px;bottom:9px;display:flex;flex-direction:column-reverse;gap:2px;font-size:19px;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.5)}
+.pp .rl .rx span{animation:bob 3s ease-in-out infinite}
+.pp .rl .rx span:nth-child(2){animation-delay:.6s}.pp .rl .rx span:nth-child(3){animation-delay:1.2s}
+@keyframes bob{50%{transform:translateY(-3px)}}
+.pp .ac{display:flex;align-items:center;gap:13px;padding:8px 10px 2px}
+.pp .ac button{background:none;border:0;padding:0;display:flex;align-items:center;gap:4px;font:inherit;font-size:10.5px;font-weight:700;color:var(--ink);cursor:pointer}
+.pp .ac svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pp .ac .lk.on{color:#ff3b5c}.pp .ac .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes heart{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+.pp .ac .cc{margin-left:auto;font-size:10px;color:var(--mute);font-weight:500}
+.pp .cp{padding:4px 10px 0;font-size:11px}.pp .cp b{margin-right:5px}
+.pp .cm{padding:4px 10px 9px}
+.pp .cm div{font-size:10.5px;padding:2px 0}.pp .cm b{margin-right:5px}.pp .cm span{color:var(--mute)}
+.phint{font-size:14px;color:#8e8e93;margin-top:28px;display:flex;align-items:center;gap:8px}
+.phint i{width:14px;height:22px;border:1.5px solid #8e8e93;border-radius:8px;position:relative}
+.phint i::after{content:"";position:absolute;left:50%;top:4px;width:2px;height:5px;margin-left:-1px;background:#8e8e93;border-radius:1px;animation:wheel 1.6s ease-in-out infinite}
+@keyframes wheel{0%{opacity:0;transform:translateY(0)}40%{opacity:1}100%{opacity:0;transform:translateY(7px)}}
+
+/* about graphics */
+.race .rw{display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:center;padding:10px 0}
+.race .tk{height:10px;border-radius:5px;background:var(--alt);overflow:hidden}
+.alt .race .tk{background:#ececf0}
+.race .tk i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--g0),var(--g2));animation:leapA 4s ease-in-out infinite alternate}
+.race .rw:nth-child(3) .tk i{animation-name:leapB}
+@keyframes leapA{0%{width:30%}50%{width:62%}100%{width:96%}}
+@keyframes leapB{0%{width:42%}50%{width:78%}100%{width:90%}}
+.race .av{width:32px;height:32px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-weight:600;font-size:13px}
+.race .av.g{background:#e5e5ea;color:#111}
+.tally{font-variant-numeric:tabular-nums}
+.tally .rw{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+.tally .rw div{aspect-ratio:1;border-radius:8px;display:grid;place-content:center;font-size:12px;font-weight:600;background:var(--alt);color:var(--mute)}
+.alt .tally .rw div{background:#ececf0}
+.tally .rw div.q{color:var(--ink)}
+.tally .who{display:flex;justify-content:space-between;font-size:13px;color:var(--mute);margin-top:14px}
+.tally .who b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion:reduce){.race .tk i{width:80%}}
+.storyrow+.storyrow{margin-top:88px;padding-top:88px;border-top:1px solid var(--line)}
+.storyrow h2{font-size:clamp(26px,3.6vw,36px)}
+@media (max-width:820px){.storyrow+.storyrow{margin-top:56px;padding-top:56px}}
+
+/* ---- mobile ---- */
+.menu{display:none;background:none;border:0;width:40px;height:40px;margin-right:-8px;cursor:pointer;position:relative}
+.menu span{position:absolute;left:11px;right:11px;height:1.5px;background:var(--ink);border-radius:1px;transition:transform .25s,top .25s}
+.menu span:first-child{top:16px}.menu span:last-child{top:23px}
+nav.open .menu span:first-child{top:19.5px;transform:rotate(45deg)}
+nav.open .menu span:last-child{top:19.5px;transform:rotate(-45deg)}
+.menu:focus-visible,nav ul a:focus-visible{outline:2px solid var(--g1);outline-offset:2px}
+footer ul{flex-wrap:wrap}
+@media (max-width:760px){
+  .menu{display:block}
+  nav ul{position:absolute;top:56px;left:0;right:0;flex-direction:column;gap:0;padding:8px 22px 28px;background:#fff;box-shadow:0 18px 30px -18px rgba(0,0,0,.25);border-bottom:1px solid rgba(0,0,0,.08);display:none}
+  nav.open ul{display:flex;animation:drop .25s ease}
+  nav ul li{border-bottom:1px solid var(--line)}
+  nav ul li:last-child{border-bottom:0}
+  nav ul a{display:block;padding:14px 0;font-size:22px;font-weight:600;letter-spacing:-.02em;opacity:1}
+  .wrap{padding-inline:20px}
+  section{padding-block:56px}
+  h2{font-size:clamp(28px,8vw,34px);letter-spacing:-.022em;line-height:1.12}
+  .lead{font-size:18px;line-height:1.4;letter-spacing:-.008em;max-width:none}
+  body{letter-spacing:-.005em}
+  .two{gap:28px}
+  .cards,.cmp,.sizes,.links3,.steps,.platform{gap:14px;margin-top:32px}
+  .card{padding:24px 22px}
+  .hero .wrap{text-align:center;padding-block:44px 0;gap:28px}
+  .hero h1{font-size:clamp(36px,10.5vw,48px);letter-spacing:-.02em;line-height:1.08}
+  .hero p{font-size:18px;line-height:1.35;margin:14px auto 22px}
+  .hero .links{justify-content:center;font-size:17px;gap:22px}
+  .phint{justify-content:center;margin-top:20px}
+  .phone{text-align:left}
+  .phone{width:min(260px,78vw);transform:translateY(24px)}
+  .screen{height:460px}
+  .fig{padding:18px}
+  .storyrow h2{font-size:26px}
+  .chips{gap:8px;margin-top:28px}.chips span{font-size:14px;padding:8px 13px}
+  .bigring{width:min(100%,240px)}.bigring b{font-size:68px}
+  .clock{font-size:clamp(40px,13vw,56px)}
+  .icons{gap:10px}
+  .strike{font-size:16px}
+  .seg{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;justify-content:flex-start;scrollbar-width:none}
+  .seg::-webkit-scrollbar{display:none}
+  .seg button{white-space:nowrap;flex:none}
+  .faq summary{font-size:17px;gap:14px}
+  .faq details{padding:18px 0}
+  .faq details p{font-size:16px}
+  .badges{margin-top:28px}
+  footer .wrap{flex-direction:column;gap:14px}
+  footer ul{gap:10px 16px}
+  .more{font-size:17px}
+}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}}
+.phint .pm{display:none}@media (hover:none){.phint .pd{display:none}.phint .pm{display:inline}}
+
+.notif{text-align:left}
+.alt .links3 a{background:#fff}
+.alt .links3 a:hover{background:#fafafa}
+@media (max-width:760px){
+  .two.rev>.fig,.two.rev>.cities{order:2}
+  .seg{display:grid;grid-template-columns:1fr 1fr;border-radius:18px;overflow:visible;width:100%;max-width:360px;margin-inline:auto}
+  .seg button{white-space:normal;border-radius:14px}
+  .sizes>div{display:grid;grid-template-columns:118px 1fr;align-items:center;gap:4px 16px;text-align:left;padding:18px 20px}
+  .sizes .avs{grid-row:span 2;margin:0;justify-content:flex-start}
+  .sizes b{font-size:17px}
+  .links3 a{padding:22px}
+  .notif{max-width:none}
+}
+
+/* ---- v2 additions ---- */
+.navcta{display:inline-flex;align-items:center;background:var(--g1);color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:999px;letter-spacing:-.005em;white-space:nowrap}
+.navcta:hover{background:var(--g0);text-decoration:none}
+nav .wrap>.navcta{margin-left:28px;order:3}
+nav .wrap{gap:0}
+nav ul{margin-left:auto}
+nav ul .mget{display:none}
+.navcta.big{font-size:17px;padding:12px 24px}
+.dlband{background:var(--dark);color:#fff;padding-block:64px}
+.dlband .wrap{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.dlband h2{margin:0 0 6px;color:#fff}.dlband p{margin:0;color:#a1a1a6;font-size:19px}
+.tour{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:48px}
+.tour figure{margin:0}
+.tour figcaption{margin-top:18px;font-size:15px;color:var(--mute)}
+.tour figcaption b{display:block;color:var(--ink);font-size:17px;margin-bottom:2px}
+.mph{width:220px;max-width:100%;margin-inline:auto;background:#000;border-radius:34px;padding:8px;box-shadow:0 20px 40px -18px rgba(0,0,0,.45)}
+.msc{background:#fff;border-radius:27px;height:420px;overflow:hidden;text-align:left;padding:18px 14px;font-size:11px;position:relative}
+.mtop span{display:flex;align-items:center;gap:5px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:10px;letter-spacing:.09em}
+.mtop svg{width:14px;height:14px;border-radius:3px}
+.mtitle{font-family:Oswald,system-ui,sans-serif;font-weight:700;font-size:24px;letter-spacing:.01em;margin:14px 0 10px}
+.mpill{display:inline-block;border:1px solid var(--line);padding:4px 8px;font-weight:600;font-size:10px}
+.mlbl{font-size:8.5px;letter-spacing:.12em;color:var(--mute);margin:16px 0 6px;font-weight:600}
+.mrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #eee}
+.mrow b{flex:1;font-size:11px}
+.mrow i{font-style:normal;font-size:9.5px;font-weight:700;border:1px solid var(--line);padding:2px 6px}
+.mrow i.ok{border-color:var(--g1);color:var(--g0)}
+.mbig{font-size:26px;font-weight:700;background:linear-gradient(#0b5a34,#2fd36f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cam2{background:radial-gradient(circle at 40% 35%,#1b7a45,#06230f 70%);color:#fff;display:flex;flex-direction:column}
+.ctop{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:12px}
+.cbadge{background:var(--g2);color:#06230f;font-size:9px;font-weight:700;padding:4px 7px}
+.cfr{flex:1;margin:16px 6px;border:1.5px solid rgba(255,255,255,.35);border-radius:14px}
+.cbot{display:flex;align-items:center;justify-content:center;gap:18px;font-size:9px;letter-spacing:.12em;position:relative;padding-bottom:62px}
+.cbot span{opacity:.6}.cbot b{font-weight:700}
+.crec{position:absolute;bottom:0;left:50%;width:48px;height:48px;margin-left:-24px;border-radius:50%;border:4px solid #fff;background:var(--red);animation:pulse 1.6s ease-in-out infinite}
+.mprof{text-align:center;margin-top:14px}
+.mprof .pav{margin:0 auto 8px}
+.mprof b{display:block;font-size:14px}.mprof small{color:var(--mute)}
+.mmile{display:flex;align-items:center;gap:10px;margin-top:14px;background:var(--alt);border-radius:12px;padding:10px}
+.mmile svg{width:28px;height:28px;fill:#c9a227;flex:none}
+.mmile b{display:block;font-size:12px}.mmile small{color:var(--mute);font-size:9.5px}
+.mchips{display:flex;gap:6px;flex-wrap:wrap}
+.mchips span{border:1px solid var(--line);border-radius:999px;padding:4px 9px;font-weight:600;font-size:10px}
+.mchips i{font-style:normal;color:var(--g1);margin-left:3px}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.mgrid i{aspect-ratio:1;background:radial-gradient(circle at 35% 35%,#1b7a45,#06230f 75%)}
+.mgrid i:nth-child(2n){background:radial-gradient(circle at 60% 40%,#6b4a2f,#1a120b 75%)}
+.mgrid i:nth-child(3n){background:radial-gradient(circle at 50% 50%,#3a4a5c,#0e1319 75%)}
+.srow{display:flex;gap:14px;margin-top:6px}
+.srow div{text-align:center;font-size:12px;font-weight:500}
+.srow .ring{display:grid;place-content:center;width:52px;height:52px;border-radius:50%;background:#111;color:#fff;font-style:normal;font-weight:600;margin-bottom:6px;box-shadow:0 0 0 2.5px #fff,0 0 0 4.5px var(--g1)}
+.srow .ring.seen{background:#e5e5ea;color:#111;box-shadow:0 0 0 2.5px #fff,0 0 0 4.5px #d2d2d7}
+.sseen{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--mute)}
+.miles{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:36px}
+.miles div{background:var(--alt);border-radius:16px;padding:16px 18px;min-width:118px}
+.miles b{display:block;font-size:30px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.miles span{color:var(--mute);font-size:14px}
+.miles .on{background:var(--g1);color:#fff}.miles .on span{color:#d8f5e3}
+.qr{display:none;align-items:center;gap:20px;max-width:520px;margin:44px auto 0;text-align:left;background:var(--alt);border-radius:18px;padding:20px}
+@media (hover:hover) and (min-width:761px){.qr{display:flex}}
+.qrbox{width:96px;height:96px;flex:none;border-radius:8px;background:#fff;background-image:linear-gradient(45deg,#111 25%,transparent 25%,transparent 75%,#111 75%),linear-gradient(45deg,#111 25%,transparent 25%,transparent 75%,#111 75%);background-size:12px 12px;background-position:0 0,6px 6px;border:8px solid #fff;opacity:.85}
+.qr b{display:block;font-size:17px}.qr span{display:block;color:var(--mute);font-size:15px}.qr small{display:block;margin-top:6px;color:var(--mute);font-size:12px}
+.fsearch{display:flex;align-items:center;gap:10px;max-width:420px;margin:24px auto 0;background:var(--alt);border-radius:12px;padding:0 14px}
+.fsearch svg{width:17px;height:17px;flex:none;fill:none;stroke:var(--mute);stroke-width:2;stroke-linecap:round}
+.fsearch input{flex:1;border:0;background:transparent;font:inherit;font-size:16px;padding:12px 0;color:var(--ink);outline:none}
+.fsearch:focus-within{box-shadow:0 0 0 2px var(--g1)}
+.fnone{color:var(--mute);text-align:center;margin-top:36px}
+.ptiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px;text-align:left}
+.ptiles div{background:var(--alt);border-radius:16px;padding:22px}
+.ptiles b{display:block;font-size:17px;margin-bottom:4px}.ptiles span{color:var(--mute);font-size:15px}
+@media (max-width:820px){.tour{grid-template-columns:1fr;gap:44px}.ptiles{grid-template-columns:1fr 1fr}}
+@media (max-width:760px){
+  nav .wrap>.navcta{order:0;margin-left:auto;margin-right:10px;font-size:12px;padding:6px 12px}
+  nav ul .mget{display:block}
+  .dlband{padding-block:48px}.dlband .wrap{flex-direction:column;align-items:flex-start}
+  .ptiles{grid-template-columns:1fr}
+  .miles div{min-width:0;flex:1 1 40%}
+}
+
+/* tour screens, drawn from the app's own layout */
+.msc2{background:#fff;border-radius:27px;height:420px;overflow:hidden;text-align:left;position:relative;font-size:9px;color:#0b0c0e}
+.tsc{padding:16px 11px 0;border-bottom:1px solid #e8e9ea}
+.tlogo{display:flex;align-items:center;gap:4px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:9px;letter-spacing:.09em}
+.tlogo svg{width:12px;height:12px;border-radius:3px}
+.th1{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:19px;margin:9px 0 9px;text-transform:uppercase;line-height:1.1}
+.th1.gear{display:flex;align-items:center;justify-content:space-between}
+.th1.gear svg{width:13px;height:13px;fill:none;stroke:#0b0c0e;stroke-width:1.8}
+.tbody{padding:8px 11px 0}
+.tback{color:#8b8f94;font-weight:700;font-size:8px;margin-bottom:8px}
+.tcard{border:1px solid #e8e9ea;padding:8px}
+.tq{display:inline-block;border:1px solid #e8e9ea;padding:3px 6px;font-weight:700;font-size:8px}
+.tbtns{display:flex;gap:5px;margin-top:7px}
+.tbtns b{flex:1;background:#0b0c0e;color:#fff;text-align:center;padding:6px 0;font-size:8.5px}
+.tbtns span{background:#f5f6f6;padding:6px 10px;font-weight:700;font-size:8.5px}
+.tsec{font-size:7px;font-weight:700;letter-spacing:.14em;color:#8b8f94;margin:11px 0 5px}
+.tlist{padding:2px 8px}
+.tm{display:flex;align-items:center;gap:7px;padding:6px 0;border-top:1px solid #e8e9ea}
+.tm:first-child{border-top:0}
+.tm .pav{width:20px;height:20px;font-size:8px}
+.tm div{flex:1}.tm b{display:block;font-size:9px}.tm b em{font-style:normal;color:#8b8f94;font-weight:500}
+.tm small{color:#8b8f94;font-size:7.5px}
+.tm i{font-style:normal;font-weight:800;font-size:7.5px;border:1px solid #e8e9ea;padding:3px 5px}
+.tm i.ok{border-color:#0b5a34;color:#0b5a34}
+.tbar{position:absolute;left:8px;right:8px;bottom:9px;background:rgba(255,255,255,.94);border:1px solid #e8e9ea;border-radius:999px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:4px 2px;box-shadow:0 6px 16px -8px rgba(0,0,0,.35)}
+.tbar span{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:6.5px;font-weight:700;color:#8b8f94;position:relative}
+.tbar svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tbar span.on{color:#0b0c0e}
+.tbar span.on::after{content:"";position:absolute;bottom:-3px;width:14px;height:1.5px;border-radius:1px;background:#12934f}
+.tbar .tadd{width:28px;height:28px;border-radius:50%;background:#1db061;color:#06230f;justify-self:center;display:grid;place-content:center;margin:-10px 0 -6px;box-shadow:0 4px 10px -4px rgba(0,0,0,.4)}
+.tbar .tadd svg{width:14px;height:14px;stroke-width:2.4}
+.tcam{position:absolute;inset:0;background:radial-gradient(circle at 45% 42%,#2a9a55,#0b5a34 55%,#06230f 100%);color:#fff}
+.ctl{display:flex;justify-content:space-between;padding:16px 11px}
+.cbtn{width:24px;height:24px;border-radius:50%;background:rgba(0,40,15,.55);display:grid;place-content:center}
+.cbtn svg{width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}
+.cmode{position:absolute;bottom:62px;left:0;right:0;display:flex;justify-content:center;gap:4px}
+.cmode b,.cmode span{padding:4px 11px;border-radius:999px;font-size:8.5px;font-weight:700}
+.cmode b{background:#fff;color:#0b0c0e}.cmode span{background:rgba(0,40,15,.6);color:rgba(255,255,255,.7)}
+.cshut{position:absolute;bottom:16px;left:0;right:0;height:40px}
+.cring{position:absolute;left:50%;top:0;width:40px;height:40px;margin-left:-20px;border-radius:50%;border:3px solid #fff;background:#3fa845;box-shadow:0 6px 14px -6px rgba(0,0,0,.5)}
+.coff{position:absolute;left:32px;top:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,40,15,.7);border:1px solid rgba(255,255,255,.15);display:grid;place-content:center;font-size:8px;font-weight:700}
+.twho{display:flex;align-items:center;gap:9px}
+.twho b{display:block;font-size:11px;font-weight:800}.twho small{color:#8b8f94;font-size:8px}
+.tbio{margin:7px 0 0;font-size:8.5px}
+.tstats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #e8e9ea;margin-top:8px}
+.tstats div{text-align:center;padding:5px 0;border-right:1px solid #e8e9ea}.tstats div:last-child{border-right:0}
+.tstats b{display:block;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:15px;line-height:1.1}
+.tstats b.g{color:#0b5a34}
+.tstats small{font-size:6px;font-weight:800;letter-spacing:.1em;color:#8b8f94}
+.tnum{margin-top:6px;background:#f5f6f6;text-align:center;padding:5px 0;font-weight:700;font-size:8px}
+.tbadges{display:flex;gap:9px;margin-top:8px;padding-top:7px;border-top:1px solid #e8e9ea}
+.tbadges span{display:flex;flex-direction:column;align-items:center;gap:1px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:7.5px;color:#8b8f94}
+.tbadges svg{width:17px;height:17px}
+.tgchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;padding-top:7px;border-top:1px solid #e8e9ea}
+.tgchips span{border:1px solid #e8e9ea;padding:3px 6px;font-size:7.5px;color:#8b8f94}.tgchips b{color:#0b0c0e}
+.tptab{margin-top:8px;border-top:1px solid #e8e9ea;text-align:center;padding:6px 0 5px;border-bottom:1.5px solid #0b5a34;font-size:7px;font-weight:800;letter-spacing:.12em}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5px;margin:1.5px -11px 0}
+.tgrid i{aspect-ratio:1;position:relative;font-style:normal;background:radial-gradient(circle at 35% 35%,#1b7a45,#06230f 75%)}
+.tgrid i:nth-child(2n){background:radial-gradient(circle at 60% 40%,#6b4a2f,#1a120b 75%)}
+.tgrid i:nth-child(3n){background:radial-gradient(circle at 50% 50%,#3a4a5c,#0e1319 75%)}
+.tgrid i{color:#fff;font-weight:800;font-size:7px;display:flex;align-items:flex-end;padding:3px}
+/* phone: reacting and flagging, as the app does it */
+.pp .ac{position:relative}
+.pp .ac .flg svg{fill:none}
+.pp .ac .flg.on{color:#0b5a34}.pp .ac .flg.on svg{fill:currentColor}
+.ptray{position:absolute;left:4px;bottom:calc(100% - 2px);z-index:5;display:flex;flex-wrap:nowrap;align-items:center;padding:3px;background:#fff;border:1px solid #e5e5ea;box-shadow:0 8px 20px -10px rgba(11,12,14,.5);animation:popin .19s cubic-bezier(.2,.9,.25,1);transform-origin:left bottom;max-width:calc(100% - 8px);overflow-x:auto;scrollbar-width:none}
+.ptray::-webkit-scrollbar{display:none}
+.pp .ac .ptray button{display:block;background:none;border:0;padding:3px 4px;font-size:15px;line-height:1;cursor:pointer;flex:none;transition:transform .12s;color:inherit}
+.pp .ac .ptray button:active{transform:scale(1.35)}
+.pp .ac .ptray .more{font-size:12px;font-weight:800;color:#8b8f94;min-width:18px}
+@keyframes popin{from{opacity:0;transform:scale(.85)}}
+.pp .rl .rx{z-index:2}
+.pp .rl .rx span.mine{cursor:pointer}
+.fst{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#f5f6f6;border-top:1px solid #e5e5ea;font-size:9.5px;line-height:1.3}
+.fst svg{width:12px;height:12px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.fst span{flex:1}.fst em{font-style:normal;color:#8b8f94;font-variant-numeric:tabular-nums;font-size:9px}
+.pveil{position:absolute;inset:0;background:rgba(11,12,14,.35);z-index:8;animation:fadein .2s}
+.psheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:#fff;border-radius:18px 18px 0 0;padding:16px 14px 14px;animation:sheetup .28s cubic-bezier(.2,.8,.2,1)}
+.psheet::before{content:"";display:block;width:26px;height:3px;border-radius:2px;background:#e5e5ea;margin:-6px auto 10px}
+@keyframes sheetup{from{transform:translateY(100%)}}
+@keyframes fadein{from{opacity:0}}
+.psheet h3{font-size:15px;margin:0 0 4px;letter-spacing:-.01em}
+.psheet .pm{font-size:9.5px;color:#8b8f94;margin:0;line-height:1.4;max-width:none;letter-spacing:0}
+.pchip{display:flex;align-items:center;gap:7px;margin:10px 0 8px;padding:6px 7px;background:#f5f6f6}
+.pchip .pav{width:20px;height:20px;font-size:8px}
+.pchip b{display:block;font-size:9.5px}.pchip em{font-style:normal;font-size:8.5px;color:#8b8f94}
+.psheet textarea{display:block;box-sizing:border-box;border:1px solid #e5e5ea;padding:8px;font:inherit;font-size:16px;transform:scale(.62);transform-origin:top left;width:161.3%;height:90px;margin-bottom:-34px;resize:none;border-radius:0;background:#fff;color:#0b0c0e}
+.psheet textarea:focus{outline:none;border-color:#12934f}
+.psheet textarea.need{border-color:#ff3b5c}
+.prow{display:flex;gap:6px;margin-top:10px}
+.prow button{flex:1;border:0;padding:8px 0;font:inherit;font-size:10px;font-weight:700;cursor:pointer;color:#0b0c0e}
+.pcancel{background:#f5f6f6}.prow .psubmit{background:#12934f;color:#fff}
+.psheet .pfine{font-size:8px;color:#8b8f94;margin:8px 0 0;line-height:1.4;max-width:none;letter-spacing:0}
+.pp .ac .ptray{height:32px;padding:0 3px;box-sizing:border-box}
+.pp .ac .ptray button{height:30px;display:flex;align-items:center;justify-content:center;padding:0 4px;margin:0;gap:0}
+</style>
+</head>
+<body>
+<nav><div class="wrap"><a class="logo" href="#/"><svg id="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" >  <defs><linearGradient id="a0" gradientUnits="userSpaceOnUse" x1="66" y1="20" x2="81.19" y2="22.58"><stop offset="0" stop-color="#0b5a34"/><stop offset="1" stop-color="#0e6338"/></linearGradient><linearGradient id="a1" gradientUnits="userSpaceOnUse" x1="80.66" y1="22.4" x2="95.12" y2="30.39"><stop offset="0" stop-color="#0e6338"/><stop offset="1" stop-color="#106b3c"/></linearGradient><linearGradient id="a2" gradientUnits="userSpaceOnUse" x1="94.24" y1="29.69" x2="105.25" y2="42"><stop offset="0" stop-color="#106b3c"/><stop offset="1" stop-color="#137441"/></linearGradient><linearGradient id="a3" gradientUnits="userSpaceOnUse" x1="104.65" y1="41.05" x2="110.97" y2="56.31"><stop offset="0" stop-color="#137441"/><stop offset="1" stop-color="#157d45"/></linearGradient><linearGradient id="a4" gradientUnits="userSpaceOnUse" x1="110.72" y1="55.22" x2="111.64" y2="71.71"><stop offset="0" stop-color="#157d45"/><stop offset="1" stop-color="#188549"/></linearGradient><linearGradient id="a5" gradientUnits="userSpaceOnUse" x1="111.77" y1="70.59" x2="107.2" y2="86.46"><stop offset="0" stop-color="#188549"/><stop offset="1" stop-color="#1a8e4d"/></linearGradient><linearGradient id="a6" gradientUnits="userSpaceOnUse" x1="107.69" y1="85.45" x2="98.13" y2="98.92"><stop offset="0" stop-color="#1a8e4d"/><stop offset="1" stop-color="#1d9752"/></linearGradient><linearGradient id="a7" gradientUnits="userSpaceOnUse" x1="98.92" y1="98.13" x2="85.45" y2="107.69"><stop offset="0" stop-color="#1d9752"/><stop offset="1" stop-color="#209f56"/></linearGradient><linearGradient id="a8" gradientUnits="userSpaceOnUse" x1="86.46" y1="107.2" x2="70.59" y2="111.77"><stop offset="0" stop-color="#209f56"/><stop offset="1" stop-color="#22a85a"/></linearGradient><linearGradient id="a9" gradientUnits="userSpaceOnUse" x1="71.71" y1="111.64" x2="55.22" y2="110.72"><stop offset="0" stop-color="#22a85a"/><stop offset="1" stop-color="#25b05e"/></linearGradient><linearGradient id="a10" gradientUnits="userSpaceOnUse" x1="56.31" y1="110.97" x2="41.05" y2="104.65"><stop offset="0" stop-color="#25b05e"/><stop offset="1" stop-color="#27b962"/></linearGradient><linearGradient id="a11" gradientUnits="userSpaceOnUse" x1="42" y1="105.25" x2="29.69" y2="94.24"><stop offset="0" stop-color="#27b962"/><stop offset="1" stop-color="#2ac267"/></linearGradient><linearGradient id="a12" gradientUnits="userSpaceOnUse" x1="30.39" y1="95.12" x2="22.4" y2="80.66"><stop offset="0" stop-color="#2ac267"/><stop offset="1" stop-color="#2cca6b"/></linearGradient><linearGradient id="a13" gradientUnits="userSpaceOnUse" x1="22.58" y1="81.19" x2="20" y2="66"><stop offset="0" stop-color="#2cca6b"/><stop offset="1" stop-color="#2fd36f"/></linearGradient></defs>  <rect width="132" height="132" fill="#FFFFFF"/>  <rect x="0.5" y="0.5" width="131" height="131" fill="none" stroke="#E4E9E6" stroke-width="1"/>  <g><circle cx="66" cy="66" r="46" fill="none" stroke="#E9EFEB" stroke-width="18"/><path d="M 66 20 A 46 46 0 0 1 81.19 22.58" fill="none" stroke="url(#a0)" stroke-width="18" stroke-linecap="round"/><path d="M 80.66 22.4 A 46 46 0 0 1 95.12 30.39" fill="none" stroke="url(#a1)" stroke-width="18" stroke-linecap="butt"/><path d="M 94.24 29.69 A 46 46 0 0 1 105.25 42" fill="none" stroke="url(#a2)" stroke-width="18" stroke-linecap="butt"/><path d="M 104.65 41.05 A 46 46 0 0 1 110.97 56.31" fill="none" stroke="url(#a3)" stroke-width="18" stroke-linecap="butt"/><path d="M 110.72 55.22 A 46 46 0 0 1 111.64 71.71" fill="none" stroke="url(#a4)" stroke-width="18" stroke-linecap="butt"/><path d="M 111.77 70.59 A 46 46 0 0 1 107.2 86.46" fill="none" stroke="url(#a5)" stroke-width="18" stroke-linecap="butt"/><path d="M 107.69 85.45 A 46 46 0 0 1 98.13 98.92" fill="none" stroke="url(#a6)" stroke-width="18" stroke-linecap="butt"/><path d="M 98.92 98.13 A 46 46 0 0 1 85.45 107.69" fill="none" stroke="url(#a7)" stroke-width="18" stroke-linecap="butt"/><path d="M 86.46 107.2 A 46 46 0 0 1 70.59 111.77" fill="none" stroke="url(#a8)" stroke-width="18" stroke-linecap="butt"/><path d="M 71.71 111.64 A 46 46 0 0 1 55.22 110.72" fill="none" stroke="url(#a9)" stroke-width="18" stroke-linecap="butt"/><path d="M 56.31 110.97 A 46 46 0 0 1 41.05 104.65" fill="none" stroke="url(#a10)" stroke-width="18" stroke-linecap="butt"/><path d="M 42 105.25 A 46 46 0 0 1 29.69 94.24" fill="none" stroke="url(#a11)" stroke-width="18" stroke-linecap="butt"/><path d="M 30.39 95.12 A 46 46 0 0 1 22.4 80.66" fill="none" stroke="url(#a12)" stroke-width="18" stroke-linecap="butt"/><path d="M 22.58 81.19 A 46 46 0 0 1 20 66" fill="none" stroke="url(#a13)" stroke-width="18" stroke-linecap="round"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#21a559" transform="rotate(-45 97 103)"/></g></svg><span>Quota</span></a>
+<a class="navcta" href="#/get">Get the app</a>
+<button type="button" class="menu" id="menubtn" aria-label="Menu" aria-expanded="false" aria-controls="navlist"><span></span><span></span></button>
+<ul id="navlist"><li><a href="#/what">What it is</a></li><li><a href="#/approach">Our approach</a></li><li><a href="#/about">About us</a></li><li class="mget"><a href="#/get">Get the app</a></li><li><a href="#/faq">FAQ</a></li></ul></div></nav>
+
+<!-- HOME -->
+<div class="page on" id="p-home">
+<header class="hero"><div class="wrap">
+<div><h1>Daily goals with friends.<br><span>Proof or it didn't happen.</span></h1>
+<p>One goal a day. A photo or a few seconds of video before midnight. A streak the whole group holds together.</p>
+<div class="links"><a href="#/what">What it is</a><a href="#/get">Get the app</a></div><div class="phint"><i></i><span class="pd">Scroll the phone to look around</span><span class="pm">Swipe inside the phone to look around</span></div></div>
+<div class="phone"><div class="screen">
+<div class="top"><span><svg viewBox="0 0 132 132" style="border-radius:3px"><use href="#mark"/></svg>QUOTA</span><svg class="chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></div>
+<div class="feedscroll" tabindex="0" aria-label="Example Quota feed, scrollable">
+<div class="streak"><b>23</b><div><b>day streak</b><small>best 23 · 1 of 2 quotas done today</small></div></div>
+<div class="qrow" style="border-bottom:0;padding-bottom:4px">pushups<i><span></span></i>100/100</div>
+<div class="qrow">read pages<i><span class="part"></span></i>12/20</div>
+<div class="stories"><div><div class="av">M<i>+</i></div>Add story</div><div><div class="av g">S</div>Sam</div><div><div class="av g">T</div>Theo</div><div><div class="av g">P</div>Priya</div></div>
+<details class="pact"><summary><span class="dt"></span>Today<span class="n">6</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary><div class="e"><span class="pav" style="background:#111">M</span><p><b>Maya</b> commented on your proof</p><span class="t">2m</span></div><div class="e"><span class="pav" style="background:#8a1f30">P</span><p><b>Priya</b> posted 25 pages</p><span class="t">28m</span></div><div class="e"><span class="pav" style="background:#6e6e73">S</span><p><b>Sam</b> posted 70 pushups</p><span class="t">1h</span></div><div class="e"><span class="pav" style="background:#1d4e89">J</span><p><b>Jordan</b> posted 100 pushups</p><span class="t">2h</span></div><div class="e"><span class="pav" style="background:#12934f">L</span><p><b>Lena</b> wants to be friends</p><span class="t">3h</span></div><div class="e"><span class="pav" style="background:#0b5a34">T</span><p><b>Theo</b> invited you to a group</p><span class="t">5h</span></div></details>
+<div class="dayl">Today</div><div class="pp" data-g="push" data-mine="1"><div class="hd"><span class="pav b" style="background:#111">M</span><div><b>Maya</b><small>@maya · 7:32 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%)"><span class="bd">+30 pushups</span><div class="pl"><i></i></div><div class="rx"><span>🔥</span><span>💪</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="4"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>4</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><span class="cc">2 comments</span></div><div class="cp"><b>maya</b>last set of the night</div><div class="cm"><div><b>sam</b><span>finally</span></div><div><b>theo</b><span>form looked clean</span></div></div></div><div class="pp" data-g="read"><div class="hd"><span class="pav b" style="background:#8a1f30">P</span><div><b>Priya</b><small>@priya · 7:05 PM · Book club</small></div></div><div class="rl" style="background:radial-gradient(circle at 40% 60%,#6b4a2f,#1a120b 72%)"><span class="bd">+25 pages</span><div class="pl"><i></i></div><div class="rx"><span>📚</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="3"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>3</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cp"><b>priya</b>chapter 12 was wild</div><div class="cm"><div><b>lena</b><span>no spoilers!!</span></div></div></div><div class="pp" data-g="push"><div class="hd"><span class="pav b" style="background:#6e6e73">S</span><div><b>Sam</b><small>@sam · 6:05 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 65% 35%,#3a4a5c,#0e1319 72%)"><span class="bd">+70 pushups</span><div class="pl"><i></i></div><div class="rx"><span>🔥</span><span>👏</span><span>😤</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="5"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>5</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">3 comments</span></div><div class="cm"><div><b>maya</b><span>70 in one go??</span></div><div><b>sam</b><span>broke it into 3 sets</span></div><div><b>jordan</b><span>still counts</span></div></div></div><div class="pp" data-g="push"><div class="hd"><span class="pav b" style="background:#1d4e89">J</span><div><b>Jordan</b><small>@jordan · 5:48 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 35% 40%,#4a4f57,#111316 72%)"><span class="bd">+100 pushups</span><div class="pl"><i></i></div><div class="rx"><span>💯</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="6"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>6</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">0 comments</span></div><div class="cp"><b>jordan</b>done before dinner</div><div style="height:9px"></div></div><div class="pp" data-g="read"><div class="hd"><span class="pav b" style="background:#12934f">L</span><div><b>Lena</b><small>@lena · 2:14 PM · Book club</small></div></div><div class="rl" style="background:radial-gradient(circle at 70% 70%,#1f6f62,#07201c 72%)"><span class="bd">+40 pages</span><div class="pl"><i></i></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="2"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>2</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cp"><b>lena</b>on the train</div><div class="cm"><div><b>priya</b><span>which book?</span></div></div></div><div class="dayl">Yesterday</div><div class="pp" data-g="push" data-day="Yesterday"><div class="hd"><span class="pav b" style="background:#0b5a34">T</span><div><b>Theo</b><small>@theo · 11:52 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%)"><span class="bd">+100 pushups</span><div class="pl"><i></i></div><div class="rx"><span>😅</span><span>⏰</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="7"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>7</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">3 comments</span></div><div class="cp"><b>theo</b>8 minutes to spare</div><div class="cm"><div><b>maya</b><span>cutting it close</span></div><div><b>jordan</b><span>living dangerously</span></div><div><b>theo</b><span>it counts</span></div></div></div><div class="pp" data-g="read" data-day="Yesterday"><div class="hd"><span class="pav b" style="background:#8a1f30">P</span><div><b>Priya</b><small>@priya · 9:30 PM · Book club</small></div></div><div class="rl" style="background:radial-gradient(circle at 40% 60%,#6b4a2f,#1a120b 72%)"><span class="bd">+20 pages</span><div class="pl"><i></i></div><div class="rx"><span>📖</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="3"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>3</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cm"><div><b>lena</b><span>nice</span></div></div></div>
+</div>
+<div class="pveil" hidden></div><div class="psheet" hidden role="dialog" aria-label="Question this one"><h3>Question this one</h3><p class="pm">The group decides, not you and not us. Say what is wrong with it — everyone voting reads this.</p><div class="pchip"><span class="pav"></span><span><b></b><em>Today</em></span></div><textarea id="pflag" maxlength="300" rows="3" placeholder="Not full range — elbows barely bent on most of them."></textarea><div class="prow"><button type="button" class="pcancel">Cancel</button><button type="button" class="psubmit">Submit flag</button></div><p class="pfine"></p></div></div></div>
+</div></header>
+
+<section><div class="wrap center">
+<div class="eyebrow">In short</div><h2>A goal, a group, and proof every day.</h2>
+<p class="lead">Everyone shows their goal before midnight. The group keeps the streak.</p>
+<div class="cards">
+<div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></div><h3>One goal a day</h3><p>Pushups, a run, pages read, an hour of practice. You name it and choose which days it applies to.</p></div>
+<div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div><h3>Proof, taken in the app</h3><p>A photo or a clip up to ten seconds, taken inside Quota that day. Nothing old from your camera roll.</p></div>
+<div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><h3>The streak belongs to the group</h3><p>A day counts only when every member posts. One person short, and the day is short for everyone.</p></div>
+</div>
+</div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">A look inside</div><h2>Three screens you'll use every day.</h2>
+<div class="tour">
+<figure><div class="mph"><div class="msc2"><div class="tsc"><div class="tlogo"><svg viewBox="0 0 132 132"><use href="#mark"/></svg>QUOTA</div><div class="th1">PUSHUP CLUB</div></div><div class="tbody"><div class="tback">‹ Groups</div><div class="tcard"><span class="tq">100 pushups / day</span><div class="tbtns"><b>Invite a friend</b><span>Edit</span></div></div><div class="tsec">TODAY</div><div class="tcard tlist"><div class="tm"><span class="pav" style="background:#111">M</span><div><b>Maya <em>(you)</em></b><small>23 day streak</small></div><i class="ok">100/100</i></div><div class="tm"><span class="pav" style="background:#e5e5ea;color:#111">S</span><div><b>Sam</b><small>23 day streak</small></div><i class="ok">100/100</i></div><div class="tm"><span class="pav" style="background:#e5e5ea;color:#111">J</span><div><b>Jordan</b><small>23 day streak</small></div><i class="ok">100/100</i></div><div class="tm"><span class="pav" style="background:#e5e5ea;color:#111">T</span><div><b>Theo</b><small>23 day streak</small></div><i class="">0/100</i></div></div></div><div class="tbar"><span class=""><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span class="on"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="tadd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class=""><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div></div></div><figcaption><b>Your group</b>Who's done and who isn't, at a glance.</figcaption></figure>
+<figure><div class="mph"><div class="msc2"><div class="tcam"><div class="ctl"><span class="cbtn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></span><span class="cbtn"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div><div class="cmode"><b>Video</b><span>Photo</span></div><div class="cshut"><span class="coff">Off</span><span class="cring"></span></div></div></div></div><figcaption><b>The camera</b>Opens full screen. A photo or up to ten seconds of video.</figcaption></figure>
+<figure><div class="mph"><div class="msc2"><div class="tsc"><div class="tlogo"><svg viewBox="0 0 132 132"><use href="#mark"/></svg>QUOTA</div><div class="th1 gear">PROFILE<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div></div><div class="tbody"><div class="twho"><span class="pav" style="background:#111;width:38px;height:38px;font-size:14px">M</span><div><b>Maya</b><small>@maya</small></div></div><p class="tbio">Pushups before breakfast.</p><div class="tstats"><div><b class="g">23</b><small>STREAK</small></div><div><b>104</b><small>BEST</small></div><div><b>18</b><small>ON SHOW</small></div></div><div class="tnum">Your numbers</div><div class="tbadges"><span><svg viewBox="0 0 24 24" style="fill:#12934f"><path d="M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z"/></svg>25</span><span><svg viewBox="0 0 24 24" style="fill:#0b5a34"><path d="M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z"/><path fill="#fff" d="M12 7.1l1.5 3.4 3.7.35-2.8 2.45.83 3.6L12 15l-3.2 1.9.83-3.6-2.8-2.45 3.7-.35Z"/></svg>50</span><span><svg viewBox="0 0 24 24" style="fill:#c9a227"><path d="M3.2 8.6 7 12l5-8 5 8 3.8-3.4-1.5 11.4H4.7Z"/></svg>100</span></div><div class="tgchips"><span><b>Pushup club</b> 23 day streak</span><span><b>Book club</b> 12 day streak</span></div><div class="tptab">PROOF · 18</div><div class="tgrid"><i>+100</i><i>+25</i><i>+100</i><i>+30</i><i>+100</i><i>+40</i></div></div><div class="tbar"><span class=""><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span class=""><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="tadd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class=""><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div></div></div><figcaption><b>Your profile</b>Your streak, your badges, and your proof.</figcaption></figure>
+</div></div></section>
+
+<section><div class="wrap center"><div class="eyebrow">What people use it for</div><h2>Any goal you can show.</h2><p class="lead">If you can film yourself doing it, or having done it, it can be a quota.</p>
+<div class="chips"><span class="on">100 pushups</span><span>Run 5k</span><span>Read 20 pages</span><span>Practice piano 30 min</span><span>Cold shower</span><span>Write 500 words</span><span>Make the bed</span><span>Meditate 10 min</span><span>Study 2 hours</span><span>Walk the dog</span><span>Cook dinner</span><span>Stretch</span><span>Drink 3L of water</span></div>
+</div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">Midnight</div><h2>One deadline. Same for everyone.</h2><p class="lead">A post is due before midnight where you are. This is how long is left tonight.</p>
+<div class="clock" id="clock">00:00:00</div><div class="cap">Counting down on your clock, right now.</div>
+</div></section>
+
+<section><div class="wrap center"><div class="eyebrow">Streaks</div><h2>The streak gets its own gravity.</h2><p class="lead">Around the second week, nobody wants to be the one who breaks it. That is the whole mechanism.</p>
+<div class="bigring"><svg viewBox="0 0 300 300"><circle class="tr" cx="150" cy="150" r="135"/><circle class="ar" cx="150" cy="150" r="135"/></svg><div><b id="days">0</b><small>days together</small></div></div>
+</div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">Groups</div><h2>Two people is enough.</h2><p class="lead">Quota works at any size, but it was built for a handful of people who actually know each other.</p>
+<div class="sizes"><div><div class="avs"><i>A</i><i class="g">J</i></div><b>Two friends</b><span>Where it started.</span></div><div><div class="avs"><i>M</i><i class="g">S</i><i class="n">T</i><i class="g">K</i></div><b>A few friends</b><span>Most groups look like this.</span></div><div><div class="avs"><i>R</i><i class="g">L</i><i class="n">P</i><i class="g">D</i><i>N</i><i class="g">+</i></div><b>A team or a class</b><span>One streak for all of you.</span></div></div>
+</div></section>
+
+<section><div class="wrap center"><h2>More about Quota.</h2>
+<div class="links3"><a href="#/what"><b>What it is</b><span>Groups, quotas, proof, streaks, and flags, one at a time.</span><em>Read</em></a><a href="#/approach"><b>Our approach</b><span>Why proof beats a checkbox, and what we left out on purpose.</span><em>Read</em></a><a href="#/about"><b>About us</b><span>Two childhood best friends, and why we created Quota.</span><em>Read</em></a></div>
+</div></section>
+
+<section><div class="wrap center"><div class="eyebrow">Get the app</div><h2>Free, and the base version always will be.</h2><p class="lead">Quota runs as a web app today. App Store and Google Play listings are on the way.</p><div class="more"><a href="#/get">How to install it</a></div></div></section>
+</div>
+
+<!-- WHAT -->
+<div class="page" id="p-what">
+<section><div class="wrap center"><div class="eyebrow">What it is</div><h2>How Quota works.</h2><p class="lead">A small app for keeping a daily goal with people you know. Five parts, in the order you meet them.</p></div></section>
+
+<section class="alt"><div class="wrap"><div class="two"><div><h2>Groups</h2><p class="lead">Everything happens inside a group: the people you invited, and nobody else. No public feed, no strangers. Two people is enough.</p></div>
+<div class="fig"><div class="pill">100 pushups / day</div><div class="btn">Invite a friend</div>
+<div class="h" style="margin-top:20px">Today</div>
+<div class="mem"><div class="av">M</div><div class="t">Maya <small>23 day streak</small></div><span class="chip ok">100/100</span></div>
+<div class="mem"><div class="av g">S</div><div class="t">Sam <small>23 day streak</small></div><span class="chip ok">100/100</span></div>
+<div class="mem"><div class="av g">T</div><div class="t">Theo <small>23 day streak</small></div><span class="chip">0/100</span></div></div>
+</div></div></section>
+
+<section><div class="wrap"><div class="two rev"><div class="fig"><div class="h">Your quota</div>
+<div class="qrow" style="padding:10px 0;border:0">pushups<i><span></span></i>100/100</div>
+<div class="h" style="margin-top:16px">Active days <small>Mon to Fri</small></div>
+<div class="strip" style="margin:0;max-width:none"><div class="day">M</div><div class="day">T</div><div class="day">W</div><div class="day">T</div><div class="day">F</div><div class="day rest">S</div><div class="day rest">S</div></div></div>
+<div><h2>Quotas</h2><p class="lead">Your one daily goal, in your own words, on the days you choose. Rest days leave your streak alone.</p></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap"><div class="two"><div><h2>Proof</h2><p class="lead">A photo or up to ten seconds of video, taken with Quota's camera that day, before midnight. Nothing old from your camera roll.</p></div>
+<div class="fig" style="padding:0;overflow:hidden;border:0"><div class="cam" style="border-radius:18px;height:260px"><span class="tm">0:07</span><span class="tag">+100 PUSHUPS</span><div class="rec"></div></div></div>
+</div></div></section>
+
+<section><div class="wrap"><div class="two rev"><div class="fig"><div class="h">Pushup club <small>this week</small></div>
+<div class="strip" style="margin:0;max-width:none"><div class="day">M</div><div class="day">T</div><div class="day">W</div><div class="day miss">T</div><div class="day">F</div><div class="day rest">S</div><div class="day rest">S</div></div>
+<div class="cap">Theo missed Thursday. The group streak started over on Friday.</div></div>
+<div><h2>Streaks</h2><p class="lead">You have a streak. The group has a streak. A group day counts only when everyone posts, so a missed day is never private.</p></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap"><div class="two"><div><h2>Flags</h2><p class="lead">A post that clearly doesn't show the goal can be flagged. The group votes. Quota doesn't judge, and neither do we.</p></div>
+<div class="fig"><div class="mem" style="border:0;padding-top:0"><div class="av g">T</div><div class="t">Theo <small>9:58 PM · flagged by Sam</small></div></div>
+<p style="color:var(--mute);margin:8px 0 0">"That's a video of the ceiling."</p>
+<div class="vote"><div class="y">Doesn't count · 2</div><div>Counts · 0</div></div></div>
+</div></div></section>
+
+<section><div class="wrap"><div class="two rev"><div class="fig"><ul class="tl">
+<li><time>7:00 AM</time><div><b>Nothing due yet</b><small>Your quota is open all day.</small></div></li>
+<li><time>8:00 PM</time><div><b><span class="dot"></span>Reminder</b><small>"Pushup club closes in 4 hours."</small></div></li>
+<li><time>9:58 PM</time><div><b><span class="dot"></span>You post</b><small>Nine seconds. Group sees it right away.</small></div></li>
+<li><time>12:00 AM</time><div><b><span class="dot r"></span>Day closes</b><small>Nothing can be added to it now.</small></div></li>
+</ul></div>
+<div><h2>A day in Quota</h2><p class="lead">There is one deadline, and it is midnight. A reminder comes in the evening if you haven't posted.</p></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap"><div class="two"><div><h2>Comments</h2><p class="lead">Your group can like and comment on a post. That's the whole social layer.</p></div>
+<div class="fig"><div class="mem" style="border:0;padding-top:0"><div class="av">M</div><div class="t">Maya <small>7:32 PM · +100 pushups</small></div></div>
+<div class="bub them" style="margin-top:12px">form was rough on the last ten</div><div class="bub me">still counts</div><div class="bub them">💚 Sam and Theo</div></div>
+</div></div></section>
+
+<section><div class="wrap"><div class="two rev"><div class="fig"><div class="h">Stories <small>last 24 hours</small></div>
+<div class="srow"><div><i class="ring">M</i>Maya</div><div><i class="ring">S</i>Sam</div><div><i class="ring seen">T</i>Theo</div><div><i class="ring">P</i>Priya</div></div>
+<div class="sseen">Your story · 4 views · 2 likes</div></div>
+<div><h2>Stories</h2><p class="lead">For everything that isn't proof. Your groups see it for 24 hours, and you see who watched.</p></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap"><div class="two"><div><h2>Chat</h2><p class="lead">Every group has a chat, and you can message friends one to one.</p></div>
+<div class="fig"><div class="h">Pushup club <small>group chat</small></div>
+<div class="bub them">who's still out tonight</div><div class="bub them">👀 theo</div><div class="bub me">posting in 5, relax</div></div>
+</div></div></section>
+
+<section><div class="wrap center"><h2>Milestones</h2><p class="lead">Long streaks get marked along the way.</p>
+<div class="miles"><div><b>25</b><span>Steady</span></div><div><b>50</b><span>Half century</span></div><div class="on"><b>100</b><span>Century</span></div><div><b>365</b><span>A full year</span></div><div><b>1000</b><span>A thousand days</span></div></div>
+</div></section>
+
+<section class="alt"><div class="wrap center"><h2>Notifications</h2><p class="lead">Four kinds, all optional, all switchable on your phone.</p>
+<div style="margin-top:40px">
+<div class="notif"><svg viewBox="0 0 132 132" style="border-radius:8px"><use href="#mark"/></svg><div><b>Quota</b><small>Pushup club closes in 4 hours. You haven't posted.</small></div></div>
+<div class="notif"><svg viewBox="0 0 132 132" style="border-radius:8px"><use href="#mark"/></svg><div><b>Quota</b><small>Sam posted in Pushup club.</small></div></div>
+<div class="notif"><svg viewBox="0 0 132 132" style="border-radius:8px"><use href="#mark"/></svg><div><b>Quota</b><small>Theo commented: "still counts"</small></div></div>
+<div class="notif"><svg viewBox="0 0 132 132" style="border-radius:8px"><use href="#mark"/></svg><div><b>Quota</b><small>Maya invited you to Morning runs.</small></div></div>
+</div></div></section>
+
+<section><div class="wrap center"><h2>Privacy</h2><p class="lead">Your posts are visible to your group only.</p>
+<div class="icons" style="max-width:720px;margin-inline:auto"><div><b>No public feed</b><span>Nothing you post can be found by anyone outside your group.</span></div><div><b>No cookies, no ads</b><span>Nothing is tracked, and nothing is sold.</span></div><div><b>Yours to delete</b><span>Ask and your account and everything in it is gone within 30 days.</span></div></div>
+<p class="cap">Quota is not for anyone under 13.</p>
+</div></section>
+
+<section class="alt"><div class="wrap center"><h2>And that's it.</h2><p class="lead">No points, no ads, no feed to scroll. Everything else you might wonder about is in the FAQ.</p><div class="more"><a href="#/faq">More in the FAQ</a></div></div></section>
+</div>
+
+<!-- APPROACH -->
+<div class="page" id="p-approach">
+<section><div class="wrap center"><div class="eyebrow">Our approach</div><h2>Built around proof.</h2><p class="lead">Every choice in Quota comes from a few simple ideas. Here they are.</p></div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">Proof over promises</div><h2>Proof, not a checkbox.</h2><p class="lead">Saying you did it costs nothing. Showing it does.</p>
+<div class="cmp">
+<div class="fig no"><div class="bub them">did you do them</div><div class="bub me">yeah done</div><div class="bub them">👍</div><div class="cap">Easy to send. Easy to fake.</div></div>
+<div class="fig"><div class="bub them">did you do them</div><div class="bub me vid"><div class="cam"><span class="tm">0:09</span><div class="rec" style="width:36px;height:36px"></div></div></div><div class="bub them">ok fine, doing mine</div><div class="cap">A few seconds, filmed today, seen by your group.</div></div>
+</div></div></section>
+
+<section><div class="wrap"><div class="two"><div><div class="eyebrow">Shared, not solo</div><h2>The streak belongs to the group.</h2><p class="lead">A day only counts when everyone posts. That's what makes it hard to skip.</p></div>
+<div class="fig"><div class="h">Pushup club <small>tonight</small></div>
+<div class="mem"><div class="av">M</div><div class="t">Maya</div><span class="chip ok">In</span></div>
+<div class="mem"><div class="av g">S</div><div class="t">Sam</div><span class="chip ok">In</span></div>
+<div class="mem"><div class="av g">J</div><div class="t">Jordan</div><span class="chip ok">In</span></div>
+<div class="mem"><div class="av g">T</div><div class="t">Theo</div><span class="chip">Waiting</span></div>
+<div class="cap" style="margin-top:12px">The group's day 24 is waiting on Theo.</div></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">Hard to fake</div><h2>Three rules, no loopholes.</h2><p class="lead">Each one closes a way people usually let themselves off the hook.</p>
+<div class="icons" style="max-width:760px;margin-inline:auto"><div><b>A group</b><span>instead of a text thread</span></div><div><b>Midnight</b><span>instead of "whenever"</span></div><div><b>Today's camera</b><span>instead of a camera roll</span></div></div>
+</div></section>
+
+<section><div class="wrap"><div class="two rev"><div class="fig"><ul class="strike"><li>Public feed</li><li>Followers</li><li>Points and levels</li><li>Badges for opening the app</li><li>An algorithm</li><li class="keep">Your group, your proof, your streak</li></ul></div>
+<div><div class="eyebrow">What we left out</div><h2>Everything that wasn't the proof.</h2><p class="lead">If a feature didn't help someone post tonight, it didn't go in.</p></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">Cost</div><h2>Free, and the base version always will be.</h2><p class="lead">A paid version with extra perks will come eventually. Nothing you can do today will move behind it.</p>
+<div class="more"><a href="#/about">The story behind Quota</a></div></div></section>
+</div>
+
+<!-- ABOUT -->
+<div class="page" id="p-about">
+<section><div class="wrap center"><div class="eyebrow">About us</div><h2>Two childhood best friends.</h2><p class="lead">For as long as we can remember, we've pushed each other to be better versions of ourselves.</p>
+<div class="cities"><div class="city"><div class="av">A</div><b>Ari Marants</b><span>Co-founder<br>College Station, Texas</span></div><div class="ln"></div><div class="city"><div class="av g">J</div><b>Justin Smith</b><span>Co-founder<br>Toronto, Canada</span></div></div>
+</div></section>
+
+<section class="alt"><div class="wrap"><div class="center" style="margin-bottom:72px"><div class="eyebrow">Our story</div><h2>Why we created Quota.</h2></div>
+<div class="storyrow"><div class="two"><div><div class="eyebrow">Always a challenge</div><h2>One of us raises the bar. The other meets it.</h2><p class="lead">Whatever one of us was working on, the other was right there pushing. Neither of us ever wanted to be the one who fell behind.</p></div>
+<div class="fig race"><div class="h">Who's ahead <small>it changes daily</small></div><div class="rw"><div class="av">A</div><div class="tk"><i></i></div></div><div class="rw"><div class="av g">J</div><div class="tk"><i></i></div></div></div>
+</div></div>
+<div class="storyrow"><div class="two rev"><div class="fig tally"><div class="h">Our daily quota <small>tracked on trust</small></div><div class="rw"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
+<div class="who"><b>Ari</b><span>done, apparently</span></div><div class="rw"><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div></div>
+<div class="who"><b>Justin</b><span>done, apparently</span></div><div class="rw"><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div></div></div>
+<div><div class="eyebrow">The problem</div><h2>A daily quota, and no real way to track it.</h2><p class="lead">We kept challenging each other to hit a number every day. The goal was never the hard part. Knowing the other one actually did it was.</p></div>
+</div></div>
+<div class="storyrow"><div class="two"><div><div class="eyebrow">So we built it</div><h2>The tool we wanted and couldn't find.</h2><p class="lead">A quota, proof to back it up, and a streak we hold together. Then we opened it up so anyone could do the same with their people.</p></div>
+<div class="fig"><div class="pill">100 pushups / day</div>
+<div class="mem"><div class="av">A</div><div class="t">Ari <small>23 day streak</small></div><span class="chip ok">100/100</span></div>
+<div class="mem"><div class="av g">J</div><div class="t">Justin <small>23 day streak</small></div><span class="chip ok">100/100</span></div>
+<div class="cap" style="margin-top:12px">Both in. The streak holds.</div></div>
+</div></div>
+</div></section>
+
+<section><div class="wrap"><div class="two rev"><div class="fig"><div class="mem" style="border:0;padding-top:0"><div class="av">A</div><div class="t">Ari <small>10:41 PM · Pushup club</small></div></div><div class="cam" style="height:140px;margin-top:10px"><span class="tm">0:08</span><span class="tag">+100 PUSHUPS</span></div>
+<div class="mem" style="margin-top:12px"><div class="av g">J</div><div class="t">Justin <small>11:52 PM · Pushup club</small></div></div><div class="cam" style="height:140px;margin-top:10px"><span class="tm">0:10</span><span class="tag">+100 PUSHUPS</span></div></div>
+<div><div class="eyebrow">Today</div><h2>Still in the same group.</h2><p class="lead">Ari is a student at Texas A&amp;M. Justin works. Every night, both of us post our proof before midnight.</p><p class="mute" style="max-width:40ch;color:var(--mute)">Every feature in Quota started as something one of us wanted in that group.</p></div>
+</div></div></section>
+
+<section class="alt"><div class="wrap center"><div class="eyebrow">Get in touch</div><h2>Write to us.</h2><p class="lead">Something wrong, or an idea? You'll hear back from one of the two of us.</p><p class="mute" style="color:var(--mute)"><span class="ph">Placeholder</span>hello@quota.app</p></div></section>
+</div>
+
+<!-- GET -->
+<div class="page" id="p-get">
+<section><div class="wrap center"><div class="eyebrow">Get the app</div><h2>Three steps to your first post.</h2><p class="lead">Quota runs as a web app you add to your home screen. It installs in under a minute and behaves like any other app.</p>
+<div class="steps">
+<div class="step"><h3>Install Quota</h3><p>Open the web app in Safari or Chrome and add it to your home screen. Store listings are coming; the links will appear here.</p></div>
+<div class="step"><h3>Join or start a group</h3><p>Open the invite link a friend sent you, or make a group and share yours. Two people is enough.</p></div>
+<div class="step"><h3>Set your quota</h3><p>Name the goal, pick the days it applies to, and post your first proof before midnight.</p></div>
+</div>
+<div class="qr"><div class="qrbox" aria-hidden="true"></div><div><b>On a computer?</b><span>Scan this with your phone's camera to download Quota.</span><small><span class="ph">Placeholder</span>QR code to the app's store listing goes here</small></div></div>
+<div class="badges"><span class="badge soon"><small><span class="ph">Placeholder</span></small>App Store</span><span class="badge soon"><small><span class="ph">Placeholder</span></small>Google Play</span><span class="badge"><small>Available now</small>Web app</span></div>
+</div></section>
+<section class="alt"><div class="wrap center"><h2>Installing the web app.</h2>
+<div class="platform" id="platform">
+<div><h3>iPhone</h3><ol><li>Open the Quota link in Safari. It has to be Safari.</li><li>Tap the Share button at the bottom of the screen.</li><li>Scroll down and tap Add to Home Screen.</li><li>Tap Add. Quota now opens from your home screen like any app.</li></ol></div>
+<div><h3>Android</h3><ol><li>Open the Quota link in Chrome.</li><li>Tap the three-dot menu in the top corner.</li><li>Tap Add to Home screen, or Install app if you see it.</li><li>Tap Install. Quota appears with your other apps.</li></ol></div>
+</div>
+<p class="cap">Notifications and the camera work once the app is installed. If you skip the install and use it in the browser, reminders will not arrive.</p>
+</div></section>
+<section><div class="wrap center"><h2>What you will be asked for.</h2><p class="lead">Quota asks for two things, and explains each one the first time.</p>
+<div class="cards" style="grid-template-columns:1fr 1fr;max-width:660px;margin-inline:auto">
+<div class="card"><h3>Camera and microphone</h3><p>To film proof. Quota only uses them while you are recording.</p></div>
+<div class="card"><h3>Notifications</h3><p>For the evening reminder and group activity. Optional, and you can turn them off any time.</p></div>
+</div></div></section>
+</div>
+
+<!-- PRIVACY -->
+<div class="page" id="p-privacy">
+<section><div class="wrap center"><div class="eyebrow">Privacy</div><h2>Your proof is for your group.</h2><p class="lead">The short version of what Quota keeps and who sees it. The full policy is in the app.</p>
+<div class="ptiles">
+<div><b>No ads, no trackers</b><span>No analytics, no tracking pixels, nothing sold.</span></div>
+<div><b>No cookies</b><span>Your sign-in and a few settings stay on your phone.</span></div>
+<div><b>Group only</b><span>Proof, captions and comments are seen by that group and nobody else.</span></div>
+<div><b>Stories fade</b><span>Shown for 24 hours to people you share a group with.</span></div>
+<div><b>No email needed</b><span>A username and a password, stored so nobody can read it back.</span></div>
+<div><b>Ask anytime</b><span>A copy of your data, a correction, or full deletion within 30 days.</span></div>
+</div>
+<p class="cap" style="margin-top:28px">Data is stored with Supabase and the app is served by Vercel. Neither may use it for anything else.</p>
+</div></section>
+</div>
+
+<!-- FAQ -->
+<div class="page" id="p-faq">
+<section><div class="wrap"><div class="center"><div class="eyebrow">FAQ</div><h2>Frequently asked.</h2>
+<label class="fsearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="fq" type="search" placeholder="Search questions" autocomplete="off"></label>
+<div class="seg" role="group" aria-label="Filter questions"><button id="f-all" aria-pressed="true" data-f="all">All</button><button id="f-post" aria-pressed="false" data-f="post">Posting</button><button id="f-streak" aria-pressed="false" data-f="streak">Streaks and groups</button><button id="f-acct" aria-pressed="false" data-f="acct">Account</button><button id="f-priv" aria-pressed="false" data-f="priv">Privacy and cost</button></div></div>
+<div class="faq">
+<div class="fcat" data-cat="post"><h3>Posting</h3>
+<details><summary>What counts as proof?</summary><p>A photo or a clip of up to ten seconds, taken with Quota's camera that day. Quota checks when it was taken, so something old from your camera roll won't go through.</p></details>
+<details><summary>Why can't I upload something I already took?</summary><p>Because then anyone could. The point of Quota is that the proof was made today. The in-app camera is the only way in.</p></details>
+<details><summary>Do I have to post every single day?</summary><p>No. Each quota has active days. Days outside them leave your streak alone.</p></details>
+<details><summary>What if I'm travelling in another time zone?</summary><p>Midnight is midnight where your phone is. Your deadline moves with you.</p></details>
+</div>
+<div class="fcat" data-cat="streak"><h3>Streaks and groups</h3>
+<details><summary>What happens if I miss a day?</summary><p>Your streak resets, and so does the group's. A group day only counts when every member posts.</p></details>
+<details><summary>What if someone posts something that clearly doesn't count?</summary><p>Anyone in the group can flag it, and the group votes. Quota doesn't decide, and neither do we.</p></details>
+<details><summary>Can I be in more than one group?</summary><p>Yes. Each group has its own streak and you can have a different quota in each.</p></details>
+<details><summary>Can I use it on my own?</summary><p>You can, but on your own it's a diary with a camera. Quota is a group thing. Make a group, or open the link somebody sent you.</p></details>
+<details><summary>Can I leave a group?</summary><p>Yes, any time, from the group's settings. Your past posts stay in the group. The group's streak carries on without you.</p></details>
+</div>
+<div class="fcat" data-cat="acct"><h3>Account</h3>
+<details><summary>Do I need an email to sign up?</summary><p>No. You pick a username and a password. There's no email address on your account at all.</p></details>
+<details><summary>What if I forget my password?</summary><p>When you sign up, Quota gives you recovery codes. Save them somewhere safe. Each one resets your password once, and since there's no email, they're the way back in.</p></details>
+<details><summary>How do friends find me?</summary><p>By your username. Or skip that and send them your group's invite link.</p></details>
+</div>
+<div class="fcat" data-cat="priv"><h3>Privacy and cost</h3>
+<details><summary>Who can see my posts?</summary><p>Your group. There is no public feed, no explore page, no strangers.</p></details>
+<details><summary>How much does it cost?</summary><p>The base version is free and always will be. A paid version with extra perks will come eventually.</p></details>
+<details><summary>Is it on the App Store?</summary><p>Not yet. Today Quota runs as a web app you add to your home screen. Store links will appear on the Get the app page when they're ready.</p></details>
+<details><summary>How do I delete my account?</summary><p>Email us and ask. Your account and everything in it is deleted within 30 days. You can also ask for a copy of everything we hold first.</p></details>
+<details><summary>Does Quota show ads or track me?</summary><p>No. There are no ads, no analytics, no trackers, and no cookies. Nothing is sold.</p></details>
+<details><summary>How do I get in touch?</summary><p>Email us. The address is in the footer. You'll hear back from one of the two of us.</p></details>
+</div>
+<p class="fnone" id="fnone" hidden>No questions match that. Try another word, or email us.</p>
+</div></div></section>
+</div>
+
+<section class="dlband" id="dlband"><div class="wrap"><div><h2>Ready when you are.</h2><p>Free on iPhone and Android.</p></div><a class="navcta big" href="#/get">Get the app</a></div></section>
+<footer><div class="wrap"><span>Copyright © 2026 Quota. Ari Marants and Justin Smith.</span>
+<ul><li><a href="#/what">What it is</a></li><li><a href="#/approach">Our approach</a></li><li><a href="#/about">About us</a></li><li><a href="#/get">Get the app</a></li><li><a href="#/faq">FAQ</a></li><li><a href="#/privacy">Privacy</a></li></ul>
+<span><span class="ph">Placeholder</span>hello@quota.app</span></div></footer>
+<script>
+(function(){var pages=['home','what','approach','about','get','faq','privacy'];
+function show(k){if(typeof k!=='string')k=(location.hash.replace('#/','')||'home');if(pages.indexOf(k)<0)k='home';
+pages.forEach(function(p){document.getElementById('p-'+p).classList.toggle('on',p===k)});
+var db=document.getElementById('dlband');if(db)db.hidden=(k==='get');
+document.querySelectorAll('nav ul a').forEach(function(a){if(a.getAttribute('href')==='#/'+k)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+window.scrollTo(0,0)}
+var nav=document.querySelector('nav'),mb=document.getElementById('menubtn');
+mb.addEventListener('click',function(){var o=nav.classList.toggle('open');mb.setAttribute('aria-expanded',o)});
+function shut(){nav.classList.remove('open');mb.setAttribute('aria-expanded','false')}
+window.addEventListener('hashchange',shut);document.querySelectorAll('#navlist a,.logo').forEach(function(a){a.addEventListener('click',shut)});
+window.addEventListener('hashchange',function(){show()});
+// Links switch pages here instead of navigating: some viewers (the Claude app among them)
+// handle in-page address changes themselves and never tell the page, so the tabs went nowhere.
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#/"]');if(!a)return;e.preventDefault();var k=a.getAttribute('href').slice(2)||'home';shut();show(k);try{history.replaceState(null,'','#/'+k)}catch(err){}});
+show();
+document.querySelectorAll('.pp .lk').forEach(function(b){var base=+b.dataset.n-(b.classList.contains('on')?1:0);b.addEventListener('click',function(){var on=b.classList.toggle('on');b.querySelector('b').textContent=base+(on?1:0)})});
+var cat='all',fq=document.getElementById('fq');
+function applyF(){var t=(fq.value||'').trim().toLowerCase(),any=false;document.querySelectorAll('.fcat').forEach(function(c){var catOk=cat==='all'||c.dataset.cat===cat,vis=0;c.querySelectorAll('details').forEach(function(d){var ok=catOk&&(!t||d.textContent.toLowerCase().indexOf(t)>-1);d.hidden=!ok;if(ok)vis++;if(t&&ok)d.open=true;if(!t)d.open=false});c.hidden=!vis;if(vis)any=true});document.getElementById('fnone').hidden=any}
+fq.addEventListener('input',applyF);
+document.querySelectorAll('.seg button').forEach(function(b){b.addEventListener('click',function(){cat=b.dataset.f;document.querySelectorAll('.seg button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});applyF()})});
+if(/Android/i.test(navigator.userAgent)){var pl=document.getElementById('platform');if(pl&&pl.children[1])pl.insertBefore(pl.children[1],pl.children[0])}
+var c=document.getElementById('clock');function tick(){var d=new Date(),m=new Date(d);m.setHours(24,0,0,0);var r=Math.max(0,m-d)/1000|0;c.textContent=[r/3600|0,r%3600/60|0,r%60].map(function(x){return String(x).padStart(2,'0')}).join(':')}tick();setInterval(tick,1000);
+var n=document.getElementById('days'),st=null;function f(ts){st=st||ts;var p=Math.min(1,(ts-st)/1800);p=1-Math.pow(1-p,3);n.textContent=Math.round(p*23);if(p<1)requestAnimationFrame(f)}requestAnimationFrame(f)})();
+
+(function(){var scr=document.querySelector('.screen'),fs=scr&&scr.querySelector('.feedscroll');if(!fs)return;
+var SETS={push:['💪','🔥','😤','🦾','🥵','🫡'],read:['📖','🤓','🧠','👓','✨','👏']},MORE=['😂','❤️','👀','🙌','😮','🎉','💯','😅','🤝','⚡','👑','🥲'];
+var veil=scr.querySelector('.pveil'),sh=scr.querySelector('.psheet'),ta=scr.querySelector('#pflag'),cur=null;
+function btns(l){return l.map(function(e){return '<button type="button" data-e="'+e+'">'+e+'</button>'}).join('')}
+function closeTray(){var t=fs.querySelector('.ptray');if(t)t.remove()}
+function tray(ac,list){closeTray();var t=document.createElement('div');t.className='ptray';t.innerHTML=btns(list)+'<button type="button" class="more" aria-label="Any other emoji">+</button>';ac.appendChild(t)}
+function react(pp,e){var rx=pp.querySelector('.rx');if(!rx){rx=document.createElement('div');rx.className='rx';pp.querySelector('.rl').appendChild(rx)}
+  var had=[].slice.call(rx.querySelectorAll('span.mine')).filter(function(x){return x.textContent===e})[0];
+  if(had){had.remove();return}var sp=document.createElement('span');sp.className='mine';sp.textContent=e;sp.title='Yours, tap to remove';rx.appendChild(sp)}
+function two(n){return String(n).padStart(2,'0')}
+function leftOf(at){var s=Math.max(0,Math.round((at-Date.now())/1000));if(!s)return 'time up';var h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+':'+two(m)+':'+two(s%60):m+':'+two(s%60)}
+function openSheet(pp){cur=pp;var who=pp.querySelector('.hd b').textContent,av=pp.querySelector('.hd .pav'),bd=pp.querySelector('.bd').textContent.replace('+','');
+  var c=sh.querySelector('.pchip .pav');c.textContent=av.textContent;c.style.background=av.style.background;
+  sh.querySelector('.pchip b').textContent=who+' · '+bd;sh.querySelector('.pchip em').textContent=pp.dataset.day||'Today';
+  sh.querySelector('.pfine').textContent=who+' is told straight away and does not get a vote. It closes three hours before their own midnight, wherever they are, so there is still time to redo it.';
+  ta.value='';ta.classList.remove('need');veil.hidden=false;sh.hidden=false}
+function closeSheet(){veil.hidden=true;sh.hidden=true;cur=null}
+fs.addEventListener('click',function(ev){var b=ev.target.closest('button,span.mine'),inTray=ev.target.closest('.ptray');
+  if(!b){if(!inTray)closeTray();return}
+  var pp=b.closest('.pp');if(!pp)return;
+  if(b.matches('span.mine')){b.remove();return}
+  if(b.classList.contains('rct')){var ac=b.closest('.ac');if(ac.querySelector('.ptray')){closeTray();return}tray(ac,SETS[pp.dataset.g]||SETS.push);return}
+  if(inTray){var set=SETS[pp.dataset.g]||SETS.push;if(b.classList.contains('more')){b.closest('.ptray').innerHTML=btns(set.concat(MORE));return}
+    react(pp,b.dataset.e);closeTray();return}
+  if(b.classList.contains('flg')){closeTray();if(!b.classList.contains('on'))openSheet(pp);return}
+  closeTray()});
+sh.querySelector('.pcancel').addEventListener('click',closeSheet);veil.addEventListener('click',closeSheet);
+sh.querySelector('.psubmit').addEventListener('click',function(){if(!ta.value.trim()){ta.classList.add('need');ta.focus();return}
+  var pp=cur,f=pp.querySelector('.flg');f.classList.add('on');f.setAttribute('aria-label','Questioned — see what the group said');
+  var m=new Date();m.setHours(24,0,0,0);var closes=m.getTime()-3*3600e3;if(closes-Date.now()<600e3)closes=Date.now()+(2*3600+41*60)*1e3;
+  var st=document.createElement('div');st.className='fst';st.innerHTML='<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><span><b>Maya questioned this.</b> The group is deciding.</span><em></em>';
+  pp.querySelector('.ac').after(st);var em=st.querySelector('em');(function t(){em.textContent=leftOf(closes);if(st.isConnected)setTimeout(t,1000)})();
+  closeSheet()});
+})();
+</script>
+
+</body></html>

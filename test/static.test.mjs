@@ -10,7 +10,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const read = f => readFileSync(join(ROOT, f), 'utf8');
 const html = read('index.html');
 const sw = read('sw.js');
@@ -108,7 +108,7 @@ assert.ok(/viewport-fit=cover/.test(vp[1]), 'viewport needs viewport-fit=cover, 
 const digest = createHash('sha256')
   .update(PRECACHE.map(p => readFileSync(join(ROOT, p === '/' ? 'index.html' : p))).reduce((a, b) => Buffer.concat([a, b])))
   .digest('hex').slice(0, 16);
-const LOCK = 'test/precache.lock';
+const LOCK = '../test/precache.lock';
 const lock = existsSync(join(ROOT, LOCK)) ? JSON.parse(read(LOCK)) : null;
 
 if (process.argv.includes('--update')) {
