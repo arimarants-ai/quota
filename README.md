@@ -952,7 +952,9 @@ Recovery codes are gone. Email does their job, and v42 drops their tables.
 ### Supabase settings this depends on
 
 - *Authentication → Emails → SMTP Settings*: Resend (`smtp.resend.com`, port 465, user
-  `resend`, password a Resend API key), sender `hello@hitquota.app`, name `Quota`.
+  `resend`, password a Resend API key), sender `account@hitquota.app`, name `Quota`.
+  Codes come from `account@`; `hello@` is the address people write to. Both forward to
+  the same inbox through Cloudflare Email Routing.
 - *Authentication → Providers → Email*: **Confirm email** on, **Secure email change**
   off. Secure email change also emails the old address, and an old account's old address
   is made up, so the change could never be finished.
