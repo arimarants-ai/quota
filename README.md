@@ -1,6 +1,6 @@
 # Quota
 
-Daily goals with friends. Proof or it didn't happen.
+Pick a daily goal with your crew. Post proof before midnight, or owe them the forfeit.
 
 One static page talking straight to Supabase (accounts, database, video storage). Hosted on Vercel.
 
@@ -753,6 +753,44 @@ The filter runs in the browser, which is where the typing is. It is not a server
 guard, and somebody writing their own requests to Supabase can still put anything they like
 in a row. Making it airtight means a trigger on `posts`, `comments`, `stories`, `groups`
 and `profiles`; worth doing the first time somebody bothers.
+
+## Your streak, the crew bonus, and forfeits
+
+**The big number is yours.** Home, the group screen, member rows and profiles lead with
+each person's own run in that crew (`personalRun`). The old group streak, the days
+everyone showed up, is still there underneath as the "Crew bonus".
+
+- **One pass a month.** The first day in each calendar month someone misses after joining
+  is covered, and the streak carries on. It is always the first miss, never the latest,
+  so a day that was covered stays covered and no forfeit turns up after the fact.
+- **Rest days never break it**, and do not count toward it either.
+- Nothing is stored: the run is worked out from posts, so it needed no migration.
+
+**A forfeit is optional and only words**, sixty characters at most, through the same word
+filter as everything else ("buys coffee", "does 20 pushups on camera", ...). Only the
+person who made the group sets, changes or clears it, when making it or from Manage.
+
+A day is owed when it closed, a forfeit was set before it, the person had joined, it was
+not a rest day, they did not finish, and their pass did not cover it. Only the last
+fourteen days are shown. There is no cron: the first phone that opens and sees an owed
+day writes a row to `forfeit_settlements` with `settled_at` empty (duplicates are
+ignored), and that insert is what sends "Sam owes the crew: buys coffee" to everyone else.
+Somebody else marks it paid, which fills `settled_at` and `settled_by` and tells the
+person who owed. The database refuses anyone marking their own.
+
+| Where | What |
+| ----- | ---- |
+| `schema.sql` v45 | `groups.forfeit`, `forfeit_since`, `group_members.joined_at`, `forfeit_settlements` with its policies, and the two notify triggers |
+| `supabase/functions/notify/` | `forfeit` and `forfeit_paid`, muted groups respected |
+| `app/index.html` | `personalRun`, `owedIn`, `noteForfeits`, `markPaid`, the Owed card and the home banner |
+
+## What a person sees when something goes wrong
+
+Every error on screen goes through `friendlyError(err, fallback)`: it logs the real one
+with `console.error` and shows a sentence a person can act on. "Copy details" on the
+banner still copies the technical part for a bug report. `test/static.test.mjs` fails if
+anything a person can see mentions `schema.sql`, Supabase or "block of" (the privacy
+policy, which has to name Supabase, is the one exception).
 
 ## Tests
 

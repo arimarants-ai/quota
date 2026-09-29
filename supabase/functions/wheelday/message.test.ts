@@ -67,6 +67,7 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
   const alone = noticeBody(n({ kind: 'lastcall', others: 3, mates: 3, hours: 2 }));
   ok(/Everyone in Mornings/.test(alone) && /streak/i.test(alone),
     'last call with everyone else in says so, and says streak', alone);
+  ok(!/breaks the streak|the one who/i.test(alone), '  and it is your streak, not a group you are letting down', alone);
   const some = noticeBody(n({ kind: 'lastcall', others: 2, mates: 3, hours: 2 }));
   ok(/2 of 3/.test(some) && /streak/i.test(some), 'and counts them when it is only some', some);
   const nobody = noticeBody(n({ kind: 'lastcall', others: 0, mates: 3, hours: 2 }));

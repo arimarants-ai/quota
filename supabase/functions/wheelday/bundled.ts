@@ -169,10 +169,10 @@ export function windowFor(n: Notice): string {
 }
 
 /**
- * Last call. This one is allowed to mention the streak, because a group streak is not your
- * number — it is everybody's, and being the one who ends it is the thing worth saying.
- * The end-of-day nudge it replaces deliberately said nothing about streaks; that was about
- * somebody's own, which they already know about.
+ * Last call. It is about your own streak: that is the number you are keeping, and saying
+ * so is the nudge. It used to say "don't be the one who breaks the streak", which made
+ * one person's missed day the group's failure; the group's run is a bonus now, and a
+ * reminder is not the place to hang it on anybody.
  *
  * Nobody else posted yet and there is nothing social to say, so it falls back to the clock.
  */
@@ -184,10 +184,10 @@ export function lastCallFor(n: Notice): string {
   const owed = (n.line ?? '').trim();
   const left = owed ? `${owed} to go.` : '';
   if (n.others > 0 && n.others === n.mates) {
-    return `${left} Everyone in ${n.group_name} has posted but you — don't be the one who breaks the streak.`.trim();
+    return `${left} Everyone in ${n.group_name} has posted but you. ${hrs(h)} left to keep your streak.`.trim();
   }
   if (n.others > 0) {
-    return `${left} ${n.others} of ${n.mates} in ${n.group_name} have posted. ${hrs(h)} left — don't be the one who breaks the streak.`.trim();
+    return `${left} ${n.others} of ${n.mates} in ${n.group_name} have posted. ${hrs(h)} left to keep your streak.`.trim();
   }
   return left ? `${left} ${hrs(h)} left today.` : `${hrs(h)} left to post today.`;
 }

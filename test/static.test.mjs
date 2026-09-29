@@ -138,3 +138,21 @@ const gone = want.filter(id => !have.has(id));
 assert.deepEqual(gone, [], `index.html asks for ${gone.join(', ')}, which no element in it has.`);
 
 console.log('PASS: page and service worker agree');
+
+// Nobody using the app should ever read developer language: a table name, the database
+// company, "run the v39 block". The privacy policy names the companies that hold data,
+// which it has to, and comments are for whoever reads the code; everything else is
+// something a person could see.
+{
+  const ui = html
+    .replace(/const LEGAL = \{[\s\S]*?\n\};/, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .split('\n').filter(l => !/^\s*\/\//.test(l) && !/console\.(assert|error|warn|log)\(/.test(l))   // the self-check and the console are not the screen
+    .map(l => l.replace(/\s\/\/\s.*$/, '')).join('\n');
+  for (const bad of [/schema\.sql/i, /\bSupabase\b/, /block of/i, /supabase-js did not/i, /Service worker did not/]) {
+    const at = ui.search(bad);
+    assert.ok(at < 0, `A string a person could see says ${bad}: "${ui.slice(Math.max(0, at - 60), at + 60).replace(/\s+/g, ' ')}". Say it in Quota's words instead (friendlyError).`);
+  }
+}
+console.log('PASS: nothing a person can see talks like a developer');
