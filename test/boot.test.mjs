@@ -2714,8 +2714,17 @@ await withPage(SIGNED_IN, async page => {
     if (!v) return {none: true};
     v.__mine = 1;
     const pid = +v.closest('.post').dataset.post;
+    // Not just the same element afterwards: never out of the page at all, which is what
+    // makes an iPhone throw away the frame and decode the clip again.
+    let pulled = 0;
+    const watch = new MutationObserver(rs => rs.forEach(r => r.removedNodes.forEach(n => {
+      if (n === v || (n.contains && n.contains(v))) pulled++; })));
+    watch.observe(document.querySelector('#app'), {childList: true, subtree: true});
     render(); render();
-    const same = document.querySelector(`#app .post[data-post="${pid}"] video.proof`).__mine === 1;
+    S.comments = [...S.comments, {id: 991, postId: pid, userId: 'u2', body: 'nice', ts: Date.now()}]; render();
+    await new Promise(r => setTimeout(r, 0));
+    watch.disconnect();
+    const same = document.querySelector(`#app .post[data-post="${pid}"] video.proof`).__mine === 1 && pulled === 0;
     self.__resigned = 0;
     v.dataset.retried = 'https://old.example/expired';     // retried once, long ago, on a link since replaced
     v.setAttribute('src', 'https://old.example/also-old');
