@@ -1296,7 +1296,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v108';
+const BUILD = 'quota-v109';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1904,57 +1904,74 @@ function screenHTML() {
     : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
 }
 
-// Swap a container's contents without throwing away what was alive in it. A rebuild used
-// to take a playing clip with it: a like or a reply swapped the <video> for a fresh one
-// that had not decoded a frame, and the post went black. The reels already on screen are
-// kept and put back, along with anything half-typed into a reply box and any emoji tray
-// left open. The screen and the single-post layer both need this, which is why it is a
-// function rather than the middle of render().
+// Bring a container up to date without rebuilding it. The page is rendered as a string, and
+// setting that string used to take everything in the container out of the page and put
+// new copies in: every clip on screen was removed and, at best, put back. On an iPhone a
+// clip taken out of the page loses the frame it was showing and has to be decoded again,
+// and six of them being decoded at once after every like is more than the phone will do —
+// a few at the top of the feed went black and said they could not be loaded. So the new
+// markup is compared against what is there, and only what differs is changed. A clip that
+// is still on the screen is never touched, and neither is a box somebody is typing in.
 function redraw(sel, html) {
   const box = $(sel); if (!box) return;
   const at = s => [...document.querySelectorAll(`${sel} .post[data-post] ${s}`)];
-  const keep = new Map(at('.reel').map(r => [r.parentNode.dataset.post, r]));
-  const typed = new Map(at('.cin input').filter(i => i.value).map(i => [i.closest('.post').dataset.post, i.value]));
   const trays = at('.emoji:not([hidden])').map(t => t.closest('.post').dataset.post);
-  // The chat composer is not attached to a post, so the preserving above walks straight
-  // past it — and a conversation redraws itself every few seconds while it is open, which
-  // is the one screen where a redraw is most likely to land mid-sentence.
-  const cin = box.querySelector('.csend input');
-  const said = cin ? cin.value : '';
-  const caret = cin ? cin.selectionStart : 0;
-  const typing = cin && document.activeElement === cin;
   const cTray = !!box.querySelector('.cemoji:not([hidden])');
-  box.innerHTML = html;
-  at('.reel').forEach(r => {
-    const old = keep.get(r.parentNode.dataset.post); if (!old) return;
-    const np = r.querySelector('.proof'), op = old.querySelector('.proof');
-    if (!np || !op || np.tagName !== op.tagName) return;          // a different thing now: take the new one
-    if (np.dataset.src) op.dataset.src = np.dataset.src;         // a reload re-signs every URL; see below for when the kept one moves to it
-    const nr = r.querySelector('.reacts'), or = old.querySelector('.reacts');   // the one other thing on a reel that changes
-    if (or) or.remove(); if (nr) old.appendChild(nr);
-    r.replaceWith(old);
-    if (op.tagName !== 'VIDEO' || !op.paused) return;
-    // A kept clip keeps the link it was first given, and links last an hour — an installed
-    // app sits in the background for longer than that all the time. A paused one on an old
-    // link moves to the one this load just signed, before it is ever asked to play.
-    if (op.getAttribute('src') && op.dataset.src && op.getAttribute('src') !== op.dataset.src
-        && Date.now() - (op._srcAt || 0) > 45 * 60e3) {
-      op.removeAttribute('src'); delete op.dataset.retried; attachClip(op);
-    } else if (op.readyState >= 2) {
-      // Taken out of the page and put back, a paused video on iPhone drops the frame it
-      // was showing and sits black. Asking for the same moment again paints it.
-      try { op.currentTime = op.currentTime; } catch (e) {}
-    }
-  });
-  typed.forEach((v, id) => { const i = document.querySelector(`${sel} .post[data-post="${id}"] .cin input`); if (i) i.value = v; });
+  const next = document.createElement(box.tagName);
+  next.innerHTML = html;
+  morphKids(box, next);
+  // Emoji trays are opened by hand and drawn shut, so an open one is opened again.
   trays.forEach(id => { const t = document.querySelector(`${sel} .post[data-post="${id}"] .emoji`); if (t) t.hidden = false; });
-  const back = box.querySelector('.csend input');
-  if (back && said) {
-    back.value = said;
-    // Focus back where it was, or the keyboard slides away under somebody mid-word.
-    if (typing) { back.focus(); try { back.setSelectionRange(caret, caret); } catch (e) {} }
-  }
   if (cTray) { const t = box.querySelector('.cemoji'); if (t) t.hidden = false; }
+}
+// What makes two elements the same thing across renders, where there is more than one of
+// a kind side by side: a post, a comment, a message.
+const morphKey = n => n.nodeType !== 1 ? null
+  : n.dataset.post != null ? n.nodeName + 'p' + n.dataset.post
+  : n.dataset.cmt != null ? 'c' + n.dataset.cmt
+  : n.dataset.msg != null ? 'm' + n.dataset.msg
+  : n.id ? '#' + n.id : null;
+// Set on a clip or a picture while it is on the page, never written in the markup: the
+// markup says where the file is (data-src), and these say what the element is doing with it.
+const LIVE_ATTRS = new Set(['src', 'data-idle', 'data-retried', 'style']);
+function morph(a, b) {
+  if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  if (a.classList.contains('reel')) return morphReel(a, b);
+  const lazy = b.hasAttribute('data-src');
+  for (const {name} of [...a.attributes]) if (!b.hasAttribute(name) && !(lazy && LIVE_ATTRS.has(name))) a.removeAttribute(name);
+  for (const {name, value} of [...b.attributes]) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  morphKids(a, b);
+}
+function morphKids(a, b) {
+  const byKey = new Map();
+  for (const n of a.childNodes) { const k = morphKey(n); if (k) byKey.set(k, n); }
+  let at = a.firstChild;
+  for (const nb of [...b.childNodes]) {
+    const k = morphKey(nb);
+    let m = k ? byKey.get(k) : (at && !morphKey(at) && at.nodeName === nb.nodeName ? at : null);
+    if (m && m.nodeName !== nb.nodeName) m = null;
+    if (!m) { a.insertBefore(nb, at); continue; }
+    if (k) byKey.delete(k);
+    if (m === at) at = at.nextSibling; else a.insertBefore(m, at);   // only moved when the order really changed
+    morph(m, nb);
+  }
+  while (at) { const n = at.nextSibling; a.removeChild(at); at = n; }
+}
+// A clip is left exactly as it is. Two things about it do change: the link, which every
+// load signs afresh, and the reactions floating over it.
+function morphReel(a, b) {
+  const np = b.querySelector('.proof'), op = a.querySelector('.proof');
+  if (!np || !op || np.tagName !== op.tagName) return a.replaceWith(b);   // a different thing now
+  if (np.dataset.src) op.dataset.src = np.dataset.src;
+  const nr = b.querySelector('.reacts'), or = a.querySelector('.reacts');
+  if (or) or.remove(); if (nr) a.appendChild(nr);
+  // A kept clip keeps the link it was first given, and links last an hour — an installed
+  // app sits in the background for longer than that all the time. A paused one on an old
+  // link moves to the one this load just signed, before it is ever asked to play.
+  if (op.tagName === 'VIDEO' && op.paused && op.getAttribute('src') && op.dataset.src
+      && op.getAttribute('src') !== op.dataset.src && Date.now() - (op._srcAt || 0) > 45 * 60e3) {
+    op.removeAttribute('src'); delete op.dataset.retried; attachClip(op);
+  }
 }
 
 function render() {
