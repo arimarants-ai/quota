@@ -1896,7 +1896,7 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(400);
   const set = await page.innerText('#app');
   check('the gear opens settings', await page.evaluate(() => S.settings) === true
-    && await page.locator('.list').count() === 4);
+    && await page.locator('.list').count() === 5);             // profile, preferences, help and safety, legal, account
   check('  carrying everything the profile used to', /bio/i.test(set) && /Groups on your profile/i.test(set)
     && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
     && /Email/.test(set) && /ari@example\.com/.test(set) && /Log out/i.test(set), set);
@@ -2706,7 +2706,7 @@ await withPage(SIGNED_IN, async page => {
     await post.locator('.clist').innerText());
   await hold(page, post.locator('.clist .c').first());
   const opts = await post.locator('.clist .reactpick.opts button').allInnerTexts();
-  check('  holding somebody else\'s comment has no delete in it', opts.join('|') === 'Reply|Like|Copy', JSON.stringify(opts));
+  check('  holding somebody else\'s comment has no delete in it, but can report it', opts.join('|') === 'Reply|Like|Copy|Report', JSON.stringify(opts));
 });
 
 // A clip kept through redraws: the same element stays, an old link gets a fresh one rather
