@@ -1327,7 +1327,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v111';
+const BUILD = 'quota-v112';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3053,9 +3053,10 @@ function newStory(pre) {
 // it is opened from here.
 function storyKind() {
   dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
-    <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();openCam('story')">Camera</button>
-      <button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Choose a file</button></div>
-    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>
+    <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();openCam('story')">Record</button>
+      <button type="button" class="grow" onclick="dlg();openCam('story',true)">Photo</button></div>
+    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Choose a file</button>
+      <button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button></div>`);
 }
 function storyFile(input) { const f = input.files[0]; input.value = ''; if (f) storyFrom(f); }
@@ -6039,7 +6040,7 @@ function submitDlg(gid) {
   dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
     <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
-    <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button></div>
+    <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button><button type="button" class="grow" onclick="openCam('post',true)">Photo</button></div>
     <div id="takeprev" hidden></div>
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
@@ -6894,7 +6895,7 @@ async function pickPhoto(btn) {
     alert(friendlyError(e, "Couldn't open your photos. Try again."));
   }
 }
-function openCam(what = 'post') {
+function openCam(what = 'post', photo = false) {
   if (NATIVE && camPerm === 'denied') return permDlg('camera');
   camFor = what;
   camAt = Date.now();
@@ -6902,11 +6903,12 @@ function openCam(what = 'post') {
   const i = $('#camin');
   i.value = '';                            // or taking the same shot twice reports nothing
   const pic = what === 'avatar';
-  i.accept = pic ? 'image/*' : 'video/*,image/*';
-  // A profile picture is of you, so it opens facing you. Everything else is of the world.
+  // Video only, because an iPhone offered both opens in Photo mode. A picture is its own
+  // button. Either way it opens facing you; the camera's flip button turns it around.
   // A phone that ignores the hint opens its camera anyway; a desktop ignores it entirely
   // and offers the files, which is why what comes back is checked rather than trusted.
-  i.setAttribute('capture', pic ? 'user' : 'environment');
+  i.accept = pic || photo ? 'image/*' : 'video/*';
+  i.setAttribute('capture', 'user');
   i.click();
 }
 function avatarCam() { openCam('avatar'); }
