@@ -1,5 +1,5 @@
 // Run: node --experimental-strip-types message.test.ts
-import { chatFor, flagFor, messageFor, socialFor, verdictFor } from './message.ts';
+import { chatFor, forfeitFor, forfeitPaidFor, flagFor, messageFor, socialFor, verdictFor } from './message.ts';
 let n = 0;
 const eq = (got: string, want: string, msg: string) => {
   if (got !== want) throw new Error(`FAIL ${msg}\n  got:  ${got}\n  want: ${want}`);
@@ -77,6 +77,11 @@ eq(chatFor('Ari', 'Lock In'), 'Ari messaged Lock In', 'a group message names the
 eq(chatFor('Ari'), 'Ari sent you a message', 'a private one says so');
 eq(chatFor('Ari', 'Lock In', true), 'Ari replied to you in Lock In', 'a reply in a group says it answers you');
 eq(chatFor('Ari', null, true), 'Ari replied to your message', 'and in a private chat');
+
+// A forfeit says who and what, in the crew's own words; paid says who marked it.
+eq(forfeitFor('Sam', 'buys coffee'), 'Sam owes the crew: buys coffee', 'a forfeit names who owes and what');
+eq(forfeitPaidFor('Ari', 'buys coffee'), 'Ari marked your forfeit paid: buys coffee', 'paid says who marked it');
+eq(forfeitPaidFor('Ari'), 'Ari marked your forfeit paid', '  and reads properly without the forfeit');
 
 // ---- questioning somebody's proof
 // The same two events, four different sentences, because being asked to vote and being

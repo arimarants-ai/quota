@@ -84,3 +84,14 @@ export function socialFor(kind: 'friend' | 'group' | 'comment' | 'reply' | 'like
   if (kind === 'reply') return `${name} replied to your comment`;
   return `${name} commented on your proof`;
 }
+
+/**
+ * A forfeit. The group hears who owes and what, in the words the group chose; the person
+ * who owed hears when somebody else marked it paid. Never money, so never an amount.
+ */
+export function forfeitFor(name: string, forfeit: string): string {
+  return `${name} owes the crew: ${forfeit}`;
+}
+export function forfeitPaidFor(name: string, forfeit?: string | null): string {
+  return forfeit ? `${name} marked your forfeit paid: ${forfeit}` : `${name} marked your forfeit paid`;
+}

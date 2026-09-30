@@ -67,6 +67,8 @@
   // A group's picture, read back through whatever the page last saved, the same way a
   // post's on_profile is: a test that sets it on S would lose it to the next load.
   self.__gpic = {};
+  // Forfeits: what a group set, and what was noted or paid.
+  self.__gforfeit = {}; self.__settle = [];
   self.__signups = []; self.__logins = []; self.__sessions = []; self.__resends = []; self.__resets = []; self.__userEdits = []; self.__otps = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
@@ -74,8 +76,12 @@
   const rows = t => ({
     profiles: [{ id: 'u1', username: M().noUsername ? null : 'ari', display_name: M().noUsername ? null : 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
-    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString() }]
-      .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g)),
+    // Made by whoever the case says, and carrying a forfeit when the case gives one — read
+    // back through whatever the page last saved, the way a group's picture is.
+    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString(),
+        created_by: M().groupBy || 'u1', forfeit: M().forfeit || null, forfeit_since: M().forfeit ? new Date(Date.now() - (M().forfeitDays || 10) * 864e5).toISOString() : null }]
+      .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g))
+      .map(g => (g.id in self.__gforfeit ? { ...g, ...self.__gforfeit[g.id] } : g)),
     group_members: (M().noGroup && !self.__joined ? [] : [{ group_id: 1, user_id: 'u1' }])
       .concat([{ group_id: 1, user_id: 'u2' }])
       .map(m => ({ ...m, muted: m.user_id === 'u1' && !!self.__muted[m.group_id] })),
@@ -102,6 +108,7 @@
     messages: self.__msgs,
     message_reactions: self.__mreacts,
     chat_reads: self.__reads,
+    forfeit_settlements: self.__settle,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
   // column can be null, and a row can be missing what a newer column would have had.
@@ -111,6 +118,7 @@
     if (t === 'friendships') self.__calls.loads++;         // one per load(): the first query it runs
     // A project where the v27 block has not been run: the tables are simply not there. The
     // app has to draw itself without the feature rather than refuse to draw at all.
+    if (m.noForfeits && t === 'forfeit_settlements') return { data: null, error: err('relation "public.forfeit_settlements" does not exist') };
     if (m.noFlagTables && (t === 'flags' || t === 'flag_votes')) {
       return { data: null, error: err('relation "public.flags" does not exist') };
     }
@@ -165,6 +173,13 @@
       if (st.op === 'update' && t === 'groups' && st.row && 'avatar_path' in st.row && st.filters.id != null) {
         self.__gpic[st.filters.id] = st.row.avatar_path;
       }
+      // The same rule the database has: it starts counting when it is first set.
+      if (st.op === 'update' && t === 'groups' && st.row && 'forfeit' in st.row && st.filters.id != null) {
+        const was = self.__gforfeit[st.filters.id] || {};
+        self.__gforfeit[st.filters.id] = st.row.forfeit
+          ? { forfeit: st.row.forfeit, forfeit_since: was.forfeit_since || new Date().toISOString() }
+          : { forfeit: null, forfeit_since: null };
+      }
       if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
         self.__onprofile[st.filters.id] = st.row.on_profile;
       }
@@ -186,8 +201,14 @@
     for (const k of ['select', 'order', 'limit', 'in']) p[k] = () => chain(t, st);
     // upsert is a write, and a read mark is the one thing the page upserts: treated as a
     // passthrough it silently kept every chat unread however many times one was opened.
-    p.upsert = row => {
+    p.upsert = (row, opts = {}) => {
       if (t === 'chat_reads') self.__reads = [...self.__reads.filter(r => r.chat !== row.chat), { ...row }];
+      // Keyed on the group, the person and the day; noting one twice does nothing.
+      if (t === 'forfeit_settlements') for (const r of [].concat(row)) {
+        const i = self.__settle.findIndex(x => x.group_id === r.group_id && x.user_id === r.user_id && x.day === r.day);
+        if (i < 0) self.__settle.push({ settled_at: null, settled_by: null, ...r });
+        else if (!opts.ignoreDuplicates) self.__settle[i] = { ...self.__settle[i], ...r };
+      }
       return chain(t, { ...st, op: 'upsert' });
     };
     // One row or none, which is how the page asks whether a username is taken. Without

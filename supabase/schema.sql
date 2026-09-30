@@ -2611,3 +2611,122 @@ create trigger comments_reply_guard before insert or update of reply_to on publi
 drop trigger if exists messages_reply_guard on public.messages;
 create trigger messages_reply_guard before insert or update of reply_to on public.messages
   for each row execute function public.reply_guard();
+
+-- ============================================================
+-- v45 (your own streak first, and a forfeit a crew can agree on): safe to run on an
+-- existing project. Run it before the app that uses it goes out, and redeploy notify and
+-- wheelday after it.
+--
+-- Streaks are still worked out from posts on the phone; nothing here stores one. What is
+-- new is when somebody joined a group (a day before they were in it is not one they could
+-- have missed), a forfeit a group can set, and a record of forfeits owed and paid.
+-- ============================================================
+
+-- Rows already there stay null and are read as "since the group began". Only new rows
+-- are stamped, so nobody's history moves.
+alter table public.group_members add column if not exists joined_at timestamptz;
+alter table public.group_members alter column joined_at set default now();
+
+-- A forfeit is a line of text, never money. Whoever made the group sets it or clears it
+-- (anyone in the group, once that person has left); it applies from the moment it is set,
+-- so setting one never reaches back over days that were missed before it existed.
+alter table public.groups add column if not exists forfeit text;
+alter table public.groups add column if not exists forfeit_since timestamptz;
+alter table public.groups drop constraint if exists groups_forfeit_short;
+alter table public.groups add constraint groups_forfeit_short
+  check (forfeit is null or char_length(btrim(forfeit)) between 1 and 60);
+
+create or replace function public.forfeit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.forfeit := nullif(btrim(coalesce(new.forfeit, '')), '');
+  if new.forfeit is distinct from old.forfeit then
+    if auth.uid() is not null and old.created_by is not null and old.created_by <> auth.uid() then
+      raise exception 'only whoever made the group can change its forfeit';
+    end if;
+    if new.forfeit is null then new.forfeit_since := null;
+    elsif old.forfeit is null then new.forfeit_since := now();
+    else new.forfeit_since := old.forfeit_since;           -- reworded, not a new forfeit
+    end if;
+  else
+    new.forfeit_since := old.forfeit_since;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists groups_forfeit_guard on public.groups;
+create trigger groups_forfeit_guard before update on public.groups
+  for each row execute function public.forfeit_guard();
+
+-- Owed or paid. Who owes what is worked out from posts, on the phone, when it is looked at;
+-- this only remembers two things about a day somebody missed: that the group has been
+-- told (a row with nothing settled), and that somebody else marked it paid.
+create table if not exists public.forfeit_settlements (
+  group_id bigint not null references public.groups on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  day date not null,
+  settled_at timestamptz,
+  settled_by uuid references public.profiles on delete set null,
+  primary key (group_id, user_id, day),
+  constraint forfeit_settled_whole check ((settled_at is null) = (settled_by is null)),
+  constraint forfeit_not_by_self check (settled_by is null or settled_by <> user_id)
+);
+alter table public.forfeit_settlements enable row level security;
+
+drop policy if exists "the group sees its forfeits" on public.forfeit_settlements;
+drop policy if exists "the group notes a forfeit" on public.forfeit_settlements;
+drop policy if exists "somebody else marks it paid" on public.forfeit_settlements;
+create policy "the group sees its forfeits" on public.forfeit_settlements for select
+  using (public.is_member(group_id));
+-- Noting one, or marking one paid in the same write. Only about somebody in the group, and
+-- only ever paid by somebody other than the person who owed it.
+create policy "the group notes a forfeit" on public.forfeit_settlements for insert
+  with check (public.is_member(group_id)
+    and exists (select 1 from public.group_members m where m.group_id = forfeit_settlements.group_id and m.user_id = forfeit_settlements.user_id)
+    and (settled_by is null or (settled_by = auth.uid() and user_id <> auth.uid())));
+create policy "somebody else marks it paid" on public.forfeit_settlements for update
+  using (public.is_member(group_id) and user_id <> auth.uid())
+  with check (public.is_member(group_id) and user_id <> auth.uid() and settled_by = auth.uid() and settled_at is not null);
+
+-- Paid stays paid, and a row stays about the day and the person it was written for.
+create or replace function public.forfeit_settle_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.group_id := old.group_id; new.user_id := old.user_id; new.day := old.day;
+  if old.settled_at is not null then
+    new.settled_at := old.settled_at; new.settled_by := old.settled_by;
+  end if;
+  return new;
+end $$;
+drop trigger if exists forfeit_settle_guard on public.forfeit_settlements;
+create trigger forfeit_settle_guard before update on public.forfeit_settlements
+  for each row execute function public.forfeit_settle_guard();
+
+-- The group hears once when somebody owes, and the person who owed hears when it is paid.
+drop trigger if exists forfeits_notify on public.forfeit_settlements;
+create trigger forfeits_notify after insert on public.forfeit_settlements
+  for each row execute function public.notify_hook('forfeit');
+drop trigger if exists forfeits_paid_notify on public.forfeit_settlements;
+create trigger forfeits_paid_notify after update of settled_at on public.forfeit_settlements
+  for each row when (old.settled_at is null and new.settled_at is not null)
+  execute function public.notify_hook('forfeit_paid');
+
+-- The invite page can say what the forfeit is before anybody has an account.
+drop function if exists public.code_group(text);
+create function public.code_group(code text)
+returns table (id bigint, name text, inviter text, quotas jsonb, members int, forfeit text)
+language sql security definer stable set search_path = public as $$
+  select g.id, g.name,
+         coalesce(p.display_name, p.username),
+         coalesce(g.quotas, '[]'::jsonb),
+         (select count(*)::int from public.group_members gm where gm.group_id = g.id),
+         g.forfeit
+    from public.groups g
+    left join public.invite_links l on l.code = code_group.code and l.group_id = g.id
+    left join public.profiles p on p.id = l.inviter_id
+   where g.id = coalesce(
+           (select l2.group_id from public.invite_links l2 where l2.code = code_group.code),
+           (select g2.id from public.groups g2 where g2.join_code = code_group.code));
+$$;
+revoke all on function public.code_group(text) from public;
+grant execute on function public.code_group(text) to anon, authenticated;

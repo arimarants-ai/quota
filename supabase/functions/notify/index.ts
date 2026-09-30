@@ -1,7 +1,7 @@
 // Fan out a push notification to a group when someone posts proof.
 // Called by the posts_notify trigger in schema.sql (v4).
 import { send, type Subscription } from './push.ts';
-import { chatFor, flagFor, messageFor, socialFor, verdictFor, who } from './message.ts';
+import { chatFor, flagFor, forfeitFor, forfeitPaidFor, messageFor, socialFor, verdictFor, who } from './message.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -189,6 +189,30 @@ Deno.serve(async (req) => {
     return blast([other], JSON.stringify({
       title: 'Quota', body: chatFor(who(from), null, to === other),
       url: `${SITE_URL}/#chat-u:${actor}`, tag: `chat-u-${actor}`,
+    }));
+  }
+
+  // A forfeit. Written once when the group is first told somebody owes, and changed once
+  // when somebody else marks it paid. A row written already paid is only news to the one
+  // who owed it.
+  if (kind === 'forfeit' || kind === 'forfeit_paid') {
+    const { group_id: gid, user_id: owes, settled_by: by, settled_at } = record ?? {};
+    if (!gid || !owes) return new Response('ignored', { status: 200 });
+    const [[group], [owing]] = await Promise.all([
+      rest(`groups?id=eq.${gid}&select=name,forfeit`),
+      rest(`profiles?id=eq.${owes}&select=username,display_name`),
+    ]);
+    if (!group || !owing || !group.forfeit) return new Response('ignored', { status: 200 });
+    const url = `${SITE_URL}/#group-${gid}`;
+    if (kind === 'forfeit_paid' || settled_at) {
+      if (!by || !(await hears(owes, gid))) return new Response('muted', { status: 200 });
+      const [marker] = await rest(`profiles?id=eq.${by}&select=username,display_name`);
+      if (!marker) return new Response('ignored', { status: 200 });
+      return blast([owes], JSON.stringify({ title: group.name, body: forfeitPaidFor(who(marker), group.forfeit), url, tag: `forfeit-${gid}-${owes}` }));
+    }
+    const members = await rest(`group_members?group_id=eq.${gid}&user_id=neq.${owes}&muted=is.false&select=user_id`);
+    return blast(members.map((m: { user_id: string }) => m.user_id), JSON.stringify({
+      title: group.name, body: forfeitFor(who(owing), group.forfeit), url, tag: `forfeit-${gid}-${owes}`,
     }));
   }
 

@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Quota: Daily Goals with Friends",
+  "name": "Quota: Daily goals with your crew",
   "short_name": "Quota",
-  "description": "Set a daily goal with a group. Post a video proof before midnight. Every day.",
+  "description": "Pick a daily goal with your crew. Post proof before midnight, or owe them the forfeit.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/",

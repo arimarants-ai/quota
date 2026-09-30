@@ -155,7 +155,8 @@ await withPage({ ...SIGNED_IN, queryError: 'JWT expired', refreshOk: true }, asy
 // Anything that is not an auth problem: say so, offer a way out, keep the app on screen.
 await withPage({ ...SIGNED_IN, queryError: 'network is down' }, async (page, alerts) => {
   await settle(page);
-  check('a failed load explains itself in the banner', (await page.innerText('#err')).includes('network is down'));
+  check('a failed load explains itself in the banner, in plain words', /couldn't load/i.test(await page.innerText('#err'))
+    && !(await page.innerText('#err')).includes('network is down'), await page.innerText('#err'));
   check('  with a retry', await page.isVisible('#err button'));
   check('  and no modal', alerts.length === 0, alerts.join(' | '));
   // There was no way to put this bar away at all. A load that keeps failing shows it
@@ -312,13 +313,13 @@ await withPage({ ...NO_WHEEL, samToday: true }, async page => {
   check('    with the clip signed at last', await signed(), 'unlocked but never signed');
 });
 
-// A rejected upload has to repeat what the server said, not fail silently.
+// A rejected upload has to say why, in plain words, not fail silently.
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   uploadReply = { status: 413, body: JSON.stringify({ message: 'The object exceeded the maximum allowed size' }), hold: null };
   await submitProof(page);
   await page.waitForTimeout(900);
-  check('a rejected upload repeats the reason', alerts.some(a => a.includes('exceeded the maximum allowed size')), alerts.join(' | '));
+  check('a rejected upload says why in plain words', alerts.some(a => /too big to upload/.test(a)) && !alerts.some(a => /maximum allowed size/.test(a)), alerts.join(' | '));
   check('  and the form can be used again', await page.locator('#dlg button.primary').isEnabled());
   check('  and the progress bar is cleared away', await page.locator('#uprog').isHidden());
 });
@@ -1052,7 +1053,7 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => { self.feedView = () => { throw new Error('boom'); }; go('feed'); }).catch(() => {});
   await page.waitForTimeout(300);
   check('a screen that cannot be drawn says so instead of freezing',
-    (await page.innerText('#app')).includes('not right') && (await page.innerText('#err')).includes('boom'),
+    /something's off/i.test(await page.innerText('#app')) && !(await page.innerText('#app') + await page.innerText('#err')).includes('boom'),
     await page.innerText('#app'));
   check('  and the other tabs still work', await page.isVisible('#bar'));
   await page.evaluate(() => go('groups'));
@@ -1065,7 +1066,8 @@ await withPage(SIGNED_IN, async page => {
 await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await settle(page);
-  check('a failed load says so', (await page.innerText('#err')).includes('boom'), await page.innerText('#err'));
+  check('a failed load says so, without the machine\'s words', /couldn't load/i.test(await page.innerText('#err'))
+    && !(await page.innerText('#err')).includes('boom'), await page.innerText('#err'));
   await page.locator('#err button:has-text("Copy")').click();
   await page.waitForTimeout(200);
   const copied = await page.evaluate(() => navigator.clipboard.readText());
@@ -1489,6 +1491,8 @@ await withPage(SIGNED_IN, async page => {
     const d = i => { const x = new Date(); x.setDate(x.getDate() - i); return x.toLocaleDateString('en-CA'); };
     S.totals = S.totals.filter(t => t.u !== 'u1');
     for (let i = 0; i < days; i++) S.totals.push({g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    // A run can only be as old as the group it is in, so the group is made old enough to hold it.
+    S.groups.forEach(g => { g.created_at = new Date(Date.now() - (days + 5) * 864e5).toISOString(); });
     render();
   }, n);
 
@@ -2740,6 +2744,102 @@ await withPage(SIGNED_IN, async page => {
   check('    and only a fresh link failing too says it could not be loaded', out.bustAfter && out.resigned === 1, JSON.stringify(out));
 });
 
+// ---- your own streak leads; the crew's run is a bonus; forfeits, owed and paid
+// A history for both members of the group, with two misses in one month for whoever the
+// case names: the pass takes the first, the second is owed.
+const history = (page, who, onlyCovered = false) => page.evaluate(([names, one]) => {
+  const d = i => { const x = new Date(); x.setDate(x.getDate() - i); return x.toLocaleDateString('en-CA'); };
+  let i = 1; while (d(i).slice(0, 7) !== d(i + 1).slice(0, 7)) i++;    // two days in one month
+  try { localStorage.milestone = '100000'; } catch (e) {}              // no celebration in the way
+  S.totals = S.totals.filter(t => t.g !== 1);
+  for (const u of ['u1', 'u2']) for (let n = 0; n < 38; n++) {
+    if (names.includes(u) && ((!one && n === i) || n === i + 1)) continue;
+    S.totals.push({g: 1, u, d: d(n), m: 'pushups', n: 50});
+  }
+  render();
+  return {owed: d(i), covered: d(i + 1)};
+}, [who, onlyCovered]);
+
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(400);
+  const miss = await history(page, ['u1'], true);      // one miss, which the pass covers
+  await page.waitForTimeout(200);
+  const hdr = await page.locator('#app .hdr').innerText();
+  check('the group screen leads with your own streak', /day streak/i.test(hdr) && /yours, in this crew/i.test(hdr)
+    && await page.locator('#app .hdr .big .num').innerText() === String(await page.evaluate(() => streak(S.groups[0], me().id))), hdr);
+  check('  your pass is said to have carried you over the day it covered', /your pass covered/i.test(hdr), hdr);
+  check('  and the crew\'s run is a bonus line under it', /^Crew bonus:/.test((await page.locator('#app .crewline').innerText()).trim())
+    && !/group streak|nobody has a run/i.test(hdr), hdr);
+  const rowFirst = await page.evaluate(() => { const r = document.querySelector('#app .mrow'); return r && r.firstElementChild.classList.contains('pst'); });
+  const sizes = await page.evaluate(() => { const r = document.querySelector('#app .mrow');
+    return [parseFloat(getComputedStyle(r.querySelector('.pst b')).fontSize), parseFloat(getComputedStyle(r.querySelector('.grow b')).fontSize)]; });
+  check('  each member row leads with their streak, bigger than their name', rowFirst && sizes[0] > sizes[1], JSON.stringify(sizes));
+  check('  a day one person missed is not the group failing', !/failed|broke|ruined/i.test(await page.innerText('#app')));
+  void miss;
+});
+
+// Whoever made the group sets the forfeit, from Manage, with a few to pick from.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { openGroup(1); manageDlg(1); }); await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Set a forfeit")').click(); await page.waitForTimeout(250);
+  check('setting a forfeit offers a few to pick from', await page.locator('#dlg .sugg .chip').count() === 4);
+  check('  and says it is never money', /never money/i.test(await page.locator('#dlg').innerText()));
+  await page.locator('#dlg .sugg .chip:has-text("buys coffee")').click();
+  await page.locator('#dlg form button.primary').click(); await page.waitForTimeout(900);
+  check('  picking one saves it on the group', await page.evaluate(() => (self.__gforfeit[1] || {}).forfeit) === 'buys coffee',
+    await page.evaluate(() => JSON.stringify(self.__gforfeit)));
+  check('  and the group says what it is', /Forfeit: buys coffee/.test(await page.innerText('#app .card')));
+});
+await withPage({ ...SIGNED_IN, groupBy: 'u2' }, async page => {
+  await settle(page);
+  await page.evaluate(() => manageDlg(1)); await page.waitForTimeout(250);
+  check('somebody who did not make the group gets no forfeit to set', await page.locator('#dlg button:has-text("forfeit")').count() === 0);
+});
+
+// Owed: kindly, per day, and marked paid by somebody else.
+await withPage({ ...SIGNED_IN, forfeit: 'buys coffee', forfeitDays: 12 }, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(400);
+  const miss = await history(page, ['u1', 'u2']);
+  // The load already noted what the starting data owed; this is about the history above.
+  await page.evaluate(() => { self.__settle.length = 0; S.settle = []; render(); return noteForfeits(); }); await page.waitForTimeout(300);
+  const noted = await page.evaluate(() => self.__settle.map(r => `${r.user_id}:${r.day}:${r.settled_at ? 'paid' : 'owed'}`).sort());
+  check('the group is told once for each day somebody owes, and not for the day the pass covered',
+    JSON.stringify(noted) === JSON.stringify([`u1:${miss.owed}:owed`, `u2:${miss.owed}:owed`]), JSON.stringify(noted));
+  const owed = await page.locator('#app .owed').innerText();
+  check('  the Owed list names who owes what', /Sam owes: buys coffee/.test(owed) && /You owe: buys coffee/.test(owed), owed);
+  check('  with a Mark paid for somebody else and none for yourself', await page.locator('#app .owed button:has-text("Mark paid")').count() === 1);
+  await page.locator('#app .owed button:has-text("Mark paid")').click(); await page.waitForTimeout(400);
+  const paid = await page.evaluate(() => self.__settle.find(r => r.user_id === 'u2' && r.settled_at));
+  check('  marking it paid writes who marked it', paid && paid.settled_by === 'u1' && !!paid.settled_at, JSON.stringify(paid));
+  check('    and it leaves the list, staying in the history under it', !/Sam owes/.test(await page.locator('#app .owed').innerText())
+    && /Paid: Sam/.test(await page.locator('#app .owed').innerText()), await page.locator('#app .owed').innerText());
+  await page.evaluate(() => { closeGroup(); go('feed'); }); await page.waitForTimeout(400);
+  check('  and your own home screen says what you owe, in one line', /You owe your crew: buys coffee/.test(await page.locator('#app .owe').innerText()));
+});
+// The other side of it: Sam sees what Ari owes, and can mark it paid; not his own.
+await withPage({ session: { user: { id: 'u2' } }, forfeit: 'buys coffee', forfeitDays: 12 }, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(400);
+  await history(page, ['u1']);
+  const owed = await page.locator('#app .owed').innerText();
+  check('a second account sees what the first one owes', /Ari owes: buys coffee/.test(owed), owed);
+  await page.locator('#app .owed button:has-text("Mark paid")').click(); await page.waitForTimeout(400);
+  const paid = await page.evaluate(() => self.__settle.find(r => r.user_id === 'u1' && r.settled_at));
+  check('  and marks it paid', paid && paid.settled_by === 'u2', JSON.stringify(paid));
+});
+// A database without forfeits yet: the app carries on, and offers nothing it cannot do.
+await withPage({ ...SIGNED_IN, noForfeits: true, forfeit: 'buys coffee' }, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => { openGroup(1); manageDlg(1); }); await page.waitForTimeout(300);
+  check('without forfeits in the database the group screen still draws', await page.locator('#app .mrow').count() === 2);
+  check('  with no forfeit offered, owed or shown', await page.locator('#dlg button:has-text("forfeit")').count() === 0
+    && await page.locator('#app .owed, #app .forfeitline').count() === 0);
+  check('  and nothing said about it', alerts.length === 0, alerts.join(' | '));
+});
+
 // A private one, the pair it is stored as, and what the filter says about language it
 // turns away.
 await withPage({ ...NO_WHEEL, friends: true }, async (page, alerts) => {
@@ -3914,8 +4014,8 @@ await withPage(SIGNED_IN, async page => {
   });
   await page.locator('#boom').click();
   await page.waitForTimeout(200);
-  check('an error thrown by a tap shows on the bar', /tap went wrong/.test(await page.innerText('#err')),
-    await page.innerText('#err'));
+  check('an error thrown by a tap shows on the bar, in plain words', /something's off/i.test(await page.innerText('#err'))
+    && !/tap went wrong/.test(await page.innerText('#err')), await page.innerText('#err'));
 });
 
 // ---- reactions
@@ -4192,7 +4292,7 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async (page, alerts) => {
   await settle(page);
   await page.evaluate(() => { setPending('deadcode0000'); return takePendingJoin(); });
   await page.waitForTimeout(700);
-  check('a dead invite link says so', alerts.some(a => /expired or was rotated/.test(a)), alerts.join(' | '));
+  check('a dead invite link says so', alerts.some(a => /expired or was replaced/.test(a)), alerts.join(' | '));
   check('  and is not carried around afterwards', await page.evaluate(() => pendingJoin()) === '');
 });
 
@@ -4383,7 +4483,8 @@ await withPage(NO_WHEEL, async page => {
   const href = await page.locator('#dlg a.textbtn').getAttribute('href').catch(() => '');
   const body = href ? decodeURIComponent(href.split('body=')[1] || '') : '';
   check('texting an invite opens Messages with it already written', /^sms:\?&body=/.test(href || ''), href);
-  check('  from you, to that group, saying what it does', /^Ari invited you to Mornings on Quota — 50 pushups a day, with proof\./.test(body), body);
+  check('  from you, to that group, saying what it does', /^Ari invited you to Mornings on Quota: 50 pushups a day\. Post proof before midnight/.test(body)
+    && !/proof or it didn/i.test(body), body);
   check('  with your own link in it, not the group\'s', /#join-mine12345678$/.test(body), body);
   check('  and another way to share beside it', await page.locator('#dlg button:has-text("Share another way")').count() === 1);
 });
@@ -4721,7 +4822,8 @@ await withPage(null, async page => {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
   check('a missing library says so instead of showing nothing',
-    (await page.innerHTML('#app')).includes('could not start'));
+    /didn't open properly/.test(await page.innerHTML('#app')) && /Reload/.test(await page.innerHTML('#app'))
+    && !/supabase|library/i.test(await page.innerText('#app')));
 });
 
 // And the real vendored library has to actually work, with Supabase unreachable.

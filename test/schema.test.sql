@@ -714,3 +714,77 @@ begin
   select count(*) into n from public.messages where body = 'hey' and reply_to is null;
   if n <> 1 then raise exception 'a message reply should stay, quoting nothing, when the original is deleted'; end if;
 end $$;
+
+-- v45: only whoever made the group sets its forfeit, it counts from when it was set, and a
+-- forfeit is marked paid by somebody else, never by the person who owed it.
+reset role;
+insert into public.groups (id, name, quotas, created_by) overriding system value
+  values (45, 'Forfeits', '[{"metric":"pushups","target":10}]', '11111111-1111-1111-1111-111111111111');
+insert into public.group_members (group_id, user_id) values
+  (45, '11111111-1111-1111-1111-111111111111'), (45, '22222222-2222-2222-2222-222222222222');
+do $$
+begin
+  if (select joined_at from public.group_members where group_id = 45 and user_id = '22222222-2222-2222-2222-222222222222') is null then
+    raise exception 'a new member should be stamped with when they joined';
+  end if;
+end $$;
+set role app;
+do $$
+declare g public.groups; n int;
+begin
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  begin
+    update public.groups set forfeit = 'buys coffee' where id = 45;
+    raise exception 'somebody who did not make the group set its forfeit';
+  exception when raise_exception then
+    if sqlerrm = 'somebody who did not make the group set its forfeit' then raise; end if;
+  end;
+
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  update public.groups set forfeit = '  buys coffee  ' where id = 45;
+  select * into g from public.groups where id = 45;
+  if g.forfeit is distinct from 'buys coffee' or g.forfeit_since is null then
+    raise exception 'setting a forfeit should trim it and start it counting: %', row_to_json(g);
+  end if;
+  begin
+    update public.groups set forfeit = repeat('x', 61) where id = 45;
+    raise exception 'a 61 character forfeit went in';
+  exception when check_violation then null;
+  end;
+
+  -- Somebody else notes that 1111 owes, then 1111 tries to clear it and cannot.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  insert into public.forfeit_settlements (group_id, user_id, day) values (45, '11111111-1111-1111-1111-111111111111', current_date - 1);
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  update public.forfeit_settlements set settled_at = now(), settled_by = auth.uid()
+   where group_id = 45 and user_id = auth.uid();
+  if (select settled_at from public.forfeit_settlements where group_id = 45 and day = current_date - 1) is not null then
+    raise exception 'somebody marked their own forfeit paid';
+  end if;
+  begin
+    insert into public.forfeit_settlements (group_id, user_id, day, settled_at, settled_by)
+      values (45, auth.uid(), current_date - 2, now(), auth.uid());
+    raise exception 'somebody wrote their own forfeit as paid';
+  exception when insufficient_privilege or check_violation then null;
+  end;
+
+  -- Somebody else can.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  update public.forfeit_settlements set settled_at = now(), settled_by = auth.uid()
+   where group_id = 45 and user_id = '11111111-1111-1111-1111-111111111111';
+  if (select settled_by from public.forfeit_settlements where group_id = 45 and day = current_date - 1)
+     is distinct from '22222222-2222-2222-2222-222222222222' then
+    raise exception 'a forfeit marked paid by somebody else did not stick';
+  end if;
+
+  -- And nobody outside the group sees any of it.
+  perform set_config('test.uid', '33333333-3333-3333-3333-333333333333', true);
+  select count(*) into n from public.forfeit_settlements where group_id = 45;
+  if n <> 0 then raise exception 'somebody outside the group can see its forfeits'; end if;
+
+  -- Clearing the forfeit clears when it started.
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  update public.groups set forfeit = '' where id = 45;
+  select * into g from public.groups where id = 45;
+  if g.forfeit is not null or g.forfeit_since is not null then raise exception 'a cleared forfeit should leave nothing behind'; end if;
+end $$;
