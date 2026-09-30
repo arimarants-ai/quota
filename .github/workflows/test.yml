@@ -25,6 +25,10 @@ jobs:
       # The word filter is pure logic lifted straight out of index.html, and the way it
       # fails is silent: a list that stops matching lets everything through and nothing
       # on screen says so. Needs nothing installed.
+      # The website's privacy, terms and support pages are built from the app's own text. One
+      # that has drifted says something different from what people agreed to in the app.
+      - run: node test/legal-pages.mjs
+
       - run: node test/language.test.mjs
 
       # The crop maths decides which part of a picture becomes somebody's face. A wrong

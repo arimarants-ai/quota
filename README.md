@@ -9,7 +9,8 @@ One static page talking straight to Supabase (accounts, database, video storage)
 | Folder | What it is | Deployed as |
 |---|---|---|
 | `app/` | The app: `index.html`, `sw.js`, the manifest and icons. No build step. | Vercel project `quota`, Root Directory `app` |
-| `site/` | The website about Quota, one static page. No build step. | Vercel project `quota-site`, Root Directory `site` |
+| `site/` | The website about Quota, plus `privacy.html`, `terms.html` and `support.html`, generated from the app's `LEGAL` by `node test/legal-pages.mjs --write`. No build step. | Vercel project `quota-site`, Root Directory `site` |
+| `native/` | The iOS and Android app: `app/` inside Capacitor. | Built in Xcode / Android Studio, see `STORE_SUBMISSION.md` |
 | `supabase/` | `schema.sql` and the edge functions. Both of the above share this one project. | Supabase |
 | `test/` | Every check, for all of the above. CI runs them on each push. | Not deployed |
 
@@ -55,6 +56,19 @@ Everything else is a short-lived branch for one change — `nudges`, `cron-healt
 and `main` has gone on to `quota-v86`, so it is one of those spent branches rather than
 work waiting to be published, and merging it now would undo half a month. The others
 still on the remote are spent the same way.
+
+## The store app (native/)
+
+`native/` is the App Store / Play Store app: Capacitor 8 wrapping `app/` unchanged
+(`webDir: ../app`), with its own `package.json` so neither CI nor Vercel installs it. The
+page knows it is inside it through `NATIVE` in `index.html`, and every native branch
+(push through APNs/FCM, haptics, the status bar, the photo picker, camera permission,
+Android's back button) falls straight through in a browser. Push tokens go in
+`push_subscriptions` as `apns:<token>` / `fcm:<token>`, and `send()` in `notify/push.ts`
+delivers them. How to build, sign and submit it is in `STORE_SUBMISSION.md`; reporting,
+blocking and deleting an account (schema v46) are in `MODERATION.md`.
+
+After changing anything in `app/`, run `npx cap sync` in `native/` before building.
 
 ## Installing it as an app
 

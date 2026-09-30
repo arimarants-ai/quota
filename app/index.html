@@ -80,6 +80,15 @@ button:active{opacity:.6}
 button.primary{background:var(--mk);color:var(--onmk)}
 button.teal{background:var(--teal);color:var(--onteal)}
 button.small{padding:7px 12px;font-size:13px}
+/* A finger needs about 44 points, and these are drawn smaller than that on purpose. The part
+   that answers a tap is made bigger than the part that is drawn, so nothing moves. */
+button.small,button.more,button.lk,button.react,button.flg,button.chatbtn,button.gear,button.backx,button.emo,button.gback,button.back{position:relative}
+button.small::after,button.more::after,button.sound::after,button.lk::after,button.react::after,button.flg::after,button.chatbtn::after,
+button.gear::after,button.backx::after,button.emo::after,button.gback::after,button.back::after{content:"";position:absolute;left:50%;top:50%;
+  width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+.reasons{margin-top:6px}
+.reasons .check{margin:0;padding:12px 0;border-bottom:1px solid var(--line);color:var(--text)}
+.reasons .check:last-child{border-bottom:0}
 button.ghost{background:none;color:var(--muted);padding:6px 4px;font-weight:600}
 button:disabled{opacity:.6}
 /* 16px is not a taste: iOS zooms the whole page into any field smaller than that when
@@ -1318,7 +1327,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v110';
+const BUILD = 'quota-v111';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1328,6 +1337,15 @@ const MAX_MB = 50;
 // Accounts sign up with a real email. Ones made before that have a made-up address
 // (FAKEMAIL) and are asked for a real one; see emailView().
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// The App Store and Play Store app is this same page inside Capacitor, which puts its
+// bridge on window before anything here runs. Nothing below needs a bundler: each plugin
+// is reached through Capacitor.Plugins, and in a browser NATIVE is false and plug() is
+// undefined, so every native branch falls straight through to what the page always did.
+const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+const plug = n => NATIVE ? (Capacitor.Plugins || {})[n] : undefined;
+// A tap you can feel, on the things worth feeling: posting, a milestone, a reaction.
+const buzz = (kind = 'tap') => { const h = plug('Haptics'); if (!h) return;
+  Promise.resolve(kind === 'success' ? h.notification({type: 'SUCCESS'}) : h.impact({style: kind === 'heavy' ? 'HEAVY' : 'LIGHT'})).catch(() => {}); };
 // quiet is raised while load() is running. A failure there is handled by load() itself
 // and reported in the banner, so it must not also throw a modal alert in the way.
 let quiet = 0;
@@ -1362,7 +1380,13 @@ function friendlyError(err, fallback) {
 // the app is actually showing, not what the phone's own appearance is set to, or somebody
 // running their phone dark opens a white app under a black bar.
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.theme = t;
-  document.querySelector('#tc')?.setAttribute('content', t === 'dark' ? '#0a0b0c' : '#ffffff'); };
+  document.querySelector('#tc')?.setAttribute('content', t === 'dark' ? '#0a0b0c' : '#ffffff');
+  // The native app has no theme-color to read, so its status bar is told directly. DARK is
+  // Capacitor's name for light text, the kind that goes on a dark app.
+  const bar = plug('StatusBar');
+  if (bar) Promise.resolve(bar.setStyle({style: t === 'dark' ? 'DARK' : 'LIGHT'})).catch(() => {});
+  // Android draws a bar of its own above the page rather than letting the page run under it.
+  if (bar && Capacitor.getPlatform() === 'android') Promise.resolve(bar.setBackgroundColor({color: t === 'dark' ? '#0a0b0c' : '#ffffff'})).catch(() => {}); };
 setTheme(localStorage.theme || 'light');
 const FAKEMAIL = /@users\.quota\.local$/i;   // what the old accounts were given in place of an address
 const isDark = () => document.documentElement.dataset.theme === 'dark';
@@ -1386,7 +1410,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {blocked: new Set(), settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1773,7 +1797,7 @@ async function fetchAll() {
   // of the load, which takes the whole app with it. A missing function comes back as
   // {error} rather than a rejection anyway; the catch is for the network failing.
   try { await sb.rpc('close_due_flags'); } catch (e) {}
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads, settle] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads, settle, blocks] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -1808,7 +1832,14 @@ async function fetchAll() {
     // Softly, like everything newer than the app's first version: until v45 is run there
     // are no forfeits, and the rest of the app carries on without them.
     soft(sb.from('forfeit_settlements').select('*')),
+    // Softly, like the rest: until v46 is run nobody has blocked anybody.
+    soft(sb.from('blocks').select('user_id')),
   ]);
+  // Somebody you blocked is gone from everything you see, on this load and every one after:
+  // what they posted, their stories, comments, messages, likes and invites. Their numbers
+  // still count toward the group's day. Blocking hides them from you; it does not rewrite
+  // anybody else's streak.
+  S.blocked = new Set((blocks || []).map(b => b.user_id));
   S.noFlags = flags === null;
   S.noForfeits = settle === null;
   S.settle = (settle || []).map(r => ({g: r.group_id, u: r.user_id, d: r.day, at: r.settled_at ? Date.parse(r.settled_at) : null, by: r.settled_by}));
@@ -1888,7 +1919,8 @@ async function fetchAll() {
   await storyPosts();
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null}));
-  const ids = [...new Set([uid, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
+  hideBlocked();
+  const ids = [...new Set([uid, ...S.blocked, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { console.error('Quota: no profile row for', uid); alert("Something went wrong setting up your account. Try again, and if it keeps happening, reopen the app."); await sb.auth.signOut(); }
@@ -2796,7 +2828,7 @@ function paneHTML(uid, all, at, live) {
   return `<div class="pane">
     <div class="bars">${all.map((x, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}">${i === at ? '<b></b>' : ''}</i>`).join('')}</div>
     <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
-      ${mine ? `<button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>` : ''}
+      <button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
     ${storyFace(st, live)}
     <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
@@ -2975,6 +3007,8 @@ function storyMenu(id) {
   const st = S.stories.find(x => x.id === id);
   if (!st) return;
   clearTimeout(storyTimer);
+  if (st.u !== me().id) return dlg(`<h2>${esc(name(user(st.u)))}'s story</h2><p class="muted">${esc(ago(st.ts))} ago</p>
+    <div class="menu">${reportRows('story', id, st.u)}</div>`);
   dlg(`<h2>Your story</h2><p class="muted">${esc(ago(st.ts))} ago · ${plural(viewersOf(id).length, 'view')} · ${plural(storyLikes(id).length, 'like')}</p>
     <div class="menu">
       <button type="button" onclick="dlg();editStory(${id})">Edit the words and colours</button>
@@ -3942,7 +3976,7 @@ function feed(ps, showGroup, bare) {
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
       <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
-        ${p.userId === me().id ? `<button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button>` : ''}</div>
+        <button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button></div>
       ${locked(p) ? lockedReel(p) : `<div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onerror="clipBust(this,${p.id})">`
@@ -4481,7 +4515,8 @@ function msgMenu(row, id) {
   opts.className = 'reactpick opts';
   opts.innerHTML = `<button type="button" onclick="startMsgReply(${id})">Reply</button>
     <button type="button" onclick="closeTrays();copyText(${id},'m')">Copy</button>
-    ${msg.userId === me().id ? `<button type="button" class="bad" onclick="closeTrays();delMessage(${id})">Delete</button>` : ''}`;
+    ${msg.userId === me().id ? `<button type="button" class="bad" onclick="closeTrays();delMessage(${id})">Delete</button>`
+      : `<button type="button" onclick="closeTrays();reportDlg('message',${id},'${esc(msg.userId)}')">Report</button>`}`;
   row.appendChild(opts);
   // The last few lines sit right on the box you type in, and a menu under one of them would
   // open underneath it. The conversation scrolls far enough to show all of it.
@@ -4968,6 +5003,7 @@ function morePostReact(ev, btn, id) {
 
 // Same as a like: shown at once and put back if the write is refused.
 async function toggleReact(id, emoji) {
+  buzz();
   const m = me(), had = S.reacts.some(r => r.p === id && r.u === m.id && r.e === emoji);
   const undo = () => { S.reacts = had ? [...S.reacts, {p: id, u: m.id, e: emoji}]
     : S.reacts.filter(r => !(r.p === id && r.u === m.id && r.e === emoji)); render(); };
@@ -5075,6 +5111,10 @@ const SICON = {
   shield: '<path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9.5 12.2l1.8 1.8 3.4-3.6"/>',
   doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
   out: '<path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  block: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+  bin: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
 };
 const srow = (icon, title, sub, right, click, cls = '') =>
   `<button type="button" class="li ${cls}" ${click ? `onclick="${click}"` : ''}>
@@ -5103,6 +5143,12 @@ function settingsView() {
     ${pushable ? `<div class="pushabout"><p class="muted">A switch covering five different things has to say which five. You will hear about:</p>
       <ul class="about">${PUSHABOUT.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <p class="muted">And anything left on your stories.</p></div>` : ''}
+    <p class="sec">Help and safety</p>
+    <div class="list">
+      ${srow('help', 'Support', 'Questions, problems, and how things work', '<span class="go">\u203a</span>', 'supportDlg()')}
+      ${srow('mail', 'Email us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
+      ${srow('block', 'Blocked people', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
+    </div>
     <p class="sec">Legal</p>
     <div class="list">
       ${Object.entries(LEGAL).map(([k, d]) => srow('doc', d.title, d.sub, '<span class="go">\u203a</span>', `openLegal('${k}')`)).join('')}
@@ -5112,8 +5158,80 @@ function settingsView() {
       ${srow('lock', 'Change password', '', '<span class="go">\u203a</span>', 'passwordDlg()')}
       ${srow('doc', 'Email', S.email ? esc(S.email) : 'None yet', '<span class="go">\u203a</span>', "S.editEmail=true;S.emailTo='';render();scrollTo(0,0)")}
       ${srow('out', 'Log out', `Signed in as @${esc(m.username)}`, '', 'logout()', 'danger')}
+      ${srow('bin', 'Delete my account', 'Your account and everything in it, for good', '', 'deleteAccountDlg()', 'danger')}
     </div>
     <p class="muted pad" style="text-align:center">${BUILD}</p>`;
+}
+// Where to go with a question. The same page is on the website, for anyone who cannot
+// get into the app to ask.
+function supportDlg() {
+  dlg(`<h2>Support</h2>
+    <p class="muted">Write to <a href="mailto:${CONTACT}">${CONTACT}</a> about anything: something broken, a question, an idea, or your data. One of the two people who make Quota answers, usually within a day.</p>
+    <div class="menu">
+      <button type="button" onclick="location.href='mailto:${CONTACT}?subject=Quota%20support'">Email support</button>
+      <button type="button" onclick="window.open('${SITE}/support','_blank')">Help and FAQ</button>
+    </div>
+    <p class="sec" style="margin:18px 0 6px">Something that should not be on Quota</p>
+    <p class="muted">Tap ⋯ on a post or a story, or press and hold a comment or a message, and choose Report. On somebody's profile, Report and Block are under their name. Reports are looked at within 24 hours.</p>
+    <p class="sec" style="margin:18px 0 6px">Leaving</p>
+    <p class="muted">Settings → Delete my account removes your account and everything in it straight away.</p>
+    <button type="button" style="width:100%;margin-top:18px" onclick="dlg()">Done</button>`);
+}
+// Deleting the account, from inside the app, which both stores require. Typing the word is
+// the confirmation: a button alone is one stray tap from losing everything.
+function deleteAccountDlg() {
+  dlg(`<h2>Delete your account?</h2>
+    <p class="muted">This deletes your account and everything in it, for good: every post and clip, your stories, comments, messages, likes and friends, and your place in every group. A group you made that nobody else is in goes too. It cannot be undone.</p>
+    <form onsubmit="event.preventDefault();deleteAccount(this)">
+      <label>Type <b>delete</b> to confirm</label>
+      <input name="sure" type="text" data-raw required autocomplete="off" autocapitalize="none" spellcheck="false"
+        pattern="\\s*[Dd][Ee][Ll][Ee][Tt][Ee]\\s*" title="Type the word delete">
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Keep it</button><button class="primary grow">Delete everything</button></div></form>`);
+}
+async function deleteAccount(f) {
+  const uid = me().id;
+  working(f, 'Deleting…');
+  try {
+    // Files first. Storage keeps what a database delete cannot reach, and will not let an
+    // account that still owns files be deleted at all. my_files() has every clip, including
+    // ones in groups you have left; the folders have your pictures.
+    const paths = {proof: new Set(), stories: new Set(), avatars: new Set()};
+    // Straight to the library rather than through q(), so a failure here gets the sentence
+    // below, which says nothing was deleted, rather than a general one.
+    const mine = await sb.rpc('my_files');
+    if (mine.error) throw mine.error;
+    for (const x of mine.data || []) paths[x.bucket]?.add(x.path);
+    for (const b of ['avatars', 'stories']) {
+      const {data} = await sb.storage.from(b).list(uid, {limit: 1000});
+      for (const o of data || []) paths[b].add(`${uid}/${o.name}`);
+    }
+    // A group that goes with you takes its picture with it.
+    for (const g of S.groups) if (g.created_by === uid && g.members.length === 1 && g.avatar_path) paths.avatars.add(g.avatar_path);
+    for (const [b, set] of Object.entries(paths)) {
+      const all = [...set];
+      for (let i = 0; i < all.length; i += 100) {
+        const {error} = await sb.storage.from(b).remove(all.slice(i, i + 100));
+        if (error) throw error;
+      }
+    }
+    const gone = await sb.rpc('delete_account');
+    if (gone.error) throw gone.error;
+  } catch (e) {
+    f.querySelectorAll('button').forEach(b => b.disabled = false);
+    f.querySelector('button.primary').textContent = 'Delete everything';
+    alert(friendlyError(e, "Your account wasn't deleted. Check your connection and try again."));
+    return;
+  }
+  // And nothing of it left on this phone: no notifications, no queued posts, no settings.
+  try {
+    if (NATIVE) await plug('PushNotifications')?.unregister();
+    else if ('serviceWorker' in navigator) { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) await sub.unsubscribe(); }
+  } catch (e) {}
+  try { indexedDB.deleteDatabase(OUTDB); } catch (e) {}
+  try { localStorage.clear(); } catch (e) {}
+  dlg();
+  await logout();
+  alert('Your account and everything in it has been deleted.');
 }
 function groupsShownDlg() {
   const m = me(), gs = myGroups(), want = m.shown_groups || [];
@@ -5185,14 +5303,17 @@ function personView(uid) {
       <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
     <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
-    ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Your numbers</button></div>` : ''}
+    ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Your numbers</button></div>`
+      : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,'${esc(uid)}')">Report</button>${S.blocked.has(uid)
+        ? `<button class="small grow" onclick="unblockUser('${esc(uid)}')">Unblock</button>` : `<button class="small grow" onclick="blockAsk('${esc(uid)}')">Block</button>`}</div>`}
     ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
       : own ? `<p class="muted pad">Badges start at a 25 day streak.</p>` : ''}
     ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
       mine.includes(g) && streak(g, uid) ? `<em>${streak(g, uid)} day streak</em>` : ''}</button>`).join('')}</div>` : ''}
     <div class="ptabs"><span class="on">Proof${grid.length ? ` · ${grid.length}` : ''}</span></div>
     ${own && grid.length ? `<p class="muted pad small">Everything you have posted is here. The ${shown === 1 ? 'one marked' : `${shown} marked`} ${MARKED} ${shown === 1 ? 'is' : 'are'} on show to anyone who can see you; the rest only you can see. The ⋯ on a post changes that.</p>` : ''}
-    ${pro.loading ? `<p class="muted pad">Loading…</p>`
+    ${S.blocked.has(uid) ? `<p class="muted pad">You blocked @${esc(u.username || '')}, so nothing they post shows up for you.</p>`
+      : pro.loading ? `<p class="muted pad">Loading…</p>`
       : pro.err ? `<div class="card empty"><b>This grid could not be loaded</b>
           <p class="muted">That was the network, not an empty grid.</p>
           <button class="small" style="margin-top:12px" onclick="retryProfile('${esc(uid)}')">Try again</button></div>`
@@ -5278,7 +5399,7 @@ function authView(mode) {
       : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`}
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
     ${signup ? `<label class="check agree"><input type="checkbox" name="agree" required>
-      <span>I am 13 or over, and I agree to Quota's privacy policy, its note on cookies and storage, and its community guidelines.</span></label>` : ''}
+      <span>I am 13 or over, and I agree to Quota's terms of use, privacy policy, note on cookies and storage, and community guidelines. There is no tolerance for objectionable content or abusive behaviour.</span></label>` : ''}
     <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
     ${signup ? legalLinks() : ''}
     <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
@@ -5350,12 +5471,53 @@ function setupView() {
 //
 // Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
 // against each account, so it is always possible to say which wording somebody agreed to.
-const TERMS_VERSION = '2026-09-25';
+const TERMS_VERSION = '2026-09-30';
 // Where every contact line in the documents points. hello@ reaches both co-founders.
 const CONTACT = 'hello@hitquota.app';
+// The website, where the same documents are published for anyone without the app, and
+// where the store listings point. site/privacy.html and site/terms.html are generated from
+// LEGAL below by test/legal-pages.mjs, so edit them here.
+const SITE = 'https://hitquota.app';
+// legal:start
 const LEGAL = {
+  terms: {title: 'Terms of use', sub: 'The agreement between you and Quota', body: `
+<p>These terms are the agreement between you and Quota, which is run by its two co-founders, Ari Marants and Justin Smith (“Quota”, “we”). By creating an account or using the app you agree to them, to the community guidelines, and to the privacy policy. If you do not agree, do not use Quota.</p>
+<h3>No tolerance for objectionable content or abusive users</h3>
+<p>There is no tolerance on Quota for objectionable content or for abusive behaviour. That means harassment, bullying, hate speech, threats, sexual content, content involving anybody under 18 in any sexual way, and anything else the community guidelines rule out. Posting it, or treating people that way, gets the content removed and the account suspended or deleted, with no warning required.</p>
+<ul>
+<li>Every post, story, comment, message and profile can be reported from inside the app, and anybody can be blocked.</li>
+<li>Reports are reviewed within 24 hours. Content that breaks these terms is removed, and the account behind it is removed as well where the guidelines say so.</li>
+<li>Whoever made a group can remove any post from it.</li>
+</ul>
+<h3>Your account</h3>
+<ul>
+<li>You must be 13 or older.</li>
+<li>Give a real email address and keep your password to yourself. You are responsible for what happens on your account.</li>
+<li>One person, one account. Do not make an account to get around a block or a removal.</li>
+<li>You can delete your account at any time from Settings. It deletes everything in it.</li>
+</ul>
+<h3>What you post</h3>
+<p>You own what you post. By posting it you give Quota permission to store it and show it to the people you shared it with, which is only what the app needs to work, and that permission ends when you delete it. Post only what you have the right to post, and only film people who are happy to be filmed.</p>
+<h3>Using Quota fairly</h3>
+<p>Do not try to break, overload, or get around the app or its security; do not scrape it or read other people's data; and do not use it for anything illegal.</p>
+<h3>If things go wrong</h3>
+<p>Quota is free and is provided as it is. We work to keep it running and your data safe, but we cannot promise it will never be unavailable or lose something. As far as the law allows, we are not liable for indirect losses, or for what other people post. Nothing here takes away rights you have under the law where you live.</p>
+<h3>Ending it</h3>
+<p>You can stop using Quota and delete your account whenever you like. We can suspend or remove an account that breaks these terms, and we may change or stop the app. If these terms change in a way that matters you will be asked to agree again before carrying on.</p>
+<h3>The app stores</h3>
+<p>If you got Quota from Apple's App Store, these terms are between you and Quota, not Apple, and Apple has no responsibility for the app or its content. Apple's standard licence terms for apps also apply, and Apple and its subsidiaries may enforce these terms as third-party beneficiaries.</p>
+<h3>Contact</h3>
+<p><a href="mailto:${CONTACT}">${CONTACT}</a></p>`},
+
   privacy: {title: 'Privacy policy', sub: 'What Quota keeps, and who can see it', body: `
 <p>Quota is run by its two co-founders, Ari Marants and Justin Smith. Contact: <a href="mailto:${CONTACT}">${CONTACT}</a>. This says what Quota holds about you, why it holds it, and who else can see it.</p>
+<h3>What the app asks your phone for</h3>
+<ul>
+<li><b>The camera and microphone</b>, only when you tap to record proof, a story, or a picture of yourself. Nothing is recorded until you do.</li>
+<li><b>Your photos</b>, only when you choose a picture for your profile or a group, or save a recap. Proof can never come from your photos.</li>
+<li><b>Notifications</b>, only if you turn them on.</li>
+</ul>
+<p>Saying no to any of these leaves the rest of the app working, and your phone's Settings can change the answer at any time.</p>
 <h3>What Quota keeps</h3>
 <ul>
 <li><b>Your account.</b> Your email address, a username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Your email is used to confirm the account and to reset your password, and is never shown to anyone else.</li><li><b>About you.</b> Your full name, date of birth and gender, which you give when you finish signing up.</li>
@@ -5367,6 +5529,7 @@ const LEGAL = {
 <li><b>Friends and invites.</b> Who you are friends with, and invitations sent or received.</li>
 <li><b>Your time zone</b>, so that a spin-day reminder arrives in your morning and not somebody else's.</li>
 <li><b>A push subscription</b>, only if you turn notifications on. Turning them off deletes it.</li>
+<li><b>Reports and blocks.</b> If you report something, what you reported and why. If you block somebody, who.</li>
 </ul>
 <h3>What Quota does not do</h3>
 <p>There are no adverts, no analytics, no tracking pixels and no third-party trackers of any kind. Nothing here is sold, and nothing is handed to anyone for marketing. No profile of you is built for any purpose other than showing you the app.</p>
@@ -5385,11 +5548,11 @@ const LEGAL = {
 <li><b>Vercel</b> — serves the app itself, and keeps ordinary server logs (an address, a time, a page) for a short period.</li>
 <li><b>Resend</b> — sends the emails with your codes in them, so it sees your email address and the code.</li>
 </ul>
-<p>If you turn notifications on, the message is delivered by your browser's own push service — Apple, Google or Mozilla, depending on the phone. They see that a message is going to your device.</p>
+<p>If you turn notifications on, the message is delivered by your phone's own push service — Apple's or Google's, depending on the phone. They see that a message is going to your device.</p>
 <h3>How long it is kept</h3>
-<p>Posts, comments and profiles are kept until you delete them or ask for the account to go. Deleting a post deletes its file. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
+<p>Posts, comments and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete my account) deletes everything in it straight away, files included. A report is kept after the account it is about is gone, for as long as it takes to deal with it. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
 <h3>What you can ask for</h3>
-<p>You can ask for a copy of everything held about you, ask for it to be corrected, or ask for the account and everything in it to be deleted. Email <a href="mailto:${CONTACT}">${CONTACT}</a> and it will be done within 30 days.</p>
+<p>You can delete your account and everything in it yourself, from Settings. You can also ask for a copy of everything held about you, or for it to be corrected: email <a href="mailto:${CONTACT}">${CONTACT}</a> and it will be done within 30 days.</p>
 <h3>Age</h3>
 <p>Quota is not for anyone under 13. If you know of an account belonging to someone younger, email the address above and it will be removed.</p>
 <h3>Where it is</h3>
@@ -5401,7 +5564,7 @@ const LEGAL = {
 <h3>Quota does not use cookies</h3>
 <p>No cookies are set by Quota, for any purpose, and there are no third-party cookies either — nothing on this page is loaded from an advertising or analytics company. That is why there is no banner asking you to accept any.</p>
 <h3>What is kept on your phone instead</h3>
-<p>A few things are held in your browser's own local storage. None of it is sent anywhere, and none of it identifies you to anybody:</p>
+<p>A few things are held in the app's own storage on your phone. None of it is sent anywhere, and none of it identifies you to anybody:</p>
 <ul>
 <li><b>Your sign-in.</b> A token that keeps you logged in, so the app does not ask for your password every time. Logging out removes it.</li>
 <li><b>Dark mode</b>, so the app opens the way you left it.</li>
@@ -5411,9 +5574,9 @@ const LEGAL = {
 <li><b>Which milestones have already been celebrated</b>, so the same run is not celebrated twice.</li>
 </ul>
 <h3>The offline copy</h3>
-<p>Quota installs a service worker, which keeps a copy of the app itself — the page, the code, the icons — on your phone so that it opens without a connection. It holds the app, not your data.</p>
+<p>Quota keeps a copy of the app itself — the code and the icons — on your phone so that it opens without a connection. It holds the app, not your data.</p>
 <h3>Clearing it</h3>
-<p>Clearing your browser's site data for Quota removes all of it. You will be signed out and the app will open on its defaults. Nothing you have posted is affected.</p>`},
+<p>Logging out removes your sign-in; deleting the app, or deleting your account, removes all of it. Nothing you have posted is affected by anything but deleting it or your account.</p>`},
 
   guidelines: {title: 'Community guidelines', sub: 'What goes on Quota, and what does not', body: `
 <p>Quota is for showing your friends you did the thing. Everything below follows from that.</p>
@@ -5444,8 +5607,11 @@ const LEGAL = {
 <h3>Age</h3>
 <p>You have to be 13 or older to use Quota.</p>
 <h3>If these are broken</h3>
-<p>Posts, comments and stories that break these guidelines are taken down. An account that keeps breaking them is removed, and for slurs, threats, or sexual content involving anybody under 18 it goes on the first time. To report something, email <a href="mailto:${CONTACT}">${CONTACT}</a> with enough detail to find it.</p>`},
+<p>Posts, comments and stories that break these guidelines are taken down. An account that keeps breaking them is removed, and for slurs, threats, or sexual content involving anybody under 18 it goes on the first time.</p>
+<h3>Reporting and blocking</h3>
+<p>Tap ⋯ on a post or a story, or press and hold a comment or a message, and choose Report. Report and Block are also on everybody's profile. Every report is looked at within 24 hours. Blocking somebody hides everything they make from you straight away, and they are not told. You can also email <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>`},
 };
+// legal:end
 const legalLinks = () => `<p class="legallinks">${Object.entries(LEGAL).map(([k, d]) =>
   `<button type="button" onclick="openLegal('${k}')">${esc(d.title)}</button>`).join('')}</p>`;
 function legalView(k) {
@@ -5460,10 +5626,11 @@ function closeLegal() { S.legal = null; stackOff(); }
 // consent with holes in it is not a record. null means the column is there and nothing has
 // been agreed; undefined means the v25 block has not been run yet, and in that case nobody
 // is held anywhere — a document that cannot be accepted must not lock the app.
-const needsTerms = m => m.terms_accepted_at === null;
+// A version older than the current one counts as nothing agreed: the documents changed.
+const needsTerms = m => m.terms_accepted_at === null || (m.terms_version !== undefined && (m.terms_version || '') < TERMS_VERSION);
 function acceptView() {
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>Before you carry on</h2><p>Quota now writes down what it keeps, what it stores on your phone, and what goes on it. Have a read, then agree once.</p>
+    <h2>Before you carry on</h2><p>Quota's terms and guidelines have changed. Have a read, then agree once. There is no tolerance for objectionable content or abusive behaviour, and anything can be reported from inside the app.</p>
     <div class="list" style="text-align:left">${Object.entries(LEGAL).map(([k, d]) =>
       srow('doc', esc(d.title), esc(d.sub), '<span class="go">›</span>', `openLegal('${k}')`)).join('')}</div>
     <button class="primary" style="width:100%;margin-top:20px;padding:14px" onclick="acceptTerms(this)">I agree</button>
@@ -5577,6 +5744,7 @@ function milestoneDue() {
 }
 function party(d) {
   try { localStorage.milestone = String(d); } catch (e) {}
+  buzz('heavy');
   const box = $('#party');
   box.innerHTML = `<canvas></canvas><div class="card">
     <div class="n num">${d}</div><span class="days">day streak</span>
@@ -5930,7 +6098,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
     <div class="row" style="margin-bottom:14px"><span id="avprev">${gav(g, 'xl')}</span>
       <div class="grow">
         <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
-          <button type="button" class="grow" onclick="this.closest('form').querySelector('[name=photo]').click()">Choose a file</button></div>
+          <button type="button" class="grow" onclick="pickPhoto(this)">Choose a photo</button></div>
         <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
     <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
@@ -5953,7 +6121,7 @@ function profileDlg() {
     <div class="row" style="margin-top:12px"><span id="avprev">${av(m, 'xl')}</span>
       <div class="grow"><label style="margin-top:0">Profile picture</label>
         <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
-          <button type="button" class="grow" onclick="this.closest('form').photo.click()">Choose a file</button></div></div></div>
+          <button type="button" class="grow" onclick="pickPhoto(this)">Choose a photo</button></div></div></div>
     <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     <label>Display name</label><input name="display_name" value="${esc(m.display_name || '')}" placeholder="${esc(m.username)}" maxlength="40">
     <label>Bio</label><textarea name="bio" rows="3" maxlength="160" placeholder="What you are doing this for.">${esc(m.bio || '')}</textarea>
@@ -6474,7 +6642,7 @@ async function runSearch(term) {
     const {data, error} = await sb.from('profiles').select('id,username,display_name,avatar_path')
       .or(`username.ilike.${safe}%,display_name.ilike.%${safe}%`).limit(10);
     if (error) throw error;
-    rows = data || [];
+    rows = (data || []).filter(r => !S.blocked.has(r.id));   // somebody you blocked is not somebody to add
   } catch (e) {
     if (seq !== fSeq) return;
     S.fbusy = false; S.ferr = friendlyError(e, "Couldn't search right now. Try again in a moment.");
@@ -6689,7 +6857,45 @@ function dropWake() { try { if (wake) wake.release(); } catch (e) {} wake = null
 let camAt = 0;
 const FRESH_SLACK = 60e3;                  // a minute, for a coarse device clock
 
+// The native app asks the phone once, up front, whether the camera is allowed, so that a
+// camera turned off in Settings is said in words rather than met with a black screen. The
+// answer is read again whenever the app comes back, which is where somebody who went to
+// Settings to turn it on returns to.
+let camPerm = 'granted';
+const checkCam = () => { const c = plug('Camera');
+  if (c) Promise.resolve(c.checkPermissions()).then(p => { camPerm = p.camera; }).catch(() => {}); };
+if (NATIVE) { checkCam(); plug('App')?.addListener('resume', checkCam); }
+function permDlg(what) {
+  const [thing, why] = what === 'photos'
+    ? ['your photos', 'choose a picture for your profile or a group']
+    : ['the camera', 'record proof, a story, or a picture of yourself'];
+  const where = what === 'photos' ? 'Photos' : 'Camera';
+  const ios = NATIVE && Capacitor.getPlatform() === 'ios';
+  dlg(`<h2>Quota can't use ${thing}</h2>
+    <p class="muted">It is turned off for Quota on this phone, so there is no way to ${why}. ${ios
+      ? `Settings \u2192 Quota \u2192 ${where} turns it back on.`
+      : `Settings \u2192 Apps \u2192 Quota \u2192 Permissions turns it back on.`}</p>
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Not now</button>
+      ${ios ? `<button type="button" class="primary grow" onclick="dlg();location.href='app-settings:'">Open Settings</button>` : ''}</div>`);
+}
+// The native app picks a picture with the phone's own photo picker. The web one has only a
+// file input, which is what it keeps.
+async function pickPhoto(btn) {
+  const cam = plug('Camera');
+  if (!cam) return btn.closest('form').querySelector('[name=photo]').click();
+  try {
+    const ph = await cam.getPhoto({source: 'PHOTOS', resultType: 'uri', quality: 90, width: 1600, correctOrientation: true});
+    const blob = await (await fetch(ph.webPath)).blob();
+    openCrop(new File([blob], `photo.${ph.format || 'jpeg'}`, {type: blob.type || 'image/jpeg'}), 'file');
+  } catch (e) {
+    const m = String(e && e.message || e);
+    if (/cancel/i.test(m)) return;                 // closed the picker; nothing to say
+    if (/denied|permission|access/i.test(m)) return permDlg('photos');
+    alert(friendlyError(e, "Couldn't open your photos. Try again."));
+  }
+}
 function openCam(what = 'post') {
+  if (NATIVE && camPerm === 'denied') return permDlg('camera');
   camFor = what;
   camAt = Date.now();
   holdWake();
@@ -7374,6 +7580,7 @@ async function sendPost(f, gid) {
     if (!e.shown) alert(friendlyError(e));                 // q() already showed its own
     return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false);
   }
+  buzz('success');
   dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
   flushOutbox();                           // the network is plainly up; take anything waiting with it
   // The post that finished the day is worth offering to say something about. The one after
@@ -7390,6 +7597,16 @@ async function sendPost(f, gid) {
 function postMenu(id) {
   const p = postById(id);
   if (!p) return;
+  if (p.userId !== me().id) {
+    // Whoever made the group can take anybody's post out of it. Everyone else can report
+    // it, block whoever posted it, or question it with a flag, which the group decides.
+    const g = S.groups.find(x => x.id === p.groupId), maker = g && g.created_by === me().id;
+    return dlg(`<h2>${esc(name(user(p.userId)))}'s proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
+      <div class="menu">
+        ${maker ? `<button type="button" class="bad" onclick="dlg();removePost(${id})">Remove it from ${esc(g.name)}</button>` : ''}
+        ${reportRows('post', id, p.userId)}
+      </div>`);
+  }
   dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <div class="menu">
       <button type="button" onclick="dlg();captionDlg(${id})">Edit the caption</button>
@@ -7399,6 +7616,89 @@ function postMenu(id) {
       <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete this post</button>
     </div>`);
 }
+// ---- reporting, blocking, and taking a post down
+// Apple and Google both ask this of any app where people post to each other: a way to say
+// something is wrong, a way to never see somebody again, and somebody able to take a post
+// down. A report goes to a table only the people who run Quota can read (MODERATION.md
+// says what happens next), and a block is one person's decision, never announced.
+const REASONS = [['spam', 'Spam or a scam'], ['harassment', 'Bullying or harassment'],
+  ['hate', 'Hate speech or a slur'], ['sexual', 'Nudity or sexual content'], ['violence', 'Violence or a threat'],
+  ['self_harm', 'Self-harm'], ['fake', 'Pretending to be someone else'], ['other', 'Something else']];
+const REPORTED = {post: 'this post', story: 'this story', comment: 'this comment', message: 'this message'};
+// The two rows every menu about somebody else's thing ends with.
+const reportRows = (what, id, uid) =>
+  `<button type="button" onclick="reportDlg('${what}',${id},'${esc(uid)}')">Report ${REPORTED[what]}</button>
+   <button type="button" class="bad" onclick="blockAsk('${esc(uid)}')">Block @${esc(user(uid).username || '')}</button>`;
+function reportDlg(what, id, uid) {
+  const u = user(uid);
+  dlg(`<h2>Report ${REPORTED[what] || `@${esc(u.username || '')}`}</h2>
+    <p class="muted">Only the people who run Quota see a report, and ${esc(name(u))} is not told who sent it. Every one is looked at within 24 hours.</p>
+    <form onsubmit="event.preventDefault();sendReport(this,'${what}',${id || 0},'${esc(uid)}')">
+      <div class="reasons">${REASONS.map(([k, l]) => `<label class="check"><input type="radio" name="reason" value="${k}" required><span>${l}</span></label>`).join('')}</div>
+      <label>Anything we should know <span class="muted">(optional)</span></label>
+      <input name="details" type="text" data-raw maxlength="500" autocomplete="off" placeholder="What happened">
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Send report</button></div></form>`);
+}
+async function sendReport(f, what, id, uid) {
+  const d = new FormData(f);
+  const row = {user_id: uid, what, thing_id: what === 'user' ? null : id, reason: d.get('reason'),
+    details: String(d.get('details') || '').trim().slice(0, 500)};
+  // What was on screen, kept with the report, because the thing itself may be deleted
+  // before anybody gets to look at it.
+  const p = what === 'post' ? postById(id) : null, st = what === 'story' ? S.stories.find(x => x.id === id) : null;
+  const c = what === 'comment' ? S.comments.find(x => x.id === id) : null, m = what === 'message' ? S.msgs.find(x => x.id === id) : null;
+  if (p) Object.assign(row, {group_id: p.groupId, body: p.caption || '', media_path: p.path});
+  if (st) Object.assign(row, {body: st.body || '', media_path: st.path || null});
+  if (c) Object.assign(row, {body: c.body || '', group_id: (postById(c.postId) || {}).groupId ?? null});
+  if (m) Object.assign(row, {body: m.body || '', group_id: m.groupId ?? null});
+  row.body = String(row.body || '').slice(0, 1000);
+  working(f, 'Sending…');
+  try { await q(sb.from('reports').insert(row)); }
+  catch (e) { f.querySelectorAll('button').forEach(b => b.disabled = false); f.querySelector('button.primary').textContent = 'Send report'; return; }
+  buzz();
+  const u = user(uid);
+  dlg(`<h2>Report sent</h2><p class="muted">Thank you. Somebody who runs Quota will look at it within 24 hours, and anything that breaks the rules comes down.${S.blocked.has(uid) ? '' : ` If you would rather not see ${esc(name(u))} again in the meantime, you can block them.`}</p>
+    <div class="menu">${S.blocked.has(uid) ? '' : `<button type="button" class="bad" onclick="blockAsk('${esc(uid)}')">Block @${esc(u.username || '')}</button>`}
+      <button type="button" onclick="dlg()">Done</button></div>`);
+}
+function blockAsk(uid) {
+  const u = user(uid);
+  dlg(`<h2>Block @${esc(u.username || '')}?</h2>
+    <p class="muted">You will not see anything ${esc(name(u))} posts, comments, sends or puts on a story, anywhere in Quota, and you stop being friends. They are not told. If you are in a group together you both stay in it.</p>
+    <p class="muted" style="margin-top:8px">Settings → Blocked people undoes it.</p>
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button>
+      <button type="button" class="primary grow" onclick="blockUser('${esc(uid)}')">Block</button></div>`);
+}
+// Everything they made leaves the screen at once, before the database has answered, and
+// load() keeps it that way from then on.
+function hideBlocked() {
+  const b = S.blocked, keep = k => x => !b.has(x[k]);
+  S.posts = S.posts.filter(keep('userId')); S.comments = S.comments.filter(keep('userId'));
+  S.stories = S.stories.filter(keep('u')); S.msgs = S.msgs.filter(keep('userId'));
+  S.invites = S.invites.filter(keep('from')); S.likes = S.likes.filter(keep('u')); S.reacts = S.reacts.filter(keep('u'));
+}
+async function blockUser(uid) {
+  dlg();
+  S.blocked.add(uid); hideBlocked(); closePost(); render();
+  try { await q(sb.from('blocks').insert({user_id: uid})); }
+  catch (e) { S.blocked.delete(uid); }
+  load();
+}
+async function unblockUser(uid) {
+  S.blocked.delete(uid); dlg();
+  try { await q(sb.from('blocks').delete().eq('user_id', uid)); } catch (e) {}
+  load();
+}
+function blockedDlg() {
+  const ids = [...S.blocked];
+  dlg(`<h2>Blocked people</h2><p class="muted">Nothing they make shows up for you. Unblocking brings it back; it does not make you friends again.</p>
+    ${ids.length ? `<div class="list" style="margin-top:12px">${ids.map(id => { const u = user(id);
+      return `<div class="li">${av(u)}<span class="t"><b>${esc(name(u))}</b><em>@${esc(u.username || '')}</em></span>
+        <button type="button" class="small" onclick="unblockUser('${esc(id)}')">Unblock</button></div>`; }).join('')}</div>`
+      : '<p class="muted" style="margin-top:12px">Nobody.</p>'}
+    <button type="button" style="width:100%;margin-top:16px" onclick="dlg()">Done</button>`);
+}
+
 // The words, not the clip. What was done is what the camera saw and the number says; the
 // caption is the part that was typed, so it is the part that can be typed again.
 function captionDlg(id) {
@@ -7458,8 +7758,13 @@ async function showOnProfile(id, on) {
   loadProfile(me().id);
   return true;                             // sharing to a story waits on this having worked
 }
-async function delPost(id) {
-  if (!confirm('Delete this post?')) return;
+// The group's maker taking somebody else's post out: the same delete, said differently.
+function removePost(id) {
+  const p = postById(id), g = p && S.groups.find(x => x.id === p.groupId);
+  if (g) delPost(id, `Take ${name(user(p.userId))}'s post out of ${g.name}? It is deleted for everyone.`);
+}
+async function delPost(id, ask = 'Delete this post?') {
+  if (!confirm(ask)) return;
   const p = postById(id);
   if (!p) return;
   await q(sb.from('posts').delete().eq('id', id));
@@ -7528,7 +7833,8 @@ function commentMenu(el) {
   openTray(el, `<button type="button" onclick="replyComment(${postId},${id})">Reply</button>
     <button type="button" onclick="closeTrays();toggleCommentLike(${id})">${liked ? 'Unlike' : 'Like'}</button>
     <button type="button" onclick="closeTrays();copyText(${id},'c')">Copy</button>
-    ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete comment</button>` : ''}`, 'opts');
+    ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete comment</button>`
+      : `<button type="button" onclick="closeTrays();reportDlg('comment',${id},'${esc(c.userId)}')">Report</button>`}`, 'opts');
 }
 // A comment with replies under it takes them with it, so that is said first.
 function delCommentAsk(id) {
@@ -7562,9 +7868,12 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---- installable app
-if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(e => console.warn('Service worker did not register:', e)));
+// The native app carries its own copy of every file, so it has nothing for a worker to do.
+if (!NATIVE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(e => console.warn('Service worker did not register:', e)));
 function dismissA2HS() { $('#a2hs').hidden = true; try { localStorage.a2hs = '1'; } catch (e) {} }
-const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+// The native app is installed by definition, so nothing ever asks it to add itself to a
+// home screen: not the banner, not the steps after an invite, not the notifications card.
+const isStandalone = () => NATIVE || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 function maybeShowA2HS() {
   const safari = !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome/.test(navigator.userAgent); // only Safari can add to the home screen
@@ -7580,7 +7889,41 @@ const urlB64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')
 // iOS only exposes PushManager to home screen apps, so an iPhone in a Safari tab lands on 'install'.
 const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
+// In the native app a notification comes from Apple or Google directly rather than through
+// a service worker. The token goes in the same table, under an endpoint that says which
+// service it belongs to (apns: or fcm:), and the sender in push.ts reads that prefix.
+const PUSHKEY = 'quota.push';               // the endpoint this phone registered, if it did
+const nativeEndpoint = t => `${Capacitor.getPlatform() === 'ios' ? 'apns' : 'fcm'}:${t}`;
+function nativePushToken() {
+  const p = plug('PushNotifications'), hs = [];
+  return new Promise((res, rej) => {
+    const done = (f, v) => { hs.forEach(h => Promise.resolve(h).then(x => x && x.remove()).catch(() => {})); f(v); };
+    hs.push(p.addListener('registration', t => done(res, t.value)));
+    hs.push(p.addListener('registrationError', e => done(rej, new Error(e && e.error || 'registration failed'))));
+    Promise.resolve(p.register()).catch(e => done(rej, e));
+  });
+}
+// A token can change under an app (a restore, a reinstall), so an app that has them on
+// registers again each time it opens and keeps the row up to date.
+async function keepNativePush() {
+  try {
+    const endpoint = nativeEndpoint(await nativePushToken()), was = localStorage.getItem(PUSHKEY);
+    if (endpoint === was) return;
+    await q(sb.from('push_subscriptions').upsert({endpoint, user_id: me().id, p256dh: '', auth: ''}));
+    if (was) await sb.from('push_subscriptions').delete().eq('endpoint', was);
+    localStorage.setItem(PUSHKEY, endpoint);
+  } catch (e) { console.warn('Quota: could not refresh the push token', e); }
+}
 async function refreshPush() {
+  if (NATIVE) {
+    const p = plug('PushNotifications');
+    if (!p) { S.push = 'unsupported'; return; }
+    const {receive} = await p.checkPermissions();
+    let on = false; try { on = !!localStorage.getItem(PUSHKEY); } catch (e) {}
+    S.push = receive === 'denied' ? 'denied' : receive === 'granted' && on ? 'on' : 'off';
+    if (S.push === 'on' && me()) keepNativePush();
+    return;
+  }
   if (!pushOK()) { S.push = isIOS() && !isStandalone() ? 'install' : 'unsupported'; return; }
   if (Notification.permission === 'denied') { S.push = 'denied'; return; }
   const reg = await navigator.serviceWorker.ready;
@@ -7589,6 +7932,16 @@ async function refreshPush() {
 
 async function enablePush() {
   try {
+    if (NATIVE) {
+      const {receive} = await plug('PushNotifications').requestPermissions();
+      if (receive !== 'granted') { S.push = receive === 'denied' ? 'denied' : 'off'; return render(); }
+      const endpoint = nativeEndpoint(await nativePushToken());
+      await q(sb.from('push_subscriptions').upsert({endpoint, user_id: me().id, p256dh: '', auth: ''}));
+      localStorage.setItem(PUSHKEY, endpoint);
+      S.push = 'on';
+      try { localStorage.setItem(PUSHASK, String(Date.now())); } catch (e) {}
+      return render();
+    }
     const perm = await Notification.requestPermission(); // has to happen inside the tap
     if (perm !== 'granted') { S.push = perm === 'denied' ? 'denied' : 'off'; return render(); }
     const reg = await navigator.serviceWorker.ready;
@@ -7603,10 +7956,38 @@ async function enablePush() {
 
 async function disablePush() {
   try {
+    if (NATIVE) {
+      const endpoint = localStorage.getItem(PUSHKEY);
+      localStorage.removeItem(PUSHKEY);
+      if (endpoint) await q(sb.from('push_subscriptions').delete().eq('endpoint', endpoint));
+      await plug('PushNotifications').unregister();
+      S.push = 'off'; return render();
+    }
     const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
     if (sub) { await q(sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)); await sub.unsubscribe(); }
   } catch (e) { /* leaving the row behind is harmless: the sender prunes dead endpoints */ }
   S.push = 'off'; render();
+}
+
+// ---- the native app's own hooks
+if (NATIVE) {
+  // A tapped notification lands where the web one does: its address is the hash, and the
+  // hashchange listener takes it from there.
+  plug('PushNotifications')?.addListener('pushNotificationActionPerformed', a => {
+    const u = a && a.notification && a.notification.data && a.notification.data.url;
+    if (u) try { location.hash = new URL(u).hash; } catch (e) {}
+  });
+  // Android's back button goes back the way the swipe does, and only leaves from the top.
+  plug('App')?.addListener('backButton', () => {
+    if ($('#dlg').open) return dlg();
+    if (S.one) return closePost();
+    if (!$('#story').hidden) return closeStory();
+    if (S.sub) return closeSub();
+    const act = backAction();
+    if (act) { act(); return stackOff(); }
+    if (me() && S.tab !== 'feed') return go('feed');
+    plug('App').minimizeApp();
+  });
 }
 // ---- what is happening while you are looking
 // A tray of answers is put away by tapping anywhere that is not it, which is what tapping
@@ -7681,6 +8062,7 @@ function noteWorthSaying(table, e) {
 function bannerFor({table, ev, row}) {
   const m = me(), actor = row.user_id || row.by_user || row.from_user;
   if (actor === m.id) return null;         // nothing you did is news to you
+  if (S.blocked && S.blocked.has(actor)) return null;
   const by = u => ({who: user(u), name: name(user(u))});
   const post = id => postById(id);
   const mine = p => p && p.userId === m.id;
