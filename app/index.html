@@ -5146,7 +5146,7 @@ function settingsView() {
     <p class="sec">Help and safety</p>
     <div class="list">
       ${srow('help', 'Support', 'Questions, problems, and how things work', '<span class="go">\u203a</span>', 'supportDlg()')}
-      ${srow('mail', 'Email us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
+      ${srow('mail', 'Contact us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
       ${srow('block', 'Blocked people', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
     </div>
     <p class="sec">Legal</p>

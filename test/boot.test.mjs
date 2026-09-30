@@ -2068,7 +2068,7 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(300);
 
   // The post's own menu is how anything posted before today gets onto the grid.
-  await page.locator('.post .head .more').first().click();
+  await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(350);
   check("a post of your own offers to show itself on your profile",
     /show this on my profile/i.test(await page.locator('#dlg .menu').innerText()),
@@ -2199,7 +2199,7 @@ await withPage(NO_WHEEL, async page => {
 // screen, because that is what it is: a thing lifted from somewhere else and stuck on.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.post .head .more').first().click();
+  await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(350);
   check('a post of your own offers to go on your story',
     /share this to my story/i.test(await page.locator('#dlg .menu').innerText()),
@@ -2219,7 +2219,7 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === false
     && await page.locator('#make').isHidden());
 
-  await page.locator('.post .head .more').first().click();
+  await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(300);
   await page.locator('#dlg .menu button:has-text("Share this to my story")').click();
   await page.waitForTimeout(300);
@@ -3933,7 +3933,12 @@ await withPage(SIGNED_IN, async page => {
 
   await page.evaluate(() => openStory('u2'));
   await page.waitForTimeout(400);
-  check("somebody else's story has no dots on it", await page.locator('#story .who .bin').count() === 0);
+  // Somebody else's story has dots too, since the stores want everything reportable, but
+  // they open Report and Block rather than anything that edits or deletes it.
+  await page.locator('#story .who .bin').click(); await page.waitForTimeout(200);
+  const theirs = await page.locator('#dlg .menu').innerText();
+  check("somebody else's story offers Report, not Edit or Delete", /report/i.test(theirs) && !/edit|delete/i.test(theirs), theirs);
+  await page.evaluate(() => dlg()); await page.waitForTimeout(250);
   check('  but still has the way out', await page.locator('#story .who .x').count() === 1);
 });
 
