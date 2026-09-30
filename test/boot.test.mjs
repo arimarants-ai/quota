@@ -926,9 +926,9 @@ await withPage(NO_WHEEL, async page => {
   await chooser.setFiles([]).catch(() => {});
   const asked = await page.evaluate(() => { const i = $('#camin');
     return {capture: i.getAttribute('capture'), accept: i.accept, camFor}; });
-  check('  Record asks the phone for its camera', !!chooser && asked.capture === 'environment', JSON.stringify(asked));
-  check('    pointing away from you, because proof is of the world',
-    asked.capture === 'environment' && asked.accept.includes('video'), JSON.stringify(asked));
+  check('  Record asks the phone for its camera', !!chooser && asked.capture === 'user', JSON.stringify(asked));
+  check('    facing you, in video, so an iPhone does not open in Photo mode',
+    asked.capture === 'user' && asked.accept === 'video/*', JSON.stringify(asked));
 
   // Backing out of the camera without taking anything is the common case, and it has to be
   // nothing happening — not an empty take carried back to the sheet.
@@ -4549,12 +4549,13 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(300);
   check('the form has no way to choose a file', await page.locator('#dlg input[type=file]').count() === 0,
     'a file input is still on the proof form');
-  await page.evaluate(() => openCam());
-  check('  the camera takes pictures as well as clips',
-    /image/.test(await page.locator('#camin').getAttribute('accept')),
+  check('  Photo is its own button', await page.locator('#dlg button:has-text("Photo")').count() === 1);
+  await page.evaluate(() => openCam('post', true));
+  check('  and asks for a picture rather than a clip',
+    await page.locator('#camin').getAttribute('accept') === 'image/*',
     await page.locator('#camin').getAttribute('accept'));
-  check('  and asks the phone for a camera rather than the roll',
-    await page.locator('#camin').getAttribute('capture') === 'environment');
+  check('  from a camera rather than the roll',
+    await page.locator('#camin').getAttribute('capture') === 'user');
 });
 
 // ---- the days a group actually expects anything
