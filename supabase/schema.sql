@@ -2730,3 +2730,133 @@ language sql security definer stable set search_path = public as $$
 $$;
 revoke all on function public.code_group(text) from public;
 grant execute on function public.code_group(text) to anon, authenticated;
+
+-- ============================================================
+-- v46 (what the app stores need): safe to run on an existing project. Run it before the
+-- app that uses it goes out, and redeploy notify after it (it adds the `report` kind).
+--
+-- Four things Apple and Google ask of an app where people post to each other: a way to
+-- report something, a way to block somebody, a way for a group to take a post down, and a
+-- way to delete your own account from inside the app.
+-- ============================================================
+
+-- A report. Written by the person reporting and read by nobody through the API: there is
+-- no select policy, so only the owner (the SQL editor) sees them, in private.open_reports.
+-- The reported person is a plain uuid, not a reference, so the report outlives an account
+-- deleted to get away from it. body and media_path are what was on screen when it was
+-- reported, because the thing itself may be deleted before anybody looks.
+create table if not exists public.reports (
+  id bigint generated always as identity primary key,
+  by_user uuid not null default auth.uid() references public.profiles on delete cascade,
+  user_id uuid not null,
+  what text not null check (what in ('post', 'story', 'comment', 'message', 'user')),
+  thing_id bigint,
+  group_id bigint,
+  reason text not null check (reason in ('spam', 'harassment', 'hate', 'sexual', 'violence', 'self_harm', 'fake', 'other')),
+  details text not null default '' check (char_length(details) <= 500),
+  body text not null default '' check (char_length(body) <= 1000),
+  media_path text,
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  resolution text,
+  check ((what = 'user') = (thing_id is null))
+);
+alter table public.reports enable row level security;
+drop policy if exists "file a report" on public.reports;
+create policy "file a report" on public.reports for insert
+  with check (by_user = auth.uid() and user_id <> auth.uid() and resolved_at is null and resolution is null);
+
+-- Who hears about a report the moment it is filed. Nothing reads this but the notify
+-- function, which runs as the service role. Add yourself once:
+--   insert into public.moderators select id from public.profiles where username = 'ari';
+create table if not exists public.moderators (
+  user_id uuid primary key references public.profiles on delete cascade
+);
+alter table public.moderators enable row level security;
+
+drop trigger if exists reports_notify on public.reports;
+create trigger reports_notify after insert on public.reports
+  for each row execute function public.notify_hook('report');
+
+-- A block is one person's decision about another. The app hides everything the blocked
+-- person made from the one who blocked them; the database ends any friendship between
+-- them and cancels invites both ways, so neither can be pulled back into the other's list.
+create table if not exists public.blocks (
+  by_user uuid not null default auth.uid() references public.profiles on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (by_user, user_id),
+  check (by_user <> user_id)
+);
+alter table public.blocks enable row level security;
+drop policy if exists "own blocks" on public.blocks;
+create policy "own blocks" on public.blocks for all
+  using (by_user = auth.uid()) with check (by_user = auth.uid());
+
+create or replace function public.block_cleanup() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.friendships where a = least(new.by_user, new.user_id) and b = greatest(new.by_user, new.user_id);
+  delete from public.invites where (from_user = new.by_user and to_user = new.user_id)
+                               or (from_user = new.user_id and to_user = new.by_user);
+  return new;
+end $$;
+drop trigger if exists blocks_cleanup on public.blocks;
+create trigger blocks_cleanup after insert on public.blocks
+  for each row execute function public.block_cleanup();
+
+-- Whoever made a group can take any post out of it: the row, and the file behind it.
+drop policy if exists "the group's maker removes posts" on public.posts;
+create policy "the group's maker removes posts" on public.posts for delete
+  using (exists (select 1 from public.groups g where g.id = posts.group_id and g.created_by = auth.uid()));
+drop policy if exists "the group's maker removes proof" on storage.objects;
+create policy "the group's maker removes proof" on storage.objects for delete
+  using (bucket_id = 'proof' and exists (select 1 from public.groups g
+    where g.id::text = (storage.foldername(name))[1] and g.created_by = auth.uid()));
+
+-- Every file somebody uploaded, including proof in groups they have since left (which the
+-- posts policy no longer lets them read). The app deletes these through Storage before it
+-- deletes the account, because Storage keeps files a database delete cannot reach.
+create or replace function public.my_files()
+returns table (bucket text, path text)
+language sql security definer stable set search_path = public as $$
+  select 'proof', video_path from public.posts where user_id = auth.uid()
+  union all
+  select 'stories', media_path from public.stories where user_id = auth.uid() and media_path is not null;
+$$;
+revoke all on function public.my_files() from public, anon, authenticated;
+grant execute on function public.my_files() to authenticated;
+
+-- Deleting your own account. Everything is keyed on the account with on delete cascade,
+-- so removing the auth user removes the profile and every row that hangs off it. A group
+-- you made that nobody else is in goes as well; one with other people in it stays theirs.
+-- A file still owned by the account (a group picture) is let go of first, since Storage
+-- will not let an account that owns files be deleted.
+create or replace function public.delete_account() returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not signed in'; end if;
+  delete from public.groups g where g.created_by = uid
+    and not exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id <> uid);
+  begin update storage.objects set owner = null where owner = uid; exception when others then null; end;
+  begin update storage.objects set owner_id = null where owner_id = uid::text; exception when others then null; end;
+  delete from auth.users where id = uid;
+end $$;
+revoke all on function public.delete_account() from public, anon, authenticated;
+grant execute on function public.delete_account() to authenticated;
+
+-- What is waiting for a decision, oldest first, with who is who. In `private`, like
+-- private.people, so the API never serves it. MODERATION.md says what to do with each.
+drop view if exists private.open_reports;
+create view private.open_reports as
+  select r.id, now() - r.created_at as waiting, r.what, r.reason, r.details,
+         who.username as reported, who.email as reported_email, r.user_id as reported_id,
+         r.body, r.media_path, r.thing_id, g.name as group_name,
+         by_.username as reported_by, r.created_at
+    from public.reports r
+    left join private.people who on who.id = r.user_id
+    left join private.people by_ on by_.id = r.by_user
+    left join public.groups g on g.id = r.group_id
+   where r.resolved_at is null
+   order by r.created_at;

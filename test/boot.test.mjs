@@ -1896,7 +1896,7 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(400);
   const set = await page.innerText('#app');
   check('the gear opens settings', await page.evaluate(() => S.settings) === true
-    && await page.locator('.list').count() === 4);
+    && await page.locator('.list').count() === 5);             // profile, preferences, help and safety, legal, account
   check('  carrying everything the profile used to', /bio/i.test(set) && /Groups on your profile/i.test(set)
     && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
     && /Email/.test(set) && /ari@example\.com/.test(set) && /Log out/i.test(set), set);
@@ -2068,7 +2068,7 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(300);
 
   // The post's own menu is how anything posted before today gets onto the grid.
-  await page.locator('.post .head .more').first().click();
+  await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(350);
   check("a post of your own offers to show itself on your profile",
     /show this on my profile/i.test(await page.locator('#dlg .menu').innerText()),
@@ -2199,7 +2199,7 @@ await withPage(NO_WHEEL, async page => {
 // screen, because that is what it is: a thing lifted from somewhere else and stuck on.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.post .head .more').first().click();
+  await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(350);
   check('a post of your own offers to go on your story',
     /share this to my story/i.test(await page.locator('#dlg .menu').innerText()),
@@ -2219,7 +2219,7 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => S.posts.find(p => p.userId === 'u1').onProfile) === false
     && await page.locator('#make').isHidden());
 
-  await page.locator('.post .head .more').first().click();
+  await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(300);
   await page.locator('#dlg .menu button:has-text("Share this to my story")').click();
   await page.waitForTimeout(300);
@@ -2706,7 +2706,7 @@ await withPage(SIGNED_IN, async page => {
     await post.locator('.clist').innerText());
   await hold(page, post.locator('.clist .c').first());
   const opts = await post.locator('.clist .reactpick.opts button').allInnerTexts();
-  check('  holding somebody else\'s comment has no delete in it', opts.join('|') === 'Reply|Like|Copy', JSON.stringify(opts));
+  check('  holding somebody else\'s comment has no delete in it, but can report it', opts.join('|') === 'Reply|Like|Copy|Report', JSON.stringify(opts));
 });
 
 // A clip kept through redraws: the same element stays, an old link gets a fresh one rather
@@ -3933,7 +3933,12 @@ await withPage(SIGNED_IN, async page => {
 
   await page.evaluate(() => openStory('u2'));
   await page.waitForTimeout(400);
-  check("somebody else's story has no dots on it", await page.locator('#story .who .bin').count() === 0);
+  // Somebody else's story has dots too, since the stores want everything reportable, but
+  // they open Report and Block rather than anything that edits or deletes it.
+  await page.locator('#story .who .bin').click(); await page.waitForTimeout(200);
+  const theirs = await page.locator('#dlg .menu').innerText();
+  check("somebody else's story offers Report, not Edit or Delete", /report/i.test(theirs) && !/edit|delete/i.test(theirs), theirs);
+  await page.evaluate(() => dlg()); await page.waitForTimeout(250);
   check('  but still has the way out', await page.locator('#story .who .x').count() === 1);
 });
 
@@ -4815,6 +4820,185 @@ await withPage(SIGNED_IN, async page => {
   check('  a sign-out from the library returns to the welcome screen',
     await page.isHidden('#bar') && (await page.innerHTML('#app')).includes('auth'));
 });
+
+// ---- what the app stores ask for: report, block, take down, delete the account
+// Somebody else's post has the same ⋯ as your own, with different things in it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const more = page.locator('.post[data-post="100"] .more');
+  check("somebody else's post has a ⋯ too", await more.count() === 1);
+  await more.click(); await page.waitForTimeout(150);
+  check('  which offers to report it', await page.locator('#dlg button:has-text("Report this post")').count() === 1);
+  check('  and to block whoever posted it', await page.locator('#dlg button:has-text("Block @sam")').count() === 1);
+  check("  and, to whoever made the group, to take it out", await page.locator('#dlg button:has-text("Remove it from Mornings")').count() === 1);
+  await page.locator('#dlg button:has-text("Report this post")').click(); await page.waitForTimeout(150);
+  check('reporting asks for a reason from a list', await page.locator('#dlg input[name=reason]').count() === 8);
+  await page.locator('#dlg input[value=harassment]').check();
+  await page.locator('#dlg input[name=details]').fill('keeps doing this');
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
+  const r = await page.evaluate(() => self.__reports);
+  check('  and sends what, who, why, and what was on screen', r.length === 1 && r[0].what === 'post' && r[0].thing_id === 100
+    && r[0].user_id === 'u2' && r[0].reason === 'harassment' && r[0].details === 'keeps doing this'
+    && r[0].media_path === 's0.mp4' && r[0].group_id === 1, JSON.stringify(r));
+  check('  then says it was sent and offers to block', /Report sent/.test(await page.innerText('#dlg'))
+    && await page.locator('#dlg button:has-text("Block @sam")').count() === 1);
+});
+
+// A profile, a comment and a story can all be reported, and a profile blocked.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openWho('u2')); await page.waitForTimeout(400);
+  check("somebody's profile has Report and Block on it", await page.locator('#app button:has-text("Report")').count() >= 1
+    && await page.locator('#app button:has-text("Block")').count() >= 1);
+  await page.locator('#app button:has-text("Report")').first().click(); await page.waitForTimeout(150);
+  check('  and reporting a person names them', /Report @sam/.test(await page.innerText('#dlg')));
+  await page.locator('#dlg input[value=fake]').check();
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
+  const r = await page.evaluate(() => self.__reports);
+  check('  and goes in with no thing attached', r.length === 1 && r[0].what === 'user' && r[0].thing_id === null && r[0].user_id === 'u2', JSON.stringify(r));
+  await page.evaluate(() => { dlg(); S.stories = [{id: 61, u: 'u2', kind: 'text', body: 'hello', style: {}, ts: Date.now()}]; openStory('u2'); });
+  await page.waitForTimeout(300);
+  await page.locator('#story .who .bin').click(); await page.waitForTimeout(150);
+  check("somebody else's story has a ⋯ with Report on it", await page.locator('#dlg button:has-text("Report this story")').count() === 1);
+});
+
+// Blocking takes somebody off the screen at once, and keeps them off it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const sams = () => page.locator('.post[data-post="100"], .post[data-post="101"], .post[data-post="102"]').count();
+  const before = await sams();
+  await page.evaluate(() => blockAsk('u2')); await page.waitForTimeout(150);
+  await page.locator('#dlg button.primary:has-text("Block")').click(); await page.waitForTimeout(400);
+  check('blocking somebody takes their posts off the screen at once', before === 3 && await sams() === 0, `${before} before`);
+  check('  and writes the block down', (await page.evaluate(() => self.__blocks)).some(b => b.user_id === 'u2'));
+  await page.evaluate(() => load()); await settle(page);
+  check('  and they stay gone after the next load', await sams() === 0);
+  await page.evaluate(() => { openSettings(); }); await page.waitForTimeout(400);
+  check('  and Settings says one person is blocked', /Blocked people\s*1 person/.test(await page.innerText('#app')));
+  await page.evaluate(() => blockedDlg()); await page.waitForTimeout(150);
+  check('    and lists them', /Sam/.test(await page.innerText('#dlg')));
+  await page.locator('#dlg button:has-text("Unblock")').click(); await page.waitForTimeout(100);
+  await page.evaluate(() => { closeSettings(); }); await settle(page);
+  check('  and unblocking brings them back', await sams() === 3);
+});
+await withPage({ ...SIGNED_IN, blocks: ['u2'] }, async page => {
+  await settle(page);
+  check('somebody blocked on an earlier visit is gone from the start',
+    await page.locator('.post[data-post="100"]').count() === 0 && await page.evaluate(() => S.posts.every(p => p.userId !== 'u2')));
+});
+
+// Only whoever made the group can take somebody else's post out of it.
+await withPage({ ...SIGNED_IN, groupBy: 'u2' }, async page => {
+  await settle(page);
+  await page.evaluate(() => postMenu(100)); await page.waitForTimeout(150);
+  check("a member who did not make the group is not offered to take somebody's post down",
+    await page.locator('#dlg button:has-text("Remove it")').count() === 0);
+});
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { self.confirm = () => true; postMenu(100); }); await page.waitForTimeout(150);
+  await page.locator('#dlg button:has-text("Remove it from Mornings")').click(); await page.waitForTimeout(400);
+  check("the group's maker takes the post and its file down", (await page.evaluate(() => self.__deletedPosts)).includes(100)
+    && (await page.evaluate(() => self.__removed || [])).includes('s0.mp4'));
+});
+
+// Deleting the account, from Settings, behind typing the word.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { localStorage.theme = 'dark'; openSettings(); }); await page.waitForTimeout(400);
+  const txt = await page.innerText('#app');
+  check('Settings has Support, the terms, and deleting the account', /Support/.test(txt) && /Terms of use/.test(txt) && /Delete my account/.test(txt));
+  await page.locator('#app button:has-text("Delete my account")').click(); await page.waitForTimeout(150);
+  await page.locator('#dlg input[name=sure]').fill('nope');
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
+  check('  a wrong word deletes nothing', !(await page.evaluate(() => self.__rpcs)).includes('delete_account'));
+  await page.locator('#dlg input[name=sure]').fill('Delete');
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(800);
+  const removed = await page.evaluate(() => self.__removed || []);
+  check('  the right one removes every file first, including ones in groups since left',
+    ['1/u1/p.mp4', '9/u1/left.mp4', 'u1/me.jpg'].every(x => removed.includes(x)), JSON.stringify(removed));
+  check('  then deletes the account', (await page.evaluate(() => self.__rpcs)).includes('delete_account'));
+  check('  and leaves nothing on the phone and nobody signed in',
+    await page.evaluate(() => !S.me && localStorage.getItem('theme') === null));
+});
+await withPage({ ...SIGNED_IN, deleteFails: true }, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => deleteAccountDlg()); await page.waitForTimeout(150);
+  await page.locator('#dlg input[name=sure]').fill('delete');
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(600);
+  check('a delete that fails says so in plain words and leaves you signed in',
+    await page.evaluate(() => !!S.me) && alerts.some(a => /connection/i.test(a)) && !alerts.some(a => /network is down/.test(a)), alerts.join(' | '));
+});
+
+// A new version of the terms asks everyone to agree again; the one they agreed to does not.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const r = await page.evaluate(() => [needsTerms({terms_accepted_at: 'x', terms_version: '2026-09-25'}),
+    needsTerms({terms_accepted_at: 'x', terms_version: TERMS_VERSION}), needsTerms({}), needsTerms({terms_accepted_at: null}),
+    /no tolerance for objectionable content/i.test(LEGAL.terms.body)]);
+  check('terms agreed to in an older version are asked for again', r[0] && !r[1] && !r[2] && r[3], JSON.stringify(r));
+  check('  and the terms say there is no tolerance for objectionable content', r[4]);
+});
+
+// Inside the native app. Capacitor is stood in for by an object with the same shape, so
+// what the page asks of each plugin can be seen.
+async function withNative(mode, body, platform = 'ios', perm = {}) {
+  await withPage(null, async (page, alerts) => {
+    await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
+    await page.addInitScript(m => { self.__MODE = m; }, mode);
+    await page.addInitScript(([pf, perm]) => {
+      const N = self.__native = { calls: [], listeners: {} };
+      const call = (pl, fn, ret) => (...a) => { N.calls.push(`${pl}.${fn}`); return new Promise(r => r(typeof ret === 'function' ? ret(...a) : ret)); };
+      const listen = pl => (ev, cb) => { (N.listeners[`${pl}.${ev}`] ||= []).push(cb); return Promise.resolve({ remove() {} }); };
+      N.fire = (k, v) => (N.listeners[k] || []).forEach(cb => cb(v));
+      self.Capacitor = { isNativePlatform: () => true, getPlatform: () => pf, Plugins: {
+        Haptics: { impact: call('Haptics', 'impact'), notification: call('Haptics', 'notification') },
+        StatusBar: { setStyle: call('StatusBar', 'setStyle'), setBackgroundColor: call('StatusBar', 'setBackgroundColor') },
+        App: { addListener: listen('App'), minimizeApp: call('App', 'minimizeApp') },
+        Camera: { checkPermissions: call('Camera', 'checkPermissions', () => ({ camera: perm.camera || 'granted', photos: 'granted' })),
+          getPhoto: call('Camera', 'getPhoto', () => { throw new Error('User denied access to photos'); }) },
+        PushNotifications: { addListener: listen('PushNotifications'),
+          checkPermissions: call('PushNotifications', 'checkPermissions', { receive: 'prompt' }),
+          requestPermissions: call('PushNotifications', 'requestPermissions', { receive: 'granted' }),
+          register: call('PushNotifications', 'register', () => { setTimeout(() => N.fire('PushNotifications.registration', { value: 'tok123' }), 10); }),
+          unregister: call('PushNotifications', 'unregister') },
+      } };
+    }, [platform, perm]);
+    await page.goto(`${base}/?local`, { waitUntil: 'domcontentloaded' });
+    await body(page, alerts);
+  });
+}
+await withNative(SIGNED_IN, async page => {
+  await page.waitForTimeout(1600);
+  check('inside the native app nothing asks to be added to a home screen',
+    await page.isHidden('#a2hs') && await page.evaluate(() => isStandalone()));
+  check('  no service worker is registered', (await page.evaluate(() => navigator.serviceWorker.getRegistrations())).length === 0);
+  check('  and the status bar is told the theme', (await page.evaluate(() => __native.calls)).includes('StatusBar.setStyle'));
+  await page.evaluate(() => toggleReact(100, '🔥')); await page.waitForTimeout(100);
+  check('  a reaction is felt', (await page.evaluate(() => __native.calls)).includes('Haptics.impact'));
+  await page.evaluate(() => enablePush()); await page.waitForTimeout(300);
+  const subs = await page.evaluate(() => self.__pushsubs || []);
+  check('  notifications register with Apple and keep the token', subs.some(x => x.endpoint === 'apns:tok123' && x.user_id === 'u1')
+    && await page.evaluate(() => S.push === 'on' && localStorage.getItem('quota.push') === 'apns:tok123'), JSON.stringify(subs));
+  await page.evaluate(() => { openSettings(); }); await page.waitForTimeout(400);
+  await page.evaluate(() => __native.fire('App.backButton')); await page.waitForTimeout(400);
+  check("  Android's back button goes back rather than out", await page.evaluate(() => !S.settings));
+  await page.evaluate(() => pickPhoto(null)); await page.waitForTimeout(200);
+  check('  photos turned off in Settings is said in words, with where to fix it',
+    /can't use your photos/.test(await page.innerText('#dlg')) && /Settings/.test(await page.innerText('#dlg')));
+  await page.evaluate(() => { dlg(); openSettings(); }); await page.waitForTimeout(400);
+  await page.evaluate(() => { __native.fire('PushNotifications.pushNotificationActionPerformed', {notification: {data: {url: 'https://app.hitquota.app/#post-100'}}}); });
+  await page.waitForTimeout(500);
+  check('  a tapped notification takes you to what it was about', await page.evaluate(() => !S.settings && S.tab === 'feed' && location.hash === ''));
+}, 'ios');
+await withNative(SIGNED_IN, async page => {
+  await page.waitForTimeout(800);
+  await page.evaluate(() => enablePush()); await page.waitForTimeout(300);
+  check('on Android the token is an FCM one', (await page.evaluate(() => self.__pushsubs || [])).some(x => x.endpoint === 'fcm:tok123'));
+  await page.evaluate(() => openCam('post')); await page.waitForTimeout(150);
+  check('  and a camera turned off in Settings says how to turn it back on', /can't use the camera/.test(await page.innerText('#dlg'))
+    && /Permissions/.test(await page.innerText('#dlg')));
+}, 'android', { camera: 'denied' });
 
 // The library failing to arrive is what a blank page used to look like from the outside.
 await withPage(null, async page => {

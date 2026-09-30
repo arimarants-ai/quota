@@ -1,5 +1,5 @@
 // Self-check for push.ts. Run: node --experimental-strip-types push.test.ts
-import { encrypt, vapidHeader, b64u, unb64u } from './push.ts';
+import { encrypt, vapidHeader, b64u, unb64u, send, jwt, apnsBody, fcmBody } from './push.ts';
 
 const subtle = crypto.subtle;
 const dec = new TextDecoder();
@@ -79,5 +79,52 @@ const verifyKey = await subtle.importKey('jwk',
   { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
 ok(await subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, verifyKey, unb64u(s), enc.encode(`${h}.${p}`)),
    'JWT signature verifies against the public key');
+
+// --- the native app: APNs and FCM, told apart by the endpoint's prefix
+const pem = (der: ArrayBuffer) => `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...new Uint8Array(der)))}\n-----END PRIVATE KEY-----`;
+const ec = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+const rsa = await subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
+const ecPem = pem(await subtle.exportKey('pkcs8', ec.privateKey)), rsaPem = pem(await subtle.exportKey('pkcs8', rsa.privateKey));
+const verifies = async (tok: string, key: CryptoKey, algo: any) => {
+  const [h2, p2, s2] = tok.split('.');
+  return subtle.verify(algo, key, unb64u(s2), enc.encode(`${h2}.${p2}`));
+};
+ok(await verifies(await jwt({ alg: 'ES256', kid: 'K' }, { iss: 'T' }, ecPem, 'ES256'), ec.publicKey, { name: 'ECDSA', hash: 'SHA-256' }),
+  'an APNs provider token signed from a .p8 verifies');
+ok(await verifies(await jwt({ alg: 'RS256' }, { iss: 'x' }, rsaPem, 'RS256'), rsa.publicKey, 'RSASSA-PKCS1-v1_5'),
+  'an FCM assertion signed from a service account key verifies');
+
+const note = { title: 'Mornings', body: 'Sam posted 30 pushups', url: 'https://app.hitquota.app/#post-7', tag: 'post-7' };
+const a = JSON.parse(apnsBody(note));
+ok(a.aps.alert.title === 'Mornings' && a.aps.alert.body === note.body && a.url === note.url, 'APNs payload carries the words and the address');
+const f = JSON.parse(fcmBody('tok', note));
+ok(f.message.token === 'tok' && f.message.data.url === note.url && f.message.notification.body === note.body, 'FCM payload carries the words and the address');
+
+process.env.APNS_KEY = ecPem; process.env.APNS_KEY_ID = 'KEYID'; process.env.APNS_TEAM_ID = 'TEAM';
+process.env.FCM_SERVICE_ACCOUNT = JSON.stringify({ project_id: 'quota-x', client_email: 'q@x', private_key: rsaPem });
+const seen: { url: string; headers: any; body: string }[] = [];
+let answer = (url: string) => new Response('{}', { status: 200 });
+(globalThis as any).fetch = async (url: string, init: any) => { seen.push({ url, headers: init.headers, body: init.body }); return answer(url); };
+const vapid = { publicKey: '', privateKey: '', subject: '' };
+
+ok(await send({ endpoint: 'apns:abc', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 200, 'an apns: row goes to Apple');
+ok(seen[0].url === 'https://api.push.apple.com/3/device/abc' && seen[0].headers['apns-topic'] === 'app.hitquota.quota'
+  && /^bearer /.test(seen[0].headers.authorization), '  at the production host, for the app, with a provider token');
+seen.length = 0;
+answer = url => new Response(JSON.stringify({ reason: 'BadDeviceToken' }), { status: /sandbox/.test(url) ? 200 : 400 });
+ok(await send({ endpoint: 'apns:dev', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 200 && /sandbox/.test(seen[1].url),
+  '  a token production does not know is tried on the sandbox, for builds run from Xcode');
+answer = () => new Response(JSON.stringify({ reason: 'BadDeviceToken' }), { status: 400 });
+ok(await send({ endpoint: 'apns:gone', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 410, '  and one neither knows is reported as gone, so it is pruned');
+answer = () => new Response(JSON.stringify({ reason: 'Unregistered' }), { status: 410 });
+ok(await send({ endpoint: 'apns:old', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 410, '  as is an uninstalled app');
+
+seen.length = 0;
+answer = url => /oauth2/.test(url) ? Response.json({ access_token: 'AT' }) : new Response('{}', { status: 200 });
+ok(await send({ endpoint: 'fcm:xyz', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 200, 'an fcm: row goes to Google');
+ok(seen[0].url === 'https://oauth2.googleapis.com/token' && seen[1].url === 'https://fcm.googleapis.com/v1/projects/quota-x/messages:send'
+  && seen[1].headers.Authorization === 'Bearer AT' && JSON.parse(seen[1].body).message.token === 'xyz', '  signed in as the service account, to the project');
+answer = url => /oauth2/.test(url) ? Response.json({ access_token: 'AT' }) : new Response('{}', { status: 404 });
+ok(await send({ endpoint: 'fcm:gone', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 410, '  and an unregistered token is reported as gone');
 
 console.log('\nall push.ts checks passed');

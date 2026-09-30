@@ -70,6 +70,19 @@ Deno.serve(async (req) => {
   const atPost = (id: number) => `${SITE_URL}/#post-${id}`;
   const atComment = (id: number) => `${SITE_URL}/#comment-${id}`;
 
+  // A report. Only the people in `moderators` hear about it, and the words say what kind so
+  // it can be judged from the lock screen whether it waits until morning. The report itself
+  // is read in private.open_reports; MODERATION.md says what to do with it.
+  if (kind === 'report') {
+    const { what, reason } = record ?? {};
+    const mods: { user_id: string }[] = await rest('moderators?select=user_id');
+    return blast(mods.map(m => m.user_id), JSON.stringify({
+      title: 'Quota: new report',
+      body: `A ${what ?? 'thing'} was reported for ${String(reason ?? 'something').replace('_', '-')}. Open reports: private.open_reports.`,
+      url: `${SITE_URL}/`, tag: `report-${record?.id ?? Date.now()}`,
+    }));
+  }
+
   if (kind === 'invite') {
     const { type, from_user, to_user, group_id: gid } = record ?? {};
     if (!from_user || !to_user) return new Response('ignored', { status: 200 });

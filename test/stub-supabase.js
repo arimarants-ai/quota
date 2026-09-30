@@ -69,6 +69,10 @@
   self.__gpic = {};
   // Forfeits: what a group set, and what was noted or paid.
   self.__gforfeit = {}; self.__settle = [];
+  // Reporting and blocking. A report is written and never read back, the way the real
+  // table has no select policy; blocks are read back, since they decide what is shown.
+  self.__reports = []; self.__blocks = (M().blocks || []).map(user_id => ({ by_user: 'u1', user_id }));
+  self.__deletedPosts = []; self.__rpcs = [];
   self.__signups = []; self.__logins = []; self.__sessions = []; self.__resends = []; self.__resets = []; self.__userEdits = []; self.__otps = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
@@ -109,6 +113,7 @@
     message_reactions: self.__mreacts,
     chat_reads: self.__reads,
     forfeit_settlements: self.__settle,
+    blocks: self.__blocks,
   }[t] || []);
   // What a real database hands back is not always the shape the page hopes for: a jsonb
   // column can be null, and a row can be missing what a newer column would have had.
@@ -161,6 +166,10 @@
       if (st.op === 'delete' && t === 'likes') {
         self.__likes = self.__likes.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
+      if (st.op === 'delete' && t === 'blocks') {
+        self.__blocks = self.__blocks.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
+      }
+      if (st.op === 'delete' && t === 'posts') self.__deletedPosts.push(st.filters.id);
       if (st.op === 'delete' && t === 'comments') {
         self.__cmts = self.__cmts.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }
@@ -203,6 +212,7 @@
     // passthrough it silently kept every chat unread however many times one was opened.
     p.upsert = (row, opts = {}) => {
       if (t === 'chat_reads') self.__reads = [...self.__reads.filter(r => r.chat !== row.chat), { ...row }];
+      if (t === 'push_subscriptions') self.__pushsubs = [...(self.__pushsubs || []), { ...row }];
       // Keyed on the group, the person and the day; noting one twice does nothing.
       if (t === 'forfeit_settlements') for (const r of [].concat(row)) {
         const i = self.__settle.findIndex(x => x.group_id === r.group_id && x.user_id === r.user_id && x.day === r.day);
@@ -249,6 +259,8 @@
       if (t === 'messages') self.__msgs.push({ id: 900 + self.__msgs.length, created_at: new Date().toISOString(),
         group_id: null, a: null, b: null, ...row });
       if (t === 'message_reactions') self.__mreacts.push({ ...row });
+      if (t === 'reports') self.__reports.push({ ...row });
+      if (t === 'blocks') self.__blocks.push({ by_user: 'u1', ...row });
       return chain(t, { ...st, op: 'insert' });
     };
     p.delete = () => chain(t, { ...st, op: 'delete' });
@@ -308,6 +320,9 @@
       return { data: sp, error: null };
     }
     if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }
+    self.__rpcs.push(fn);
+    if (fn === 'my_files') return { data: [{ bucket: 'proof', path: '1/u1/p.mp4' }, { bucket: 'proof', path: '9/u1/left.mp4' }], error: null };
+    if (fn === 'delete_account') return M().deleteFails ? { data: null, error: err('network is down') } : { data: null, error: null };
     return { data: null, error: null };
   };
 
@@ -368,6 +383,8 @@
           return M().uploadFails ? { data: null, error: err('storage said no') } : { data: { path }, error: null };
         },
         remove: async paths => { self.__removed = [...(self.__removed || []), ...paths]; return { data: null, error: null }; },
+        // A folder, the way deleting an account asks for everybody's own pictures.
+        list: async folder => ({ data: bucket === 'avatars' ? [{ name: 'me.jpg' }] : [], error: null }),
         // One signed URL per post, in order, the way the page consumes them. A real
         // bucket refuses a path whose file is gone, and hands back a row with no URL on it.
         createSignedUrls: async paths => ({ data: paths.map(() => M().noSign ? { signedUrl: null, error: 'not found' } : { signedUrl: 'data:video/mp4;base64,' }), error: null }),

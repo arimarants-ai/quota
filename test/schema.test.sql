@@ -788,3 +788,107 @@ begin
   select * into g from public.groups where id = 45;
   if g.forfeit is not null or g.forfeit_since is not null then raise exception 'a cleared forfeit should leave nothing behind'; end if;
 end $$;
+
+-- v46: reports go in and cannot be read back, a block ends a friendship and hides nothing
+-- it should not, the group's maker can take a post down, and an account can delete itself
+-- along with everything hanging off it.
+reset role;
+insert into auth.users (id) values ('44444444-4444-4444-4444-444444444444');
+insert into public.profiles (id, username) values ('44444444-4444-4444-4444-444444444444', 'leaving');
+insert into public.groups (id, name, quotas, created_by) overriding system value values
+  (46, 'Reports', '[{"metric":"pushups","target":10}]', '11111111-1111-1111-1111-111111111111'),
+  (47, 'Alone', '[{"metric":"pushups","target":10}]', '44444444-4444-4444-4444-444444444444'),
+  (48, 'Theirs', '[{"metric":"pushups","target":10}]', '44444444-4444-4444-4444-444444444444');
+insert into public.group_members (group_id, user_id) values
+  (46, '11111111-1111-1111-1111-111111111111'), (46, '22222222-2222-2222-2222-222222222222'), (46, '44444444-4444-4444-4444-444444444444'),
+  (47, '44444444-4444-4444-4444-444444444444'),
+  (48, '44444444-4444-4444-4444-444444444444'), (48, '22222222-2222-2222-2222-222222222222');
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, day) overriding system value values
+  (4601, 46, '22222222-2222-2222-2222-222222222222', 'pushups', 10, '46/22222222-2222-2222-2222-222222222222/a.mp4', current_date),
+  (4602, 46, '44444444-4444-4444-4444-444444444444', 'pushups', 10, '46/44444444-4444-4444-4444-444444444444/b.mp4', current_date),
+  (4603, 47, '44444444-4444-4444-4444-444444444444', 'pushups', 10, '47/44444444-4444-4444-4444-444444444444/c.mp4', current_date);
+insert into public.friendships (a, b) values ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444')
+  on conflict do nothing;
+set role app;
+do $$
+declare n int;
+begin
+  -- A report goes in, and nobody can read it back through the API, not even who wrote it.
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason, body)
+    values ('22222222-2222-2222-2222-222222222222', 'post', 4601, 46, 'harassment', 'a caption');
+  insert into public.reports (user_id, what, reason) values ('44444444-4444-4444-4444-444444444444', 'user', 'spam');
+  select count(*) into n from public.reports;
+  if n <> 0 then raise exception 'reports can be read through the API (% visible)', n; end if;
+  begin
+    insert into public.reports (user_id, what, reason) values ('11111111-1111-1111-1111-111111111111', 'user', 'spam');
+    raise exception 'somebody reported themselves';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.reports (by_user, user_id, what, reason)
+      values ('22222222-2222-2222-2222-222222222222', '44444444-4444-4444-4444-444444444444', 'user', 'spam');
+    raise exception 'a report went in under somebody else''s name';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.reports (user_id, what, reason) values ('44444444-4444-4444-4444-444444444444', 'user', 'because');
+    raise exception 'a report went in with a reason nobody offered';
+  exception when check_violation then null;
+  end;
+
+  -- Blocking ends the friendship and is visible only to whoever did it.
+  insert into public.blocks (user_id) values ('44444444-4444-4444-4444-444444444444');
+  select count(*) into n from public.friendships where b = '44444444-4444-4444-4444-444444444444';
+  if n <> 0 then raise exception 'a block left the friendship standing'; end if;
+  perform set_config('test.uid', '44444444-4444-4444-4444-444444444444', true);
+  select count(*) into n from public.blocks;
+  if n <> 0 then raise exception 'somebody can see who has blocked them'; end if;
+
+  -- Only the group's maker takes other people's posts down.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  delete from public.posts where id = 4602;
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  select count(*) into n from public.posts where id = 4602;
+  if n <> 1 then raise exception 'a member who did not make the group took somebody else''s post down'; end if;
+  delete from public.posts where id = 4601;
+  select count(*) into n from public.posts where id = 4601;
+  if n <> 0 then raise exception 'the group''s maker could not take a post down'; end if;
+
+  -- Every file somebody uploaded, including in a group they cannot see any more.
+  perform set_config('test.uid', '44444444-4444-4444-4444-444444444444', true);
+  select count(*) into n from public.my_files();
+  if n <> 2 then raise exception 'my_files() should list both of leaving''s clips, got %', n; end if;
+
+  -- Deleting the account takes the account, its posts, and the group nobody else is in,
+  -- and leaves a group other people are still in standing.
+  perform public.delete_account();
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  if exists (select 1 from auth.users where id = '44444444-4444-4444-4444-444444444444') then raise exception 'the account is still there'; end if;
+  if exists (select 1 from public.profiles where id = '44444444-4444-4444-4444-444444444444') then raise exception 'the profile is still there'; end if;
+  select count(*) into n from public.posts where user_id = '44444444-4444-4444-4444-444444444444';
+  if n <> 0 then raise exception '% posts outlived the account', n; end if;
+  if exists (select 1 from public.groups where id = 47) then raise exception 'a group with nobody left in it outlived its maker'; end if;
+  if not exists (select 1 from public.groups where id = 48) then raise exception 'a group other people are in went with its maker'; end if;
+  -- The reports about them stay, for whoever is looking into it.
+  select count(*) into n from public.reports where user_id = '44444444-4444-4444-4444-444444444444';
+  if n <> 1 then raise exception 'reports about a deleted account went with it'; end if;
+  select count(*) into n from private.open_reports;
+  if n <> 2 then raise exception 'open_reports should show both reports, got %', n; end if;
+end $$;
+
+-- Somebody signed out cannot delete anything.
+set role app;
+do $$
+begin
+  perform set_config('test.uid', '', true);
+  perform public.delete_account();
+  raise exception 'delete_account ran with nobody signed in';
+exception when raise_exception then
+  if sqlerrm <> 'not signed in' then raise; end if;
+end $$;
+reset role;

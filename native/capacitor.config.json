@@ -1,0 +1,12 @@
+{
+  "appId": "app.hitquota.quota",
+  "appName": "Quota",
+  "webDir": "../app",
+  "ios": { "contentInset": "never", "scheme": "Quota" },
+  "android": { "allowMixedContent": false },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 600, "launchAutoHide": true, "backgroundColor": "#ffffff", "showSpinner": false },
+    "StatusBar": { "overlaysWebView": true, "style": "LIGHT" },
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  }
+}
