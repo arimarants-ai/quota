@@ -1600,7 +1600,7 @@ await withPage({ session: null }, async page => {
   await settle(page);
   await page.evaluate(() => { S.auth = 'login'; render(); });
   await page.waitForTimeout(250);
-  check('logging in accepts an email or a username', /email or your username/i.test(await page.innerText('#app')));
+  check('logging in accepts an email or a username', /email or username/i.test(await page.innerText('#app')));
   await page.locator('#app input[name=id]').fill('ari@example.com');
   await page.locator('#app input[name=password]').fill('hunter22');
   await page.locator('#app form button.primary').click();
