@@ -107,6 +107,8 @@ async function withPage(mode, body) {
   await page.route('**fonts.googleapis.com**', r => r.abort());   // not reachable from CI either
   if (mode) {
     await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
+    // Which of Apple and Google are switched on is Supabase's answer, so it is the test's.
+    await page.route('**/auth/v1/settings', r => r.fulfill({ json: { external: (mode && mode.providers) || {} } }));
     await page.addInitScript(m => { self.__MODE = m; }, mode);
     await page.goto(`${base}/?local`, { waitUntil: 'domcontentloaded' });
   }
@@ -1549,12 +1551,13 @@ await withPage({ session: null }, async page => {
   await page.evaluate(() => { S.auth = 'signup'; render(); });
   await page.waitForTimeout(250);
   const fields = await page.evaluate(() => [...document.querySelectorAll('#app input')].map(i => i.name));
-  check('signing up asks for an email and a password, and the terms', fields.join() === 'id,password,agree',
+  check('signing up asks for an email and a password, and nothing else', fields.join() === 'id,password',
     fields.join());
+  check('  with what continuing agrees to said under it, not as a box to tick',
+    /you agree to Quota's/.test(await page.innerText('#app')) && /13 or older/.test(await page.innerText('#app')));
   check('  with the email field typed as one', await page.locator('#app input[name=id]').getAttribute('type') === 'email');
   await page.locator('#app input[name=id]').fill('new@example.com');
   await page.locator('#app input[name=password]').fill('hunter22');
-  await page.locator('#app input[name=agree]').check();
   await page.locator('#app form button.primary').click();
   await page.waitForTimeout(400);
   const up = await page.evaluate(() => self.__signups);
@@ -1679,10 +1682,10 @@ await withPage({ session: null }, async page => {
 // An account that is signed in but not finished sees one screen and nothing else.
 await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page => {
   await settle(page);
-  check('a half-made account is asked to finish', /finish your account/i.test(await page.locator('#app h2').innerText()));
+  check('a half-made account is asked to finish', /what should your crew call you/i.test(await page.locator('#app h2').innerText()));
   const asks = await page.evaluate(() => [...document.querySelectorAll('#app input,#app select')].map(i => i.name));
-  check('  for a username, a name, a birthday and a gender',
-    asks.join() === 'username,display_name,birthday,gender', asks.join());
+  check('  for a name, a username and a birthday, and no longer a gender',
+    asks.join() === 'display_name,username,birthday', asks.join());
   check('  every one of them required', await page.evaluate(() =>
     [...document.querySelectorAll('#app input,#app select')].every(i => i.required)));
   check('  and the rest of the app is not reachable around it',
@@ -1695,7 +1698,6 @@ await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page
   await page.locator('#app input[name=username]').fill('sam');
   await page.locator('#app input[name=display_name]').fill('Sam Two');
   await page.locator('#app input[name=birthday]').fill('1999-04-02');
-  await page.locator('#app select[name=gender]').selectOption('unsaid');
   await page.locator('#app form button.primary').click();
   await page.waitForTimeout(600);
   check('  a username somebody already has is refused', /taken/i.test((await page.evaluate(() => self.__alerts)).join(' ')),
@@ -1707,10 +1709,122 @@ await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page
   await page.waitForTimeout(700);
   const wrote = await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && e.username));
   check('  a free one is written with the rest of it', wrote.length === 1 && wrote[0].username === 'newname'
-    && wrote[0].display_name === 'Sam Two' && wrote[0].birthday === '1999-04-02' && wrote[0].gender === 'unsaid',
+    && wrote[0].display_name === 'Sam Two' && wrote[0].birthday === '1999-04-02' && !('gender' in wrote[0]),
     JSON.stringify(wrote));
   check('    along with the terms ticked at signup', !!wrote[0].terms_accepted_at && wrote[0].terms_version === await page.evaluate(() => TERMS_VERSION),
     JSON.stringify(wrote));
+});
+
+// Somebody back from Apple or Google has a name already. It is filled in, a username is
+// suggested from it and checked, and nobody under thirteen gets through.
+await withPage({ session: { user: { id: 'u1' } }, noUsername: true, meta: { full_name: 'Ari Marants' } }, async page => {
+  await settle(page);
+  check('a name from Apple or Google is filled in', await page.locator('#app input[name=display_name]').inputValue() === 'Ari Marants');
+  check('  and a username suggested from it', await page.locator('#app input[name=username]').inputValue() === 'arimarants');
+  await page.waitForTimeout(300);
+  check('    and said to be free', /@arimarants is free/.test(await page.locator('#unick').innerText()), await page.locator('#unick').innerText());
+  await page.locator('#app input[name=username]').fill('sam');
+  await page.waitForTimeout(300);
+  check('  one somebody has is said to be taken while it is typed', /taken/.test(await page.locator('#unick').innerText()));
+  await page.evaluate(() => { self.__alerts = []; window.alert = m => self.__alerts.push(m); });
+  await page.locator('#app input[name=username]').fill('ari_m');
+  const young = new Date(); young.setFullYear(young.getFullYear() - 12);
+  await page.locator('#app input[name=birthday]').fill(young.toLocaleDateString('en-CA'));
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(400);
+  check('  a birthday under thirteen is turned away', /13 and over/.test((await page.evaluate(() => self.__alerts)).join(' '))
+    && (await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && e.username))).length === 0);
+  check('  thirteen is counted to the day', await page.evaluate(() => ageOn('2010-06-15', '2023-06-15') === 13
+    && ageOn('2010-06-15', '2023-06-14') === 12 && ageOn('2010-12-31', '2024-01-01') === 13));
+  await page.locator('#app input[name=birthday]').fill('2004-03-14');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(700);
+  check('  a finished account asks for its welcome email',
+    (await page.evaluate(() => self.__invokes || [])).some(x => x.name === 'welcome'), JSON.stringify(await page.evaluate(() => self.__invokes)));
+});
+// Apple and Google: only the ones Supabase has switched on, and Apple only on an iPhone.
+const asPhone = ua => page => page.addInitScript(u => Object.defineProperty(navigator, 'userAgent', { get: () => u }), ua);
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+const SAMSUNG_UA = 'Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36';
+for (const [label, ua, want] of [['an iPhone', IPHONE_UA, 'apple,google'], ['a Samsung', SAMSUNG_UA, 'google']]) {
+  await withPage(null, async page => {
+    await asPhone(ua)(page);
+    await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
+    await page.route('**/auth/v1/settings', r => r.fulfill({ json: { external: { apple: true, google: true, email: true } } }));
+    await page.addInitScript(m => { self.__MODE = m; }, { session: null });
+    await page.goto(`${base}/?local`, { waitUntil: 'domcontentloaded' });
+    await settle(page);
+    const got = await page.evaluate(() => [...document.querySelectorAll('#app .oauth')].map(b => b.classList[1]).join());
+    check(`${label} is offered ${want}`, got === want, got);
+  });
+}
+await withPage({ session: null }, async page => {
+  await settle(page);
+  check('nothing switched on in Supabase means no Apple or Google buttons',
+    await page.locator('#app .oauth').count() === 0 && /get started/i.test(await page.innerText('#app')));
+});
+await withPage({ session: null, providers: { google: true } }, async page => {
+  await settle(page);
+  check('Google on is a Google button on the welcome screen', await page.locator('#app .oauth.google').count() === 1);
+  check('  and email becomes the other way in', await page.locator('#app button:has-text("Sign up with email")').count() === 1);
+  await page.locator('#app .oauth.google').click();
+  await page.waitForTimeout(200);
+  const o = await page.evaluate(() => self.__oauth || []);
+  check('  tapping it goes to Google and back to this page', o.length === 1 && o[0].provider === 'google'
+    && o[0].options.redirectTo === await page.evaluate(() => location.origin + '/'), JSON.stringify(o));
+  await page.evaluate(() => { S.auth = 'login'; render(); });
+  await page.waitForTimeout(200);
+  check('  the log-in screen offers it too, above the password', await page.locator('#app .oauth.google').count() === 1
+    && /or/i.test(await page.locator('#app .or').innerText()));
+  // Coming back from Google with a refusal in the address says so in words.
+  await page.evaluate(() => { self.__alerts = []; window.alert = m => self.__alerts.push(m);
+    history.replaceState(null, '', '#error=access_denied&error_description=denied'); goToHash(); });
+  check('  a cancelled Google sign-in says so', /cancelled/.test((await page.evaluate(() => self.__alerts)).join(' ')) && !(await page.evaluate(() => location.hash)));
+});
+await withNative({ session: null, providers: { apple: true, google: true } }, async page => {
+  await settle(page);
+  check('inside the App Store app neither shows until it can sign in natively', await page.locator('#app .oauth').count() === 0);
+});
+
+// Logging in with a code instead of the password.
+await withPage({ session: null }, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.auth = 'login'; render(); });
+  await page.waitForTimeout(200);
+  await page.locator('#app input[name=id]').fill('ari@example.com');
+  await page.locator('#app button:has-text("Email me a code instead")').click();
+  await page.waitForTimeout(200);
+  check('a code instead of the password keeps the email that was typed',
+    await page.locator('#app input[name=email]').inputValue() === 'ari@example.com');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(300);
+  const sent = await page.evaluate(() => self.__otpSends || []);
+  check('  and asks for a code that only logs in, never makes an account',
+    sent.length === 1 && sent[0].email === 'ari@example.com' && sent[0].options.shouldCreateUser === false, JSON.stringify(sent));
+  check('  then asks for the code', await page.locator('#app input[name=code]').count() === 1);
+  await page.locator('#app input[name=code]').fill('123456');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(700);
+  const otp = (await page.evaluate(() => self.__otps)).at(-1);
+  check('  which logs in', otp && otp.type === 'email' && otp.email === 'ari@example.com' && otp.token === '123456'
+    && await page.evaluate(() => !!S.me), JSON.stringify(otp));
+});
+
+// Presets are a place to start, not a choice: they fill the same form.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  check('starting a crew offers common goals to start from', await page.locator('#app .presets button').count() === 6);
+  await page.locator('#app .presets button:has-text("Read 20 pages")').click();
+  await page.waitForTimeout(300);
+  check('  one opens the group form filled in, still editable',
+    await page.locator('#dlg input[name=name]').inputValue() === 'Book club'
+    && await page.locator('#dlg input[name=metric]').inputValue() === 'pages'
+    && await page.locator('#dlg input[name=target]').inputValue() === '20');
+  await page.locator('#dlg input[name=name]').fill('Night readers');
+  await page.locator('#dlg .presets button:has-text("50 pushups")').click();
+  check('  and one picked inside the form keeps a name already typed',
+    await page.locator('#dlg input[name=name]').inputValue() === 'Night readers'
+    && await page.locator('#dlg input[name=metric]').inputValue() === 'pushups');
 });
 
 // An account made before there were real addresses gets a screen asking for one.
@@ -4539,7 +4653,10 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
   await page.waitForFunction(() => /Who is doing it with you/.test(document.querySelector('#dlg').innerHTML), null, { timeout: 8000 }).catch(() => {});
   const d = await page.locator('#dlg').innerHTML();
   check('a first group goes straight to inviting somebody', /Who is doing it with you/.test(d), d.slice(0, 200));
-  check('  and it can be skipped', /Skip for now/.test(d));
+  check('  and it can be put off, by posting first', /Post first, invite later/.test(d));
+  await page.locator('#dlg button:has-text("Post first, invite later")').click();
+  await page.waitForTimeout(400);
+  check('    which opens the proof form for that group', /Submit proof/.test(await page.locator('#dlg').innerHTML()));
 });
 
 // Proof can be a picture as well as a clip — both come off the camera.
@@ -4946,6 +5063,8 @@ await withPage(SIGNED_IN, async page => {
 async function withNative(mode, body, platform = 'ios', perm = {}) {
   await withPage(null, async (page, alerts) => {
     await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
+    // Which of Apple and Google are switched on is Supabase's answer, so it is the test's.
+    await page.route('**/auth/v1/settings', r => r.fulfill({ json: { external: (mode && mode.providers) || {} } }));
     await page.addInitScript(m => { self.__MODE = m; }, mode);
     await page.addInitScript(([pf, perm]) => {
       const N = self.__native = { calls: [], listeners: {} };

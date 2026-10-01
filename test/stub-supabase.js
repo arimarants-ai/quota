@@ -340,7 +340,13 @@
         signOut: async () => ({ error: null }),
         // Signing up, confirming and resetting, recorded so a test can see what the page
         // asked for rather than only what it drew afterwards.
-        getUser: async () => ({ data: { user: { id: 'u1', email: M().email ?? 'ari@example.com' } }, error: null }),
+        getUser: async () => ({ data: { user: { id: 'u1', email: M().email ?? 'ari@example.com', user_metadata: M().meta || {} } }, error: null }),
+        // Off to Apple or Google. A real one leaves the page; here it is only written down.
+        signInWithOAuth: async (args) => { (self.__oauth = self.__oauth || []).push({ ...args }); return { data: {}, error: null }; },
+        // A code to log in with. Refused only when a test says so, the way a real one is
+        // refused for going too fast.
+        signInWithOtp: async (args) => { (self.__otpSends = self.__otpSends || []).push({ ...args });
+          return { data: {}, error: M().otpSendError ? err(M().otpSendError) : null }; },
         signUp: async (args) => {
           self.__signups.push({ ...args });
           if (M().signUpError) return { data: {}, error: err(M().signUpError) };
@@ -393,7 +399,7 @@
           return M().resignFails ? { data: null, error: new Error('nope') }
                                  : { data: { signedUrl: 'data:video/mp4;base64,' }, error: null }; },
       }) },
-      functions: { invoke: async () => ({ data: null, error: null }) },
+      functions: { invoke: async (name, opts) => { (self.__invokes = self.__invokes || []).push({ name, ...(opts || {}) }); return { data: null, error: null }; } },
       // Enough of a realtime channel to drive the app with: a test pushes a row through
       // self.__live(table, payload) and everything downstream of it runs for real. With
       // noRealtime the whole thing is missing, which is what a project that has not turned

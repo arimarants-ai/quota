@@ -1001,6 +1001,22 @@ changes it later through the same screen.
 
 Recovery codes are gone. Email does their job, and v42 drops their tables.
 
+### Apple, Google, and logging in with a code
+
+The welcome screen offers whichever of Apple and Google Supabase has switched on (the app
+asks `/auth/v1/settings`, so turning one on is a dashboard change, not a release). Apple
+only shows on an iPhone; a Samsung or a Pixel gets Google. Inside the App Store app neither
+shows yet: Google refuses to sign in inside a web view, so both wait for native sign-in.
+
+What tapping any of them agrees to is one line under the buttons, not a box to tick. The
+birthday on the next screen is the 13+ check. Gender is no longer asked.
+
+Logging in can be the password or a code: "Email me a code instead" sends one with
+`signInWithOtp` (`shouldCreateUser: false`, so it never makes an account).
+
+Finishing the account calls the `welcome` function, which sends one welcome email per
+account through Resend from hello@. `profiles.welcomed_at` (v47) is what makes it once.
+
 ### Supabase settings this depends on
 
 - *Authentication → Emails → SMTP Settings*: Resend (`smtp.resend.com`, port 465, user
@@ -1013,6 +1029,12 @@ Recovery codes are gone. Email does their job, and v42 drops their tables.
 - *Authentication → Emails → Templates*: "Confirm signup", "Reset password" and "Change
   email address" each show `{{ .Token }}`. The app has nowhere for a link to land.
 - *Authentication → URL Configuration → Site URL*: `https://app.hitquota.app`.
+- *Authentication → URL Configuration → Redirect URLs*: `https://app.hitquota.app/**`, so
+  Apple and Google can send people back to the app.
+- *Authentication → Emails → Templates → Magic Link*: shows `{{ .Token }}`. It is the
+  email "Email me a code instead" sends.
+- *Authentication → Providers → Google* (and *Apple*, once the developer account exists):
+  on, with the client ID and secret from Google Cloud / Apple.
 - `signin` deployed with JWT verification off, since it is called before anybody has a
   token: `supabase functions deploy signin --no-verify-jwt`.
 
@@ -1020,6 +1042,8 @@ Recovery codes are gone. Email does their job, and v42 drops their tables.
 | ----- | ---- |
 | `schema.sql` v42 | username nullable, `birthday`, `gender`, `is_set_up()`, a guard so a username cannot be swapped once taken, and the recovery code tables dropped |
 | `schema.sql` v43 | `private.people`: one row per person, address included, for the SQL editor only |
+| `schema.sql` v47 | `profiles.welcomed_at`, so the welcome email goes once |
+| `supabase/functions/welcome/` | the welcome email, sent through Resend; needs the `RESEND_API_KEY` secret |
 | `supabase/functions/signin/` | username to email, server-side, so the address never leaves |
 | `app/index.html` | signup, the code screen, login by either, the reset screens, the setup screen, and the email step for old accounts |
 
