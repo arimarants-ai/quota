@@ -4,5 +4,5 @@
     <string name="title_activity_main">Quota</string>
     <string name="package_name">app.hitquota.quota</string>
     <string name="custom_url_scheme">app.hitquota.quota</string>
-    <string name="widget_description">Your streak, and whether today's proof is in.</string>
+    <string name="widget_description">Your streak, and whether today\'s proof is in.</string>
 </resources>
