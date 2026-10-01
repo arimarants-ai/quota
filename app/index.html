@@ -917,7 +917,9 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .tally .rw b{font-size:14px;font-weight:700;flex:1;min-width:0}
 .tally .rw em{font-style:normal;font-size:12.5px;font-weight:800;color:var(--mkt);flex:none}
 .tally .rw em.no{color:var(--muted)}
-.fine{font-size:12px;line-height:1.45;margin-top:10px}
+.auth p.muted{font-size:13.5px;font-weight:600;margin:6px 0 0}
+.auth.start{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+.fine,.auth .fine{font-size:12px;line-height:1.45;margin-top:10px}
 /* The list, when more than one is running. */
 .flist{padding:2px 0}
 .frow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 14px;background:none;
@@ -1154,15 +1156,34 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .welcome p{color:var(--muted);font-weight:600;font-size:17px;line-height:1.45;margin:16px 0 26px;max-width:32ch}
 .welcome .primary{width:100%;padding:16px;border-radius:0;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
 .welcome .ghost{color:var(--muted);align-self:center;margin-top:10px;font-weight:800;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-.auth{max-width:400px;margin:8vh auto 0;padding:env(safe-area-inset-top) 18px 0;text-align:center}
-.auth .word{display:inline-flex;align-items:center;gap:10px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:32px;letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
-.auth .word svg{width:44px;height:44px;border-radius:11px}
-.auth h2{font-size:22px;margin:18px 0 4px}
-.auth p{color:var(--muted);font-weight:600;margin:0 0 18px}
-.auth .card{margin:0;text-align:left}
-.auth .card .primary{width:100%;margin-top:18px;padding:13px}
-.auth .switch{margin-top:14px;color:var(--muted);font-weight:600}
+.auth{min-height:100vh;min-height:100dvh;max-width:440px;margin:0 auto;display:flex;flex-direction:column;text-align:left;padding:calc(22px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
+.auth .word{display:flex;align-items:center;gap:9px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.auth .word svg{width:30px;height:30px;border-radius:8px}
+.auth h2{font-family:Oswald,system-ui,sans-serif;font-size:34px;font-weight:600;letter-spacing:0;line-height:1.02;text-transform:uppercase;text-wrap:balance;margin:40px 0 10px}
+.auth p{color:var(--muted);font-weight:600;font-size:15.5px;line-height:1.45;margin:0 0 22px}
+.auth .card{margin:0;padding:0;border:0;background:none;text-align:left}
+.auth .primary{width:100%;margin-top:22px;padding:16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.auth input{padding:14px}
+.auth .switch{margin-top:16px;color:var(--muted);font-weight:600;font-size:14px;text-align:center}
 .auth .switch button{padding:0 4px;background:none;color:var(--mkt)}
+.auth > div:last-child > .ghost{display:block;margin:18px auto 0;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.alt{display:block;width:100%;margin-top:8px;background:none;color:var(--mkt);font-size:14px;font-weight:700;padding:12px}
+.ways{display:flex;flex-direction:column;gap:10px}
+.ways .oauth ~ .primary{font-size:15px;letter-spacing:0;text-transform:none}
+.oauth{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;font-size:15px;font-weight:700;border:1px solid var(--line);background:var(--card);color:var(--text)}
+.oauth svg{width:18px;height:18px;flex:none}
+.oauth.apple{background:#000;color:#fff;border-color:#000}
+:root[data-theme=dark] .oauth.apple{background:#fff;color:#000;border-color:#fff}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;margin:20px 0 2px}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
+.fine{font-size:12px;color:var(--muted);font-weight:500;line-height:1.5;margin:16px 0 0;text-align:center}
+.fine button{display:inline;padding:0;background:none;color:inherit;font-size:inherit;font-weight:700;text-decoration:underline;white-space:normal}
+.welcome .fine{font-size:12px;font-weight:500;line-height:1.5;margin:16px 0 0;max-width:none;text-align:center}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.presets button{background:var(--soft);padding:14px 12px;text-align:left;white-space:normal;font-size:14.5px;line-height:1.2}
+.presets button span{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:3px}
+.presets.mini{display:flex;flex-wrap:wrap;gap:6px}
+.presets.mini button{padding:8px 10px;font-size:13px}
 .back{margin:12px 18px 0}
 /* The old one was a muted text link in the corner and people did not find it. This is a
    button shaped like a button, with the arrow pointing the way it goes. */
@@ -1327,7 +1348,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v112';
+const BUILD = 'quota-v113';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1878,7 +1899,7 @@ async function fetchAll() {
   // An account from before there were real addresses has a made-up one. Worth asking
   // about, because the reset email is the way back and it cannot reach that.
   try { const {data} = await sb.auth.getUser(); const e = data?.user?.email || '';
-    S.needEmail = !e || FAKEMAIL.test(e); S.email = S.needEmail ? '' : e; }
+    S.needEmail = !e || FAKEMAIL.test(e); S.email = S.needEmail ? '' : e; S.meta = data?.user?.user_metadata || {}; }
   catch (e) {}
   claimBadges();                           // anything the history says was earned but never written down
   S.invites = inv.map(i => ({id: i.id, type: i.type, from: i.from_user, to: i.to_user, groupId: i.group_id, ts: Date.parse(i.created_at)}));
@@ -2060,6 +2081,7 @@ function screenHTML() {
     : S.auth === 'verify' ? verifyView()
     : S.auth === 'forgot' ? forgotView()
     : S.auth === 'resetcode' ? resetCodeView()
+    : S.auth === 'code' ? codeLoginView()
     : authView(S.auth);
   // Signed in with the account still half made. Nothing else is drawn until it is
   // finished: a person with no username cannot be found, invited or named on a post, so
@@ -3383,14 +3405,33 @@ async function peekInvite() {
 // Quota is a group doing something together; on your own it is a note-taking app with a
 // camera. So an account that belongs to no group is finished on this screen and nowhere
 // else — the only ways off it are to start one, to take an invite, or to leave.
+// The common ones, as a place to start from rather than a choice to make. Each opens the
+// same form as starting from nothing, filled in, so the name, the number and the days are
+// still somebody's own before anything is created.
+const PRESETS = [
+  {name: 'Pushup crew', metric: 'pushups', target: 50, label: '50 pushups'},
+  {name: 'Book club', metric: 'pages', target: 20, label: 'Read 20 pages'},
+  {name: '10k a day', metric: 'steps', target: 10000, label: '10,000 steps'},
+  {name: 'Run club', metric: 'miles', target: 2, label: 'Run 2 miles'},
+  {name: 'Quiet minds', metric: 'minutes meditating', target: 10, label: 'Meditate 10 minutes'},
+  {name: 'Practice', metric: 'minutes of practice', target: 30, label: 'Practice 30 minutes'},
+];
+const presetGroup = i => ({name: PRESETS[i].name, goal: '', quotas: [{metric: PRESETS[i].metric, target: PRESETS[i].target}]});
 function needGroupView() {
-  return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div><h1>One last thing</h1></div>
-  <div class="card"><b>Quota is a group thing</b>
-    <p class="muted">Proof goes to the people doing it with you. Start a group and invite them, or open the link somebody sent you.</p>
-    <div class="row" style="margin-top:16px"><button class="teal grow" onclick="groupDlg()">Start a group</button></div>
-    <div class="row" style="margin-top:8px"><button class="grow" onclick="joinDlg()">I have an invite link</button></div>
-  </div>
-  <p class="muted pad small">Signed in as ${esc(name(me()))}. <button type="button" class="ghost" onclick="logout()">Log out</button></p>`;
+  return `<div class="auth start"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Start your crew</h2><p>Quota is a group thing: proof goes to the people doing it with you. Pick a goal to start from, or make your own.</p>
+    <div class="presets">${PRESETS.map((x, i) => `<button type="button" onclick="groupDlg(presetGroup(${i}))">${esc(x.label)}<span>a day</span></button>`).join('')}</div>
+    <button class="primary" onclick="groupDlg()">Start a group</button>
+    <button class="alt" onclick="joinDlg()">I have an invite link</button>
+    <p class="muted small" style="margin-top:auto;padding-top:24px">Signed in as ${esc(name(me()))}. <button type="button" class="ghost" onclick="logout()">Log out</button></p></div>`;
+}
+// The same starting points inside the form, for a group started from the Groups tab.
+// Only an empty name is filled: one already typed is somebody's choice.
+function fillPreset(btn, i) {
+  const f = btn.closest('form'), x = PRESETS[i];
+  if (!f.name.value.trim()) f.name.value = x.name;
+  const row = f.querySelector('[name=metric]');
+  if (row) { row.value = x.metric; f.querySelector('[name=target]').value = x.target; }
 }
 function joinDlg() {
   dlg(`<h2>Paste your invite</h2><p class="muted">The whole link or just the code at the end of it.</p>
@@ -3453,7 +3494,7 @@ function inviteSheet(gid, first) {
     ${code ? `<a class="btn primary textbtn" href="${esc(smsHref(text))}">Text an invite</a>`
       : `<button class="primary textbtn" disabled>Text an invite</button>`}
     <button type="button" class="textalt" onclick="shareInvite(${gid})" ${code ? '' : 'disabled'}>Share another way</button>
-    <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()">${first ? 'Skip for now' : 'Close'}</button>`;
+    <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()${first ? `;submitDlg(${gid})` : ''}">${first ? 'Post first, invite later' : 'Close'}</button>`;
 }
 async function inviteDlg(gid, first = false) {
   dlg(inviteSheet(gid, first));
@@ -5367,10 +5408,46 @@ function welcomeView() {
       <p>Post proof before midnight, ${inv.forfeit ? 'or owe the crew the forfeit' : 'every day'}. Make an account and you're in the crew${inv.inviter ? ` and friends with ${esc(inv.inviter)}` : ''}, nothing to accept.</p>`
     : `<h1>Pick a daily goal with your crew. <span>Post proof before midnight, or owe them the forfeit.</span></h1>
       <p>For three to six friends and one habit. A photo or a few seconds of video, every day.</p>`}
-    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">${inv ? 'Create your account' : 'Get started'}</button>
-    <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button>
+    <div class="ways">${oauthButtons()}
+    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">${offers().length ? 'Sign up with email' : inv ? 'Create your account' : 'Get started'}</button>
+    <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button></div>
     ${inv && !isStandalone() ? `<p class="invnext">You will add Quota to your home screen right after.</p>` : ''}
-    ${legalLinks()}</div>`;
+    ${finePrint()}</div>`;
+}
+// What tapping any way in agrees to, said once under the buttons rather than as a box to
+// tick: Apple and Google sign people up in one tap, and there is no form for a box to be
+// on. The four documents are a tap away, and the guidelines are the zero-tolerance part.
+const finePrint = () => `<p class="fine">By continuing you agree to Quota's ${['terms', 'privacy', 'guidelines'].map((k, i) =>
+  `${i === 2 ? 'and ' : ''}<button type="button" onclick="openLegal('${k}')">${esc(LEGAL[k].title.toLowerCase())}</button>`).join(', ')}, which allow no abuse or objectionable content, and that you're 13 or older.</p>`;
+
+// ---- Apple and Google
+// Which ones this phone gets. Apple only where there is an Apple ID to use it with: on a
+// Samsung or a Pixel the button would be a stranger's. Google works everywhere. Inside the
+// App Store app neither shows yet: Google refuses to sign in inside an app's web view, and
+// both need the phone's own sign-in sheet, which is the native app's job.
+//
+// Whether a provider is switched on is Supabase's to say, not this file's, so turning
+// Apple on once the developer account exists is a dashboard switch and not a release.
+const device = () => NATIVE ? Capacitor.getPlatform() : isIOS() ? 'ios' : /Android/i.test(navigator.userAgent) ? 'android' : 'web';
+const offers = () => NATIVE || !S.providers ? [] : [device() === 'ios' && S.providers.apple && 'apple', S.providers.google && 'google'].filter(Boolean);
+async function peekProviders() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {headers: {apikey: SUPABASE_KEY}});
+    S.providers = (await res.json()).external || {};
+  } catch (e) { S.providers = {}; }        // no buttons is what not knowing looks like
+  render();
+}
+const OAUTH = {
+  apple: ['Continue with Apple', '<svg viewBox="0 0 814 1000" aria-hidden="true"><path fill="currentColor" d="M788 341c-6 4-108 62-108 190 0 149 130 201 134 202 0 3-21 72-69 142-43 62-87 123-155 123s-86-40-164-40c-77 0-104 41-166 41S54 942 4 872C47 791 0 663 0 542c0-194 126-298 251-298 66 0 121 44 163 44 39 0 101-46 176-46 29 0 131 3 198 99zM554 159c31-37 53-88 53-139 0-7-1-14-2-20-51 2-111 34-147 76-29 32-55 84-55 136 0 8 1 15 2 18 3 1 8 1 14 1 45 0 102-30 135-72z"/></svg>'],
+  google: ['Continue with Google', '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'],
+};
+const oauthButtons = () => offers().map(p => `<button type="button" class="oauth ${p}" onclick="oauth('${p}')">${OAUTH[p][1]}${OAUTH[p][0]}</button>`).join('');
+// Off to Apple or Google and back to this page signed in. A new person comes back to the
+// rest of the account with their name already in it; somebody returning comes back in.
+// An invite they arrived on is in storage, so it survives the trip.
+async function oauth(provider) {
+  const {error} = await sb.auth.signInWithOAuth({provider, options: {redirectTo: location.origin + '/'}});
+  if (error) alert(friendlyError(error, `Couldn't reach ${provider === 'apple' ? 'Apple' : 'Google'}. Try again.`));
 }
 // Straight after an invite is taken in a browser. The only screen here that changes when
 // there is a native app: these steps become a button to the App Store.
@@ -5390,21 +5467,21 @@ function installView(a) {
     <button class="ghost" onclick="S.installAfter=null;render();scrollTo(0,0)">Keep using it in the browser</button></div>`;
 }
 function authView(mode) {
-  const signup = mode === 'signup';
+  const signup = mode === 'signup', ways = signup ? '' : oauthButtons();
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
     <h2>${signup ? 'Create your account' : 'Welcome back'}</h2>
     <p>${signup ? 'An email and a password. You pick a username next.' : 'Your email or your username, and your password.'}</p>
+    ${ways ? `<div class="ways">${ways}</div><div class="or"><span>or</span></div>` : ''}
     <div class="card"><form onsubmit="event.preventDefault();auth(this,'${mode}')">
     ${signup
       ? `<label>Email</label><input name="id" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`
       : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`}
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
-    ${signup ? `<label class="check agree"><input type="checkbox" name="agree" required>
-      <span>I am 13 or over, and I agree to Quota's terms of use, privacy policy, note on cookies and storage, and community guidelines. There is no tolerance for objectionable content or abusive behaviour.</span></label>` : ''}
-    <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form></div>
-    ${signup ? legalLinks() : ''}
+    <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form>
+    ${signup ? '' : `<button type="button" class="alt" onclick="codeFromLogin(this)">Email me a code instead</button>`}</div>
+    ${signup || ways ? finePrint() : ''}
     <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
-    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='forgot';render()">Send me a reset link</button></div>`}
+    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='forgot';render()">Reset your password</button></div>`}
     <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
 }
 // Signed up, and now waiting on the code in the email. A code rather than a link on purpose:
@@ -5424,6 +5501,23 @@ function verifyView() {
       <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first. Codes last an hour.</p>
       <button class="small" style="margin-top:10px" onclick="resendCode(this)">Send a new code</button></div>
     <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
+}
+// Logging in without the password: a code to the address, and the code is the proof. It
+// only logs in. An address with no account behind it is answered the same as one with,
+// as the reset is, so this box cannot be used to ask who is on Quota.
+function codeLoginView() {
+  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+    <h2>Log in with a code</h2>
+    ${S.sentTo
+      ? `<p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
+        <div class="card"><form onsubmit="event.preventDefault();codeIn(this)">${CODE}<button class="primary">Log in</button></form>
+          <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first. Codes last an hour.</p>
+          <div class="row" style="margin-top:10px;gap:8px"><button class="small" onclick="sendLoginCode(S.sentTo,this)">Send a new code</button><button class="small" onclick="S.sentTo='';render()">Different email</button></div></div>`
+      : `<p>We email you a code, and the code logs you in. No password needed.</p>
+        <div class="card"><form onsubmit="event.preventDefault();sendLoginCode(this.email.value.trim(),this.querySelector('button'))">
+          <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(S.codeTo || '')}">
+          <button class="primary">Send the code</button></form></div>`}
+    <div><button class="ghost" onclick="S.auth='login';S.sentTo='';render()">‹ Log in with a password</button></div></div>`;
 }
 function forgotView() {
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
@@ -5446,19 +5540,25 @@ function resetCodeView() {
 // The rest of the account. Asked for after signing up rather than during it, because an
 // email and a password is as much as anybody should have to type before they are let in
 // far enough to see what they are signing up to.
-const GENDERS = [['woman', 'Woman'], ['man', 'Man'], ['other', 'Something else'], ['unsaid', 'Rather not say']];
+// Gender used to be asked here too. It was nice to know and needed for nothing, which is
+// not a good enough reason for one more thing between somebody and their first post.
+//
+// Somebody who came through Apple or Google has already told them their name, so it is
+// filled in, and a username is suggested from it. Both can be changed before saving.
+const metaName = () => String((S.meta || {}).full_name || (S.meta || {}).name || '').trim().slice(0, 40);
+const suggestNick = () => (metaName() || (S.email || '').split('@')[0]).toLowerCase()
+  .normalize('NFD').replace(/[^a-z0-9_]/g, '').slice(0, 20).padEnd(3, '0').replace(/^0{3}$/, '');
 function setupView() {
+  const nick = suggestNick();
+  if (nick && S.nickFor !== nick) { S.nickFor = nick; setTimeout(() => checkNick(nick), 0); }
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>Finish your account</h2><p>Your friends find you by your username, and it cannot be changed later.</p>
+    <h2>What should your crew call you?</h2><p>Your friends find you by your username. It can't be changed later.</p>
     <div class="card"><form onsubmit="event.preventDefault();saveSetup(this)">
+      <label>Full name</label><input name="display_name" required maxlength="40" autocomplete="name" placeholder="Ari Marants" value="${esc(metaName())}">
       <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" spellcheck="false"
-        pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" placeholder="yourname">
-      <p class="muted" id="unick" style="margin-top:6px">Lowercase letters, numbers and underscores.</p>
-      <label>Full name</label><input name="display_name" required maxlength="40" autocomplete="name" placeholder="Ari Marants">
-      <label>Date of birth</label><input name="birthday" type="date" required max="${today()}" min="1900-01-02">
-      <label>Gender</label><select name="gender" required>
-        <option value="">Choose one</option>
-        ${GENDERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+        pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" placeholder="yourname" value="${esc(nick)}" oninput="checkNick(this.value)">
+      <p class="muted" id="unick" style="margin-top:6px">${esc(S.nickSay || 'Lowercase letters, numbers and underscores.')}</p>
+      <label>Birthday</label><input name="birthday" type="date" required max="${today()}" min="1900-01-02">
       <button class="primary">Into the app</button></form></div>
     <div><button class="ghost" onclick="logout()">Log out instead</button></div></div>`;
 }
@@ -5521,7 +5621,7 @@ const LEGAL = {
 <p>Saying no to any of these leaves the rest of the app working, and your phone's Settings can change the answer at any time.</p>
 <h3>What Quota keeps</h3>
 <ul>
-<li><b>Your account.</b> Your email address, a username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Your email is used to confirm the account and to reset your password, and is never shown to anyone else.</li><li><b>About you.</b> Your full name, date of birth and gender, which you give when you finish signing up.</li>
+<li><b>Your account.</b> Your email address, a username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Your email is used to confirm the account and to reset your password, and is never shown to anyone else.</li><li><b>About you.</b> Your full name and date of birth, which you give when you finish signing up. Accounts made before October 2026 may also have a gender on them, which is no longer asked for.</li><li><b>Signing in with Apple or Google.</b> If you use one of them, it tells Quota your name and email address. If you choose to hide your email from Apple, Quota only ever sees the forwarding address Apple gives it.</li>
 <li><b>Your profile.</b> A display name, a bio and a picture, if you add them, and which of your groups you have chosen to show on it.</li>
 <li><b>What you post.</b> Proof clips and pictures, the amount and the metric, the caption, the day, and whether you put it on your profile.</li>
 <li><b>What you write.</b> Comments, stories, and the words on them.</li>
@@ -6102,6 +6202,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
           <button type="button" class="grow" onclick="pickPhoto(this)">Choose a photo</button></div>
         <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
     <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
+    ${g.id ? '' : `<label>Start from</label><div class="presets mini">${PRESETS.map((x, i) => `<button type="button" onclick="fillPreset(this,${i})">${esc(x.label)}</button>`).join('')}</div>`}
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
     <label>Group goal</label><input name="goal" value="${esc(g.goal)}" placeholder="e.g. 100 pushups a day for 30 days">
     <label>Daily quota (per person)</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
@@ -6511,6 +6612,29 @@ async function signIn(id, password) {
   const {error} = await sb.auth.setSession({access_token: out.access_token, refresh_token: out.refresh_token});
   return error ? {error: friendlyError(error, "Couldn't log in. Try again in a moment.")} : {};
 }
+// Whatever was typed as the email on the log-in form comes along, so it is not typed twice.
+function codeFromLogin(btn) {
+  const v = (btn.closest('.auth').querySelector('[name=id]') || {}).value || '';
+  S.codeTo = v.includes('@') ? v.trim() : ''; S.sentTo = ''; S.auth = 'code'; render(); scrollTo(0, 0);
+}
+async function sendLoginCode(email, btn) {
+  if (!email) return;
+  btn.disabled = true;
+  // shouldCreateUser off: this is a way in, not a way to make an account without a password.
+  const {error} = await sb.auth.signInWithOtp({email, options: {shouldCreateUser: false}});
+  btn.disabled = false;
+  if (error && /rate|seconds|many/i.test(error.message)) return alert('That is a lot of tries in a row. Wait a minute and ask again.');
+  if (error) console.error('Login code', error);   // no account, mostly; not something to say
+  S.sentTo = email; render(); scrollTo(0, 0);
+}
+async function codeIn(f) {
+  working(f, 'Checking…');
+  const {error} = await sb.auth.verifyOtp({email: S.sentTo, token: f.code.value.trim(), type: 'email'});
+  if (error) { working(f, 'Log in'); f.querySelectorAll('button').forEach(b => b.disabled = false); return alert('That code is wrong or has expired. Send a new one and try again.'); }
+  S.auth = 'login'; S.sentTo = ''; S.codeTo = ''; S.tab = 'feed';
+  await load(); render(); scrollTo(0, 0);
+  await takePendingJoin();
+}
 async function resendCode(btn) {
   const email = (btn.closest('.card').querySelector('input[name=email]') || {}).value?.trim() || S.sentTo;
   if (!email) return alert('Type your email first, then ask for a new code.');
@@ -6552,22 +6676,42 @@ async function finishReset(f) {
 // The rest of the account, written in one go. The username is checked here for a friendly
 // answer and by a unique index underneath for a true one: two people claiming the same
 // name in the same second both pass the check and only one passes the index.
+// Whether a username is free, said under the box while it is being typed. Only the answer
+// for what is in the box now is drawn, so a slow reply for an earlier spelling is dropped.
+// Kept on S as well, or the next redraw of the screen puts the plain hint back over it.
+async function checkNick(v) {
+  v = String(v || '').trim().toLowerCase();
+  const say = t => { const el = $('#unick'); if (el && ($('[name=username]') || {}).value?.trim().toLowerCase() === v) { S.nickSay = t; el.textContent = t; } };
+  if (!/^[a-z0-9_]{3,20}$/.test(v)) return say('3 to 20 lowercase letters, numbers and underscores.');
+  try { say(await q(sb.from('profiles').select('id').eq('username', v).maybeSingle()) ? `@${v} is taken. Try another.` : `@${v} is free.`); }
+  catch (e) {}
+}
+// Thirteen, worked out from the birthday rather than ticked in a box. The day you turn it
+// counts.
+const ageOn = (birthday, on = today()) => {
+  const [y, m, d] = birthday.split('-').map(Number), [Y, M, D] = on.split('-').map(Number);
+  return Y - y - (M < m || (M === m && D < d) ? 1 : 0);
+};
 async function saveSetup(f) {
   const fd = new FormData(f), username = String(fd.get('username') || '').trim().toLowerCase();
   if (!/^[a-z0-9_]{3,20}$/.test(username)) return alert('A username is 3 to 20 letters, numbers or underscores.');
+  if (fd.get('birthday') && ageOn(String(fd.get('birthday'))) < 13) return alert('Quota is for people 13 and over.');
   working(f, 'Saving…');
   const done = () => { working(f, 'Into the app'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
   try {
     if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) { done(); return alert('That username is taken. Try another.'); }
   } catch (e) { done(); return; }
-  // The box on the signup form was ticked to get here. Written down now, with the wording
-  // it was ticked against, because signing up no longer ends with a row to write it on.
+  // The terms under the button they came in by. Written down now, with the wording they
+  // were shown, because signing up no longer ends with a row to write it on.
   const patch = {username, display_name: String(fd.get('display_name') || '').trim() || null,
-    birthday: fd.get('birthday') || null, gender: fd.get('gender') || null,
+    birthday: fd.get('birthday') || null,
     terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION};
   const {error} = await sb.from('profiles').update(patch).eq('id', me().id);
   if (error) { done(); return alert(/duplicate|unique/i.test(error.message) ? 'That username was taken a moment ago. Try another.' : friendlyError(error, "Couldn't save that. Try again in a moment.")); }
   $('#bar').hidden = false;
+  // The welcome email. The function sends it once per account however often this is
+  // called, and it is not worth holding anybody up for, so nothing waits on it.
+  sb.functions.invoke('welcome').then(({error}) => error && console.error('Welcome email', error)).catch(e => console.error('Welcome email', e));
   await load(); render();
   // Whichever way in they came, the link they arrived on is taken now: signing up went
   // through an email and a code, and this is the first moment the account can join.
@@ -8263,6 +8407,10 @@ function goToHash() {
   const h = location.hash;
   if (!h) return;
   history.replaceState(null, '', location.pathname);
+  // Back from Apple or Google. A session in the address is the library's and already
+  // read by now; a refusal is ours to say, in words.
+  if (/error_description=/.test(h)) return alert(/access_denied/.test(h) ? 'Sign-in was cancelled.' : "Couldn't sign you in. Try again.");
+  if (/access_token=/.test(h)) return;
   goTarget(h);
 }
 // Out of whatever is open first, then in, so the way back out lands where it should.
@@ -8359,6 +8507,7 @@ catchInvite();
 readOutbox().then(render);                 // whatever was waiting when the app was last shut
 render();
 load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
+peekProviders();
 // The browser saying it is back is the one moment worth trying without being asked.
 addEventListener('online', () => { render(); flushOutbox(); });
 // Tried again every so often while the app is open, rather than only at the few moments

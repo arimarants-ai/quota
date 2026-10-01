@@ -2860,3 +2860,14 @@ create view private.open_reports as
     left join public.groups g on g.id = r.group_id
    where r.resolved_at is null
    order by r.created_at;
+
+-- ============================================================
+-- v47 (the welcome email): safe to run on an existing project. Deploy the `welcome`
+-- function and give it a RESEND_API_KEY secret after it.
+--
+-- When the welcome email went out, so it goes out once. The function claims the row with
+-- this before sending and hands it back if Resend refuses. Accounts that already exist
+-- are left null on purpose: they only reach the function by finishing setup, and an
+-- account finished long ago never does that again.
+-- ============================================================
+alter table public.profiles add column if not exists welcomed_at timestamptz;
