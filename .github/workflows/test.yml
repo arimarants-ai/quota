@@ -55,3 +55,30 @@ jobs:
       - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
       - run: node --experimental-strip-types supabase/functions/wheelday/message.test.ts
       - run: node --experimental-strip-types supabase/functions/welcome/message.test.ts
+
+  # The Android app's own code (the widget, the countdown notification, the plugin the page
+  # talks to) is Java, which nothing above compiles. Only runs when native/ changes.
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: changed
+        run: |
+          if git diff --quiet HEAD^ HEAD -- native/ .github/workflows/test.yml 2>/dev/null; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.changed.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - if: steps.changed.outputs.skip != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - if: steps.changed.outputs.skip != 'true'
+        working-directory: native
+        run: npm ci --no-audit --no-fund && npx cap sync android
+      - if: steps.changed.outputs.skip != 'true'
+        working-directory: native/android
+        run: ./gradlew assembleDebug --no-daemon

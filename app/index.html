@@ -1359,7 +1359,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v114';
+const BUILD = 'quota-v115';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2075,6 +2075,7 @@ async function runLoad() {
     // been asked the feed cannot tell whether to offer them. Once per launch is enough.
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
     if (me()) { goLive(); noteForfeits(); } else dropLive();
+    syncPhone();
     if (me() && location.hash) goToHash();
   }
 }
@@ -6776,7 +6777,7 @@ async function confirmEmail(f) {
 }
 // Where you were goes with you. Settings was left open behind the welcome screen, so the
 // next account to sign in on this phone opened on it, before it even had a group.
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -7027,6 +7028,58 @@ let camPerm = 'granted';
 const checkCam = () => { const c = plug('Camera');
   if (c) Promise.resolve(c.checkPermissions()).then(p => { camPerm = p.camera; }).catch(() => {}); };
 if (NATIVE) { checkCam(); plug('App')?.addListener('resume', checkCam); }
+
+// ---- the phone outside the app: the streak widgets, and the countdown on the lock screen
+// Only in the App Store app, where Quota's own plugin exists. The page works out what the
+// home screen says about today, the same numbers from the same functions, and hands it to
+// the phone, which draws it while Quota is shut. Nothing is sent that has not changed:
+// every write reloads every Quota widget on the phone.
+//
+// The countdown starts at 10:15pm on the phone's clock, if a quota is expected today and
+// is not in. The app can only start it while it is open; starting it with Quota shut is a
+// push from the server, which needs Apple's push key. Until then this is the half that runs
+// on the phone, and it ends the countdown the moment today's proof is in.
+const LAST_CALL = 22 * 60 + 15;
+let phoneSaid = '', countdownSaid = '';
+const tonight = (now = new Date()) => { const d = new Date(now); d.setHours(24, 0, 0, 0); return d.getTime(); };
+function todayForPhone() {
+  const m = me();
+  if (!m || !m.username) return {signedIn: false};
+  const gs = myGroups(), due = gs.filter(g => onDay(g)), owing = due.filter(g => !hit(g, m.id)), g = owing[0];
+  const left = g ? g.quotas.map(qq => ({qq, n: done(g, m.id, qq.metric)})).filter(x => x.n < x.qq.target)
+    .map(x => `${x.qq.target - x.n} ${x.qq.metric}`).join(' and ') + (owing.length > 1 ? ` and ${owing.length - 1} more` : '') : '';
+  const fin = g ? g.members.filter(id => id !== m.id && hit(g, id)) : [];
+  return {signedIn: true, streak: Math.max(0, ...gs.map(x => streak(x, m.id))), day: today(),
+    due: due.length > 0, done: due.length > 0 && !owing.length, left,
+    // The days of the week anything is expected, for a day the app has not been opened on yet.
+    dueDays: [...new Set(gs.flatMap(x => activeDays(x)))].sort(),
+    crew: fin.length ? `${names(fin)} ${fin.length === 1 ? 'is' : 'are'} done` : ''};
+}
+function syncPhone(now = new Date()) {
+  const Q = plug('Quota');
+  if (!Q) return;
+  const t = todayForPhone(), said = JSON.stringify(t);
+  if (said !== phoneSaid) { phoneSaid = said; Q.setWidget(t).catch(e => console.error('Widget', e)); }
+  const late = now.getHours() * 60 + now.getMinutes() >= LAST_CALL;
+  const want = t.signedIn && t.due && !t.done && late;
+  const next = want ? `on ${said}` : t.done ? 'done' : 'off';
+  if (next === countdownSaid) return;
+  countdownSaid = next;
+  if (want) Q.startCountdown({deadline: tonight(now) / 1000, streak: t.streak, left: t.left, crew: t.crew})
+    .then(r => r && r.started === false && console.error('Countdown not started', r.reason)).catch(e => console.error('Countdown', e));
+  else Q.endCountdown({done: !!t.done, streak: t.streak || 0}).catch(e => console.error('Countdown', e));
+}
+// Tapping the countdown or the widget after 10:15 opens Quota on the form to record.
+function recordFromPhone() {
+  const m = me();
+  if (!m || !m.username) return;
+  const g = myGroups().find(x => onDay(x) && !hit(x, m.id)) || myGroups()[0];
+  if (g) { clearTo('feed'); submitDlg(g.id); }
+}
+if (plug('Quota')) {
+  setInterval(() => syncPhone(), 60 * 1000);   // catches 10:15 and midnight with the app open
+  plug('App')?.addListener('appUrlOpen', ({url}) => { if (/^hitquota:\/\/record/.test(url || '')) recordFromPhone(); });
+}
 function permDlg(what) {
   const [thing, why] = what === 'photos'
     ? ['your photos', 'choose a picture for your profile or a group']

@@ -19,7 +19,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- hitquota://record from the countdown and the widget. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hitquota" />
+            </intent-filter>
         </activity>
+
+        <receiver android:name=".StreakWidget" android:exported="false" android:label="Streak">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_streak_info" />
+        </receiver>
+        <receiver android:name=".CountdownReceiver" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -36,6 +51,8 @@
     <!-- Recording proof, a story or a profile picture. Asked for the first time the camera opens. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Android 16 lifts an ongoing countdown into the status bar (and Samsung's Now Bar). -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- POST_NOTIFICATIONS comes in with @capacitor/push-notifications and is asked for when
          notifications are turned on in Settings. -->
 </manifest>

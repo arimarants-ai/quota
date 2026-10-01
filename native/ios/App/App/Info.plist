@@ -74,5 +74,18 @@
 	<string>Quota saves a recap video or a streak card to your photos when you choose to.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.hitquota.quota</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>hitquota</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
