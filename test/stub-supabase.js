@@ -350,6 +350,8 @@
         signUp: async (args) => {
           self.__signups.push({ ...args });
           if (M().signUpError) return { data: {}, error: err(M().signUpError) };
+          // An address that already has an account: no error, no email, no identities.
+          if (M().emailTaken) return { data: { session: null, user: { id: 'u9', identities: [] } }, error: null };
           // Confirmation is on, so a fresh signup has no session behind it.
           return { data: { session: M().confirmOff ? { user: { id: 'u1' } } : null, user: { id: 'u1' } }, error: null };
         },
