@@ -5097,10 +5097,13 @@ async function withNative(mode, body, platform = 'ios', perm = {}) {
       const call = (pl, fn, ret) => (...a) => { N.calls.push(`${pl}.${fn}`); return new Promise(r => r(typeof ret === 'function' ? ret(...a) : ret)); };
       const listen = pl => (ev, cb) => { (N.listeners[`${pl}.${ev}`] ||= []).push(cb); return Promise.resolve({ remove() {} }); };
       N.fire = (k, v) => (N.listeners[k] || []).forEach(cb => cb(v));
+      N.quota = [];
+      const quota = fn => a => { N.quota.push({ fn, a: JSON.parse(JSON.stringify(a || {})) }); return Promise.resolve({ started: true }); };
       self.Capacitor = { isNativePlatform: () => true, getPlatform: () => pf, Plugins: {
         Haptics: { impact: call('Haptics', 'impact'), notification: call('Haptics', 'notification') },
         StatusBar: { setStyle: call('StatusBar', 'setStyle'), setBackgroundColor: call('StatusBar', 'setBackgroundColor') },
         App: { addListener: listen('App'), minimizeApp: call('App', 'minimizeApp') },
+        Quota: { setWidget: quota('setWidget'), startCountdown: quota('startCountdown'), endCountdown: quota('endCountdown') },
         Camera: { checkPermissions: call('Camera', 'checkPermissions', () => ({ camera: perm.camera || 'granted', photos: 'granted' })),
           getPhoto: call('Camera', 'getPhoto', () => { throw new Error('User denied access to photos'); }) },
         PushNotifications: { addListener: listen('PushNotifications'),
@@ -5114,6 +5117,46 @@ async function withNative(mode, body, platform = 'ios', perm = {}) {
     await body(page, alerts);
   });
 }
+// The streak widgets and the countdown: the page tells the phone what the home screen says
+// about today, and starts the countdown from 10:15pm while a quota is still owed.
+await withNative({ ...SIGNED_IN, wheel: false }, async page => {
+  await page.waitForTimeout(1600);
+  const q = () => page.evaluate(() => __native.quota);
+  const w = (await q()).filter(x => x.fn === 'setWidget').at(-1);
+  check('the widget is told the streak the home screen shows', w && w.a.signedIn && w.a.day === await page.evaluate(() => today())
+    && w.a.streak === await page.evaluate(() => Math.max(0, ...myGroups().map(g => streak(g, me().id)))), JSON.stringify(w));
+  // Nothing posted today, and it is 10:30pm.
+  await page.evaluate(() => { S.totals = S.totals.filter(t => !(t.u === 'u1' && t.d === today()));
+    S.posts = S.posts.filter(p => !(p.userId === 'u1' && p.day === today())); __native.quota = []; });
+  const at = (h, m) => page.evaluate(([h, m]) => { const d = new Date(); d.setHours(h, m, 0, 0); syncPhone(d); }, [h, m]);
+  await at(21, 30);
+  check('  before 10:15 there is no countdown', !(await q()).some(x => x.fn === 'startCountdown'));
+  check('  but the widget is told today is not done', (await q()).some(x => x.fn === 'setWidget' && x.a.done === false && x.a.due === true));
+  await at(22, 30);
+  const st = (await q()).filter(x => x.fn === 'startCountdown');
+  const midnight = await page.evaluate(() => { const d = new Date(); d.setHours(24, 0, 0, 0); return d.getTime() / 1000; });
+  check('  from 10:15 the countdown starts, running to midnight', st.length === 1 && st[0].a.deadline === midnight && /\d+ \w+/.test(st[0].a.left),
+    JSON.stringify(st));
+  await at(22, 31);
+  check('    and is not started again while nothing has changed', (await q()).filter(x => x.fn === 'startCountdown').length === 1);
+  await page.evaluate(() => { const g = myGroups()[0]; g.quotas.forEach(qq => S.totals.push({g: g.id, u: 'u1', d: today(), m: qq.metric, n: qq.target})); });
+  await at(22, 40);
+  const end = (await q()).filter(x => x.fn === 'endCountdown').at(-1);
+  check('  posting ends it, as done', end && end.a.done === true, JSON.stringify(end));
+  check('    and the widget turns to done', (await q()).filter(x => x.fn === 'setWidget').at(-1).a.done === true);
+  await page.evaluate(() => { __native.fire('App.appUrlOpen', { url: 'hitquota://record' }); });
+  await page.waitForTimeout(300);
+  check('  tapping the countdown opens the form to record', /Submit proof/.test(await page.innerHTML('#dlg')));
+  // Arriving before the app is signed in, it waits rather than being dropped.
+  await page.evaluate(() => { dlg(); const was = S.me; S.me = null; recordFromPhone(); self.__held = recordWanted; S.me = was; });
+  check('    and one that arrives before the app is ready is held, not dropped', await page.evaluate(() => self.__held === true));
+  await page.evaluate(() => load()); await page.waitForTimeout(600);
+  check('    then opens the form once it is', /Submit proof/.test(await page.innerHTML('#dlg')));
+  await page.evaluate(() => { dlg(); __native.quota = []; return logout(); });
+  await page.waitForTimeout(300);
+  check('  logging out tells the widget nobody is signed in', (await q()).some(x => x.fn === 'setWidget' && x.a.signedIn === false));
+});
+
 await withNative(SIGNED_IN, async page => {
   await page.waitForTimeout(1600);
   check('inside the native app nothing asks to be added to a home screen',
