@@ -1600,7 +1600,7 @@ await withPage({ session: null }, async page => {
   await settle(page);
   await page.evaluate(() => { S.auth = 'login'; render(); });
   await page.waitForTimeout(250);
-  check('logging in accepts an email or a username', /email or your username/i.test(await page.innerText('#app')));
+  check('logging in accepts an email or a username', /email or username/i.test(await page.innerText('#app')));
   await page.locator('#app input[name=id]').fill('ari@example.com');
   await page.locator('#app input[name=password]').fill('hunter22');
   await page.locator('#app form button.primary').click();
@@ -1715,6 +1715,32 @@ await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page
     JSON.stringify(wrote));
 });
 
+// Logging out forgets where you were, or the next account in opens on somebody else's
+// Settings, before it even has a group.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openSettings());
+  await page.waitForTimeout(300);
+  await page.evaluate(() => logout());
+  await page.waitForTimeout(400);
+  check('logging out from Settings leaves Settings behind', await page.evaluate(() => !S.settings && !S.open && S.tab === 'feed' && S.auth === 'welcome'));
+});
+
+// An address that already has an account is said to, and goes to logging in with it.
+await withPage({ session: null, emailTaken: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { self.__alerts = []; window.alert = m => self.__alerts.push(m); S.auth = 'signup'; render(); });
+  await page.waitForTimeout(200);
+  await page.locator('#app input[name=id]').fill('ari@example.com');
+  await page.locator('#app input[name=password]').fill('hunter22');
+  await page.locator('#app form button.primary').click();
+  await page.waitForTimeout(400);
+  check('signing up with an email that has an account says so', /already has an account/.test((await page.evaluate(() => self.__alerts)).join(' ')),
+    JSON.stringify(await page.evaluate(() => self.__alerts)));
+  check('  and goes to logging in, not to waiting for a code that never comes',
+    await page.evaluate(() => S.auth) === 'login' && await page.locator('#app input[name=id]').inputValue() === 'ari@example.com');
+});
+
 // Somebody back from Apple or Google has a name already. It is filled in, a username is
 // suggested from it and checked, and nobody under thirteen gets through.
 await withPage({ session: { user: { id: 'u1' } }, noUsername: true, meta: { full_name: 'Ari Marants' } }, async page => {
@@ -1761,12 +1787,12 @@ for (const [label, ua, want] of [['an iPhone', IPHONE_UA, 'apple,google'], ['a S
 await withPage({ session: null }, async page => {
   await settle(page);
   check('nothing switched on in Supabase means no Apple or Google buttons',
-    await page.locator('#app .oauth').count() === 0 && /get started/i.test(await page.innerText('#app')));
+    await page.locator('#app .oauth').count() === 0 && /continue with email/i.test(await page.innerText('#app')));
 });
 await withPage({ session: null, providers: { google: true } }, async page => {
   await settle(page);
   check('Google on is a Google button on the welcome screen', await page.locator('#app .oauth.google').count() === 1);
-  check('  and email becomes the other way in', await page.locator('#app button:has-text("Sign up with email")').count() === 1);
+  check('  and email becomes the other way in', await page.locator('#app button:has-text("Continue with email")').count() === 1);
   await page.locator('#app .oauth.google').click();
   await page.waitForTimeout(200);
   const o = await page.evaluate(() => self.__oauth || []);

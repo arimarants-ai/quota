@@ -1149,41 +1149,52 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 dialog h2{font-size:20px;margin-bottom:2px}
 @media(min-width:640px){dialog{border-radius:24px;width:min(92vw,460px);margin:auto}}
 /* welcome + auth */
-.welcome{min-height:100vh;min-height:100dvh;background:var(--bg);color:var(--text);border-top:6px solid var(--mk);display:flex;flex-direction:column;padding:calc(28px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom))}
-.welcome .mark svg{width:60px;height:60px}
-.welcome h1{font-family:Oswald,system-ui,sans-serif;margin:auto 0 0;font-size:46px;font-weight:600;letter-spacing:0;line-height:.98;text-transform:uppercase;text-wrap:balance}
-.welcome h1 span{display:block;margin-top:12px;font-size:25px;line-height:1.08;color:var(--mk)}
-.welcome p{color:var(--muted);font-weight:600;font-size:17px;line-height:1.45;margin:16px 0 26px;max-width:32ch}
-.welcome .primary{width:100%;padding:16px;border-radius:0;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
-.welcome .ghost{color:var(--muted);align-self:center;margin-top:10px;font-weight:800;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-.auth{min-height:100vh;min-height:100dvh;max-width:440px;margin:0 auto;display:flex;flex-direction:column;text-align:left;padding:calc(22px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
-.auth .word{display:flex;align-items:center;gap:9px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.welcome{min-height:100vh;min-height:100dvh;max-width:440px;margin:0 auto;background:var(--bg);color:var(--text);display:flex;flex-direction:column;padding:calc(20px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px}
+.brand svg{width:30px;height:30px;border-radius:8px}
+.welcome .hero{margin:auto 0 32px}
+.welcome h1{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.1;margin:0;text-wrap:balance}
+.welcome p{color:var(--muted);font-size:17px;font-weight:500;line-height:1.45;margin:12px 0 0}
+.welcome .ghost{color:var(--muted);align-self:center;margin-top:12px;font-weight:600;font-size:15px;background:none}
+.auth{--field:#d6d8da;min-height:100vh;min-height:100dvh;max-width:440px;margin:0 auto;display:flex;flex-direction:column;text-align:left;padding:calc(16px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))}
+.welcome{--field:#d6d8da}
+:root[data-theme=dark] .auth,:root[data-theme=dark] .welcome{--field:#2e3134}
+.aback{align-self:flex-start;background:none;padding:8px;margin:0 0 0 -10px;color:var(--text)}
+.aback svg{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.auth .word{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;color:var(--text)}
 .auth .word svg{width:30px;height:30px;border-radius:8px}
-.auth h2{font-family:Oswald,system-ui,sans-serif;font-size:34px;font-weight:600;letter-spacing:0;line-height:1.02;text-transform:uppercase;text-wrap:balance;margin:40px 0 10px}
-.auth p{color:var(--muted);font-weight:600;font-size:15.5px;line-height:1.45;margin:0 0 22px}
+.auth h2{font-size:30px;font-weight:700;letter-spacing:-.025em;line-height:1.12;margin:22px 0 8px;text-wrap:balance}
+.auth p{color:var(--muted);font-weight:500;font-size:16px;line-height:1.45;margin:0 0 24px}
+.auth p.muted{font-size:14px;margin:10px 0 0}
 .auth .card{margin:0;padding:0;border:0;background:none;text-align:left}
-.auth .primary{width:100%;margin-top:22px;padding:16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
-.auth input{padding:14px}
-.auth .switch{margin-top:16px;color:var(--muted);font-weight:600;font-size:14px;text-align:center}
-.auth .switch button{padding:0 4px;background:none;color:var(--mkt)}
-.auth > div:last-child > .ghost{display:block;margin:18px auto 0;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-.alt{display:block;width:100%;margin-top:8px;background:none;color:var(--mkt);font-size:14px;font-weight:700;padding:12px}
+.auth label{font-size:13.5px;font-weight:600;color:var(--muted);margin:16px 0 7px}
+.auth input,.auth select{height:52px;padding:0 15px;border-radius:12px;border:1px solid var(--field);font-size:16px}
+.auth input:focus,.auth select:focus{border-color:var(--mk);box-shadow:0 0 0 3px var(--mkveil)}
+.auth .primary,.welcome .primary,.oauth{width:100%;height:52px;padding:0 16px;border-radius:12px;font-size:16px;font-weight:600;letter-spacing:0;text-transform:none}
+.auth .primary{margin-top:24px}
+.auth .small{border-radius:10px}
+.switch{margin-top:20px;color:var(--muted);font-weight:500;font-size:15px;text-align:center}
+.switch button{padding:0 2px;background:none;color:var(--mkt);font-weight:700;font-size:inherit}
+.auth > div:last-child > .ghost{display:block;margin:20px auto 0;color:var(--muted);font-size:15px;font-weight:600;background:none}
+.forgot{display:block;margin:10px 0 0 auto;padding:2px 0;background:none;color:var(--mkt);font-size:14px;font-weight:600}
+.alt{display:block;width:100%;margin-top:10px;background:none;color:var(--mkt);font-size:15px;font-weight:600;padding:12px}
 .ways{display:flex;flex-direction:column;gap:10px}
-.ways .oauth ~ .primary{font-size:15px;letter-spacing:0;text-transform:none}
-.oauth{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;font-size:15px;font-weight:700;border:1px solid var(--line);background:var(--card);color:var(--text)}
-.oauth svg{width:18px;height:18px;flex:none}
+.ways .oauth ~ .primary{background:var(--soft);color:var(--text)}
+.oauth{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--field);background:var(--card);color:var(--text)}
+.oauth svg{width:19px;height:19px;flex:none}
 .oauth.apple{background:#000;color:#fff;border-color:#000}
 :root[data-theme=dark] .oauth.apple{background:#fff;color:#000;border-color:#fff}
-.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;margin:20px 0 2px}
+.or{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:14px;font-weight:500;margin:22px 0 2px}
 .or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
-.fine{font-size:12px;color:var(--muted);font-weight:500;line-height:1.5;margin:16px 0 0;text-align:center}
-.fine button{display:inline;padding:0;background:none;color:inherit;font-size:inherit;font-weight:700;text-decoration:underline;white-space:normal}
-.welcome .fine{font-size:12px;font-weight:500;line-height:1.5;margin:16px 0 0;max-width:none;text-align:center}
-.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.presets button{background:var(--soft);padding:14px 12px;text-align:left;white-space:normal;font-size:14.5px;line-height:1.2}
-.presets button span{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:3px}
+.auth p.fine,.fine{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.5;margin:20px 0 0;text-align:center}
+.welcome p.fine{font-size:12.5px;font-weight:400;margin:20px 0 0;text-align:center}
+.fine button{display:inline;padding:0;background:none;color:inherit;font-size:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;white-space:normal}
+.auth.start{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.presets button{background:var(--soft);border-radius:12px;padding:15px 14px;text-align:left;white-space:normal;font-size:15px;font-weight:600;line-height:1.25}
+.presets button span{display:block;font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
 .presets.mini{display:flex;flex-wrap:wrap;gap:6px}
-.presets.mini button{padding:8px 10px;font-size:13px}
+.presets.mini button{padding:8px 11px;font-size:13px;border-radius:10px}
 .back{margin:12px 18px 0}
 /* The old one was a muted text link in the corner and people did not find it. This is a
    button shaped like a button, with the arrow pointing the way it goes. */
@@ -1348,7 +1359,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v113';
+const BUILD = 'quota-v114';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5402,18 +5413,19 @@ function welcomeView() {
   // signing up is joining that rather than signing up for nothing in particular.
   const inv = pendingJoin() ? S.invited : null;
   const does = inv ? doesLine(inv.quotas) : '';
-  return `<div class="welcome"><div class="mark">${LOGO(false)}</div>
-    ${inv ? `<h1>${inv.inviter ? `${esc(inv.inviter)} invited you to ${esc(inv.name)}` : `You have been invited to ${esc(inv.name)}`}</h1>
+  return `<div class="welcome"><div class="brand">${LOGO(true)}<span>Quota</span></div>
+    <div class="hero">${inv ? `<h1>${inv.inviter ? `${esc(inv.inviter)} invited you to ${esc(inv.name)}` : `You're invited to ${esc(inv.name)}`}</h1>
       <div class="invchips">${does ? `<span>${esc(does)}</span>` : ''}${inv.members ? `<span>${plural(inv.members, 'person').replace('persons', 'people')}</span>` : ''}${inv.forfeit ? `<span>Forfeit: ${esc(inv.forfeit)}</span>` : ''}</div>
       <p>Post proof before midnight, ${inv.forfeit ? 'or owe the crew the forfeit' : 'every day'}. Make an account and you're in the crew${inv.inviter ? ` and friends with ${esc(inv.inviter)}` : ''}, nothing to accept.</p>`
-    : `<h1>Pick a daily goal with your crew. <span>Post proof before midnight, or owe them the forfeit.</span></h1>
-      <p>For three to six friends and one habit. A photo or a few seconds of video, every day.</p>`}
+    : `<h1>Pick a daily goal with your crew.</h1><p>Post proof before midnight, or owe them the forfeit.</p>`}</div>
     <div class="ways">${oauthButtons()}
-    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">${offers().length ? 'Sign up with email' : inv ? 'Create your account' : 'Get started'}</button>
-    <button class="ghost" onclick="S.auth='login';render();scrollTo(0,0)">I already have an account</button></div>
-    ${inv && !isStandalone() ? `<p class="invnext">You will add Quota to your home screen right after.</p>` : ''}
+    <button class="primary" onclick="S.auth='signup';render();scrollTo(0,0)">Continue with email</button></div>
+    <div class="switch">Have an account? <button onclick="S.auth='login';render();scrollTo(0,0)">Log in</button></div>
+    ${inv && !isStandalone() ? `<p class="invnext">You'll add Quota to your home screen right after.</p>` : ''}
     ${finePrint()}</div>`;
 }
+// The way back, at the top left where every other app keeps it.
+const authTop = back => `<button type="button" class="aback" onclick="${back}" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`;
 // What tapping any way in agrees to, said once under the buttons rather than as a box to
 // tick: Apple and Google sign people up in one tap, and there is no form for a box to be
 // on. The four documents are a tap away, and the guidelines are the zero-tolerance part.
@@ -5468,21 +5480,20 @@ function installView(a) {
 }
 function authView(mode) {
   const signup = mode === 'signup', ways = signup ? '' : oauthButtons();
-  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>${signup ? 'Create your account' : 'Welcome back'}</h2>
-    <p>${signup ? 'An email and a password. You pick a username next.' : 'Your email or your username, and your password.'}</p>
-    ${ways ? `<div class="ways">${ways}</div><div class="or"><span>or</span></div>` : ''}
+  return `<div class="auth">${authTop(`S.auth='welcome';render()`)}
+    <h2>${signup ? 'Create your account' : 'Log in'}</h2>
+    <p>${signup ? 'Your email and a password. You pick a username next.' : 'Welcome back.'}</p>
+    ${ways ? `<div class="ways">${ways}</div><div class="or">or</div>` : ''}
     <div class="card"><form onsubmit="event.preventDefault();auth(this,'${mode}')">
     ${signup
       ? `<label>Email</label><input name="id" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`
-      : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com">`}
-    <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'at least 6 characters' : '••••••••'}">
+      : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(S.loginId || '')}">`}
+    <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'At least 6 characters' : 'Your password'}">
+    ${signup ? '' : `<button type="button" class="forgot" onclick="S.auth='forgot';render()">Forgot password?</button>`}
     <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form>
     ${signup ? '' : `<button type="button" class="alt" onclick="codeFromLogin(this)">Email me a code instead</button>`}</div>
-    ${signup || ways ? finePrint() : ''}
-    <div class="switch">${signup ? 'Already have an account?' : 'New here?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create one'}</button></div>
-    ${signup ? '' : `<div class="switch">Forgotten it? <button onclick="S.auth='forgot';render()">Reset your password</button></div>`}
-    <div><button class="ghost" onclick="S.auth='welcome';render()">‹ Back</button></div></div>`;
+    <div class="switch">${signup ? 'Have an account?' : 'New to Quota?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create an account'}</button></div>
+    ${signup || ways ? finePrint() : ''}</div>`;
 }
 // Signed up, and now waiting on the code in the email. A code rather than a link on purpose:
 // on iPhone a link opens in Safari, and somebody who signed up in the app on their home
@@ -5491,7 +5502,7 @@ function authView(mode) {
 // behind it is not something this page gets to know.
 const CODE = `<label>Code</label><input name="code" type="text" data-raw required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" title="The number in the email" placeholder="123456">`;
 function verifyView() {
-  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+  return `<div class="auth">${authTop(`S.auth='login';render()`)}
     <h2>Check your email</h2>
     <p>${S.sentTo ? `We sent a code to <b>${esc(S.sentTo)}</b>. Type it in here.` : 'Your email is not confirmed yet. Type your email, and the code we sent to it.'}</p>
     <div class="card"><form onsubmit="event.preventDefault();verifyEmail(this)">
@@ -5499,14 +5510,13 @@ function verifyView() {
       ${CODE}
       <button class="primary">Confirm</button></form>
       <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first. Codes last an hour.</p>
-      <button class="small" style="margin-top:10px" onclick="resendCode(this)">Send a new code</button></div>
-    <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
+      <button class="small" style="margin-top:10px" onclick="resendCode(this)">Send a new code</button></div></div>`;
 }
 // Logging in without the password: a code to the address, and the code is the proof. It
 // only logs in. An address with no account behind it is answered the same as one with,
 // as the reset is, so this box cannot be used to ask who is on Quota.
 function codeLoginView() {
-  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+  return `<div class="auth">${authTop(`S.auth='login';S.sentTo='';render()`)}
     <h2>Log in with a code</h2>
     ${S.sentTo
       ? `<p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
@@ -5516,26 +5526,23 @@ function codeLoginView() {
       : `<p>We email you a code, and the code logs you in. No password needed.</p>
         <div class="card"><form onsubmit="event.preventDefault();sendLoginCode(this.email.value.trim(),this.querySelector('button'))">
           <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(S.codeTo || '')}">
-          <button class="primary">Send the code</button></form></div>`}
-    <div><button class="ghost" onclick="S.auth='login';S.sentTo='';render()">‹ Log in with a password</button></div></div>`;
+          <button class="primary">Send the code</button></form></div>`}</div>`;
 }
 function forgotView() {
-  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+  return `<div class="auth">${authTop(`S.auth='login';render()`)}
     <h2>Reset your password</h2><p>We will email you a code, and you choose a new password with it.</p>
     <div class="card"><form onsubmit="event.preventDefault();sendReset(this)">
       <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
-      <button class="primary">Send the code</button></form></div>
-    <div><button class="ghost" onclick="S.auth='login';render()">‹ Back to log in</button></div></div>`;
+      <button class="primary">Send the code</button></form></div></div>`;
 }
 function resetCodeView() {
-  return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
+  return `<div class="auth">${authTop(`S.auth='forgot';render()`)}
     <h2>Set a new password</h2><p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
     <div class="card"><form onsubmit="event.preventDefault();finishReset(this)">
       ${CODE}
       <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
       <label>Again</label><input name="again" type="password" required autocomplete="new-password" minlength="6" placeholder="the same one">
-      <button class="primary">Save it and log in</button></form></div>
-    <div><button class="ghost" onclick="S.auth='forgot';render()">‹ Use a different email</button></div></div>`;
+      <button class="primary">Save it and log in</button></form></div></div>`;
 }
 // The rest of the account. Asked for after signing up rather than during it, because an
 // email and a password is as much as anybody should have to type before they are let in
@@ -6573,6 +6580,14 @@ async function auth(f, mode) {
     if (mode === 'signup') {
       const {data, error} = await sb.auth.signUp({email: id, password});
       if (error) return alert(friendlyError(error, "Couldn't create your account. Try again in a moment."));
+      // An address that already has an account. Supabase sends it nothing and says so only
+      // by handing back a user with no identities, so that a stranger cannot use this form to
+      // find out who is on Quota. Here it is somebody's own address, typed into their own
+      // sign-up, so it is said plainly and they are taken to log in with it filled in.
+      if (data.user && Array.isArray(data.user.identities) && !data.user.identities.length) {
+        alert('This email already has an account. Log in instead.');
+        S.loginId = id; S.auth = 'login'; return;
+      }
       // Confirmation is on, so there is no session yet: the email carries a code, and the
       // next screen is where it goes. The terms they just ticked are written down when the
       // account is finished, which is the first moment there is a row to write them on.
@@ -6759,7 +6774,9 @@ async function confirmEmail(f) {
   S.email = S.emailTo; S.emailTo = ''; S.needEmail = false; S.editEmail = false;
   render(); scrollTo(0, 0);
 }
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.open = null; S.tab = 'feed'; S.auth = 'welcome'; render(); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
+// Where you were goes with you. Settings was left open behind the welcome screen, so the
+// next account to sign in on this phone opened on it, before it even had a group.
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -8330,7 +8347,7 @@ function takeDrop(go) {
 // in another tab. Without this the screen kept showing a signed-in app that no longer was.
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'INITIAL_SESSION') return;              // the first load() below covers this
-  if (!session) { S.me = null; S.open = null; S.auth = 'welcome'; S.booting = false; hideErr(); dropLive(); render(); }
+  if (!session) { S.me = null; S.auth = 'welcome'; S.booting = false; hideErr(); dropLive(); clearTo('feed'); }
   else if (!me()) load();                               // signed in, or a refresh recovered while we sat on the welcome screen
 });
 
