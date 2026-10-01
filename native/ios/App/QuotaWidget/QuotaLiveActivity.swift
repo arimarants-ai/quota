@@ -49,7 +49,7 @@ struct QuotaLiveActivity: Widget {
             } compactTrailing: {
                 Countdown(end: end, done: context.state.done)
                     .font(.system(size: 14, weight: .semibold)).foregroundStyle(quotaWarn)
-                    .frame(maxWidth: 56)
+                    .frame(minWidth: 60, maxWidth: 72)
             } minimal: {
                 Mark().frame(width: 16, height: 16)
             }

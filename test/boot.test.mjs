@@ -5147,6 +5147,11 @@ await withNative({ ...SIGNED_IN, wheel: false }, async page => {
   await page.evaluate(() => { __native.fire('App.appUrlOpen', { url: 'hitquota://record' }); });
   await page.waitForTimeout(300);
   check('  tapping the countdown opens the form to record', /Submit proof/.test(await page.innerHTML('#dlg')));
+  // Arriving before the app is signed in, it waits rather than being dropped.
+  await page.evaluate(() => { dlg(); const was = S.me; S.me = null; recordFromPhone(); self.__held = recordWanted; S.me = was; });
+  check('    and one that arrives before the app is ready is held, not dropped', await page.evaluate(() => self.__held === true));
+  await page.evaluate(() => load()); await page.waitForTimeout(600);
+  check('    then opens the form once it is', /Submit proof/.test(await page.innerHTML('#dlg')));
   await page.evaluate(() => { dlg(); __native.quota = []; return logout(); });
   await page.waitForTimeout(300);
   check('  logging out tells the widget nobody is signed in', (await q()).some(x => x.fn === 'setWidget' && x.a.signedIn === false));

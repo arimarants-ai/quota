@@ -2076,6 +2076,7 @@ async function runLoad() {
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
     if (me()) { goLive(); noteForfeits(); } else dropLive();
     syncPhone();
+    if (recordWanted) recordFromPhone();
     if (me() && location.hash) goToHash();
   }
 }
@@ -7069,10 +7070,14 @@ function syncPhone(now = new Date()) {
     .then(r => r && r.started === false && console.error('Countdown not started', r.reason)).catch(e => console.error('Countdown', e));
   else Q.endCountdown({done: !!t.done, streak: t.streak || 0}).catch(e => console.error('Countdown', e));
 }
-// Tapping the countdown or the widget after 10:15 opens Quota on the form to record.
+// Tapping the countdown or the widget after 10:15 opens Quota on the form to record. The
+// link can arrive while the app is still coming back from the background or still loading,
+// so it is held until there is a visible, signed-in app to open the form in.
+let recordWanted = false;
 function recordFromPhone() {
   const m = me();
-  if (!m || !m.username) return;
+  if (!m || !m.username || document.hidden) { recordWanted = true; return; }
+  recordWanted = false;
   const g = myGroups().find(x => onDay(x) && !hit(x, m.id)) || myGroups()[0];
   if (g) { clearTo('feed'); submitDlg(g.id); }
 }
@@ -8076,6 +8081,7 @@ document.addEventListener('visibilitychange', () => {
   // held is a phone that never sleeps.
   if (!document.hidden) dropWake();
   if (document.hidden || !me()) return;
+  if (recordWanted) recordFromPhone();
   // Coming back is the moment worth trying again on: an installed app sits suspended for
   // hours, and anything that failed to go up did so on a connection it no longer has.
   flushOutbox();
