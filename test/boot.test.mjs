@@ -4102,7 +4102,9 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.post .cin .emo').first().innerText());
 });
 
-// Finishing the whole challenge is worth saying out loud, and is rarer than finishing a day.
+// A day done with your challenge is still the day — one card, not two — worded with the
+// challenge the way a post is: "100 cold shower pushups", not "100 pushups" with a second
+// card about the cold shower.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   const chal = await page.evaluate(() => {
@@ -4115,21 +4117,35 @@ await withPage(SIGNED_IN, async page => {
   });
   check('a challenge is finished when its days are in', chal.done.includes(91) && chal.text === 'Cold shower',
     JSON.stringify(chal));
-  await page.evaluate(() => suggestAfterChallenge(S.groups[0], S.spins.find(x => x.id === 91)));
+  await page.evaluate(() => suggestAfterPost(S.groups[0]));
   await page.waitForTimeout(300);
-  check('  and offers a story that says which challenge', await page.locator('#make').isVisible()
-    && /cold shower/i.test(await page.locator('#make .face .t .tword').innerText()),
+  const total = await page.evaluate(() => done(S.groups[0], me().id, 'pushups'));
+  check('  and offers the day\'s card for it', await page.locator('#make').isVisible()
+    && (await page.locator('#make .face .t .tbig').innerText()).trim() === String(total),
     await page.locator('#make .face').innerText());
-  check('    saying it is the challenge that is done, not the day',
-    /challenge done/i.test(await page.locator('#make .face .t').innerText()));
-  // It used to keep an older drawing and no way out of it: the looks were wired to the
-  // day's card alone, so two of the three cards it writes could not be restyled at all.
-  check('    wearing one of the looks, like every other card it writes',
-    await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl)));
-  check('    and the look can be swapped', await page.evaluate(() => {
+  check('    worded with the challenge, the way a post says it',
+    /of 50 cold shower pushups/i.test(await page.locator('#make .face .t .tsub').innerText()),
+    await page.locator('#make .face .t .tsub').innerText());
+  check('    one card, not a second one about the challenge',
+    !/challenge done/i.test(await page.locator('#make .face .t').innerText()));
+  check('    wearing one of the looks, which can be swapped', await page.evaluate(() => {
+    if (!tplOf(styleOf(S.draft).tpl)) return false;
     draftTpl('medal'); return styleOf(S.draft).tpl === 'medal';
-  }) && /cold shower/i.test(await page.locator('#make .face .t-medal .tword').innerText()));
+  }) && /cold shower pushups/i.test(await page.locator('#make .face .t-medal').innerText()));
   check('    it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
+  await page.evaluate(() => closeDraft());
+
+  // The challenge only names the day when it carried the day: posts done with it have to
+  // meet the quota on their own, the same rule the wheel counts challenge days by. Twenty
+  // cold-shower pushups on a fifty-pushup day is a plain day with some cold showers in it.
+  await page.evaluate(() => {
+    S.totals = S.totals.map(t => t.sp === 91 ? {...t, n: 20} : t);
+    suggestAfterPost(S.groups[0]);
+  });
+  await page.waitForTimeout(300);
+  const plain = await page.locator('#make .face .t .tsub').innerText();
+  check('  a day the challenge did not carry is just the day',
+    /of 50 pushups/i.test(plain) && !/cold shower/i.test(plain), plain);
   await page.evaluate(() => closeDraft());
 });
 

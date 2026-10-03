@@ -345,13 +345,6 @@ button.rg{border:0;font:inherit}
 .face .tbig{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:132px;line-height:.82;letter-spacing:-.03em;
   font-variant-numeric:tabular-nums}
 .face .tsub{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:700;font-size:15px;margin-top:7px;opacity:.82}
-/* A challenge is named, not counted, so it is set as words — large, but wrapping. */
-/* break-word, not anywhere: a name only splits when it genuinely cannot fit, so MILITARY
-   stays MILITARY instead of coming apart into MILIT and ARY with room to spare. */
-.face .tword{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:52px;line-height:1.02;letter-spacing:-.01em;
-  text-transform:uppercase;overflow-wrap:break-word;max-width:100%}
-/* The other thing that was finished at the same time, said once and quietly. */
-.face .talso{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:700;font-size:12.5px;margin-top:12px;opacity:.68}
 .face .tstack{display:flex;flex-direction:column;gap:9px;width:100%;max-width:280px}
 .face .tsrow{display:flex;align-items:baseline;gap:7px;justify-content:center}
 .face .tsrow b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:44px;line-height:.9;font-variant-numeric:tabular-nums}
@@ -384,10 +377,6 @@ button.rg{border:0;font:inherit}
 .face .t-wax .seal .tbig{font-size:84px}
 .face .t-wax .seal .tsub{font-size:13px;opacity:.86}
 .face .t-wax .seal .tsrow b{font-size:32px}
-/* A seal is a small round hole to fit words into, so a named challenge is set down to
-   match it and the day it also closed is left to the line under the card. */
-.face .t-wax .seal .tword{font-size:27px;max-width:74%}
-.face .t-wax .seal .talso,.face .t-medal .disc .talso{display:none}
 
 /* Medal: the disc is the frame the figure is struck into. */
 .face .t-medal{justify-content:center}
@@ -399,7 +388,6 @@ button.rg{border:0;font:inherit}
 .face .t-medal .disc .tstack{max-width:72%;gap:2px}
 .face .t-medal .disc .tsrow b{font-size:24px}
 .face .t-medal .disc .tsrow i,.face .t-medal .disc .tsrow span{font-size:10px}
-.face .t-medal .disc .tword{font-size:20px;max-width:76%}
 
 /* Confetti and Fireworks: paper or sparks behind, the figure plainly in front. */
 .face .t-confetti,.face .t-fireworks{justify-content:center}
@@ -411,14 +399,13 @@ button.rg{border:0;font:inherit}
 .face .t-comic .burst>svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 8px 20px rgba(0,0,0,.3))}
 .face .t-comic .burst .fig{position:relative;transform:rotate(-5deg)}
 .face .t-comic .tbig{font-size:118px}
-.face .t-comic .tsub{font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:1}
+/* The line under the number can carry a challenge now ("of 50 military pushups"), and a
+   burst's usable width is well short of its box — so it wraps inside the spikes rather
+   than running out past them. */
+.face .t-comic .tsub{font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:1;font-size:13px;
+  max-width:168px;line-height:1.25}
 .face .t-comic .tstack{max-width:70%}
 .face .t-comic .tsrow b{font-size:36px}
-/* A burst is a spiky circle, so its usable width is well short of its box — and if Oswald
-   has not arrived yet the fallback is wider than it is. Both say set this smaller. */
-.face .t-comic .tword{font-size:32px;max-width:94%}
-.face .t-comic .talso{margin-top:8px;font-size:11.5px}
-.face .t-sticker .tword{font-size:46px}
 
 /* Stickers: labels slapped on at angles, the figure among them rather than centred. */
 .face .t-sticker{justify-content:center;gap:4px}
@@ -2734,37 +2721,36 @@ function tplFor(seed) {
 // kicker over confetti and fireworks, the sticker's first label. It says which news this
 // is, so it cannot be written into the looks: a medal that reads "day's goal, cleared"
 // over a finished challenge is the look talking about something it was not given.
-const TPL_LEAD = {chal: 'Challenge done', streak: 'Streak'};
+const TPL_LEAD = {streak: 'Streak'};
+// What was done, in words: the metric, with the challenge in front of it when the day was
+// done with one. Its first letter comes down so it sits mid-sentence ("military", not
+// "Military") — but only when the next one is already lower case, so AMRAP stays AMRAP.
+const tplWhat = r => {
+  const c = r.c ? String(r.c) : '';
+  const soft = c.length > 1 && c[1] === c[1].toLowerCase() ? c[0].toLowerCase() + c.slice(1) : c;
+  return esc(soft ? `${soft} ${r.m}` : String(r.m));
+};
 function tplFigure(y) {
   const rows = (Array.isArray(y.rows) ? y.rows : []).filter(r => r && r.m != null);
   const lead = TPL_LEAD[y.what] || 'Quota met';
-  // The day under it, one line, for the card that is already about something else.
-  const also = rows.length === 1 ? `${rows[0].d} of ${rows[0].t} ${esc(String(rows[0].m))} today`
-    : rows.length ? `the day's ${rows.length} goals as well` : '';
-  // A challenge is words, not a number — "100 burpees every morning" is a name, and it has
-  // to be able to wrap. The day it also closed, if it closed one, goes underneath.
-  if (y.what === 'chal') return {lead, big: '', word: String(y.n ?? ''), sub: '', also, rows: []};
-  if (y.what === 'streak') return {lead, big: String(y.n ?? ''), sub: 'days in a row', also: '', rows: []};
-  if (rows.length === 1) return {lead, big: String(rows[0].d), sub: `of ${rows[0].t} ${esc(String(rows[0].m))}`, also: '', rows: []};
-  if (rows.length) return {lead, big: '', sub: '', also: '', rows};
-  return {lead, big: String(y.n ?? ''), sub: y.sub ? esc(y.sub) : '', also: '', rows: []};
+  if (y.what === 'streak') return {lead, big: String(y.n ?? ''), sub: 'days in a row', rows: []};
+  if (rows.length === 1) return {lead, big: String(rows[0].d), sub: `of ${rows[0].t} ${tplWhat(rows[0])}`, rows: []};
+  if (rows.length) return {lead, big: '', sub: '', rows};
+  return {lead, big: String(y.n ?? ''), sub: y.sub ? esc(y.sub) : '', rows: []};
 }
 // The several-quota list, shared by every look so the fallback reads the same everywhere.
 const tplStack = fig => !fig.rows.length ? '' : `<div class="tstack">${fig.rows.map(r =>
-  `<div class="tsrow"><b>${esc(String(r.d))}</b><i>of ${esc(String(r.t))}</i><span>${esc(String(r.m))}</span></div>`).join('')}</div>`;
-// The figure as most looks want it: a number the size of the card, a name set large enough
-// to still wrap, or the list when one number cannot say it.
+  `<div class="tsrow"><b>${esc(String(r.d))}</b><i>of ${esc(String(r.t))}</i><span>${tplWhat(r)}</span></div>`).join('')}</div>`;
+// The figure as most looks want it: a number the size of the card, or the list when one
+// number cannot say it.
 //
 // `solo` is for the two looks with nowhere to put a headline — inside a seal, inside a
 // burst — which take it as the line under the figure instead, rather than saying nothing
 // about what was finished.
 const tplFig = (fig, solo) => {
   const under = fig.sub || (solo ? fig.lead : '');
-  return (fig.rows.length ? tplStack(fig)
-    : fig.word ? `<b class="tword">${esc(fig.word)}</b>`
-    : `<b class="tbig">${esc(fig.big)}</b>`)
-    + (under ? `<span class="tsub">${under}</span>` : '')
-    + (fig.also ? `<span class="talso">${fig.also}</span>` : '');
+  return (fig.rows.length ? tplStack(fig) : `<b class="tbig">${esc(fig.big)}</b>`)
+    + (under ? `<span class="tsub">${under}</span>` : '');
 };
 const tplStreakLine = y => y.st > 1 ? `<span class="tstreak">${esc(String(y.st))} day streak</span>` : '';
 // What a stamp has cut into it. The day it was struck, short and in capitals, which is the
@@ -3582,11 +3568,9 @@ async function postStory() {
 // unless it is shared. The number is the story; the words underneath are yours to change.
 // The look is picked for you and is a different one most days; whichever it is, the tray
 // under the card can swap it, so nobody is stuck with the one the hash chose.
-// The look and the news are separate things, and keeping them separate is the whole point:
-// every card it writes gets one of the seven and the tray that swaps them, whether the news
-// is a day finished, a challenge finished or a streak worth saying out loud. They were
-// welded together once — the day got the looks and the other two kept an older drawing and
-// no way to change it, which is not a design decision, it is two thirds of a job.
+// The look and the news are separate things: every card it writes gets one of the seven
+// and the tray that swaps them, whether the news is the day or a streak worth saying out
+// loud. A challenge is not a third kind of news — it is the day, worded with it.
 function suggest(kind, data) {
   if (S.draft || S.story) return;
   const id = tplFor(data.seed || `${me().id}|${today()}`), t = tplOf(id);
@@ -3599,7 +3583,18 @@ function suggest(kind, data) {
 // What the day came to, per quota the group set. done() is already the day's total for a
 // metric, which is the number this is about — the amount on the post that tipped it over
 // is the one number nobody needs to be told.
-const dayRows = (g, uid) => g.quotas.map(qq => ({d: done(g, uid, qq.metric), t: qq.target, m: qq.metric}));
+//
+// And, when the day was done with your challenge, which one, so the card can say "62
+// military pushups" the way a post does. A challenge counts for a day when the posts done
+// with it meet the whole quota on their own; that is the rule the wheel already keeps, and
+// the card asks the same question rather than inventing a looser one.
+const dayRows = (g, uid) => {
+  const mine = uid === me().id ? myChallenges(g) : [];
+  return g.quotas.map(qq => {
+    const sp = mine.find(s => doneWith(g, uid, qq.metric, s, today()) >= qq.target);
+    return {d: done(g, uid, qq.metric), t: qq.target, m: qq.metric, c: sp ? effChallenge(sp) : null};
+  });
+};
 function suggestAfterPost(g) {
   const m = me(), st = streak(g, m.id);
   suggest('done', {rows: dayRows(g, m.id), st, seed: `${m.id}|${today()}|${g.id}`,
@@ -3610,15 +3605,6 @@ function suggestAfterPost(g) {
 // lands on is the only moment it is news.
 const doneChallengeIds = () => new Set(myGroups().flatMap(g => myChallenges(g)
   .filter(sp => challengeDone(g, sp)).map(sp => sp.id)));
-// A challenge finishing wins the moment over the day finishing, because the day comes round
-// again tomorrow and the challenge does not. When both happened at once the day is not
-// thrown away, it rides along under the challenge: it is the same post that did both.
-function suggestAfterChallenge(g, sp) {
-  const m = me(), w = S.wheels.find(x => x.id === sp.wheel_id), need = requiredDays(w, sp);
-  suggest('chal', {n: effChallenge(sp), seed: `${m.id}|${today()}|${sp.id}`,
-    rows: hit(g, m.id) ? dayRows(g, m.id) : null, st: streak(g, m.id),
-    body: `${need} ${need === 1 ? 'day' : 'days'} · ${g.name}`});
-}
 
 const ago = t => { const s = (Date.now() - t) / 1000;
   return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
@@ -8141,13 +8127,15 @@ async function sendPost(f, gid) {
   dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
   flushOutbox();                           // the network is plainly up; take anything waiting with it
   // The post that finished the day is worth offering to say something about. The one after
-  // it is not, which is what wasDone is for. Finishing the whole challenge is rarer than
-  // finishing a day, so when one post does both, that is the one offered.
+  // it is not, which is what wasDone is for — unless it is the one that finished a
+  // challenge, which can land on a day already done. Either way it is one card, and it is
+  // the day: a challenge is not a second card but a word in the first, "62 military
+  // pushups" rather than "62 pushups", the way a post already says it.
   const g = S.groups.find(x => x.id === gid);
   const fresh = [...doneChallengeIds()].find(id => !chalWas.has(id));
   const freshIn = fresh && myGroups().find(x => myChallenges(x).some(sp => sp.id === fresh));
-  if (freshIn) suggestAfterChallenge(freshIn, myChallenges(freshIn).find(sp => sp.id === fresh));
-  else if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g);
+  const fin = freshIn || (g && !wasDone && hit(g, me().id) ? g : null);
+  if (fin) suggestAfterPost(fin);
 }
 // What you can do to a post of your own. Showing it on your profile is a decision you can
 // change later, which is the only way anything posted before today gets into the grid.
