@@ -336,6 +336,84 @@ button.rg{border:0;font:inherit}
   opacity:.85;mix-blend-mode:screen}
 .face.tpl .type{text-shadow:0 2px 14px rgba(0,0,0,.35)}
 
+/* The seven looks it writes for you. Each one owns its layout; what they share is the
+   figure — the day's totals against its targets — and where the words sit under it. */
+/* The bottom third is left to the words, which start low and are draggable from there. */
+.face .t{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  pointer-events:none;color:inherit;padding:9% 8% 32%;text-align:center}
+.face .t .fig,.face .t .in{display:flex;flex-direction:column;align-items:center}
+.face .tbig{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:132px;line-height:.82;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums}
+.face .tsub{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:700;font-size:15px;margin-top:7px;opacity:.82}
+.face .tstack{display:flex;flex-direction:column;gap:9px;width:100%;max-width:280px}
+.face .tsrow{display:flex;align-items:baseline;gap:7px;justify-content:center}
+.face .tsrow b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:44px;line-height:.9;font-variant-numeric:tabular-nums}
+.face .tsrow i{font-style:normal;font-weight:700;font-size:14px;opacity:.7}
+.face .tsrow span{font-weight:700;font-size:14px;opacity:.9;text-align:left}
+/* Under the figure, not pinned to the floor: the words sit low on the card by default and
+   a streak parked at the bottom lands underneath them. */
+.face .tstreak{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:800;font-size:12px;letter-spacing:.2em;
+  text-transform:uppercase;margin-top:18px;opacity:.78}
+.face .t .kicker{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:900;font-size:14px;letter-spacing:.17em;
+  text-transform:uppercase;margin-bottom:12px}
+.face .t .tag{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:800;font-size:13px;letter-spacing:.14em;
+  text-transform:uppercase;margin-top:16px;opacity:.9}
+.face .deco.rules{mix-blend-mode:multiply}
+
+/* Stamp: the mark is struck at an angle over rules that carry on under it. */
+.face .t-stamp{justify-content:center;gap:26px}
+.face .t-stamp .mark{transform:rotate(-8deg);border:5px solid;border-radius:10px;padding:16px 22px 13px;display:flex;
+  flex-direction:column;align-items:center;line-height:1}
+.face .t-stamp .mark b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:34px;letter-spacing:.04em;text-transform:uppercase}
+.face .t-stamp .mark b+b{letter-spacing:.14em}
+.face .t-stamp .mark i{display:block;width:100%;height:3px;background:currentColor;margin:10px 0 8px}
+.face .t-stamp .mark span{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:800;font-size:12px;letter-spacing:.1em}
+
+/* Wax: the figure is pressed into the seal, so it sits inside it rather than beside it. */
+.face .t-wax{justify-content:center}
+.face .t-wax .seal{position:relative;width:76%;max-width:250px;aspect-ratio:1}
+.face .t-wax .seal svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 22px rgba(0,0,0,.28))}
+.face .t-wax .seal .in{position:absolute;inset:0;justify-content:center;color:#f6e6df}
+.face .t-wax .seal .tbig{font-size:84px}
+.face .t-wax .seal .tsub{font-size:13px;opacity:.86}
+.face .t-wax .seal .tsrow b{font-size:32px}
+
+/* Medal: the disc is the frame the figure is struck into. */
+.face .t-medal{justify-content:center}
+.face .t-medal .disc{position:relative;width:68%;max-width:220px;aspect-ratio:180/250}
+.face .t-medal .disc svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 20px rgba(0,0,0,.34))}
+.face .t-medal .disc .in{position:absolute;left:0;right:0;top:38%;bottom:0;justify-content:center;color:#3a2e06}
+.face .t-medal .disc .tbig{font-size:62px}
+.face .t-medal .disc .tsub{font-size:11px;font-weight:800;opacity:.78}
+.face .t-medal .disc .tstack{max-width:72%;gap:2px}
+.face .t-medal .disc .tsrow b{font-size:24px}
+.face .t-medal .disc .tsrow i,.face .t-medal .disc .tsrow span{font-size:10px}
+
+/* Confetti and Fireworks: paper or sparks behind, the figure plainly in front. */
+.face .t-confetti,.face .t-fireworks{justify-content:center}
+.face .t-confetti .tbig,.face .t-fireworks .tbig{font-size:146px}
+.face .t-fireworks .tbig{text-shadow:0 10px 44px rgba(0,0,0,.5)}
+
+/* Comic: inside the burst, rotated with it. */
+.face .t-comic .burst{position:relative;width:100%;max-width:330px;aspect-ratio:1;display:grid;place-items:center}
+.face .t-comic .burst>svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 8px 20px rgba(0,0,0,.3))}
+.face .t-comic .burst .fig{position:relative;transform:rotate(-5deg)}
+.face .t-comic .tbig{font-size:118px}
+.face .t-comic .tsub{font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:1}
+.face .t-comic .tstack{max-width:70%}
+.face .t-comic .tsrow b{font-size:36px}
+
+/* Stickers: labels slapped on at angles, the figure among them rather than centred. */
+.face .t-sticker{justify-content:center;gap:4px}
+.face .t-sticker .lab{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:900;font-size:19px;letter-spacing:.08em;
+  text-transform:uppercase;background:#1a1a18;color:#fff;border-radius:999px;padding:11px 20px}
+.face .t-sticker .lab.one{transform:rotate(-7deg);align-self:flex-start}
+.face .t-sticker .lab.two{transform:rotate(5deg);align-self:flex-end;background:#0a5c33;margin-top:0}
+.face .t-sticker .fig{transform:rotate(-3deg)}
+.face .t-sticker .tbig{font-size:158px}
+.face .t-sticker .tsub{color:#1a1a18;background:#fbfaf6;border:3px solid #1a1a18;border-radius:10px;padding:6px 13px;
+  font-weight:900;text-transform:uppercase;letter-spacing:.05em;opacity:1;transform:rotate(2deg)}
+
 /* Watching. Full screen, because that is what it is for. */
 #story,#make,#recap{position:fixed;inset:0;z-index:70;background:#050706;display:grid;grid-template-columns:minmax(0,1fr);place-items:center}
 #story[hidden],#make[hidden],#recap[hidden]{display:none}
@@ -465,6 +543,11 @@ button.rg{border:0;font:inherit}
 #make .fxs button{background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:10px 6px 9px;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:7px}
 #make .fxs button.on{background:rgba(255,255,255,.3)}
 #make .fxs .demo{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:28px;line-height:1;padding:4px 10px;border-radius:6px}
+#make .tpls{grid-template-columns:repeat(4,1fr)}
+#make .tpls button{background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:9px 4px 8px;font-size:9.5px;font-weight:800;
+  letter-spacing:.06em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:6px}
+#make .tpls button.on{background:rgba(255,255,255,.3)}
+#make .tpls .demo{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1}
 #make .stks{grid-template-columns:repeat(7,1fr);gap:2px}
 #make .stks button{background:none;padding:7px 0;font-size:26px;line-height:1}
 #make .mbar.bottom{padding-bottom:calc(10px + env(safe-area-inset-bottom));min-width:0}
@@ -1359,7 +1442,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v115';
+const BUILD = 'quota-v116';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2532,7 +2615,12 @@ const STORY_BG = ['linear-gradient(160deg,#0b5a34,#2fd36f)', 'linear-gradient(16
   'linear-gradient(160deg,#ff6fb5,#ffd60a)', 'linear-gradient(160deg,#0f2027,#203a43 50%,#2c5364)',
   'linear-gradient(160deg,#a78bfa,#ff6fb5 60%,#ff9f43)', 'radial-gradient(120% 90% at 30% 20%,#1d5a3a,#061a10 60%,#03100a)',
   'linear-gradient(160deg,#7ef0b0,#5fd0ff)', 'linear-gradient(160deg,#3b0f2e,#8b1e5b 55%,#ff5d73)',
-  'repeating-linear-gradient(135deg,#0b5a34 0 14px,#0e6b3e 14px 28px)', 'linear-gradient(160deg,#fff7e6,#ffd6a5)'];
+  'repeating-linear-gradient(135deg,#0b5a34 0 14px,#0e6b3e 14px 28px)', 'linear-gradient(160deg,#fff7e6,#ffd6a5)',
+  // The grounds the written-for-you looks stand on. They live in the same strip as the
+  // rest so the colour tray can still recolour one once it has been handed to you.
+  '#e6dfcf', '#efeae0', '#182a3d', '#fff6ec',
+  'radial-gradient(120% 80% at 50% 14%,#13224c,#060a18 66%)', '#1f6fd0', '#edeae2'];
+const TPL_BG0 = 22;                        // where those seven start, so a look can name its own
 // Every face is a whole look, not a weight: the first four are what stories already carry.
 const STORY_FONT = [
   {name: 'Strong', css: 'Oswald,system-ui,sans-serif', w: 600, tt: 'uppercase', ls: '.02em'},
@@ -2545,7 +2633,7 @@ const STORY_FONT = [
   {name: 'Script', css: 'Pacifico,cursive', w: 400, tt: 'none', ls: '0'},
 ];
 const STORY_INK = ['#ffffff', '#0b0c0e', '#2fd36f', '#ffd60a', '#ff5d73', '#ff9f43', '#5fd0ff', '#a78bfa', '#ff6fb5', '#7ef0b0', '#8b8f94',
-  '#0b5a34', '#ff3b5c', '#ffb703', '#8ecae6', '#fb8500', '#c77dff', '#f4f1ea', '#1a1f4d'];
+  '#0b5a34', '#ff3b5c', '#ffb703', '#8ecae6', '#fb8500', '#c77dff', '#f4f1ea', '#1a1f4d', '#1a1712'];
 // What the words are wearing. The first three are the box states stories already carry.
 const STORY_FX = ['Plain', 'Box', 'Faded box', 'Shadow', 'Outline', 'Glow'];
 const STICKER_MORE = ['🎉', '⭐', '🌟', '💯', '🥇', '🏅', '👑', '🏃', '🏋️', '🚴', '🧘', '👟', '⛰️', '🌊', '☀️', '🌙',
@@ -2557,8 +2645,12 @@ const onInk = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i 
 // live in style rather than in a column of their own because style is already the jsonb
 // holding everything that is about how one story looks, and nothing outside the story
 // reads any of it.
+// rows/st are what a written-for-you card is about: the day's totals against its targets,
+// and the streak it belongs to. n/sub are the single number the first three looks carried,
+// kept so the ones already up keep rendering.
 const styleOf = st => ({bg: 0, font: 0, ink: 0, size: 1, box: 0, align: 'center', x: .5, y: .5,
-  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, post: null, px: .5, py: .46, ...(st.style || {})});
+  stk: null, sx: .5, sy: .74, stks: [], tpl: null, n: null, sub: null, rows: null, st: null,
+  post: null, px: .5, py: .46, ...(st.style || {})});
 // Every sticker on a card. The single one older stories carry is folded in.
 const stickersOf = y => [...(Array.isArray(y.stks) ? y.stks : []), ...(y.stk ? [{e: y.stk, x: y.sx, y: y.sy}] : [])];
 // The effect as inline style, so the words and the chip that previews them agree.
@@ -2580,23 +2672,194 @@ function wordsOf(st, editing) {
     editing ? ' contenteditable="true" spellcheck="false" data-ph="Say something"' : ''}>${esc(st.body || '')}</div>`;
 }
 
-// Decoration for the two it writes for you: the app's own ring, large and faint, and a
+// Decoration for the looks it writes for you: the app's own ring, large and faint, and a
 // scatter of sparks. Drawn in the ink colour so the colour strip recolours it too.
 const SPARK = (x, y, r) => `<path d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r}Z"/>`;
-function tplFace(y) {
-  const deco = `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+const RING_DECO = `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <g fill="currentColor" opacity=".9">${SPARK(62, 118, 16)}${SPARK(330, 96, 10)}${SPARK(342, 250, 22)}${SPARK(48, 372, 9)}${SPARK(300, 560, 13)}${SPARK(84, 610, 18)}</g>
     <circle cx="330" cy="620" r="150" fill="none" stroke="currentColor" stroke-width="34" opacity=".14"/>
     <circle cx="330" cy="620" r="150" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-dasharray="705 942" transform="rotate(-90 330 620)" opacity=".28"/>
   </svg>`;
-  if (y.tpl === 'streak') return `${deco}<div class="hero">
+
+// The looks it can hand you. Seven whole designs rather than one design in seven colours,
+// because the only reason to have several is that tomorrow's does not look like today's.
+// bg and ink are where each one starts in the two strips above; ac is its own mark colour,
+// which the trays deliberately do not reach — recolouring the words should not be able to
+// turn the wax green.
+const STORY_TPL = [
+  {id: 'stamp',     name: 'Stamp',     bg: TPL_BG0,     ink: 19, ac: '#a5341f'},
+  {id: 'wax',       name: 'Wax',       bg: TPL_BG0 + 1, ink: 19, ac: '#8e2b20'},
+  {id: 'medal',     name: 'Medal',     bg: TPL_BG0 + 2, ink: 0,  ac: '#e0be4a'},
+  {id: 'confetti',  name: 'Confetti',  bg: TPL_BG0 + 3, ink: 19, ac: '#d94f15'},
+  {id: 'fireworks', name: 'Fireworks', bg: TPL_BG0 + 4, ink: 0,  ac: '#ffd76e'},
+  {id: 'comic',     name: 'Comic',     bg: TPL_BG0 + 5, ink: 1,  ac: '#ffd21e'},
+  {id: 'sticker',   name: 'Stickers',  bg: TPL_BG0 + 6, ink: 19, ac: '#d93f2b'},
+];
+const tplOf = id => STORY_TPL.find(t => t.id === id) || null;
+// Which one you get. Hashed rather than random so a redraw is not a reshuffle, and keyed
+// on the day and the group so finishing two groups on one morning is not the same card
+// handed to you twice.
+function tplFor(seed) {
+  const s = String(seed);
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return STORY_TPL[h % STORY_TPL.length].id;
+}
+
+// What the day came to. The whole of it: every quota the group set, each total against its
+// target — not the one post that happened to tip it over, which is what this used to show
+// and is the least interesting number of the lot.
+//
+// One quota gets a figure the size of the card. Several get a list, because three numbers
+// at that size is not a design. A story written before the totals were carried falls back
+// to the single number it does have.
+function tplFigure(y) {
+  const rows = (Array.isArray(y.rows) ? y.rows : []).filter(r => r && r.m != null);
+  if (rows.length === 1) return {big: String(rows[0].d), sub: `of ${rows[0].t} ${esc(String(rows[0].m))}`, rows: [], raw: rows};
+  if (rows.length) return {big: '', sub: `${rows.length} goals, all of them`, rows, raw: rows};
+  return {big: String(y.n ?? ''), sub: y.sub ? esc(y.sub) : '', rows: [], raw: []};
+}
+// The several-quota list, shared by every look so the fallback reads the same everywhere.
+const tplStack = fig => !fig.rows.length ? '' : `<div class="tstack">${fig.rows.map(r =>
+  `<div class="tsrow"><b>${esc(String(r.d))}</b><i>of ${esc(String(r.t))}</i><span>${esc(String(r.m))}</span></div>`).join('')}</div>`;
+// The figure as most looks want it: one big number with its line under, or the list.
+const tplFig = fig => fig.rows.length ? tplStack(fig)
+  : `<b class="tbig">${esc(fig.big)}</b>${fig.sub ? `<span class="tsub">${fig.sub}</span>` : ''}`;
+const tplStreakLine = y => y.st > 1 ? `<span class="tstreak">${esc(String(y.st))} day streak</span>` : '';
+// What a stamp has cut into it. The day it was struck, short and in capitals, which is the
+// one piece of a stamp that is not the same on every one of them.
+const tplDate = () => new Date().toLocaleDateString(undefined, {day: '2-digit', month: 'short', year: 'numeric'}).toUpperCase();
+
+// A rubber stamp struck on ruled paper. The mark is rotated and the rules run under it,
+// because a stamp is pressed onto something that was already there.
+function tplStamp(y, fig, ac) {
+  return `<svg class="deco rules" viewBox="0 0 390 693" preserveAspectRatio="none" aria-hidden="true">
+      ${Array.from({length: 17}, (_, i) => `<line x1="0" y1="${40 + i * 38}" x2="390" y2="${40 + i * 38}" stroke="currentColor" stroke-width="1" opacity=".14"/>`).join('')}
+    </svg>
+    <div class="t t-stamp">
+      <div class="mark" style="border-color:${ac};color:${ac}"><b>Quota</b><b>Met</b><i></i><span>${esc(tplDate())}</span></div>
+      <div class="fig">${tplFig(fig)}</div>
+      ${tplStreakLine(y)}
+    </div>`;
+}
+// Wax is pressed, not printed, so the edge wanders instead of tracing a circle.
+function tplWax(y, fig, ac) {
+  const cx = 105, cy = 105, wob = [0, 5, -3, 7, 2, -5, 4, 8, -2, 3, 6, -4, 1, 7, -3, 5, 2, -6, 4, 6, -1, 3];
+  const pts = Array.from({length: 44}, (_, i) => {
+    const a = (i / 44) * Math.PI * 2, r = 88 + wob[i % wob.length];
+    return `${(cx + r * Math.cos(a)).toFixed(1)} ${(cy + r * Math.sin(a)).toFixed(1)}`;
+  });
+  return `<div class="t t-wax">
+      <div class="seal">
+        <svg viewBox="0 0 210 210" aria-hidden="true"><path d="M${pts.join('L')}Z" fill="${ac}"/>
+          <circle cx="105" cy="105" r="66" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="3"/></svg>
+        <div class="in">${tplFig(fig)}</div>
+      </div>
+      ${tplStreakLine(y)}
+    </div>`;
+}
+// Ribbon and a milled disc. The figure is struck into the disc rather than set beside it.
+function tplMedal(y, fig, ac) {
+  const notches = Array.from({length: 36}, (_, i) => {
+    const a = (i / 36) * Math.PI * 2;
+    return `<line x1="${(90 + 58 * Math.cos(a)).toFixed(1)}" y1="${(168 + 58 * Math.sin(a)).toFixed(1)}" x2="${(90 + 69 * Math.cos(a)).toFixed(1)}" y2="${(168 + 69 * Math.sin(a)).toFixed(1)}" stroke="rgba(0,0,0,.28)" stroke-width="2"/>`;
+  }).join('');
+  return `<div class="t t-medal">
+      <div class="disc">
+        <svg viewBox="0 0 180 250" aria-hidden="true">
+          <polygon points="56,0 86,0 76,96 46,96" fill="#c0392b"/><polygon points="94,0 124,0 134,96 104,96" fill="#8e2b20"/>
+          <circle cx="90" cy="168" r="74" fill="${ac}"/><circle cx="90" cy="168" r="58" fill="rgba(255,255,255,.18)"/>${notches}
+        </svg>
+        <div class="in">${tplFig(fig)}</div>
+      </div>
+      <span class="tag">Day's goal, cleared</span>
+      ${tplStreakLine(y)}
+    </div>`;
+}
+// Paper bits, laid out rather than scattered at random: a card that reshuffles itself on
+// every redraw cannot be the same card you decided to post.
+function tplConfetti(y, fig, ac) {
+  const cols = [ac, '#f4a127', '#2fd36f', '#0a5c33', '#2b6cb0', '#e8c547'];
+  const xs = [14, 58, 112, 168, 222, 276, 330, 366, 36, 92, 146, 200, 254, 308, 352, 22, 76, 130, 186, 240, 294, 344, 48, 104, 158, 212, 266, 320, 10, 64, 118, 174, 228, 282, 336, 30, 84, 138, 194, 248, 302];
+  const ys = [28, 96, 52, 148, 74, 182, 40, 120, 206, 262, 300, 232, 338, 286, 192, 396, 448, 374, 502, 422, 476, 534, 576, 612, 652, 590, 668, 636, 158, 240, 312, 358, 410, 462, 520, 556, 600, 644, 676, 132, 202];
+  // Paper falls everywhere except across the figure: a bit of confetti landing on the
+  // number is not texture, it is the number being harder to read.
+  const bits = xs.map((x, i) => [x, ys[i % ys.length], i])
+    .filter(([x, yy]) => !(x > 54 && x < 336 && yy > 138 && yy < 412))
+    .map(([x, yy, i]) => { const long = i % 3 === 0;
+      return `<rect x="${x}" y="${yy}" width="${long ? 5 : 9}" height="${long ? 14 : 6}" rx="1.5" fill="${cols[i % cols.length]}" transform="rotate(${(i * 37) % 180 - 90} ${x} ${yy})"/>`; }).join('');
+  return `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${bits}</svg>
+    <div class="t t-confetti">
+      <span class="kicker" style="color:${ac}">Goal met</span>
+      <div class="fig">${tplFig(fig)}</div>
+      ${tplStreakLine(y)}
+    </div>`;
+}
+function tplFireworks(y, fig, ac) {
+  // High and to the sides. A burst behind the words is a burst nobody can read the words
+  // through, and these are thin bright lines on a dark ground — the worst case for it.
+  const bursts = [[74, 104, 68, 24, ac], [300, 86, 54, 22, '#ff7fa8'], [350, 300, 34, 14, '#b79bff'], [40, 330, 30, 14, '#7fd8ff']];
+  const sparks = bursts.map(([bx, by, r, n, c]) => Array.from({length: n}, (_, i) => {
+    const a = (i / n) * Math.PI * 2, i0 = r * .42;
+    return `<line x1="${(bx + i0 * Math.cos(a)).toFixed(1)}" y1="${(by + i0 * Math.sin(a)).toFixed(1)}" x2="${(bx + r * Math.cos(a)).toFixed(1)}" y2="${(by + r * Math.sin(a)).toFixed(1)}" stroke="${c}" stroke-width="2" stroke-linecap="round"/>`;
+  }).join('')).join('');
+  return `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${sparks}</svg>
+    <div class="t t-fireworks">
+      <span class="kicker" style="color:${ac}">Day complete</span>
+      <div class="fig">${tplFig(fig)}</div>
+      ${tplStreakLine(y)}
+    </div>`;
+}
+// The burst is a frame round the figure rather than a thing behind it, so it is drawn in
+// the same box the figure sits in — a slice-scaled backdrop cannot stay centred on it.
+function tplComic(y, fig, ac) {
+  const dots = Array.from({length: 32}, (_, r) => Array.from({length: 19}, (_, c) =>
+    `<circle cx="${(r % 2 ? 21 : 10) + c * 22}" cy="${10 + r * 22}" r="3.4" fill="rgba(0,0,0,.09)"/>`).join('')).join('');
+  const star = Array.from({length: 26}, (_, i) => {
+    const r = i % 2 === 0 ? 203 : 147, a = (i / 26) * Math.PI * 2 - Math.PI / 2;
+    return `${(210 + r * Math.cos(a)).toFixed(1)},${(210 + r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+  return `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${dots}</svg>
+    <div class="t t-comic">
+      <div class="burst">
+        <svg viewBox="0 0 420 420" aria-hidden="true"><polygon points="${star}" fill="${ac}" stroke="currentColor" stroke-width="9"/></svg>
+        <div class="fig">${tplFig(fig)}</div>
+      </div>
+      ${tplStreakLine(y)}
+    </div>`;
+}
+// Slapped on at angles, overlapping. The figure is one of the stickers rather than the
+// thing the stickers are arranged around.
+function tplSticker(y, fig, ac) {
+  return `<div class="t t-sticker">
+      <span class="lab one">Quota met</span>
+      <div class="fig" style="color:${ac}">${tplFig(fig)}</div>
+      ${y.st > 1 ? `<span class="lab two">${esc(String(y.st))} days</span>` : ''}
+    </div>`;
+}
+
+function tplFace(y) {
+  const t = tplOf(y.tpl);
+  if (t) {
+    const fig = tplFigure(y);
+    return t.id === 'stamp' ? tplStamp(y, fig, t.ac)
+      : t.id === 'wax' ? tplWax(y, fig, t.ac)
+      : t.id === 'medal' ? tplMedal(y, fig, t.ac)
+      : t.id === 'confetti' ? tplConfetti(y, fig, t.ac)
+      : t.id === 'fireworks' ? tplFireworks(y, fig, t.ac)
+      : t.id === 'comic' ? tplComic(y, fig, t.ac)
+      : tplSticker(y, fig, t.ac);
+  }
+  // The three it wrote before these looks existed. A story only lives a day, so this is a
+  // short tail — but one that is up right now while the change goes out.
+  if (y.tpl === 'streak') return `${RING_DECO}<div class="hero">
     <b class="big">${esc(String(y.n ?? ''))}</b><span class="tag">day streak</span></div>`;
   // A challenge is words rather than a number, so it is set as words: large, but able to
   // wrap, because "100 burpees every morning" is not going to fit on one line.
-  if (y.tpl === 'chal') return `${deco}<div class="hero">
+  if (y.tpl === 'chal') return `${RING_DECO}<div class="hero">
     <span class="tickring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"/><path d="M15 25l6 6 12-13" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <b class="word">${esc(String(y.n ?? ''))}</b><span class="tag">challenge done</span></div>`;
-  return `${deco}<div class="hero">
+  return `${RING_DECO}<div class="hero">
     <span class="tickring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="4"/><path d="M15 25l6 6 12-13" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <b class="big">${esc(String(y.n ?? ''))}</b><span class="tag">${esc(y.sub || '')}</span>
     <span class="stamp">Done</span></div>`;
@@ -3108,6 +3371,14 @@ async function storyFrom(f) {
   newStory({kind: photo ? 'photo' : 'video', file: small, body: ''});
 }
 function draftSet(k, v) { S.draft.style = {...styleOf(S.draft), [k]: v}; paintDraft(); }
+// Swapping the look brings its ground and its ink with it: the seven are whole designs,
+// and a wax seal on the confetti paper is neither of them. Anything chosen after this —
+// a colour, a font, a sticker — still sits on top, because it is chosen later.
+function draftTpl(id) {
+  const t = tplOf(id); if (!t) return;
+  S.draft.style = {...styleOf(S.draft), tpl: id, bg: t.bg, ink: t.ink};
+  S.draft.tray = null; paintDraft();
+}
 // One tray under the card at a time: fonts, colours, backgrounds, effects or stickers.
 function draftTray(k) { S.draft.tray = S.draft.tray === k ? null : k; paintDraft(); }
 // A sticker lands near the middle, a little off so two do not sit on top of each other.
@@ -3156,6 +3427,7 @@ function paintDraft() {
     : t === 'ink' ? `<div class="grid inks">${STORY_INK.map((c, i) => `<button type="button" class="dot${y.ink === i ? ' on' : ''}" style="background:${c}" onclick="draftSet('ink',${i})" aria-label="Colour ${i + 1}"></button>`).join('')}</div>`
     : t === 'bg' ? `<div class="grid bgs">${STORY_BG.map((b, i) => `<button type="button" class="tile${y.bg === i ? ' on' : ''}" style="background:${b}" onclick="draftSet('bg',${i})" aria-label="Background ${i + 1}"></button>`).join('')}</div>`
     : t === 'fx' ? `<div class="grid fxs">${STORY_FX.map((n, i) => `<button type="button" class="${y.box === i ? 'on' : ''}" onclick="draftSet('box',${i})"><span class="demo" style="${fxStyle(i, ink)}">Aa</span>${n}</button>`).join('')}</div>`
+    : t === 'tpl' ? `<div class="grid tpls">${STORY_TPL.map(k => `<button type="button" class="${y.tpl === k.id ? 'on' : ''}" onclick="draftTpl('${k.id}')"><span class="demo" style="background:${STORY_BG[k.bg]};color:${k.ac}">&#9679;</span>${k.name}</button>`).join('')}</div>`
     : `<div class="grid stks">${[...EMOJI, ...STICKER_MORE].map(e => `<button type="button" onclick="draftSticker('${e}')">${e}</button>`).join('')}</div>`
   }</div>`;
   box.hidden = false;
@@ -3165,6 +3437,7 @@ function paintDraft() {
       <div class="tools">
         ${d.kind === 'text' ? `<button type="button" class="bgbtn${t === 'bg' ? ' on' : ''}" style="background:${STORY_BG[y.bg]}" onclick="draftTray('bg')" aria-label="Background"></button>` : ''}
         ${y.post ? `<button type="button" class="tb" onclick="draftSet('post',null)" aria-label="Take the post off">${BIN}</button>` : ''}
+        ${tplOf(y.tpl) ? `<button type="button" class="tb${t === 'tpl' ? ' on' : ''}" onclick="draftTray('tpl')" aria-label="Change the look"><svg viewBox="0 0 24 24"><path d="M4 5h7v7H4zM13 5h7v4h-7zM13 11h7v8h-7zM4 14h7v5H4z"/></svg></button>` : ''}
         <button type="button" class="fontpill${t === 'font' ? ' on' : ''}" onclick="draftTray('font')" style="font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'}">${f.name}<i>▾</i></button>
         <button type="button" class="tb inkbtn${t === 'ink' ? ' on' : ''}" onclick="draftTray('ink')" aria-label="Text colour"><span style="background:${ink}"></span></button>
         <button type="button" class="tb${t === 'fx' ? ' on' : ''}" onclick="draftTray('fx')" aria-label="Text effect"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 17l.8 2.2L8 20l-2.2.8L5 23l-.8-2.2L2 20l2.2-.8z"/></svg></button>
@@ -3262,17 +3535,27 @@ async function postStory() {
 // ---- the one it offers to write for you
 // Built, not posted: it opens as a draft with everything already set, and goes nowhere
 // unless it is shared. The number is the story; the words underneath are yours to change.
+// The look is picked for you and is a different one most days; whichever it is, the tray
+// under the card can swap it, so nobody is stuck with the one the hash chose.
 function suggest(kind, data) {
   if (S.draft || S.story) return;
-  const tpl = kind === 'streak' ? {tpl: 'streak', n: data.n}
-    : kind === 'chal' ? {tpl: 'chal', n: data.n}
-    : {tpl: 'done', n: data.n, sub: data.sub};
+  const id = tplFor(data.seed || `${me().id}|${today()}`), t = tplOf(id);
+  const look = kind === 'streak' ? {tpl: 'streak', n: data.n, bg: 0, ink: 0}
+    : kind === 'chal' ? {tpl: 'chal', n: data.n, bg: 3, ink: 0}
+    : {tpl: id, rows: data.rows || null, st: data.st || null, n: data.n, sub: data.sub, bg: t.bg, ink: t.ink};
+  // The figure is the loud part, so the line under it is set small: at the next size up a
+  // group whose name is one word too long wraps in the middle of that word.
   newStory({suggested: true, kind: 'text', body: data.body || '',
-    style: {bg: kind === 'streak' ? 0 : kind === 'chal' ? 3 : 5, font: 0, ink: 0, size: 1, y: .82, ...tpl}});
+    style: {font: 0, size: 0, y: .84, ...look}});
 }
-function suggestAfterPost(g, amount, metric) {
-  const st = streak(g, me().id);
-  suggest('done', {n: amount, sub: metric, body: st > 1 ? `Day ${st} · ${g.name}` : g.name});
+// What the day came to, per quota the group set. done() is already the day's total for a
+// metric, which is the number this is about — the amount on the post that tipped it over
+// is the one number nobody needs to be told.
+const dayRows = (g, uid) => g.quotas.map(qq => ({d: done(g, uid, qq.metric), t: qq.target, m: qq.metric}));
+function suggestAfterPost(g) {
+  const m = me(), st = streak(g, m.id);
+  suggest('done', {rows: dayRows(g, m.id), st, seed: `${m.id}|${today()}|${g.id}`,
+    body: st > 1 ? `Day ${st} · ${g.name}` : g.name});
 }
 // Every challenge of mine that is finished right now. Compared across a post to find the
 // one that post finished — the wheel gives you a whole cycle to do it in, so the day it
@@ -3281,7 +3564,8 @@ const doneChallengeIds = () => new Set(myGroups().flatMap(g => myChallenges(g)
   .filter(sp => challengeDone(g, sp)).map(sp => sp.id)));
 function suggestAfterChallenge(g, sp) {
   const w = S.wheels.find(x => x.id === sp.wheel_id), need = requiredDays(w, sp);
-  suggest('chal', {n: effChallenge(sp), body: `${need} ${need === 1 ? 'day' : 'days'} · ${g.name}`});
+  suggest('chal', {n: effChallenge(sp), seed: `${me().id}|${today()}|${sp.id}`,
+    body: `${need} ${need === 1 ? 'day' : 'days'} · ${g.name}`});
 }
 
 const ago = t => { const s = (Date.now() - t) / 1000;
@@ -7811,7 +8095,7 @@ async function sendPost(f, gid) {
   const fresh = [...doneChallengeIds()].find(id => !chalWas.has(id));
   const freshIn = fresh && myGroups().find(x => myChallenges(x).some(sp => sp.id === fresh));
   if (freshIn) suggestAfterChallenge(freshIn, myChallenges(freshIn).find(sp => sp.id === fresh));
-  else if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g, +fd.get('amount'), String(fd.get('metric') || ''));
+  else if (g && !wasDone && hit(g, me().id)) suggestAfterPost(g);
 }
 // What you can do to a post of your own. Showing it on your profile is a decision you can
 // change later, which is the only way anything posted before today gets into the grid.
