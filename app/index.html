@@ -345,6 +345,13 @@ button.rg{border:0;font:inherit}
 .face .tbig{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:132px;line-height:.82;letter-spacing:-.03em;
   font-variant-numeric:tabular-nums}
 .face .tsub{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:700;font-size:15px;margin-top:7px;opacity:.82}
+/* A challenge is named, not counted, so it is set as words — large, but wrapping. */
+/* break-word, not anywhere: a name only splits when it genuinely cannot fit, so MILITARY
+   stays MILITARY instead of coming apart into MILIT and ARY with room to spare. */
+.face .tword{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:52px;line-height:1.02;letter-spacing:-.01em;
+  text-transform:uppercase;overflow-wrap:break-word;max-width:100%}
+/* The other thing that was finished at the same time, said once and quietly. */
+.face .talso{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:700;font-size:12.5px;margin-top:12px;opacity:.68}
 .face .tstack{display:flex;flex-direction:column;gap:9px;width:100%;max-width:280px}
 .face .tsrow{display:flex;align-items:baseline;gap:7px;justify-content:center}
 .face .tsrow b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:44px;line-height:.9;font-variant-numeric:tabular-nums}
@@ -377,6 +384,10 @@ button.rg{border:0;font:inherit}
 .face .t-wax .seal .tbig{font-size:84px}
 .face .t-wax .seal .tsub{font-size:13px;opacity:.86}
 .face .t-wax .seal .tsrow b{font-size:32px}
+/* A seal is a small round hole to fit words into, so a named challenge is set down to
+   match it and the day it also closed is left to the line under the card. */
+.face .t-wax .seal .tword{font-size:27px;max-width:74%}
+.face .t-wax .seal .talso,.face .t-medal .disc .talso{display:none}
 
 /* Medal: the disc is the frame the figure is struck into. */
 .face .t-medal{justify-content:center}
@@ -388,6 +399,7 @@ button.rg{border:0;font:inherit}
 .face .t-medal .disc .tstack{max-width:72%;gap:2px}
 .face .t-medal .disc .tsrow b{font-size:24px}
 .face .t-medal .disc .tsrow i,.face .t-medal .disc .tsrow span{font-size:10px}
+.face .t-medal .disc .tword{font-size:20px;max-width:76%}
 
 /* Confetti and Fireworks: paper or sparks behind, the figure plainly in front. */
 .face .t-confetti,.face .t-fireworks{justify-content:center}
@@ -402,6 +414,11 @@ button.rg{border:0;font:inherit}
 .face .t-comic .tsub{font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:1}
 .face .t-comic .tstack{max-width:70%}
 .face .t-comic .tsrow b{font-size:36px}
+/* A burst is a spiky circle, so its usable width is well short of its box — and if Oswald
+   has not arrived yet the fallback is wider than it is. Both say set this smaller. */
+.face .t-comic .tword{font-size:32px;max-width:94%}
+.face .t-comic .talso{margin-top:8px;font-size:11.5px}
+.face .t-sticker .tword{font-size:46px}
 
 /* Stickers: labels slapped on at angles, the figure among them rather than centred. */
 .face .t-sticker{justify-content:center;gap:4px}
@@ -1442,7 +1459,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v116';
+const BUILD = 'quota-v117';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2713,22 +2730,50 @@ function tplFor(seed) {
 // One quota gets a figure the size of the card. Several get a list, because three numbers
 // at that size is not a design. A story written before the totals were carried falls back
 // to the single number it does have.
+// The headline each look puts in its own slot — the stamp's mark, the medal's tag, the
+// kicker over confetti and fireworks, the sticker's first label. It says which news this
+// is, so it cannot be written into the looks: a medal that reads "day's goal, cleared"
+// over a finished challenge is the look talking about something it was not given.
+const TPL_LEAD = {chal: 'Challenge done', streak: 'Streak'};
 function tplFigure(y) {
   const rows = (Array.isArray(y.rows) ? y.rows : []).filter(r => r && r.m != null);
-  if (rows.length === 1) return {big: String(rows[0].d), sub: `of ${rows[0].t} ${esc(String(rows[0].m))}`, rows: [], raw: rows};
-  if (rows.length) return {big: '', sub: `${rows.length} goals, all of them`, rows, raw: rows};
-  return {big: String(y.n ?? ''), sub: y.sub ? esc(y.sub) : '', rows: [], raw: []};
+  const lead = TPL_LEAD[y.what] || 'Quota met';
+  // The day under it, one line, for the card that is already about something else.
+  const also = rows.length === 1 ? `${rows[0].d} of ${rows[0].t} ${esc(String(rows[0].m))} today`
+    : rows.length ? `the day's ${rows.length} goals as well` : '';
+  // A challenge is words, not a number — "100 burpees every morning" is a name, and it has
+  // to be able to wrap. The day it also closed, if it closed one, goes underneath.
+  if (y.what === 'chal') return {lead, big: '', word: String(y.n ?? ''), sub: '', also, rows: []};
+  if (y.what === 'streak') return {lead, big: String(y.n ?? ''), sub: 'days in a row', also: '', rows: []};
+  if (rows.length === 1) return {lead, big: String(rows[0].d), sub: `of ${rows[0].t} ${esc(String(rows[0].m))}`, also: '', rows: []};
+  if (rows.length) return {lead, big: '', sub: '', also: '', rows};
+  return {lead, big: String(y.n ?? ''), sub: y.sub ? esc(y.sub) : '', also: '', rows: []};
 }
 // The several-quota list, shared by every look so the fallback reads the same everywhere.
 const tplStack = fig => !fig.rows.length ? '' : `<div class="tstack">${fig.rows.map(r =>
   `<div class="tsrow"><b>${esc(String(r.d))}</b><i>of ${esc(String(r.t))}</i><span>${esc(String(r.m))}</span></div>`).join('')}</div>`;
-// The figure as most looks want it: one big number with its line under, or the list.
-const tplFig = fig => fig.rows.length ? tplStack(fig)
-  : `<b class="tbig">${esc(fig.big)}</b>${fig.sub ? `<span class="tsub">${fig.sub}</span>` : ''}`;
+// The figure as most looks want it: a number the size of the card, a name set large enough
+// to still wrap, or the list when one number cannot say it.
+//
+// `solo` is for the two looks with nowhere to put a headline — inside a seal, inside a
+// burst — which take it as the line under the figure instead, rather than saying nothing
+// about what was finished.
+const tplFig = (fig, solo) => {
+  const under = fig.sub || (solo ? fig.lead : '');
+  return (fig.rows.length ? tplStack(fig)
+    : fig.word ? `<b class="tword">${esc(fig.word)}</b>`
+    : `<b class="tbig">${esc(fig.big)}</b>`)
+    + (under ? `<span class="tsub">${under}</span>` : '')
+    + (fig.also ? `<span class="talso">${fig.also}</span>` : '');
+};
 const tplStreakLine = y => y.st > 1 ? `<span class="tstreak">${esc(String(y.st))} day streak</span>` : '';
 // What a stamp has cut into it. The day it was struck, short and in capitals, which is the
 // one piece of a stamp that is not the same on every one of them.
 const tplDate = () => new Date().toLocaleDateString(undefined, {day: '2-digit', month: 'short', year: 'numeric'}).toUpperCase();
+// A struck mark reads as two stacked lines, so the headline is split on its first space:
+// QUOTA / MET, CHALLENGE / DONE, and a one-word one simply stays one line.
+const leadLines = lead => { const i = String(lead).indexOf(' ');
+  return i < 0 ? `<b>${esc(lead)}</b>` : `<b>${esc(lead.slice(0, i))}</b><b>${esc(lead.slice(i + 1))}</b>`; };
 
 // A rubber stamp struck on ruled paper. The mark is rotated and the rules run under it,
 // because a stamp is pressed onto something that was already there.
@@ -2737,7 +2782,7 @@ function tplStamp(y, fig, ac) {
       ${Array.from({length: 17}, (_, i) => `<line x1="0" y1="${40 + i * 38}" x2="390" y2="${40 + i * 38}" stroke="currentColor" stroke-width="1" opacity=".14"/>`).join('')}
     </svg>
     <div class="t t-stamp">
-      <div class="mark" style="border-color:${ac};color:${ac}"><b>Quota</b><b>Met</b><i></i><span>${esc(tplDate())}</span></div>
+      <div class="mark" style="border-color:${ac};color:${ac}">${leadLines(fig.lead)}<i></i><span>${esc(tplDate())}</span></div>
       <div class="fig">${tplFig(fig)}</div>
       ${tplStreakLine(y)}
     </div>`;
@@ -2753,7 +2798,7 @@ function tplWax(y, fig, ac) {
       <div class="seal">
         <svg viewBox="0 0 210 210" aria-hidden="true"><path d="M${pts.join('L')}Z" fill="${ac}"/>
           <circle cx="105" cy="105" r="66" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="3"/></svg>
-        <div class="in">${tplFig(fig)}</div>
+        <div class="in">${tplFig(fig, true)}</div>
       </div>
       ${tplStreakLine(y)}
     </div>`;
@@ -2772,7 +2817,7 @@ function tplMedal(y, fig, ac) {
         </svg>
         <div class="in">${tplFig(fig)}</div>
       </div>
-      <span class="tag">Day's goal, cleared</span>
+      <span class="tag">${esc(fig.lead)}</span>
       ${tplStreakLine(y)}
     </div>`;
 }
@@ -2790,7 +2835,7 @@ function tplConfetti(y, fig, ac) {
       return `<rect x="${x}" y="${yy}" width="${long ? 5 : 9}" height="${long ? 14 : 6}" rx="1.5" fill="${cols[i % cols.length]}" transform="rotate(${(i * 37) % 180 - 90} ${x} ${yy})"/>`; }).join('');
   return `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${bits}</svg>
     <div class="t t-confetti">
-      <span class="kicker" style="color:${ac}">Goal met</span>
+      <span class="kicker" style="color:${ac}">${esc(fig.lead)}</span>
       <div class="fig">${tplFig(fig)}</div>
       ${tplStreakLine(y)}
     </div>`;
@@ -2805,7 +2850,7 @@ function tplFireworks(y, fig, ac) {
   }).join('')).join('');
   return `<svg class="deco" viewBox="0 0 390 693" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${sparks}</svg>
     <div class="t t-fireworks">
-      <span class="kicker" style="color:${ac}">Day complete</span>
+      <span class="kicker" style="color:${ac}">${esc(fig.lead)}</span>
       <div class="fig">${tplFig(fig)}</div>
       ${tplStreakLine(y)}
     </div>`;
@@ -2823,7 +2868,7 @@ function tplComic(y, fig, ac) {
     <div class="t t-comic">
       <div class="burst">
         <svg viewBox="0 0 420 420" aria-hidden="true"><polygon points="${star}" fill="${ac}" stroke="currentColor" stroke-width="9"/></svg>
-        <div class="fig">${tplFig(fig)}</div>
+        <div class="fig">${tplFig(fig, true)}</div>
       </div>
       ${tplStreakLine(y)}
     </div>`;
@@ -2832,7 +2877,7 @@ function tplComic(y, fig, ac) {
 // thing the stickers are arranged around.
 function tplSticker(y, fig, ac) {
   return `<div class="t t-sticker">
-      <span class="lab one">Quota met</span>
+      <span class="lab one">${esc(fig.lead)}</span>
       <div class="fig" style="color:${ac}">${tplFig(fig)}</div>
       ${y.st > 1 ? `<span class="lab two">${esc(String(y.st))} days</span>` : ''}
     </div>`;
@@ -3537,16 +3582,19 @@ async function postStory() {
 // unless it is shared. The number is the story; the words underneath are yours to change.
 // The look is picked for you and is a different one most days; whichever it is, the tray
 // under the card can swap it, so nobody is stuck with the one the hash chose.
+// The look and the news are separate things, and keeping them separate is the whole point:
+// every card it writes gets one of the seven and the tray that swaps them, whether the news
+// is a day finished, a challenge finished or a streak worth saying out loud. They were
+// welded together once — the day got the looks and the other two kept an older drawing and
+// no way to change it, which is not a design decision, it is two thirds of a job.
 function suggest(kind, data) {
   if (S.draft || S.story) return;
   const id = tplFor(data.seed || `${me().id}|${today()}`), t = tplOf(id);
-  const look = kind === 'streak' ? {tpl: 'streak', n: data.n, bg: 0, ink: 0}
-    : kind === 'chal' ? {tpl: 'chal', n: data.n, bg: 3, ink: 0}
-    : {tpl: id, rows: data.rows || null, st: data.st || null, n: data.n, sub: data.sub, bg: t.bg, ink: t.ink};
   // The figure is the loud part, so the line under it is set small: at the next size up a
   // group whose name is one word too long wraps in the middle of that word.
   newStory({suggested: true, kind: 'text', body: data.body || '',
-    style: {font: 0, size: 0, y: .84, ...look}});
+    style: {font: 0, size: 0, y: .84, tpl: id, bg: t.bg, ink: t.ink, what: kind,
+      rows: data.rows || null, st: data.st || null, n: data.n ?? null, sub: data.sub || null}});
 }
 // What the day came to, per quota the group set. done() is already the day's total for a
 // metric, which is the number this is about — the amount on the post that tipped it over
@@ -3562,9 +3610,13 @@ function suggestAfterPost(g) {
 // lands on is the only moment it is news.
 const doneChallengeIds = () => new Set(myGroups().flatMap(g => myChallenges(g)
   .filter(sp => challengeDone(g, sp)).map(sp => sp.id)));
+// A challenge finishing wins the moment over the day finishing, because the day comes round
+// again tomorrow and the challenge does not. When both happened at once the day is not
+// thrown away, it rides along under the challenge: it is the same post that did both.
 function suggestAfterChallenge(g, sp) {
-  const w = S.wheels.find(x => x.id === sp.wheel_id), need = requiredDays(w, sp);
-  suggest('chal', {n: effChallenge(sp), seed: `${me().id}|${today()}|${sp.id}`,
+  const m = me(), w = S.wheels.find(x => x.id === sp.wheel_id), need = requiredDays(w, sp);
+  suggest('chal', {n: effChallenge(sp), seed: `${m.id}|${today()}|${sp.id}`,
+    rows: hit(g, m.id) ? dayRows(g, m.id) : null, st: streak(g, m.id),
     body: `${need} ${need === 1 ? 'day' : 'days'} · ${g.name}`});
 }
 

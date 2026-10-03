@@ -4118,10 +4118,17 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => suggestAfterChallenge(S.groups[0], S.spins.find(x => x.id === 91)));
   await page.waitForTimeout(300);
   check('  and offers a story that says which challenge', await page.locator('#make').isVisible()
-    && /cold shower/i.test(await page.locator('#make .face .hero .word').innerText()),
+    && /cold shower/i.test(await page.locator('#make .face .t .tword').innerText()),
     await page.locator('#make .face').innerText());
   check('    saying it is the challenge that is done, not the day',
-    /challenge done/i.test(await page.locator('#make .face .hero .tag').innerText()));
+    /challenge done/i.test(await page.locator('#make .face .t').innerText()));
+  // It used to keep an older drawing and no way out of it: the looks were wired to the
+  // day's card alone, so two of the three cards it writes could not be restyled at all.
+  check('    wearing one of the looks, like every other card it writes',
+    await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl)));
+  check('    and the look can be swapped', await page.evaluate(() => {
+    draftTpl('medal'); return styleOf(S.draft).tpl === 'medal';
+  }) && /cold shower/i.test(await page.locator('#make .face .t-medal .tword').innerText()));
   check('    it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
   await page.evaluate(() => closeDraft());
 });
@@ -4178,8 +4185,11 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => suggest('streak', {n: 7, body: STORY_MILE_LINE(7)}));
   await page.waitForTimeout(250);
   check('a streak milestone offers one as well', await page.locator('#make').isVisible()
-    && /^7$/.test((await page.locator('#make .face .hero .big').innerText()).trim())
-    && /day streak/i.test(await page.locator('#make .face .hero .tag').innerText()));
+    && /^7$/.test((await page.locator('#make .face .t .tbig').innerText()).trim())
+    && /days in a row/i.test(await page.locator('#make .face .t').innerText()));
+  check('  wearing a look too, and saying streak rather than the day',
+    await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl))
+    && !/quota met|goal met|day complete/i.test(await page.locator('#make .face .t').innerText()));
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees
