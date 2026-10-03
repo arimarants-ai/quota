@@ -2721,7 +2721,6 @@ function tplFor(seed) {
 // kicker over confetti and fireworks, the sticker's first label. It says which news this
 // is, so it cannot be written into the looks: a medal that reads "day's goal, cleared"
 // over a finished challenge is the look talking about something it was not given.
-const TPL_LEAD = {streak: 'Streak'};
 // What was done, in words: the metric, with the challenge in front of it when the day was
 // done with one. Its first letter comes down so it sits mid-sentence ("military", not
 // "Military") — but only when the next one is already lower case, so AMRAP stays AMRAP.
@@ -2732,8 +2731,7 @@ const tplWhat = r => {
 };
 function tplFigure(y) {
   const rows = (Array.isArray(y.rows) ? y.rows : []).filter(r => r && r.m != null);
-  const lead = TPL_LEAD[y.what] || 'Quota met';
-  if (y.what === 'streak') return {lead, big: String(y.n ?? ''), sub: 'days in a row', rows: []};
+  const lead = 'Quota met';
   if (rows.length === 1) return {lead, big: String(rows[0].d), sub: `of ${rows[0].t} ${tplWhat(rows[0])}`, rows: []};
   if (rows.length) return {lead, big: '', sub: '', rows};
   return {lead, big: String(y.n ?? ''), sub: y.sub ? esc(y.sub) : '', rows: []};
@@ -3568,17 +3566,17 @@ async function postStory() {
 // unless it is shared. The number is the story; the words underneath are yours to change.
 // The look is picked for you and is a different one most days; whichever it is, the tray
 // under the card can swap it, so nobody is stuck with the one the hash chose.
-// The look and the news are separate things: every card it writes gets one of the seven
-// and the tray that swaps them, whether the news is the day or a streak worth saying out
-// loud. A challenge is not a third kind of news — it is the day, worded with it.
-function suggest(kind, data) {
+// There is one card and it is the day. A challenge is not separate news, it is a word in
+// the day ("military pushups"); a streak milestone is not either, it is the day that
+// carried the streak to that number, and the card already says the streak.
+function suggest(data) {
   if (S.draft || S.story) return;
   const id = tplFor(data.seed || `${me().id}|${today()}`), t = tplOf(id);
   // The figure is the loud part, so the line under it is set small: at the next size up a
   // group whose name is one word too long wraps in the middle of that word.
   newStory({suggested: true, kind: 'text', body: data.body || '',
-    style: {font: 0, size: 0, y: .84, tpl: id, bg: t.bg, ink: t.ink, what: kind,
-      rows: data.rows || null, st: data.st || null, n: data.n ?? null, sub: data.sub || null}});
+    style: {font: 0, size: 0, y: .84, tpl: id, bg: t.bg, ink: t.ink,
+      rows: data.rows || null, st: data.st || null}});
 }
 // What the day came to, per quota the group set. done() is already the day's total for a
 // metric, which is the number this is about — the amount on the post that tipped it over
@@ -3597,7 +3595,7 @@ const dayRows = (g, uid) => {
 };
 function suggestAfterPost(g) {
   const m = me(), st = streak(g, m.id);
-  suggest('done', {rows: dayRows(g, m.id), st, seed: `${m.id}|${today()}|${g.id}`,
+  suggest({rows: dayRows(g, m.id), st, seed: `${m.id}|${today()}|${g.id}`,
     body: st > 1 ? `Day ${st} · ${g.name}` : g.name});
 }
 // Every challenge of mine that is finished right now. Compared across a post to find the
@@ -6079,10 +6077,6 @@ async function acceptTerms(btn) {
 // Only the long ones. A run of five is a good week, not a thing to interrupt somebody for,
 // and a celebration that arrives every few days stops meaning anything at all.
 const MILESTONES = [25, 50, 100, 150, 250, 365, 500, 1000];
-// Worth a story sooner than it is worth stopping the app for: a first week is a real
-// thing to say out loud, and a hundred is a different kind of thing again.
-const STORY_MILESTONES = [3, 5, 7, 10, 14, 21, 25, 30, 50, 75, 100, 150, 200, 250, 300, 365, 500, 1000];
-const STORY_MILE_LINE = d => d >= 365 ? 'A full year. Every single day.' : d >= 100 ? 'Not one missed.' : 'Still going.';
 const MILESTONE_LINE = {
   25: 'Three and a half weeks without missing one.',
   50: 'Fifty days. Most people never see the far side of a fortnight.',
@@ -6174,6 +6168,13 @@ function milestoneDue() {
   // celebrates the 100 rather than walking up through every number below it.
   return MILESTONES.filter(d => d <= best && d > seen).pop() || 0;
 }
+// A milestone is only ever reached by finishing a day — milestoneDue looks at groups done
+// today — so sharing one is sharing that day: the same card, which already carries the
+// streak. The group is the one whose streak it is.
+function shareMilestone() {
+  const m = me(), g = myGroups().filter(x => hit(x, m.id)).sort((a, b) => streak(b, m.id) - streak(a, m.id))[0];
+  if (g) suggestAfterPost(g);
+}
 function party(d) {
   try { localStorage.milestone = String(d); } catch (e) {}
   buzz('heavy');
@@ -6183,7 +6184,7 @@ function party(d) {
     <h2>${d >= 365 ? 'A year of this' : 'Still going'}</h2>
     <p>${MILESTONE_LINE[d] || 'Not one missed.'}</p>
     <button type="button" onclick="$('#party').hidden = true">Keep going</button>
-    <button type="button" class="share" onclick="$('#party').hidden = true;suggest('streak',{n:${d},body:STORY_MILE_LINE(${d})})">Share it</button></div>`;
+    <button type="button" class="share" onclick="$('#party').hidden = true;shareMilestone()">Share it</button></div>`;
   box.hidden = false;
   confetti(box.querySelector('canvas'));
 }

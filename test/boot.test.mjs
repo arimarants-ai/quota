@@ -4197,15 +4197,19 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#make .face .t .tbig').count() === 0);
   await page.evaluate(() => closeDraft());
 
-  // A milestone offers one too, on a wider ladder than the confetti uses.
-  await page.evaluate(() => suggest('streak', {n: 7, body: STORY_MILE_LINE(7)}));
+  // A milestone is reached by finishing a day, so sharing it shares that day: the same
+  // card, not a second one with only the streak on it. Pressed through the celebration's
+  // own button, since that is the only way in.
+  await page.evaluate(() => party(25));
   await page.waitForTimeout(250);
-  check('a streak milestone offers one as well', await page.locator('#make').isVisible()
-    && /^7$/.test((await page.locator('#make .face .t .tbig').innerText()).trim())
-    && /days in a row/i.test(await page.locator('#make .face .t').innerText()));
-  check('  wearing a look too, and saying streak rather than the day',
-    await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl))
-    && !/quota met|goal met|day complete/i.test(await page.locator('#make .face .t').innerText()));
+  await page.locator('#party button.share').click();
+  await page.waitForTimeout(300);
+  check('sharing a streak milestone offers the day\'s card', await page.locator('#make').isVisible()
+    && await page.evaluate(() => Array.isArray(styleOf(S.draft).rows) && styleOf(S.draft).rows.length > 0),
+    await page.locator('#make .face').innerText());
+  check('  wearing a look, like every card it writes',
+    await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl)));
+  await page.evaluate(() => closeDraft());
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees
