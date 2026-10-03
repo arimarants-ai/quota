@@ -4127,16 +4127,51 @@ await withPage(SIGNED_IN, async page => {
 });
 
 // The one it writes for you. Built, never sent on its own.
+//
+// The number on it is the DAY's, which is the whole point of the card and was wrong for a
+// while: it used to be handed the amount off the post that happened to finish the day, so
+// a day of 50 then 12 announced itself as 12. The day is loaded here as two totals that
+// add to something neither of them is, so a card showing either one fails.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
-  await page.evaluate(() => suggestAfterPost(S.groups[0], 50, 'pushups'));
+  const dayTotal = await page.evaluate(() => {
+    const g = S.groups[0];
+    S.totals = [...S.totals, { g: g.id, u: me().id, m: 'pushups', d: today(), n: 12 }];
+    suggestAfterPost(g);
+    return done(g, me().id, 'pushups');
+  });
   await page.waitForTimeout(250);
   check('finishing the day offers a story already written', await page.locator('#make').isVisible());
-  check('  with the number drawn large', /^50$/.test((await page.locator('#make .face .hero .big').innerText()).trim())
-    && /pushups/i.test(await page.locator('#make .face .hero .tag').innerText()));
-  check('  and a stamp on it', await page.locator('#make .face .hero .stamp').count() === 1);
+  check('  the day adds up to more than any one post of it', dayTotal === 62, String(dayTotal));
+  const big = (await page.locator('#make .face .t .tbig').innerText()).trim();
+  check('  and the number drawn large is the day, not the post that closed it', big === '62', big);
+  check('    with the day\'s goal under it', /of 50 pushups/i.test(await page.locator('#make .face .t .tsub').innerText()));
+  check('  it wears one of the looks it can write', await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl)));
   check('  it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
   check('  which can still be edited before it goes', await page.locator('#make .type').count() === 1);
+
+  // Whichever look the hash chose, the tray can swap it, and the day survives the swap.
+  await page.evaluate(() => draftTpl('medal'));
+  await page.waitForTimeout(200);
+  check('  a different look can be chosen for it', await page.evaluate(() => styleOf(S.draft).tpl) === 'medal'
+    && (await page.locator('#make .face .t-medal .tbig').innerText()).trim() === '62');
+  await page.evaluate(() => closeDraft());
+
+  // Two quotas cannot both be a number the size of the card, so they become a list.
+  await page.evaluate(() => {
+    const g = S.groups[0];
+    g.quotas = [{ metric: 'pushups', target: 50 }, { metric: 'situps', target: 20 }];
+    S.totals = [...S.totals, { g: g.id, u: me().id, m: 'situps', d: today(), n: 24 }];
+    suggestAfterPost(g);
+  });
+  await page.waitForTimeout(250);
+  check('a group with two quotas gets both of them, as a list',
+    await page.locator('#make .face .t .tstack .tsrow').count() === 2
+    && /50/.test(await page.locator('#make .face .t .tstack').innerText())
+    && /situps/i.test(await page.locator('#make .face .t .tstack').innerText()),
+    await page.locator('#make .face .t').innerText());
+  check('  and no single number pretending to be the day',
+    await page.locator('#make .face .t .tbig').count() === 0);
   await page.evaluate(() => closeDraft());
 
   // A milestone offers one too, on a wider ladder than the confetti uses.
