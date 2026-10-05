@@ -248,6 +248,78 @@ await withPage(SIGNED_IN, async page => {
   check('  the sound toggle is a speaker, not a menu', await page.locator('.post .reel .sound').first().count() === 1);
 });
 
+// Getting around inside a clip: hold an edge for double speed, drag the line to skip,
+// choose a speed, step a frame. Against a real clip recorded in the page, because none of
+// it means anything on a video element with nothing to decode.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const ready = await page.evaluate(async () => {
+    const v = [...document.querySelectorAll('.reel video.proof')].find(x => x.getBoundingClientRect().width > 0);
+    if (!v || typeof MediaRecorder === 'undefined') return false;
+    v.closest('.reel').dataset.probe = '1';
+    const c = document.createElement('canvas'); c.width = 160; c.height = 200; const g = c.getContext('2d');
+    const rec = new MediaRecorder(c.captureStream(30), {mimeType: 'video/webm'}), parts = [];
+    rec.ondataavailable = e => parts.push(e.data);
+    let raf; const draw = () => { g.fillStyle = `hsl(${performance.now() % 360},60%,40%)`; g.fillRect(0, 0, 160, 200); raf = requestAnimationFrame(draw); };
+    draw(); rec.start(); await new Promise(r => setTimeout(r, 6000)); rec.stop(); await new Promise(r => rec.onstop = r); cancelAnimationFrame(raf);
+    const url = URL.createObjectURL(new Blob(parts, {type: 'video/webm'}));
+    v.dataset.src = url; v.src = url; v.muted = true;
+    await new Promise(r => v.addEventListener('loadedmetadata', r, {once: true}));
+    // Recorded webm has no duration until it has been read to the end.
+    if (!isFinite(v.duration)) { v.currentTime = 1e9; await new Promise(r => v.addEventListener('durationchange', r, {once: true})); v.currentTime = 0; }
+    v.scrollIntoView({block: 'center'});
+    return isFinite(v.duration) && v.duration > 3;
+  });
+  check('a real clip to try the controls on', ready);
+  if (ready) {
+    const R = '.reel[data-probe]';
+    const box = await page.locator(`${R} video.proof`).boundingBox();
+    const st = () => page.evaluate(R => { const v = document.querySelector(R + ' video.proof'); return {paused: v.paused, rate: v.playbackRate, at: v.currentTime / v.duration}; }, R);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+    await page.mouse.move(box.x + box.width * .9, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(500);
+    const held = await st();
+    check('  holding the edge of a playing clip runs it at double speed', held.rate === 2 && !held.paused, JSON.stringify(held));
+    check('    and says so over it', /2×/.test(await page.locator(`${R} .hud.on`).innerText()));
+    await page.mouse.up(); await page.waitForTimeout(400);
+    const after = await st();
+    check('    letting go puts the speed back without pausing it', after.rate === 1 && !after.paused, JSON.stringify(after));
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(500);
+    check('  a hold in the middle is not a speed-up', (await st()).rate === 1);
+    await page.mouse.up(); await page.waitForTimeout(300);
+    // Letting go in the middle is a tap there, which is pause; start it again for the drag.
+    if ((await st()).paused) { await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await page.waitForTimeout(300); }
+
+    const bar = await page.locator(`${R} .prg`).boundingBox();
+    await page.mouse.move(bar.x + bar.width * .1, bar.y + bar.height - 4); await page.mouse.down();
+    await page.mouse.move(bar.x + bar.width * .7, bar.y + bar.height - 4, {steps: 6}); await page.waitForTimeout(200);
+    const mid = await st();
+    check('  dragging the line skims to where the finger is', Math.abs(mid.at - .7) < .05 && mid.paused, JSON.stringify(mid));
+    check('    showing the time while it does', /^\d:\d\d \/ \d:\d\d$/.test(await page.locator(`${R} .hud.on`).innerText()));
+    await page.mouse.up(); await page.waitForTimeout(300);
+    check('    and it plays on from there', !(await st()).paused);
+
+    await page.locator(`${R} .spd`).click(); await page.waitForTimeout(150);
+    await page.locator(`${R} .spdm .rates button`, {hasText: /^0\.5×$/}).click(); await page.waitForTimeout(200);
+    check('  a speed can be chosen', (await st()).rate === .5 && (await page.locator(`${R} .spd`).innerText()) === '0.5×');
+    await page.mouse.move(box.x + box.width * .1, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(500);
+    const h2 = (await st()).rate;
+    await page.mouse.up(); await page.waitForTimeout(300);
+    check('    and holding from there still doubles, then goes back to it', h2 === 2 && (await st()).rate === .5);
+
+    await page.locator(`${R} .spd`).click(); await page.waitForTimeout(150);
+    const t0 = await page.evaluate(R => document.querySelector(R + ' video.proof').currentTime, R);
+    await page.locator(`${R} .spdm .step button`).nth(1).click(); await page.waitForTimeout(200);
+    const t1 = await page.evaluate(R => document.querySelector(R + ' video.proof').currentTime, R);
+    await page.locator(`${R} .spdm .step button`).nth(0).click(); await page.waitForTimeout(200);
+    const t2 = await page.evaluate(R => document.querySelector(R + ' video.proof').currentTime, R);
+    check('  a frame can be stepped forward and back, stopped', (await st()).paused && Math.abs(t1 - t2 - 1 / 30) < .005,
+      `${t0.toFixed(3)} ${t1.toFixed(3)} ${t2.toFixed(3)}`);
+    await page.mouse.click(5, 5); await page.waitForTimeout(150);
+    check('  tapping elsewhere puts the speed menu away', await page.locator('.spdm').count() === 0);
+  }
+});
+
 // A post with no caption simply has no caption line.
 await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
   await settle(page);
@@ -521,7 +593,7 @@ await withPage(SIGNED_IN, async page => {
 // the same row rather than rolling again, which is what stops a force-quit re-spin.
 await withPage({ ...SIGNED_IN, pick: 2 }, async page => {
   await settle(page);
-  await page.locator('#app button:has-text("Spin the wheel")').first().click();
+  await page.locator('#app button:has-text("Spin")').first().click();
   await page.locator('#dlg button.primary').click();          // Spin
   await page.waitForFunction(() => document.querySelector('#lt0')?.textContent, null, { timeout: 15000 });
   check('the wheel lands on what the database picked', (await page.locator('#lt0').innerText()) === 'plank 3 min',
@@ -547,10 +619,10 @@ await withPage({ ...SIGNED_IN, pick: 2 }, async page => {
 // Once spun, the group shows what you got, everyone else's, and the days to tick off.
 await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await settle(page);
-  await page.locator('#app button:has-text("Spin the wheel")').first().click();
+  await page.locator('#app button:has-text("Spin")').first().click();
   await page.locator('#dlg button.primary').click();          // Spin
   await page.waitForFunction(() => document.querySelector('#lt1')?.textContent, null, { timeout: 20000 });
-  await page.locator('#dlg button.primary').click();          // Got it
+  await page.locator('#dlg button.primary').click();          // OK
   await page.waitForTimeout(500);
   const text = await page.innerText('#app');
   check('the group shows your result', text.includes('100 burpees'), text.slice(0, 300));
@@ -569,8 +641,8 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => { S.spins = [{ wheel_id: 7, user_id: 'u1', cycle: 2, id: 1, results: [], days_required: 0 }]; render(); openGroup(1); });
   await page.waitForTimeout(200);
-  await page.locator('button:has-text("Manage group")').click();          // v93 moved it here
-  await page.locator('#dlg button:has-text("Add a wheel")').click();
+  await page.locator('button:has-text("Manage")').click();          // v93 moved it here
+  await page.locator('#dlg button:has-text("Add wheel")').click();
   await page.locator('#dlg textarea[name=segments]').fill('cold plunge\nsauna\nrun');
   await page.locator('#dlg input[name=name]').fill('Recovery');
   await page.locator('#dlg input[name=every]').fill('4');
@@ -589,8 +661,8 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   await settle(page);
   await page.evaluate(() => { S.spins = [{ wheel_id: 7, user_id: 'u1', cycle: 2, id: 1, results: [], days_required: 0 }]; render(); openGroup(1); });
   await page.waitForTimeout(200);
-  await page.locator('button:has-text("Manage group")').click();          // v93 moved it here
-  await page.locator('#dlg button:has-text("Add a wheel")').click();
+  await page.locator('button:has-text("Manage")').click();          // v93 moved it here
+  await page.locator('#dlg button:has-text("Add wheel")').click();
   await page.locator('#dlg input[name=name]').fill('Bad');
   await page.locator('#dlg textarea[name=segments]').fill('a\nb');
   await page.locator('#dlg input[name=every]').fill('3');
@@ -674,9 +746,9 @@ await withPage({ ...SIGNED_IN, theirWheel: true }, async page => {
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   page.on('dialog', () => {});                      // the confirm is auto-dismissed by withPage
-  await page.locator('#app button:has-text("Spin the wheel")').first().click();
+  await page.locator('#app button:has-text("Spin")').first().click();
   await page.waitForTimeout(300);
-  check('the wheel offers a way out', await page.locator('#dlg button:has-text("Sit this one out")').count() === 1);
+  check('the wheel offers a way out', await page.locator('#dlg button:has-text("Sit out")').count() === 1);
   check('  and says when it comes back', /It comes back/.test(await page.locator('#dlg').innerText()));
 });
 
@@ -715,7 +787,7 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await settle(page);
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); openGroup(1); });
   await page.waitForTimeout(300);
-  check('once spun, there is nothing left to sit out', await page.locator('#dlg button:has-text("Sit this one out")').count() === 0);
+  check('once spun, there is nothing left to sit out', await page.locator('#dlg button:has-text("Sit out")').count() === 0);
   const after = await page.evaluate(async () => {
     const {data} = await sb.rpc('sit_out', {p_wheel: 7, p_day: today()});
     return data.sat_out;
@@ -917,7 +989,7 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('.bar .add').click();
   await page.waitForTimeout(300);
   check('posting offers to record', await page.locator('button:has-text("Record")').count() > 0);
-  check('  and nothing else — the roll is not an option', await page.locator('#dlg button:has-text("Choose a file")').count() === 0);
+  check('  and nothing else — the roll is not an option', await page.locator('#dlg button:has-text("Upload")').count() === 0);
 
   // Tapping Record really does open the chooser — on a phone that is the camera app, and
   // it is consumed here because a chooser nobody answers holds the browser open behind it.
@@ -1426,8 +1498,8 @@ await withPage(SIGNED_IN, async page => {
   await hold(page, page.locator('.post .clist .c').first());
   const opts = await page.locator('.post .clist .reactpick.opts button').allInnerTexts();
   check('  holding your comment offers reply, like, copy and delete',
-    opts.join('|') === 'Reply|Like|Copy|Delete comment', JSON.stringify(opts));
-  await page.locator('.post .clist .reactpick.opts button:has-text("Delete comment")').click();
+    opts.join('|') === 'Reply|Like|Copy|Delete', JSON.stringify(opts));
+  await page.locator('.post .clist .reactpick.opts button:has-text("Delete")').click();
   await page.waitForTimeout(900);
   check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
@@ -1682,7 +1754,7 @@ await withPage({ session: null }, async page => {
 // An account that is signed in but not finished sees one screen and nothing else.
 await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page => {
   await settle(page);
-  check('a half-made account is asked to finish', /what should your crew call you/i.test(await page.locator('#app h2').innerText()));
+  check('a half-made account is asked to finish', /your name/i.test(await page.locator('#app h2').innerText()));
   const asks = await page.evaluate(() => [...document.querySelectorAll('#app input,#app select')].map(i => i.name));
   check('  for a name, a username and a birthday, and no longer a gender',
     asks.join() === 'display_name,username,birthday', asks.join());
@@ -2037,7 +2109,7 @@ await withPage(SIGNED_IN, async page => {
   const set = await page.innerText('#app');
   check('the gear opens settings', await page.evaluate(() => S.settings) === true
     && await page.locator('.list').count() === 5);             // profile, preferences, help and safety, legal, account
-  check('  carrying everything the profile used to', /bio/i.test(set) && /Groups on your profile/i.test(set)
+  check('  carrying everything the profile used to', /Edit profile/i.test(set) && /Profile groups/i.test(set)
     && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
     && /Email/.test(set) && /ari@example\.com/.test(set) && /Log out/i.test(set), set);
   // Whatever somebody agreed to at signup has to stay readable afterwards, or agreeing to
@@ -2211,10 +2283,10 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(350);
   check("a post of your own offers to show itself on your profile",
-    /show this on my profile/i.test(await page.locator('#dlg .menu').innerText()),
+    /show on profile/i.test(await page.locator('#dlg .menu').innerText()),
     await page.locator('#dlg .menu').innerText());
   // By what it says rather than by where it sits: the menu has more on it than it used to.
-  await page.locator('#dlg .menu button', { hasText: /show this on my profile/i }).click();
+  await page.locator('#dlg .menu button', { hasText: /show on profile/i }).click();
   await page.waitForTimeout(700);
   const sent = (await page.evaluate(() => self.__edits)).filter(e => e.table === 'posts');
   check('  and ticking it saves that against the post',
@@ -2250,7 +2322,7 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('#one .post .head .more').click();
   await page.waitForTimeout(350);
   check('  a post already on the profile offers to come off',
-    /take this off my profile/i.test(await page.locator('#dlg .menu').innerText()),
+    /hide from profile/i.test(await page.locator('#dlg .menu').innerText()),
     await page.locator('#dlg .menu').innerText());
   await page.evaluate(() => { dlg(); closePost(); });
 });
@@ -2342,13 +2414,13 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(350);
   check('a post of your own offers to go on your story',
-    /share this to my story/i.test(await page.locator('#dlg .menu').innerText()),
+    /add to story/i.test(await page.locator('#dlg .menu').innerText()),
     await page.locator('#dlg .menu').innerText());
 
   // The story points at the post rather than carrying a copy, so the people who can watch
   // the story have to be people who can open the post. On your profile is that exact set.
   // By name: the menu is not in a fixed order (v93 put editing the caption first).
-  await page.locator('#dlg .menu button:has-text("Share this to my story")').click();
+  await page.locator('#dlg .menu button:has-text("Add to story")').click();
   await page.waitForTimeout(350);
   check('  and says first that it also goes on your profile',
     /profile/i.test(await page.locator('#dlg').innerText()), await page.locator('#dlg').innerText());
@@ -2361,7 +2433,7 @@ await withPage(NO_WHEEL, async page => {
 
   await page.locator('.post[data-post="1"] .head .more').click();   // yours: every post has one now
   await page.waitForTimeout(300);
-  await page.locator('#dlg .menu button:has-text("Share this to my story")').click();
+  await page.locator('#dlg .menu button:has-text("Add to story")').click();
   await page.waitForTimeout(300);
   await page.locator('#dlg .row button.teal').click();
   await page.waitForTimeout(800);
@@ -2497,7 +2569,7 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => myVote(S.flag)?.yes) === true);
   check('    and that shows as the one you picked',
     await page.locator('#app .votes button.on').count() === 1
-    && /needs redoing/i.test(await page.locator('#app .votes button.on').innerText()));
+    && /doesn.t count/i.test(await page.locator('#app .votes button.on').innerText()));
 
   // Changing your mind before the result is out is not a second vote.
   await page.locator('#app .votes button', { hasText: /it counts/i }).click();
@@ -2950,14 +3022,14 @@ await withPage({ ...SIGNED_IN, forfeit: 'buys coffee', forfeitDays: 12 }, async 
     JSON.stringify(noted) === JSON.stringify([`u1:${miss.owed}:owed`, `u2:${miss.owed}:owed`]), JSON.stringify(noted));
   const owed = await page.locator('#app .owed').innerText();
   check('  the Owed list names who owes what', /Sam owes: buys coffee/.test(owed) && /You owe: buys coffee/.test(owed), owed);
-  check('  with a Mark paid for somebody else and none for yourself', await page.locator('#app .owed button:has-text("Mark paid")').count() === 1);
-  await page.locator('#app .owed button:has-text("Mark paid")').click(); await page.waitForTimeout(400);
+  check('  with a Paid for somebody else and none for yourself', await page.locator('#app .owed button:has-text("Paid")').count() === 1);
+  await page.locator('#app .owed button:has-text("Paid")').click(); await page.waitForTimeout(400);
   const paid = await page.evaluate(() => self.__settle.find(r => r.user_id === 'u2' && r.settled_at));
   check('  marking it paid writes who marked it', paid && paid.settled_by === 'u1' && !!paid.settled_at, JSON.stringify(paid));
   check('    and it leaves the list, staying in the history under it', !/Sam owes/.test(await page.locator('#app .owed').innerText())
     && /Paid: Sam/.test(await page.locator('#app .owed').innerText()), await page.locator('#app .owed').innerText());
   await page.evaluate(() => { closeGroup(); go('feed'); }); await page.waitForTimeout(400);
-  check('  and your own home screen says what you owe, in one line', /You owe your crew: buys coffee/.test(await page.locator('#app .owe').innerText()));
+  check('  and your own home screen says what you owe, in one line', /You owe: buys coffee/.test(await page.locator('#app .owe').innerText()));
 });
 // The other side of it: Sam sees what Ari owes, and can mark it paid; not his own.
 await withPage({ session: { user: { id: 'u2' } }, forfeit: 'buys coffee', forfeitDays: 12 }, async page => {
@@ -2966,7 +3038,7 @@ await withPage({ session: { user: { id: 'u2' } }, forfeit: 'buys coffee', forfei
   await history(page, ['u1']);
   const owed = await page.locator('#app .owed').innerText();
   check('a second account sees what the first one owes', /Ari owes: buys coffee/.test(owed), owed);
-  await page.locator('#app .owed button:has-text("Mark paid")').click(); await page.waitForTimeout(400);
+  await page.locator('#app .owed button:has-text("Paid")').click(); await page.waitForTimeout(400);
   const paid = await page.evaluate(() => self.__settle.find(r => r.user_id === 'u1' && r.settled_at));
   check('  and marks it paid', paid && paid.settled_by === 'u2', JSON.stringify(paid));
 });
@@ -3418,7 +3490,7 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('.gchip').count() === 0);
   await page.evaluate(() => { openSettings(); });
   await page.waitForTimeout(400);
-  await page.locator('.li:has-text("Groups on your profile")').click();
+  await page.locator('.li:has-text("Profile groups")').click();
   await page.waitForTimeout(350);
   check('  and settings is where you choose', await page.locator('#dlg input[name=g]').count() === 1);
 });
@@ -3611,7 +3683,7 @@ await withPage(SIGNED_IN, async page => {
   check('    and it asks what kind, rather than opening the one you have',
     /New story/.test(await page.locator('#dlg').innerText()) && await page.locator('#story').isHidden(),
     await page.locator('#dlg').innerText());
-  await page.locator('#dlg button:has-text("Just words")').click();
+  await page.locator('#dlg button:has-text("Text")').click();
   await page.waitForTimeout(300);
   check('    on a blank card, not the one already up',
     await page.locator('#make').isVisible() && await page.evaluate(() => S.draft.body) === ''
@@ -3824,7 +3896,7 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('#story .eye').click();
   await page.waitForTimeout(150);
   const sheet = await page.locator('#story .seenby').innerText();
-  check('  and tapping the count names them', /Seen by 2/.test(sheet) && /Kit/.test(sheet), sheet);
+  check('  and tapping the count names them', /2 views/.test(sheet) && /Kit/.test(sheet), sheet);
   check('    newest first', sheet.indexOf('Kit') < sheet.indexOf('Sam'), sheet);
   check('    without counting you', !/@ari/.test(sheet));
   await page.locator('#story .seenby .x').click();
@@ -3870,14 +3942,14 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('#story .tally').click();
   await page.waitForTimeout(200);
   const liked = await page.locator('#story .seenby').innerText();
-  check('  tapping the count says who liked it', /Liked by 2/.test(liked) && /Sam/.test(liked) && /Kit/.test(liked), liked);
+  check('  tapping the count says who liked it', /2 likes/.test(liked) && /Sam/.test(liked) && /Kit/.test(liked), liked);
   check('    marking what each of them left', await page.locator('#story .seenby .hrt').count() === 2
     && await page.locator('#story .seenby .em').count() === 1);
   // The sheet covers the buttons that opened it, so it carries both lists itself.
   await page.locator('#story .seenby .tabs button').first().click();
   await page.waitForTimeout(200);
   check('    and the other list is one tap away, inside the sheet',
-    await page.locator('#story .seenby .tabs button.on').innerText().then(t => /Seen by/.test(t)));
+    await page.locator('#story .seenby .tabs button.on').innerText().then(t => /views?$/.test(t.trim())));
 
   // A story of your own opens a menu, not a bin, and nothing in the app is an emoji you press.
   check('your own story has no bin on it', !/[\u{1F300}-\u{1FAFF}]/u.test(
@@ -3885,7 +3957,7 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('#story .who .bin').click();
   await page.waitForTimeout(300);
   const menu = await page.locator('#dlg .menu').innerText();
-  check('  it offers more than deleting', /edit/i.test(menu) && /liked/i.test(menu) && /watched/i.test(menu), menu);
+  check('  it offers more than deleting', /edit/i.test(menu) && /likes/i.test(menu) && /viewers/i.test(menu), menu);
   check('    with deleting last', /delete/i.test((await page.locator('#dlg .menu button').last().innerText())));
   await page.locator('#dlg .menu button').first().click();
   await page.waitForTimeout(350);
@@ -4481,8 +4553,8 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
   const html = await page.innerHTML('#app');
   check('an account with no group is held on one screen', /Quota is a group thing/.test(html), html.slice(0, 300));
   check('  with a way to start one and a way to take an invite',
-    await page.locator('button:has-text("Start a group")').count() === 1
-    && await page.locator('button:has-text("I have an invite link")').count() === 1);
+    await page.locator('button:has-text("New group")').count() === 1
+    && await page.locator('button:has-text("Join with a link")').count() === 1);
   check('  and a way out, which is not the feed', await page.locator('button:has-text("Log out")').count() === 1);
   check('  the feed is not reachable behind it', !/class="post"/.test(html));
 });
@@ -4584,7 +4656,7 @@ await withPage(SIGNED_IN, async page => {
   const html = await page.innerHTML('#app');
   check('a grid that failed to load says so', /could not be loaded/i.test(html), html.slice(0, 200));
   check('  rather than claiming it is empty', !/Nothing here yet/.test(html));
-  check('  and offers the way back', await page.locator('button:has-text("Try again")').count() > 0);
+  check('  and offers the way back', await page.locator('button:has-text("Retry")').count() > 0);
 });
 
 // What leaves the app. The card is drawn here, so what it says can be read off the calls
@@ -4659,14 +4731,14 @@ await withPage(NO_WHEEL, async page => {
   await page.evaluate(() => openGroup(1));
   await page.waitForTimeout(400);
   // Behind Manage since v93, with the rest of what you do to a group rather than in it.
-  await page.locator('button:has-text("Manage group")').click();
-  check('a group offers to be muted', await page.locator('#dlg button:has-text("Mute this group")').count() === 1);
-  await page.locator('#dlg button:has-text("Mute this group")').click();
+  await page.locator('button:has-text("Manage")').click();
+  check('a group offers to be muted', await page.locator('#dlg button:has-text("Mute")').count() === 1);
+  await page.locator('#dlg button:has-text("Mute")').click();
   await page.waitForTimeout(500);
-  check('  and the group says so once it is', /Manage group · muted/.test(await page.innerText('#app')),
+  check('  and the group says so once it is', /Manage · muted/.test(await page.innerText('#app')),
     await page.innerText('#app').then(h => h.slice(0, 200)));
-  await page.locator('button:has-text("Manage group")').click();
-  check('  and offers to unmute', await page.locator('#dlg button:has-text("Unmute this group")').count() === 1);
+  await page.locator('button:has-text("Manage")').click();
+  check('  and offers to unmute', await page.locator('#dlg button:has-text("Unmute")').count() === 1);
   check('    with what it does and does not cover',
     /own daily reminders still come/.test(await page.innerHTML('#dlg')));
   await page.evaluate(() => dlg());
@@ -4677,8 +4749,8 @@ await withPage(NO_WHEEL, async page => {
   await page.evaluate(() => load());
   await page.waitForTimeout(900);
   check('  and comes back from the server that way', await page.evaluate(() => !!S.groups.find(g => g.id === 1).muted));
-  await page.locator('button:has-text("Manage group")').click();
-  await page.locator('#dlg button:has-text("Unmute this group")').click();
+  await page.locator('button:has-text("Manage")').click();
+  await page.locator('#dlg button:has-text("Unmute")').click();
   await page.waitForTimeout(500);
   check('  and unmutes again', await page.evaluate(() => !self.__muted[1]));
 });
@@ -4696,7 +4768,7 @@ await withPage(NO_WHEEL, async page => {
   check('  from you, to that group, saying what it does', /^Ari invited you to Mornings on Quota: 50 pushups a day\. Post proof before midnight/.test(body)
     && !/proof or it didn/i.test(body), body);
   check('  with your own link in it, not the group\'s', /#join-mine12345678$/.test(body), body);
-  check('  and another way to share beside it', await page.locator('#dlg button:has-text("Share another way")').count() === 1);
+  check('  and another way to share beside it', await page.locator('#dlg button:has-text("More")').count() === 1);
 });
 
 // The page somebody lands on. It names who sent it, because a person is why anybody signs up.
@@ -4720,7 +4792,7 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
   const html = await page.innerHTML('#app');
   check('  and a browser is then shown how to install', /You are in Mornings/.test(html) && /home screen/i.test(html), html.slice(0, 200));
   check('    naming the friendship it made', /friends with Sam/.test(html));
-  await page.locator('button:has-text("Keep using it in the browser")').click();
+  await page.locator('button:has-text("Not now")').click();
   await page.waitForTimeout(400);
   check('    and gets out of the way when asked', !/Now put Quota on your home screen/.test(await page.innerHTML('#app')));
 });
@@ -4737,17 +4809,17 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
 // A brand-new person's first group goes straight to asking who else is in it.
 await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
   await settle(page);
-  await page.locator('button:has-text("Start a group")').click();
+  await page.locator('button:has-text("New group")').click();
   await page.waitForTimeout(300);
   await page.locator('#dlg input[name=name]').fill('Mornings');
   await page.locator('#dlg button.primary').click();
-  await page.waitForFunction(() => /Who is doing it with you/.test(document.querySelector('#dlg').innerHTML), null, { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => /Invite your crew/.test(document.querySelector('#dlg').innerHTML), null, { timeout: 8000 }).catch(() => {});
   const d = await page.locator('#dlg').innerHTML();
-  check('a first group goes straight to inviting somebody', /Who is doing it with you/.test(d), d.slice(0, 200));
+  check('a first group goes straight to inviting somebody', /Invite your crew/.test(d), d.slice(0, 200));
   check('  and it can be put off, by posting first', /Post first, invite later/.test(d));
   await page.locator('#dlg button:has-text("Post first, invite later")').click();
   await page.waitForTimeout(400);
-  check('    which opens the proof form for that group', /Submit proof/.test(await page.locator('#dlg').innerHTML()));
+  check('    which opens the proof form for that group', /Post proof/.test(await page.locator('#dlg').innerHTML()));
 });
 
 // Proof can be a picture as well as a clip — both come off the camera.
@@ -5037,10 +5109,10 @@ await withPage(SIGNED_IN, async page => {
   const more = page.locator('.post[data-post="100"] .more');
   check("somebody else's post has a ⋯ too", await more.count() === 1);
   await more.click(); await page.waitForTimeout(150);
-  check('  which offers to report it', await page.locator('#dlg button:has-text("Report this post")').count() === 1);
+  check('  which offers to report it', await page.locator('#dlg button:text-is("Report")').count() === 1);
   check('  and to block whoever posted it', await page.locator('#dlg button:has-text("Block @sam")').count() === 1);
-  check("  and, to whoever made the group, to take it out", await page.locator('#dlg button:has-text("Remove it from Mornings")').count() === 1);
-  await page.locator('#dlg button:has-text("Report this post")').click(); await page.waitForTimeout(150);
+  check("  and, to whoever made the group, to take it out", await page.locator('#dlg button:has-text("Remove from Mornings")').count() === 1);
+  await page.locator('#dlg button:text-is("Report")').click(); await page.waitForTimeout(150);
   check('reporting asks for a reason from a list', await page.locator('#dlg input[name=reason]').count() === 8);
   await page.locator('#dlg input[value=harassment]').check();
   await page.locator('#dlg input[name=details]').fill('keeps doing this');
@@ -5068,7 +5140,7 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => { dlg(); S.stories = [{id: 61, u: 'u2', kind: 'text', body: 'hello', style: {}, ts: Date.now()}]; openStory('u2'); });
   await page.waitForTimeout(300);
   await page.locator('#story .who .bin').click(); await page.waitForTimeout(150);
-  check("somebody else's story has a ⋯ with Report on it", await page.locator('#dlg button:has-text("Report this story")').count() === 1);
+  check("somebody else's story has a ⋯ with Report on it", await page.locator('#dlg button:text-is("Report")').count() === 1);
 });
 
 // Blocking takes somebody off the screen at once, and keeps them off it.
@@ -5083,7 +5155,7 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => load()); await settle(page);
   check('  and they stay gone after the next load', await sams() === 0);
   await page.evaluate(() => { openSettings(); }); await page.waitForTimeout(400);
-  check('  and Settings says one person is blocked', /Blocked people\s*1 person/.test(await page.innerText('#app')));
+  check('  and Settings says one person is blocked', /Blocked\s*1 person/.test(await page.innerText('#app')));
   await page.evaluate(() => blockedDlg()); await page.waitForTimeout(150);
   check('    and lists them', /Sam/.test(await page.innerText('#dlg')));
   await page.locator('#dlg button:has-text("Unblock")').click(); await page.waitForTimeout(100);
@@ -5106,7 +5178,7 @@ await withPage({ ...SIGNED_IN, groupBy: 'u2' }, async page => {
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => { self.confirm = () => true; postMenu(100); }); await page.waitForTimeout(150);
-  await page.locator('#dlg button:has-text("Remove it from Mornings")').click(); await page.waitForTimeout(400);
+  await page.locator('#dlg button:has-text("Remove from Mornings")').click(); await page.waitForTimeout(400);
   check("the group's maker takes the post and its file down", (await page.evaluate(() => self.__deletedPosts)).includes(100)
     && (await page.evaluate(() => self.__removed || [])).includes('s0.mp4'));
 });
@@ -5116,8 +5188,8 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => { localStorage.theme = 'dark'; openSettings(); }); await page.waitForTimeout(400);
   const txt = await page.innerText('#app');
-  check('Settings has Support, the terms, and deleting the account', /Support/.test(txt) && /Terms of use/.test(txt) && /Delete my account/.test(txt));
-  await page.locator('#app button:has-text("Delete my account")').click(); await page.waitForTimeout(150);
+  check('Settings has Support, the terms, and deleting the account', /Support/.test(txt) && /Terms of use/.test(txt) && /Delete account/.test(txt));
+  await page.locator('#app button:has-text("Delete account")').click(); await page.waitForTimeout(150);
   await page.locator('#dlg input[name=sure]').fill('nope');
   await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
   check('  a wrong word deletes nothing', !(await page.evaluate(() => self.__rpcs)).includes('delete_account'));
@@ -5211,12 +5283,12 @@ await withNative({ ...SIGNED_IN, wheel: false }, async page => {
   check('    and the widget turns to done', (await q()).filter(x => x.fn === 'setWidget').at(-1).a.done === true);
   await page.evaluate(() => { __native.fire('App.appUrlOpen', { url: 'hitquota://record' }); });
   await page.waitForTimeout(300);
-  check('  tapping the countdown opens the form to record', /Submit proof/.test(await page.innerHTML('#dlg')));
+  check('  tapping the countdown opens the form to record', /Post proof/.test(await page.innerHTML('#dlg')));
   // Arriving before the app is signed in, it waits rather than being dropped.
   await page.evaluate(() => { dlg(); const was = S.me; S.me = null; recordFromPhone(); self.__held = recordWanted; S.me = was; });
   check('    and one that arrives before the app is ready is held, not dropped', await page.evaluate(() => self.__held === true));
   await page.evaluate(() => load()); await page.waitForTimeout(600);
-  check('    then opens the form once it is', /Submit proof/.test(await page.innerHTML('#dlg')));
+  check('    then opens the form once it is', /Post proof/.test(await page.innerHTML('#dlg')));
   await page.evaluate(() => { dlg(); __native.quota = []; return logout(); });
   await page.waitForTimeout(300);
   check('  logging out tells the widget nobody is signed in', (await q()).some(x => x.fn === 'setWidget' && x.a.signedIn === false));
@@ -5260,7 +5332,7 @@ await withPage(null, async page => {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
   check('a missing library says so instead of showing nothing',
-    /didn't open properly/.test(await page.innerHTML('#app')) && /Reload/.test(await page.innerHTML('#app'))
+    /Something went wrong/.test(await page.innerHTML('#app')) && /Reload/.test(await page.innerHTML('#app'))
     && !/supabase|library/i.test(await page.innerText('#app')));
 });
 
