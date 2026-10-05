@@ -248,6 +248,78 @@ await withPage(SIGNED_IN, async page => {
   check('  the sound toggle is a speaker, not a menu', await page.locator('.post .reel .sound').first().count() === 1);
 });
 
+// Getting around inside a clip: hold an edge for double speed, drag the line to skip,
+// choose a speed, step a frame. Against a real clip recorded in the page, because none of
+// it means anything on a video element with nothing to decode.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const ready = await page.evaluate(async () => {
+    const v = [...document.querySelectorAll('.reel video.proof')].find(x => x.getBoundingClientRect().width > 0);
+    if (!v || typeof MediaRecorder === 'undefined') return false;
+    v.closest('.reel').dataset.probe = '1';
+    const c = document.createElement('canvas'); c.width = 160; c.height = 200; const g = c.getContext('2d');
+    const rec = new MediaRecorder(c.captureStream(30), {mimeType: 'video/webm'}), parts = [];
+    rec.ondataavailable = e => parts.push(e.data);
+    let raf; const draw = () => { g.fillStyle = `hsl(${performance.now() % 360},60%,40%)`; g.fillRect(0, 0, 160, 200); raf = requestAnimationFrame(draw); };
+    draw(); rec.start(); await new Promise(r => setTimeout(r, 6000)); rec.stop(); await new Promise(r => rec.onstop = r); cancelAnimationFrame(raf);
+    const url = URL.createObjectURL(new Blob(parts, {type: 'video/webm'}));
+    v.dataset.src = url; v.src = url; v.muted = true;
+    await new Promise(r => v.addEventListener('loadedmetadata', r, {once: true}));
+    // Recorded webm has no duration until it has been read to the end.
+    if (!isFinite(v.duration)) { v.currentTime = 1e9; await new Promise(r => v.addEventListener('durationchange', r, {once: true})); v.currentTime = 0; }
+    v.scrollIntoView({block: 'center'});
+    return isFinite(v.duration) && v.duration > 3;
+  });
+  check('a real clip to try the controls on', ready);
+  if (ready) {
+    const R = '.reel[data-probe]';
+    const box = await page.locator(`${R} video.proof`).boundingBox();
+    const st = () => page.evaluate(R => { const v = document.querySelector(R + ' video.proof'); return {paused: v.paused, rate: v.playbackRate, at: v.currentTime / v.duration}; }, R);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+    await page.mouse.move(box.x + box.width * .9, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(500);
+    const held = await st();
+    check('  holding the edge of a playing clip runs it at double speed', held.rate === 2 && !held.paused, JSON.stringify(held));
+    check('    and says so over it', /2×/.test(await page.locator(`${R} .hud.on`).innerText()));
+    await page.mouse.up(); await page.waitForTimeout(400);
+    const after = await st();
+    check('    letting go puts the speed back without pausing it', after.rate === 1 && !after.paused, JSON.stringify(after));
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(500);
+    check('  a hold in the middle is not a speed-up', (await st()).rate === 1);
+    await page.mouse.up(); await page.waitForTimeout(300);
+    // Letting go in the middle is a tap there, which is pause; start it again for the drag.
+    if ((await st()).paused) { await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await page.waitForTimeout(300); }
+
+    const bar = await page.locator(`${R} .prg`).boundingBox();
+    await page.mouse.move(bar.x + bar.width * .1, bar.y + bar.height - 4); await page.mouse.down();
+    await page.mouse.move(bar.x + bar.width * .7, bar.y + bar.height - 4, {steps: 6}); await page.waitForTimeout(200);
+    const mid = await st();
+    check('  dragging the line skims to where the finger is', Math.abs(mid.at - .7) < .05 && mid.paused, JSON.stringify(mid));
+    check('    showing the time while it does', /^\d:\d\d \/ \d:\d\d$/.test(await page.locator(`${R} .hud.on`).innerText()));
+    await page.mouse.up(); await page.waitForTimeout(300);
+    check('    and it plays on from there', !(await st()).paused);
+
+    await page.locator(`${R} .spd`).click(); await page.waitForTimeout(150);
+    await page.locator(`${R} .spdm .rates button`, {hasText: /^0\.5×$/}).click(); await page.waitForTimeout(200);
+    check('  a speed can be chosen', (await st()).rate === .5 && (await page.locator(`${R} .spd`).innerText()) === '0.5×');
+    await page.mouse.move(box.x + box.width * .1, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(500);
+    const h2 = (await st()).rate;
+    await page.mouse.up(); await page.waitForTimeout(300);
+    check('    and holding from there still doubles, then goes back to it', h2 === 2 && (await st()).rate === .5);
+
+    await page.locator(`${R} .spd`).click(); await page.waitForTimeout(150);
+    const t0 = await page.evaluate(R => document.querySelector(R + ' video.proof').currentTime, R);
+    await page.locator(`${R} .spdm .step button`).nth(1).click(); await page.waitForTimeout(200);
+    const t1 = await page.evaluate(R => document.querySelector(R + ' video.proof').currentTime, R);
+    await page.locator(`${R} .spdm .step button`).nth(0).click(); await page.waitForTimeout(200);
+    const t2 = await page.evaluate(R => document.querySelector(R + ' video.proof').currentTime, R);
+    check('  a frame can be stepped forward and back, stopped', (await st()).paused && Math.abs(t1 - t2 - 1 / 30) < .005,
+      `${t0.toFixed(3)} ${t1.toFixed(3)} ${t2.toFixed(3)}`);
+    await page.mouse.click(5, 5); await page.waitForTimeout(150);
+    check('  tapping elsewhere puts the speed menu away', await page.locator('.spdm').count() === 0);
+  }
+});
+
 // A post with no caption simply has no caption line.
 await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
   await settle(page);
