@@ -1230,8 +1230,13 @@ dialog{background:var(--sheet);color:var(--text);border:0;border-radius:24px 24p
   margin:auto 0 var(--kb, 0px);max-height:calc(100dvh - var(--kb, 0px) - 24px);overflow:auto;
   padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
-/* A sheet comes up from the bottom and goes back the way it came; a grab handle says so. */
-#dlg::before{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--line);margin:-6px auto 14px}
+/* A sheet comes up from the bottom and goes back the way it came; a grab handle says so,
+   and is one: drag it down and the sheet goes. A real element rather than a ::before,
+   because a pseudo-element cannot be held — and a finger's height tall, reaching up to the
+   sheet's top edge, though the line drawn in it is four pixels. touch-action:none so the
+   drag is the sheet's and not a scroll of what is in it. */
+#dlg .grab{position:relative;height:34px;margin:-20px -18px 6px;touch-action:none;cursor:grab}
+#dlg .grab::after{content:"";position:absolute;left:50%;top:14px;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
 #dlg[open]{animation:sheet .42s cubic-bezier(.32,.72,0,1)}
 #dlg[open]::backdrop{animation:fade .3s}
 #dlg.out{animation:sheetout .24s cubic-bezier(.4,0,1,1) forwards}
@@ -1241,7 +1246,7 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 @media(min-width:640px){
   #dlg[open]{animation:popin .26s cubic-bezier(.2,.8,.2,1)}
   #dlg.out{animation:popout .18s ease-in forwards}
-  #dlg::before{display:none}
+  #dlg .grab{display:none}
 }
 @keyframes popout{to{opacity:0;transform:scale(.96)}}
 @keyframes fade{from{opacity:0}}
@@ -1475,7 +1480,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v118';
+const BUILD = 'quota-v119';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6504,18 +6509,59 @@ async function afterSpin(gid) {
 }
 
 // ---- dialogs
-// A sheet that asks a question has to be answerable with "never mind". Escape does that
-// on a keyboard and there is no Escape on a phone, so the dark part of the screen closes
-// it — but only when the sheet is a set of choices. A sheet with a form in it is holding
-// something that was typed or chosen, and a stray tap beside it must not throw that away.
+// Every sheet can be put away three ways: its own Cancel, a tap on the dark part of the
+// screen above it, and dragging its handle down. All three are "never mind", the way every
+// sheet on a phone works — including ones holding a half-filled form, because somebody who
+// opened the post form and changed their mind should not have to hunt for the button.
+//
+// The one time a sheet will not go is while it is saving: working() has greyed every button
+// in it, and a sheet swiped away mid-upload would hide whether the post went up at all.
+const dlgBusy = () => { const f = $('#dlg').querySelector('form'), bs = f ? [...f.querySelectorAll('button')] : [];
+  return bs.length > 0 && bs.every(b => b.disabled); };
+// Outside the sheet's own edges, not merely "on the dialog element": a tap on the sheet's
+// padding reports the dialog as its target exactly as a tap on the backdrop does.
+const outsideDlg = e => { const r = $('#dlg').getBoundingClientRect();
+  return e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right; };
+// The press has to start outside as well as end there: a drag that began on something in
+// the sheet and was let go past its edge is not a tap on the backdrop.
+let dlgDownOut = false;
+$('#dlg').addEventListener('pointerdown', e => { dlgDownOut = e.target === $('#dlg') && outsideDlg(e); });
 $('#dlg').addEventListener('click', e => {
-  if (e.target === $('#dlg') && !$('#dlg').querySelector('form')) dlg();
+  if (e.target === $('#dlg') && dlgDownOut && outsideDlg(e) && !dlgBusy()) dlg();
+  dlgDownOut = false;
+});
+// Dragging the handle: the sheet follows the finger down (never up past where it sits), and
+// let go far enough — or flicked — it carries on down and closes. Short of that it settles
+// back. Closing animates from wherever the finger left it, because .out only names an end.
+$('#dlg').addEventListener('pointerdown', e => {
+  const d = $('#dlg'), grab = e.target.closest && e.target.closest('#dlg .grab');
+  if (!grab || e.button || dlgBusy()) return;
+  e.preventDefault();
+  try { grab.setPointerCapture(e.pointerId); } catch (x) {}
+  const y0 = e.clientY, t0 = performance.now();
+  let dy = 0, lastY = y0, lastT = t0, v = 0;
+  d.style.transition = 'none';
+  const move = ev => {
+    dy = Math.max(0, ev.clientY - y0);
+    const now = performance.now(); v = (ev.clientY - lastY) / Math.max(1, now - lastT); lastY = ev.clientY; lastT = now;
+    d.style.transform = `translateY(${dy}px)`;
+  };
+  const up = () => {
+    grab.removeEventListener('pointermove', move); grab.removeEventListener('pointerup', up); grab.removeEventListener('pointercancel', up);
+    d.style.transition = '';
+    if (dy > Math.min(120, d.offsetHeight * .3) || (dy > 24 && v > .5)) return dlg();
+    d.style.transition = 'transform .28s cubic-bezier(.32,.72,0,1)'; d.style.transform = '';
+    setTimeout(() => { d.style.transition = ''; }, 300);
+  };
+  grab.addEventListener('pointermove', move); grab.addEventListener('pointerup', up); grab.addEventListener('pointercancel', up);
 });
 let dlgT = null;
 function dlg(html) {
   const d = $('#dlg'); clearTimeout(dlgT); d.classList.remove('out');
-  if (!html) { if (!d.open) return; dropTake(); d.classList.add('out'); dlgT = setTimeout(() => { d.close(); d.classList.remove('out'); }, 240); return; }
-  d.innerHTML = html; if (!d.open) d.showModal();
+  if (!html) { if (!d.open) return; dropTake(); d.classList.add('out');
+    dlgT = setTimeout(() => { d.close(); d.classList.remove('out'); d.style.transform = d.style.transition = ''; }, 240); return; }
+  d.style.transform = d.style.transition = '';
+  d.innerHTML = '<div class="grab" aria-hidden="true"></div>' + html; if (!d.open) d.showModal();
 }
 // What is on a wheel, for anyone in the group. You have to spin it, so you get to see it
 // — but only whoever made it gets the Edit button, and the database enforces that whether

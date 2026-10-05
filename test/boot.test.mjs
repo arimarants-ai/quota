@@ -320,6 +320,55 @@ await withPage(SIGNED_IN, async page => {
   }
 });
 
+// Every sheet can be put away without its Cancel: a tap on the dark part above it, or its
+// handle dragged down. The post form included, which used to stay put because it had a form
+// in it. Not while it is saving, and not from a tap that only landed on the sheet's edge.
+await withPage(NO_WHEEL, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const isOpen = () => page.evaluate(() => $('#dlg').open);
+  const post = async () => { await page.evaluate(() => submitDlg(S.groups[0].id)); await page.waitForTimeout(450); };
+  const top = () => page.evaluate(() => $('#dlg').getBoundingClientRect().top);
+  await post();
+  check('the post sheet has a handle to hold', await page.locator('#dlg .grab').count() === 1);
+  const t = await top();
+  await page.mouse.click(10, t + 60); await page.waitForTimeout(350);
+  check('  a tap on the sheet itself, by its edge, leaves it open', await isOpen());
+  await page.mouse.click(195, t / 2); await page.waitForTimeout(350);
+  check('  a tap above it puts it away, form and all', !(await isOpen()));
+
+  await post();
+  const g = await page.locator('#dlg .grab').boundingBox(), gx = g.x + g.width / 2, gy = g.y + g.height / 2;
+  await page.mouse.move(gx, gy); await page.mouse.down();
+  for (let i = 1; i <= 5; i++) { await page.mouse.move(gx, gy + i * 6); await page.waitForTimeout(40); }
+  await page.waitForTimeout(120);
+  check('  the sheet follows the handle down', /translateY\(30px\)/.test(await page.evaluate(() => $('#dlg').style.transform)));
+  await page.mouse.up(); await page.waitForTimeout(400);
+  check('    and a short drag lets it settle back', await isOpen() && !(await page.evaluate(() => $('#dlg').style.transform)));
+  await page.mouse.move(gx, gy); await page.mouse.down();
+  for (let i = 1; i <= 10; i++) { await page.mouse.move(gx, gy + i * 22); await page.waitForTimeout(16); }
+  await page.mouse.up(); await page.waitForTimeout(400);
+  check('    and a long one puts it away', !(await isOpen()));
+
+  await post();
+  await page.evaluate(() => working($('#dlg form'), 'Posting…'));
+  await page.mouse.click(195, (await top()) / 2); await page.waitForTimeout(350);
+  check('  not while it is saving', await isOpen());
+  await page.evaluate(() => { $('#dlg form').querySelectorAll('button').forEach(b => b.disabled = false); dlg(); });
+  await page.waitForTimeout(350);
+
+  await post();
+  const box = await page.locator('#dlg input').first().boundingBox();
+  await page.mouse.move(box.x + 10, box.y + 5); await page.mouse.down(); await page.mouse.move(195, 10, { steps: 4 }); await page.mouse.up();
+  await page.waitForTimeout(350);
+  check('  nor when a press began inside it and was let go above', await isOpen());
+  await page.evaluate(() => dlg()); await page.waitForTimeout(350);
+
+  await page.evaluate(() => postMenu(S.posts.find(p => p.userId === 'u1').id)); await page.waitForTimeout(350);
+  await page.mouse.click(195, (await top()) / 2); await page.waitForTimeout(350);
+  check('a menu sheet goes the same way', !(await isOpen()));
+});
+
 // A post with no caption simply has no caption line.
 await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
   await settle(page);
@@ -3547,7 +3596,8 @@ await withPage(SIGNED_IN, async page => {
   check('  tapping it says what the milestone is', /365/.test(win) && /day streak/i.test(win)
     && /full year/i.test(win), win);
   check('    and whose it is', /Sam/.test(win), win);
-  await page.evaluate(() => $('#dlg').dispatchEvent(new MouseEvent('click', {bubbles: true})));
+  { const t = await page.evaluate(() => $('#dlg').getBoundingClientRect().top);
+    await page.mouse.click(20, Math.max(4, t / 2)); }
   await page.waitForTimeout(300);
   check('    and it closes', await page.locator('#dlg').isHidden());
 
@@ -3617,20 +3667,21 @@ await withPage(SIGNED_IN, async page => {
     && await page.evaluate(() => S.draft) === null
     && await page.locator('#make').isHidden());
 
-  // The dark part of the screen is the other way out, on a sheet that is only choices.
+  // The dark part of the screen is the other way out.
+  const above = async () => { const t = await page.evaluate(() => $('#dlg').getBoundingClientRect().top);
+    await page.mouse.click(20, Math.max(4, t / 2)); await page.waitForTimeout(350); };
   await page.evaluate(() => storyKind());
   await page.waitForTimeout(300);
-  await page.evaluate(() => $('#dlg').dispatchEvent(new MouseEvent('click', {bubbles: true})));
-  await page.waitForTimeout(350);
+  await above();
   check('  tapping beside it closes it too', await page.locator('#dlg').isHidden());
 
-  // But not on one holding something typed or chosen.
+  // On a sheet with a form in it as well: changing your mind is the commoner case than a
+  // stray tap, and every sheet on a phone works this way.
   await page.evaluate(() => groupDlg());
   await page.waitForTimeout(400);
-  check('    a sheet with a form in it is holding something', await page.locator('#dlg form').count() === 1);
-  await page.evaluate(() => $('#dlg').dispatchEvent(new MouseEvent('click', {bubbles: true})));
-  await page.waitForTimeout(350);
-  check('      so a stray tap beside it does not throw that away', await page.locator('#dlg').isVisible());
+  check('    a sheet with a form in it', await page.locator('#dlg form').count() === 1);
+  await above();
+  check('      goes the same way', await page.locator('#dlg').isHidden());
 });
 
 // What happened today, and only today. Yesterday is not news by the morning.
