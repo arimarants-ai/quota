@@ -1716,20 +1716,22 @@ function personalRun(g, uid, from = today()) {
 const streak = (g, uid) => personalRun(g, uid).n;
 // The longest run, counted the same way as the current one: over rest days, and over each
 // month's covered day once something had been done.
-const best = (g, uid) => {
-  const good = goodDays(g, uid), covered = passDays(g, uid, today(), good);
+// `from` is today everywhere in the app, the same as personalRun's, and for the same reason:
+// the self-check has to be able to stand on fixed dates.
+const best = (g, uid, from = today()) => {
+  const good = goodDays(g, uid), covered = passDays(g, uid, from, good);
   const days = [...good].sort();
   if (!days.length) return 0;
   let b = 0, n = 0;
-  for (let x = dayNo(days[0]), end = dayNo(today()); x <= end; x++) {
+  for (let x = dayNo(days[0]), end = dayNo(from); x <= end; x++) {
     const d = fromDayNo(x);
     if (!onDay(g, d)) continue;
     if (good.has(d)) n++;
     else if (covered.has(d) && n) n++;
-    else if (d !== today()) n = 0;
+    else if (d !== from) n = 0;
     b = Math.max(b, n);
   }
-  return Math.max(b, streak(g, uid));
+  return Math.max(b, personalRun(g, uid, from).n);
 };
 // ---- forfeits
 // A group can set a forfeit: a line of text the crew agreed on, never money. A member owes
@@ -9090,9 +9092,20 @@ if (location.hash === '#test') {
   console.assert(done(g, 'a', 'pushups') === 55, 'the totals index notices a row appended in place');
   S.totals = keep;                     // a different array holding the original rows
   console.assert(done(g, 'a', 'pushups') === 50, 'and notices the array being replaced wholesale');
-  console.assert(streak(g, 'a') === 3, 'streak counts today + 2 previous days, gap at day 3');
-  console.assert(streak(g, 'b') === 1, 'streak still alive if yesterday was hit and today is in progress');
-  console.assert(best(g, 'a') === 3 && best(g, 'b') === 1, 'best streak');
+  // On fixed dates. Whether a one-day gap breaks a run depends on whether that month's pass
+  // is already spent, and days counted back from today put the gap somewhere different
+  // every day: on 5 October it was the month's first miss, the pass covered it, and this
+  // read 5 instead of 3. On 20 March the 1st was missed long before, which is what March's
+  // pass already went on, so the gap on the 17th stands.
+  {
+    const F = '2026-03-20', at = n => fromDayNo(dayNo(F) - n), was = S.totals;
+    S.totals = [0, 1, 2, 4].map(n => ({g: 1, u: 'a', d: at(n), m: 'pushups', n: 50}))
+      .concat([{g: 1, u: 'b', d: at(1), m: 'pushups', n: 60}]);
+    console.assert(personalRun(g, 'a', F).n === 3, 'streak counts today + 2 previous days, gap at day 3');
+    console.assert(personalRun(g, 'b', F).n === 1, 'streak still alive if yesterday was hit and today is in progress');
+    console.assert(best(g, 'a', F) === 3 && best(g, 'b', F) === 1, 'best streak');
+    S.totals = was;
+  }
   console.assert(streak(g, 'zzz') === 0, 'no posts, no streak');
   // The invite text: the person first, what the group does, and nothing about who else is in it.
   console.assert(doesLine([{metric: 'pushups', target: 50}]) === '50 pushups a day', 'one quota reads as a day of it');
