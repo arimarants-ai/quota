@@ -1468,7 +1468,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 // blank with nothing on it at all. It is served from this origin and precached now, so
 // this should not happen, but a white screen is the worst possible way to find out.
 if (typeof supabase === 'undefined') {
-  document.getElementById('app').innerHTML = '<div class="auth"><h2>Quota didn\'t open properly</h2><p>Check your connection, then reload.</p><button class="primary" onclick="location.reload()">Reload</button></div>';
+  document.getElementById('app').innerHTML = '<div class="auth"><h2>Something went wrong</h2><p>Check your connection, then reload.</p><button class="primary" onclick="location.reload()">Reload</button></div>';
   throw new Error('Quota: the app library did not load');
 }
 // ---- config: Supabase project URL + anon (public) key. Safe in the page; row level security does the guarding.
@@ -2360,7 +2360,7 @@ function render() {
   keepChatFresh();
   // The bar is only rebuilt when its markup changes; which tab is on is a class and the
   // underline's position, so the underline can slide rather than be redrawn.
-  const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Submit proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
+  const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Post proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
   if (bar.dataset.html !== html) { bar.innerHTML = html + '<i class="ind"></i>'; bar.dataset.html = html; }
   bar.querySelectorAll('button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab && !S.open && !S.who && !S.settings));
   const on = bar.querySelector('button.on'), ind = bar.querySelector('.ind');
@@ -2479,7 +2479,7 @@ function wheelCard(g, w) {
       <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`
     + (w.breaks_streak ? `<div class="who">Not finishing this breaks your streak.</div>` : '');
   const yours = soon ? '' : !mine
-    ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>`
+    ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin</button></div>`
     : satOut(mine)
     ? `<div class="got out">Sitting this one out</div><div class="who">Back on ${dayLabel(cycleStart(w, c + 1))}.</div>`
     : mustBorrow(mine) && !mine.challenge_override
@@ -2511,7 +2511,7 @@ function spinPrompt() {
   return waiting.map(g => `<div class="card spinday">
     <b>Today is wheel spin day</b>
     <p class="muted">${esc(dueIn(g).map(w => w.name).join(' and '))} in ${esc(g.name)}. Spin before you post.</p>
-    <div class="row" style="margin-top:12px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin the wheel</button></div>
+    <div class="row" style="margin-top:12px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin</button></div>
   </div>`).join('');
 }
 
@@ -2568,7 +2568,7 @@ function outboxCard() {
     <span class="spin" aria-hidden="true"></span>
     <div class="grow"><b>${plural(outbox.length, 'clip')} waiting to send</b>
       <div class="muted">${on ? 'Saved on this phone until it goes.' : 'No connection. It will go up on its own when you are back.'}</div></div>
-    ${on ? `<button type="button" class="small" onclick="flushOutbox()">Try now</button>` : ''}</div>${rows}</div>`;
+    ${on ? `<button type="button" class="small" onclick="flushOutbox()">Retry</button>` : ''}</div>${rows}</div>`;
 }
 function feedView() {
   const m = me(), gs = myGroups();
@@ -3346,8 +3346,8 @@ function seenBy(id, which) {
   // Both lists are reachable from inside the sheet: it covers the buttons that opened it,
   // so switching between them cannot depend on reaching those again.
   box.innerHTML = `<div class="hd">
-      <span class="tabs"><button type="button" class="${likes ? '' : 'on'}" onclick="seenBy(${id},'views')">Seen by ${viewersOf(id).length}</button>
-        <button type="button" class="${likes ? 'on' : ''}" onclick="seenBy(${id},'likes')">Liked by ${storyLikes(id).filter(l => l.u !== me().id).length}</button></span>
+      <span class="tabs"><button type="button" class="${likes ? '' : 'on'}" onclick="seenBy(${id},'views')">${plural(viewersOf(id).length, 'view')}</button>
+        <button type="button" class="${likes ? 'on' : ''}" onclick="seenBy(${id},'likes')">${plural(storyLikes(id).filter(l => l.u !== me().id).length, 'like')}</button></span>
       <button type="button" class="x" onclick="seenBy(${id},'${which || 'views'}')" aria-label="Close">✕</button></div>
     ${rows.length ? rows.map(v => { const u = user(v.u); return `<div class="row">${av(u)}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div><span class="mark">${left(v.u)}${v.ts ? `<span class="muted">${ago(v.ts)}</span>` : ''}</span></div>`; }).join('')
       : `<p class="muted">${likes ? 'No likes yet.' : 'Nobody yet.'}</p>`}`;
@@ -3369,10 +3369,10 @@ function storyMenu(id) {
     <div class="menu">${reportRows('story', id, st.u)}</div>`);
   dlg(`<h2>Your story</h2><p class="muted">${esc(ago(st.ts))} ago · ${plural(viewersOf(id).length, 'view')} · ${plural(storyLikes(id).length, 'like')}</p>
     <div class="menu">
-      <button type="button" onclick="dlg();editStory(${id})">Edit the words and colours</button>
-      <button type="button" onclick="dlg();seenBy(${id},'likes')">See who liked it</button>
-      <button type="button" onclick="dlg();seenBy(${id})">See who watched it</button>
-      <button type="button" class="bad" onclick="dlg();delStory(${id})">Delete this story</button>
+      <button type="button" onclick="dlg();editStory(${id})">Edit</button>
+      <button type="button" onclick="dlg();seenBy(${id},'likes')">Likes</button>
+      <button type="button" onclick="dlg();seenBy(${id})">Viewers</button>
+      <button type="button" class="bad" onclick="dlg();delStory(${id})">Delete</button>
     </div>`);
 }
 // Editing reopens the editor on the story itself: the picture or the clip it already has
@@ -3413,8 +3413,8 @@ function storyKind() {
   dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
     <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();openCam('story')">Record</button>
       <button type="button" class="grow" onclick="dlg();openCam('story',true)">Photo</button></div>
-    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Choose a file</button>
-      <button type="button" class="grow" onclick="dlg();newStory()">Just words</button></div>
+    <div class="row" style="margin-top:10px"><button type="button" class="grow" onclick="dlg();$('#storyfile').click()">Upload</button>
+      <button type="button" class="grow" onclick="dlg();newStory()">Text</button></div>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button></div>`);
 }
 function storyFile(input) { const f = input.files[0]; input.value = ''; if (f) storyFrom(f); }
@@ -3506,7 +3506,7 @@ function paintDraft() {
     </div>
     <div class="canvas">${storyFace(d, false, true)}${tray}</div>
     <div class="mbar bottom">
-      <span class="who">${av(m, 'sm')}${d.editing ? 'Editing your story' : d.suggested ? 'Ready when you are' : 'Your story'}</span>
+      <span class="who">${av(m, 'sm')}${d.editing ? 'Edit' : 'Your story'}</span>
       <button type="button" class="go" onclick="postStory()" aria-label="${d.editing ? 'Save' : 'Share'}">${d.editing ? 'Save' : 'Share'}${
         d.editing ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l5 5 9-11"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M20 12L4 4l6 8-6 8 16-8Z"/></svg>'}</button>
     </div>
@@ -3785,8 +3785,8 @@ function needGroupView() {
   return `<div class="auth start"><div class="word">${LOGO(true)}Quota</div>
     <h2>Start your crew</h2><p>Quota is a group thing: proof goes to the people doing it with you. Pick a goal to start from, or make your own.</p>
     <div class="presets">${PRESETS.map((x, i) => `<button type="button" onclick="groupDlg(presetGroup(${i}))">${esc(x.label)}<span>a day</span></button>`).join('')}</div>
-    <button class="primary" onclick="groupDlg()">Start a group</button>
-    <button class="alt" onclick="joinDlg()">I have an invite link</button>
+    <button class="primary" onclick="groupDlg()">New group</button>
+    <button class="alt" onclick="joinDlg()">Join with a link</button>
     <p class="muted small" style="margin-top:auto;padding-top:24px">Signed in as ${esc(name(me()))}. <button type="button" class="ghost" onclick="logout()">Log out</button></p></div>`;
 }
 // The same starting points inside the form, for a group started from the Groups tab.
@@ -3848,7 +3848,7 @@ function inviteSheet(gid, first) {
   const code = myCodes[gid], text = code ? inviteText(name(me()), g, inviteLink(code)) : '';
   const pend = S.invites.filter(i => i.type === 'group' && i.groupId === gid).map(i => i.to);
   const list = first ? [] : S.friends.filter(id => !g.members.includes(id) && !pend.includes(id));
-  return `${first ? `<p class="kicker">${esc(g.name)} is ready</p><h2>Who is doing it with you?</h2>
+  return `${first ? `<p class="kicker">${esc(g.name)} is ready</p><h2>Invite your crew</h2>
       <p class="muted">A group of one is a diary. Text somebody the invite — they are in the group and your friend as soon as they sign up.</p>`
     : `<h2>Invite to ${esc(g.name)}</h2><p class="muted">They join the group and become your friend — nothing to accept.</p>`}
     ${list.length ? `<p class="kicker" style="margin-top:14px">Already on Quota</p>`
@@ -3857,7 +3857,7 @@ function inviteSheet(gid, first) {
     <div class="smsprev"><span>The text they get</span><p>${code ? esc(text) : 'Making your link…'}</p></div>
     ${code ? `<a class="btn primary textbtn" href="${esc(smsHref(text))}">Text an invite</a>`
       : `<button class="primary textbtn" disabled>Text an invite</button>`}
-    <button type="button" class="textalt" onclick="shareInvite(${gid})" ${code ? '' : 'disabled'}>Share another way</button>
+    <button type="button" class="textalt" onclick="shareInvite(${gid})" ${code ? '' : 'disabled'}>More</button>
     <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()${first ? `;submitDlg(${gid})` : ''}">${first ? 'Post first, invite later' : 'Close'}</button>`;
 }
 async function inviteDlg(gid, first = false) {
@@ -4035,7 +4035,7 @@ function recapsView(g) {
     <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
     <span class="meta"><b>${esc(r.name)}</b><em>${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
     ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>
-    <button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share this</button></div>`;
+    <button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share</button></div>`;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
       <span class="date">Recaps</span></div></div>
   ${rs.length ? `<h3>Ready to watch</h3><div class="rlist">${rs.map(card).join('')}</div>`
@@ -4229,7 +4229,7 @@ const MARKS = {flame: 'M12 3c3 4 5 5.5 5 9a5 5 0 0 1-10 0c0-1.6.6-2.8 1.6-4 .2 1
   leaf: 'M20 4c0 9-5 13-11 13a5 5 0 0 1-5-5C4 6 11 4 20 4zM4 20c2-5 6-8 11-9'};
 const markPath = k => MARKS[k] || '';
 function markDlg(gid) {
-  dlg(`<h2>Your group's mark</h2><p class="muted">It sits beside the crew bonus on this screen.</p>
+  dlg(`<h2>Group icon</h2><p class="muted">It sits beside the crew bonus on this screen.</p>
     ${markPicker(gid)}<button style="width:100%;margin-top:14px" onclick="dlg()">Done</button>`);
 }
 function markPicker(gid) {
@@ -4313,11 +4313,11 @@ function groupView(g) {
       everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
     ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
       <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
-      Group chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
+      Chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
     <div class="row" style="margin-top:8px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button></div>
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
       <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div>
-    <div class="row" style="margin-top:8px"><button class="ghost grow" onclick="manageDlg(${g.id})">Manage group${g.muted ? ' \u00b7 muted' : ''}</button></div></div>
+    <div class="row" style="margin-top:8px"><button class="ghost grow" onclick="manageDlg(${g.id})">Manage${g.muted ? ' \u00b7 muted' : ''}</button></div></div>
   <h3>Today</h3>
   ${missLine(g)}
   <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row mrow"><div class="pst"><b class="num">${st}</b><small>${st === 1 ? 'day' : 'days'}</small></div>${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="qchips">${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div></div></div>`; }).join('')}</div>
@@ -4339,7 +4339,7 @@ function owedCard(g) {
   return `<h3>Owed</h3><div class="card list owed">${who.length ? who.map(({u: uid, days}) => { const u = user(uid), mine = uid === m.id;
       return `<div class="row">${av(u, 'sm')}<div class="grow"><b>${mine ? 'You owe' : `${esc(name(u))} owes`}: ${esc(g.forfeit)}${days.length > 1 ? ` ×${days.length}` : ''}</b>
         <div class="muted">for ${esc(when(days))}${mine ? ' · a crewmate marks it paid' : ''}</div></div>${
-        mine ? '' : `<button type="button" class="small" onclick="markPaid(${g.id},'${esc(uid)}')">Mark paid</button>`}</div>`; }).join('')
+        mine ? '' : `<button type="button" class="small" onclick="markPaid(${g.id},'${esc(uid)}')">Paid</button>`}</div>`; }).join('')
     : `<p class="muted">Nobody owes anything right now.</p>`}
     ${paid.length ? `<p class="muted small paidline">Paid: ${paid.map(r => `${esc(r.u === m.id ? 'you' : name(user(r.u)))} for ${esc(dayLabel(r.d))}${r.by ? `, marked by ${esc(r.by === m.id ? 'you' : name(user(r.by)))}` : ''}`).join(' · ')}</p>` : ''}</div>`;
 }
@@ -4350,7 +4350,7 @@ function oweBanner() {
   const mine = owedBy(me().id), gs = myGroups().length;
   const byGroup = [...new Map(mine.map(o => [o.g, o])).values()];
   return byGroup.map(o => { const n = mine.filter(x => x.g === o.g).length;
-    return `<button type="button" class="owe" onclick="openGroup(${o.g})"><b>You owe your crew: ${esc(o.what)}${n > 1 ? ` \u00d7${n}` : ''}</b>${
+    return `<button type="button" class="owe" onclick="openGroup(${o.g})"><b>You owe: ${esc(o.what)}${n > 1 ? ` \u00d7${n}` : ''}</b>${
     gs > 1 ? `<span>${esc(o.name)}</span>` : ''}</button>`; }).join('');
 }
 // bare is the flag screen: the post, and nothing you do to a post. What is being asked
@@ -4393,12 +4393,12 @@ function feed(ps, showGroup, bare) {
       <button type="button" class="spd" onclick="clipSpeedMenu(this)" aria-label="Speed">1×</button>
       <div class="hud" aria-live="polite"></div>
       <div class="prg" role="slider" aria-label="Seek" tabindex="0" onkeydown="clipSeekKey(event,this)"><b></b></div>`}
-      <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Try again</button></div>
+      <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Retry</button></div>
       ${reactBubbles(p.id)}</div>`}
       ${locked(p) ? '' : bare ? '' : acts(p, cs.length)}
       ${locked(p) || !p.caption ? '' : `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>`}
       ${locked(p) || bare ? '' : commentsFor(p, cs)}</div>`;
-  }).join('') + (older ? `<div class="row" style="margin:14px 18px"><button class="small grow" onclick="showOlder()">Show ${Math.min(older, PAGE)} older${older > PAGE ? ` · ${older} left` : ''}</button></div>` : '');
+  }).join('') + (older ? `<div class="row" style="margin:14px 18px"><button class="small grow" onclick="showOlder()">Show more</button></div>` : '');
 }
 // Another page of them. Reset whenever the screen changes, so opening a group does not
 // inherit however far somebody had scrolled back through a different one.
@@ -5236,7 +5236,7 @@ function flagButton(p) {
   const f = flagOf(p.id);
   if (f) return `<button type="button" class="flg on" onclick="openFlag(${f.id})" aria-label="Questioned — see what the group said">
     <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
-  return `<button type="button" class="flg" onclick="flagDlg(${p.id})" aria-label="Question this one">
+  return `<button type="button" class="flg" onclick="flagDlg(${p.id})" aria-label="Flag this">
     <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
 }
 // And a line across the post saying where that question got to. Your own post has no flag
@@ -5295,12 +5295,12 @@ function flagDlg(postId) {
   const p = postById(postId);
   if (!p || S.noFlags || p.userId === me().id || flagOf(postId)) return;
   const u = user(p.userId);
-  dlg(`<h2>Question this one</h2>
+  dlg(`<h2>Flag this</h2>
     <p class="muted">The group decides, not you and not us. Say what is wrong with it — everyone voting reads this.</p>
     <div class="fchip">${av(u, 'sm')}<span><b>${esc(name(u))} · ${esc(effort(p))}</b><em>${esc(dayLabel(p.day))}</em></span></div>
     <form onsubmit="event.preventDefault();submitFlag(this,${postId})">
       <textarea name="reason" maxlength="300" required rows="3" autocomplete="off"
-        placeholder="Not full range — elbows barely bent on most of them."></textarea>
+        placeholder="What's wrong with it?"></textarea>
       <div class="row" style="margin-top:16px">
         <button type="button" class="grow" onclick="dlg()">Cancel</button>
         <button class="teal grow primary">Submit flag</button>
@@ -5396,13 +5396,13 @@ function flagView(id) {
           <button type="button" class="${mv && !mv.yes ? 'on' : ''}" onclick="castVote(${f.id},false)">
             <svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-8a2.5 2.5 0 0 1 3 2.5V9h4.5a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 17 19H7"/></svg>It counts</button>
           <button type="button" class="${mv && mv.yes ? 'on' : ''}" onclick="castVote(${f.id},true)">
-            <svg viewBox="0 0 24 24"><path d="M17 13V4h3v9zM17 13l-4 8a2.5 2.5 0 0 1-3-2.5V15H5.5a2 2 0 0 1-2-2.4l1.4-6A2 2 0 0 1 7 5h10"/></svg>Needs redoing</button>
+            <svg viewBox="0 0 24 24"><path d="M17 13V4h3v9zM17 13l-4 8a2.5 2.5 0 0 1-3-2.5V15H5.5a2 2 0 0 1-2-2.4l1.4-6A2 2 0 0 1 7 5h10"/></svg>Doesn’t count</button>
         </div>`) : ''}
     <div class="tally">
       <span class="sec">${open ? `${v.length} of ${eligible} voted` : 'How it went'}</span>
       <div class="track"><i style="width:${eligible ? Math.min(100, Math.round(v.length / eligible * 100)) : 100}%"></i></div>
       <div class="rows">${v.map(x => `<div class="rw">${av(user(x.u), 'sm')}<b>${esc(name(user(x.u)))}</b>
-        <em class="${x.yes ? '' : 'no'}">${x.yes ? 'Needs redoing' : 'It counts'}</em></div>`).join('')}</div>
+        <em class="${x.yes ? '' : 'no'}">${x.yes ? 'Doesn’t count' : 'It counts'}</em></div>`).join('')}</div>
       <p class="muted fine">${yes} ${yes === 1 ? 'says' : 'say'} redo · ${no} ${no === 1 ? 'says' : 'say'} it counts.
         ${open ? 'An even split leaves the post standing.' : ''}</p>
     </div>`;
@@ -5621,7 +5621,7 @@ const PUSHABOUT = [
 ];
 function pushCard() {
   const t = {
-    on:          ['On for this phone', '<button class="small" onclick="disablePush()">Turn off</button>'],
+    on:          ['On', '<button class="small" onclick="disablePush()">Turn off</button>'],
     off:         ['Off. You will only find out by opening the app.', '<button class="teal small" onclick="enablePush()">Turn on</button>'],
     denied:      ['Turned off for Quota on this phone. Settings \u2192 Quota \u2192 Notifications puts them back.', ''],
     install:     ['Add Quota to your home screen first, then turn these on.', ''],
@@ -5659,7 +5659,7 @@ const srow = (icon, title, sub, right, click, cls = '') =>
     <svg viewBox="0 0 24 24">${SICON[icon]}</svg>
     <span class="t"><b>${title}</b>${sub ? `<em>${sub}</em>` : ''}</span>${right}</button>`;
 const sw = on => `<span class="sw${on ? ' on' : ''}"></span>`;
-const PUSHSUB = {on: 'On for this phone', off: 'Off. You will only find out by opening the app.',
+const PUSHSUB = {on: 'On', off: 'Off. You will only find out by opening the app.',
   denied: 'Turned off for Quota on this phone. Settings \u2192 Quota \u2192 Notifications puts them back.',
   install: 'Add Quota to your home screen first', unsupported: 'This browser cannot do notifications'};
 function settingsView() {
@@ -5669,8 +5669,8 @@ function settingsView() {
     <button class="ghost back" onclick="closeSettings()">\u2039 Profile</button>
     <p class="sec">Your profile</p>
     <div class="list">
-      ${srow('person', 'Name, picture and bio', `${esc(name(m))} \u00b7 @${esc(m.username)}`, '<span class="go">\u203a</span>', 'profileDlg()')}
-      ${srow('people', 'Groups on your profile', gs.length ? `${shown} of ${plural(gs.length, 'group')} shown` : 'No groups yet', '<span class="go">\u203a</span>', 'groupsShownDlg()')}
+      ${srow('person', 'Edit profile', `${esc(name(m))} \u00b7 @${esc(m.username)}`, '<span class="go">\u203a</span>', 'profileDlg()')}
+      ${srow('people', 'Profile groups', gs.length ? `${shown} of ${plural(gs.length, 'group')} shown` : 'No groups yet', '<span class="go">\u203a</span>', 'groupsShownDlg()')}
     </div>
     <p class="sec">Preferences</p>
     <div class="list">
@@ -5683,9 +5683,9 @@ function settingsView() {
       <p class="muted">And anything left on your stories.</p></div>` : ''}
     <p class="sec">Help and safety</p>
     <div class="list">
-      ${srow('help', 'Support', 'Questions, problems, and how things work', '<span class="go">\u203a</span>', 'supportDlg()')}
+      ${srow('help', 'Support', 'Help and FAQ', '<span class="go">\u203a</span>', 'supportDlg()')}
       ${srow('mail', 'Contact us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
-      ${srow('block', 'Blocked people', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
+      ${srow('block', 'Blocked', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
     </div>
     <p class="sec">Legal</p>
     <div class="list">
@@ -5696,7 +5696,7 @@ function settingsView() {
       ${srow('lock', 'Change password', '', '<span class="go">\u203a</span>', 'passwordDlg()')}
       ${srow('doc', 'Email', S.email ? esc(S.email) : 'None yet', '<span class="go">\u203a</span>', "S.editEmail=true;S.emailTo='';render();scrollTo(0,0)")}
       ${srow('out', 'Log out', `Signed in as @${esc(m.username)}`, '', 'logout()', 'danger')}
-      ${srow('bin', 'Delete my account', 'Your account and everything in it, for good', '', 'deleteAccountDlg()', 'danger')}
+      ${srow('bin', 'Delete account', 'Your account and everything in it, for good', '', 'deleteAccountDlg()', 'danger')}
     </div>
     <p class="muted pad" style="text-align:center">${BUILD}</p>`;
 }
@@ -5707,12 +5707,12 @@ function supportDlg() {
     <p class="muted">Write to <a href="mailto:${CONTACT}">${CONTACT}</a> about anything: something broken, a question, an idea, or your data. One of the two people who make Quota answers, usually within a day.</p>
     <div class="menu">
       <button type="button" onclick="location.href='mailto:${CONTACT}?subject=Quota%20support'">Email support</button>
-      <button type="button" onclick="window.open('${SITE}/support','_blank')">Help and FAQ</button>
+      <button type="button" onclick="window.open('${SITE}/support','_blank')">FAQ</button>
     </div>
     <p class="sec" style="margin:18px 0 6px">Something that should not be on Quota</p>
     <p class="muted">Tap ⋯ on a post or a story, or press and hold a comment or a message, and choose Report. On somebody's profile, Report and Block are under their name. Reports are looked at within 24 hours.</p>
     <p class="sec" style="margin:18px 0 6px">Leaving</p>
-    <p class="muted">Settings → Delete my account removes your account and everything in it straight away.</p>
+    <p class="muted">Settings → Delete account removes your account and everything in it straight away.</p>
     <button type="button" style="width:100%;margin-top:18px" onclick="dlg()">Done</button>`);
 }
 // Deleting the account, from inside the app, which both stores require. Typing the word is
@@ -5724,7 +5724,7 @@ function deleteAccountDlg() {
       <label>Type <b>delete</b> to confirm</label>
       <input name="sure" type="text" data-raw required autocomplete="off" autocapitalize="none" spellcheck="false"
         pattern="\\s*[Dd][Ee][Ll][Ee][Tt][Ee]\\s*" title="Type the word delete">
-      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Keep it</button><button class="primary grow">Delete everything</button></div></form>`);
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Delete everything</button></div></form>`);
 }
 async function deleteAccount(f) {
   const uid = me().id;
@@ -5790,14 +5790,14 @@ function passwordDlg() {
   dlg(`<h2>Change password</h2><p class="muted">If you forget it, you can reset it with a code sent to your email.</p>
     <form onsubmit="event.preventDefault();savePassword(this)">
       <label>New password</label><input name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="at least 6 characters">
-      <label>Again</label><input name="again" type="password" required minlength="6" autocomplete="new-password" placeholder="the same one">
-      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Change it</button></div></form>`);
+      <label>Again</label><input name="again" type="password" required minlength="6" autocomplete="new-password" placeholder="Again">
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
 async function savePassword(f) {
   if (f.password.value !== f.again.value) return alert('Those two do not match.');
   working(f, 'Changing\u2026');
   const {error} = await sb.auth.updateUser({password: f.password.value});
-  if (error) return working(f, 'Change it'), alert(friendlyError(error, "Couldn't change your password. Try again in a moment."));
+  if (error) return working(f, 'Save'), alert(friendlyError(error, "Couldn't change your password. Try again in a moment."));
   dlg();
   alert('Password changed.');
 }
@@ -5841,7 +5841,7 @@ function personView(uid) {
       <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
     <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
-    ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Your numbers</button></div>`
+    ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Stats</button></div>`
       : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,'${esc(uid)}')">Report</button>${S.blocked.has(uid)
         ? `<button class="small grow" onclick="unblockUser('${esc(uid)}')">Unblock</button>` : `<button class="small grow" onclick="blockAsk('${esc(uid)}')">Block</button>`}</div>`}
     ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
@@ -5854,7 +5854,7 @@ function personView(uid) {
       : pro.loading ? `<p class="muted pad">Loading…</p>`
       : pro.err ? `<div class="card empty"><b>This grid could not be loaded</b>
           <p class="muted">That was the network, not an empty grid.</p>
-          <button class="small" style="margin-top:12px" onclick="retryProfile('${esc(uid)}')">Try again</button></div>`
+          <button class="small" style="margin-top:12px" onclick="retryProfile('${esc(uid)}')">Retry</button></div>`
       : grid.length ? `<div class="pgrid">${grid.map(p => tile(p, own)).join('')}</div>`
       : `<p class="muted pad">${own ? 'Nothing here yet. Post some proof and it lands in this grid.'
         : `Only what ${esc(name(u))} chose to show here.`}</p>`}
@@ -5961,7 +5961,7 @@ function installView(a) {
     <div class="card steps"><b>Now put Quota on your home screen</b>
       <span class="muted">So it works like an app, and reminders can reach you.</span>
       <ol>${steps.map(t => `<li>${t}</li>`).join('')}</ol></div>
-    <button class="ghost" onclick="S.installAfter=null;render();scrollTo(0,0)">Keep using it in the browser</button></div>`;
+    <button class="ghost" onclick="S.installAfter=null;render();scrollTo(0,0)">Not now</button></div>`;
 }
 function authView(mode) {
   const signup = mode === 'signup', ways = signup ? '' : oauthButtons();
@@ -5975,9 +5975,9 @@ function authView(mode) {
       : `<label>Email or username</label><input name="id" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(S.loginId || '')}">`}
     <label>Password</label><input name="password" type="password" required autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" placeholder="${signup ? 'At least 6 characters' : 'Your password'}">
     ${signup ? '' : `<button type="button" class="forgot" onclick="S.auth='forgot';render()">Forgot password?</button>`}
-    <button class="primary">${signup ? 'Create account' : 'Log in'}</button></form>
+    <button class="primary">${signup ? 'Sign up' : 'Log in'}</button></form>
     ${signup ? '' : `<button type="button" class="alt" onclick="codeFromLogin(this)">Email me a code instead</button>`}</div>
-    <div class="switch">${signup ? 'Have an account?' : 'New to Quota?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Create an account'}</button></div>
+    <div class="switch">${signup ? 'Have an account?' : 'New to Quota?'} <button onclick="S.auth='${signup ? 'login' : 'signup'}';render()">${signup ? 'Log in' : 'Sign up'}</button></div>
     ${signup || ways ? finePrint() : ''}</div>`;
 }
 // Signed up, and now waiting on the code in the email. A code rather than a link on purpose:
@@ -6007,27 +6007,27 @@ function codeLoginView() {
       ? `<p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
         <div class="card"><form onsubmit="event.preventDefault();codeIn(this)">${CODE}<button class="primary">Log in</button></form>
           <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first. Codes last an hour.</p>
-          <div class="row" style="margin-top:10px;gap:8px"><button class="small" onclick="sendLoginCode(S.sentTo,this)">Send a new code</button><button class="small" onclick="S.sentTo='';render()">Different email</button></div></div>`
+          <div class="row" style="margin-top:10px;gap:8px"><button class="small" onclick="sendLoginCode(S.sentTo,this)">Send a new code</button><button class="small" onclick="S.sentTo='';render()">Change email</button></div></div>`
       : `<p>We email you a code, and the code logs you in. No password needed.</p>
         <div class="card"><form onsubmit="event.preventDefault();sendLoginCode(this.email.value.trim(),this.querySelector('button'))">
           <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(S.codeTo || '')}">
-          <button class="primary">Send the code</button></form></div>`}</div>`;
+          <button class="primary">Send code</button></form></div>`}</div>`;
 }
 function forgotView() {
   return `<div class="auth">${authTop(`S.auth='login';render()`)}
-    <h2>Reset your password</h2><p>We will email you a code, and you choose a new password with it.</p>
+    <h2>Reset password</h2><p>We will email you a code, and you choose a new password with it.</p>
     <div class="card"><form onsubmit="event.preventDefault();sendReset(this)">
       <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
-      <button class="primary">Send the code</button></form></div></div>`;
+      <button class="primary">Send code</button></form></div></div>`;
 }
 function resetCodeView() {
   return `<div class="auth">${authTop(`S.auth='forgot';render()`)}
-    <h2>Set a new password</h2><p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
+    <h2>New password</h2><p>If <b>${esc(S.sentTo)}</b> has an account, a code is on its way there.</p>
     <div class="card"><form onsubmit="event.preventDefault();finishReset(this)">
       ${CODE}
       <label>New password</label><input name="password" type="password" required autocomplete="new-password" minlength="6" placeholder="at least 6 characters">
-      <label>Again</label><input name="again" type="password" required autocomplete="new-password" minlength="6" placeholder="the same one">
-      <button class="primary">Save it and log in</button></form></div></div>`;
+      <label>Again</label><input name="again" type="password" required autocomplete="new-password" minlength="6" placeholder="Again">
+      <button class="primary">Save</button></form></div></div>`;
 }
 // The rest of the account. Asked for after signing up rather than during it, because an
 // email and a password is as much as anybody should have to type before they are let in
@@ -6044,15 +6044,15 @@ function setupView() {
   const nick = suggestNick();
   if (nick && S.nickFor !== nick) { S.nickFor = nick; setTimeout(() => checkNick(nick), 0); }
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>What should your crew call you?</h2><p>Your friends find you by your username. It can't be changed later.</p>
+    <h2>Your name</h2><p>Your friends find you by your username. It can't be changed later.</p>
     <div class="card"><form onsubmit="event.preventDefault();saveSetup(this)">
-      <label>Full name</label><input name="display_name" required maxlength="40" autocomplete="name" placeholder="Ari Marants" value="${esc(metaName())}">
+      <label>Full name</label><input name="display_name" required maxlength="40" autocomplete="name" placeholder="Your name" value="${esc(metaName())}">
       <label>Username</label><input name="username" required autocomplete="username" autocapitalize="none" spellcheck="false"
         pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" placeholder="yourname" value="${esc(nick)}" oninput="checkNick(this.value)">
       <p class="muted" id="unick" style="margin-top:6px">${esc(S.nickSay || 'Lowercase letters, numbers and underscores.')}</p>
       <label>Birthday</label><input name="birthday" type="date" required max="${today()}" min="1900-01-02">
-      <button class="primary">Into the app</button></form></div>
-    <div><button class="ghost" onclick="logout()">Log out instead</button></div></div>`;
+      <button class="primary">Done</button></form></div>
+    <div><button class="ghost" onclick="logout()">Log out</button></div></div>`;
 }
 
 
@@ -6143,7 +6143,7 @@ const LEGAL = {
 </ul>
 <p>If you turn notifications on, the message is delivered by your phone's own push service — Apple's or Google's, depending on the phone. They see that a message is going to your device.</p>
 <h3>How long it is kept</h3>
-<p>Posts, comments and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete my account) deletes everything in it straight away, files included. A report is kept after the account it is about is gone, for as long as it takes to deal with it. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
+<p>Posts, comments and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete account) deletes everything in it straight away, files included. A report is kept after the account it is about is gone, for as long as it takes to deal with it. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
 <h3>What you can ask for</h3>
 <p>You can delete your account and everything in it yourself, from Settings. You can also ask for a copy of everything held about you, or for it to be corrected: email <a href="mailto:${CONTACT}">${CONTACT}</a> and it will be done within 30 days.</p>
 <h3>Age</h3>
@@ -6223,7 +6223,7 @@ function closeLegal() { S.legal = null; stackOff(); }
 const needsTerms = m => m.terms_accepted_at === null || (m.terms_version !== undefined && (m.terms_version || '') < TERMS_VERSION);
 function acceptView() {
   return `<div class="auth"><div class="word">${LOGO(true)}Quota</div>
-    <h2>Before you carry on</h2><p>Quota's terms and guidelines have changed. Have a read, then agree once. There is no tolerance for objectionable content or abusive behaviour, and anything can be reported from inside the app.</p>
+    <h2>One thing first</h2><p>Quota's terms and guidelines have changed. Have a read, then agree once. There is no tolerance for objectionable content or abusive behaviour, and anything can be reported from inside the app.</p>
     <div class="list" style="text-align:left">${Object.entries(LEGAL).map(([k, d]) =>
       srow('doc', esc(d.title), esc(d.sub), '<span class="go">›</span>', `openLegal('${k}')`)).join('')}</div>
     <button class="primary" style="width:100%;margin-top:20px;padding:14px" onclick="acceptTerms(this)">I agree</button>
@@ -6347,7 +6347,7 @@ function party(d) {
     <h2>${d >= 365 ? 'A year of this' : 'Still going'}</h2>
     <p>${MILESTONE_LINE[d] || 'Not one missed.'}</p>
     <button type="button" onclick="$('#party').hidden = true">Keep going</button>
-    <button type="button" class="share" onclick="$('#party').hidden = true;shareMilestone()">Share it</button></div>`;
+    <button type="button" class="share" onclick="$('#party').hidden = true;shareMilestone()">Share</button></div>`;
   box.hidden = false;
   confetti(box.querySelector('canvas'));
 }
@@ -6437,7 +6437,7 @@ async function spinDlg(gid) {
   const stage = $('#spinstage');
   stage.innerHTML = `<div class="wheelbox"><div class="pointer"></div><div class="wheel-spin">${wheelSvg(w.stages[0] ? w.stages[0].segments : ['…', '…'])}</div></div>
     <div class="row" style="margin-top:18px"><button class="primary grow" onclick="goSpin(${w.id},${gid})">Spin</button></div>
-    <div class="row" style="margin-top:6px"><button class="ghost grow" onclick="sitOut(${w.id},${gid})">Sit this one out</button></div>
+    <div class="row" style="margin-top:6px"><button class="ghost grow" onclick="sitOut(${w.id},${gid})">Sit out</button></div>
     <p class="muted" style="text-align:center;margin-top:2px;font-size:12px">You can post without it this time. It comes back ${dayLabel(cycleStart(w, cycleOf(w) + 1))}.</p>`;
 }
 
@@ -6490,7 +6490,7 @@ async function reveal(sp, gid) {
     await wait(700);
   }
   stage.insertAdjacentHTML('beforeend',
-    `<div class="row" style="margin-top:18px"><button class="primary grow" onclick="afterSpin(${gid})">Got it</button></div>`);
+    `<div class="row" style="margin-top:18px"><button class="primary grow" onclick="afterSpin(${gid})">OK</button></div>`);
 }
 
 const daysLine = n => n === 0 ? 'No days — you got off' : n === 1 ? 'On 1 day' : `On ${n} days`;
@@ -6632,7 +6632,7 @@ function submitDlg(gid) {
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
-  dlg(`<h2>Submit proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
+  dlg(`<h2>Post proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
     <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
     <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button><button type="button" class="grow" onclick="openCam('post',true)">Photo</button></div>
@@ -6655,12 +6655,12 @@ function manageDlg(gid) {
   if (!g) return;
   dlg(`<h2>Manage ${esc(g.name)}</h2>
     <div class="menu">
-      <button type="button" onclick="dlg();groupDlg(S.groups.find(x=>x.id===${gid}))">Edit name, goal and quota</button>
-      <button type="button" onclick="dlg();wheelDlg(${gid})">Add a wheel</button>
+      <button type="button" onclick="dlg();groupDlg(S.groups.find(x=>x.id===${gid}))">Edit group</button>
+      <button type="button" onclick="dlg();wheelDlg(${gid})">Add wheel</button>
       ${S.noForfeits || !canForfeit(g) ? '' : `<button type="button" onclick="forfeitDlg(${gid})">${g.forfeit ? 'Change the forfeit' : 'Set a forfeit'}</button>`}
-      <button type="button" onclick="dlg();shareStreak(${gid})">Share your streak</button>
-      ${g.shared_at ? `<button type="button" onclick="dlg();markDlg(${gid})">Mark</button>` : ''}
-      <button type="button" onclick="dlg();toggleMute(${gid})">${g.muted ? 'Unmute this group' : 'Mute this group'}</button>
+      <button type="button" onclick="dlg();shareStreak(${gid})">Share streak</button>
+      ${g.shared_at ? `<button type="button" onclick="dlg();markDlg(${gid})">Icon</button>` : ''}
+      <button type="button" onclick="dlg();toggleMute(${gid})">${g.muted ? 'Unmute' : 'Mute'}</button>
     </div>
     ${g.muted ? `<p class="muted small" style="margin:12px 0 0">No notifications from ${esc(g.name)}. Your own daily reminders still come, and so does anything questioning your proof.</p>` : ''}
     <button type="button" style="width:100%;margin-top:12px" onclick="dlg()">Close</button>`);
@@ -6669,7 +6669,7 @@ function manageDlg(gid) {
 const canForfeit = g => !g.id || !g.created_by || g.created_by === me().id || !g.members.includes(g.created_by);
 const FORFEITS = ['buys coffee', 'does 20 pushups on camera', 'posts an embarrassing photo', 'picks the next group song'];
 const forfeitField = v => `<label>Forfeit <span class="muted">(optional)</span></label>
-  <input name="forfeit" maxlength="60" autocomplete="off" value="${esc(v || '')}" placeholder="What someone owes the crew for a missed day">
+  <input name="forfeit" maxlength="60" autocomplete="off" value="${esc(v || '')}" placeholder="e.g. Buys the coffee">
   <div class="row wrap sugg">${FORFEITS.map(x => `<button type="button" class="chip" onclick="this.closest('form').forfeit.value=this.textContent">${esc(x)}</button>`).join('')}</div>
   <p class="muted small" style="margin-top:6px">Just for fun, never money. Owed for a day someone misses that their monthly pass doesn't cover.</p>`;
 function forfeitDlg(gid) {
@@ -6678,7 +6678,7 @@ function forfeitDlg(gid) {
   dlg(`<h2>${g.forfeit ? 'Change the forfeit' : 'Set a forfeit'}</h2><form onsubmit="event.preventDefault();saveForfeit(this,${gid})">
     ${forfeitField(g.forfeit)}
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>
-    ${g.forfeit ? `<button type="button" class="bad" style="width:100%;margin-top:8px" onclick="saveForfeit(null,${gid})">Remove the forfeit</button>` : ''}`);
+    ${g.forfeit ? `<button type="button" class="bad" style="width:100%;margin-top:8px" onclick="saveForfeit(null,${gid})">Remove</button>` : ''}`);
 }
 async function saveForfeit(f, gid) {
   const g = S.groups.find(x => x.id === gid); if (!g) return;
@@ -6694,7 +6694,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
     <div class="row" style="margin-bottom:14px"><span id="avprev">${gav(g, 'xl')}</span>
       <div class="grow">
         <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
-          <button type="button" class="grow" onclick="pickPhoto(this)">Choose a photo</button></div>
+          <button type="button" class="grow" onclick="pickPhoto(this)">Library</button></div>
         <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
     <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     ${g.id ? '' : `<label>Start from</label><div class="presets mini">${PRESETS.map((x, i) => `<button type="button" onclick="fillPreset(this,${i})">${esc(x.label)}</button>`).join('')}</div>`}
@@ -6718,10 +6718,10 @@ function profileDlg() {
     <div class="row" style="margin-top:12px"><span id="avprev">${av(m, 'xl')}</span>
       <div class="grow"><label style="margin-top:0">Profile picture</label>
         <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
-          <button type="button" class="grow" onclick="pickPhoto(this)">Choose a photo</button></div></div></div>
+          <button type="button" class="grow" onclick="pickPhoto(this)">Library</button></div></div></div>
     <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     <label>Display name</label><input name="display_name" value="${esc(m.display_name || '')}" placeholder="${esc(m.username)}" maxlength="40">
-    <label>Bio</label><textarea name="bio" rows="3" maxlength="160" placeholder="What you are doing this for.">${esc(m.bio || '')}</textarea>
+    <label>Bio</label><textarea name="bio" rows="3" maxlength="160" placeholder="Bio">${esc(m.bio || '')}</textarea>
     <p class="muted" style="margin-top:8px">Your username @${esc(m.username)} stays the same. That's what friends use to find you.</p>
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
@@ -7158,7 +7158,7 @@ async function sendReset(f) {
   const email = f.email.value.trim();
   working(f, 'Sending…');
   const {error} = await sb.auth.resetPasswordForEmail(email);
-  working(f, 'Send the code'); f.querySelectorAll('button').forEach(b => b.disabled = false);
+  working(f, 'Send code'); f.querySelectorAll('button').forEach(b => b.disabled = false);
   // An address nobody has is answered the same as one somebody does: saying which is
   // which would turn this box into a way of asking who has an account here.
   if (error && /rate|seconds|many/i.test(error.message)) return alert('That is a lot of tries in a row. Wait a minute and ask again.');
@@ -7166,7 +7166,7 @@ async function sendReset(f) {
 }
 async function finishReset(f) {
   if (f.password.value !== f.again.value) return alert('Those two do not match.');
-  const undo = () => { working(f, 'Save it and log in'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
+  const undo = () => { working(f, 'Save'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
   working(f, 'Saving…');
   const {error} = await sb.auth.verifyOtp({email: S.sentTo, token: f.code.value.trim(), type: 'recovery'});
   if (error) { undo(); return alert('That code is wrong or has expired. Go back and send a new one.'); }
@@ -7200,7 +7200,7 @@ async function saveSetup(f) {
   if (!/^[a-z0-9_]{3,20}$/.test(username)) return alert('A username is 3 to 20 letters, numbers or underscores.');
   if (fd.get('birthday') && ageOn(String(fd.get('birthday'))) < 13) return alert('Quota is for people 13 and over.');
   working(f, 'Saving…');
-  const done = () => { working(f, 'Into the app'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
+  const done = () => { working(f, 'Done'); f.querySelectorAll('button').forEach(b => b.disabled = false); };
   try {
     if (await q(sb.from('profiles').select('id').eq('username', username).maybeSingle())) { done(); return alert('That username is taken. Try another.'); }
   } catch (e) { done(); return; }
@@ -7234,18 +7234,18 @@ function emailView() {
       ? `<p>We sent a code to <b>${esc(S.emailTo)}</b>. Type it in here.</p>
         <div class="card"><form onsubmit="event.preventDefault();confirmEmail(this)">${CODE}<button class="primary">Confirm</button></form>
         <p class="muted" style="margin-top:12px">Nothing arrived? Look in spam first.</p>
-        <div class="row" style="margin-top:10px;gap:8px"><button class="small" onclick="sendEmailCode(S.emailTo,this)">Send a new code</button><button class="small" onclick="S.emailTo='';render()">Different email</button></div></div>`
+        <div class="row" style="margin-top:10px;gap:8px"><button class="small" onclick="sendEmailCode(S.emailTo,this)">Send a new code</button><button class="small" onclick="S.emailTo='';render()">Change email</button></div></div>`
       : `<p>${change ? `It is <b>${esc(S.email)}</b> now. We send a code to the new one to check it is yours.` : 'If you ever forget your password, this is how you get back in. We send a code to check it is yours.'}</p>
         <div class="card"><form onsubmit="event.preventDefault();sendEmailCode(this.email.value.trim(),this.querySelector('button'))">
           <label>Email</label><input name="email" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
-          <button class="primary">Send the code</button></form></div>`}
+          <button class="primary">Send code</button></form></div>`}
     <div><button class="ghost" onclick="${later}">${change ? 'Cancel' : 'Not now'}</button></div></div>`;
 }
 function emailPrompt() {
   if (!S.needEmail) return '';
   return `<div class="card warn-card"><b>Add your email</b>
     <p class="muted">Without one, a forgotten password cannot be reset.</p>
-    <button class="teal small" style="margin-top:12px" onclick="S.emailLater=false;render();scrollTo(0,0)">Add it</button></div>`;
+    <button class="teal small" style="margin-top:12px" onclick="S.emailLater=false;render();scrollTo(0,0)">Add</button></div>`;
 }
 async function sendEmailCode(email, btn) {
   if (!email) return;
@@ -7582,7 +7582,7 @@ function permDlg(what) {
       ? `Settings \u2192 Quota \u2192 ${where} turns it back on.`
       : `Settings \u2192 Apps \u2192 Quota \u2192 Permissions turns it back on.`}</p>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Not now</button>
-      ${ios ? `<button type="button" class="primary grow" onclick="dlg();location.href='app-settings:'">Open Settings</button>` : ''}</div>`);
+      ${ios ? `<button type="button" class="primary grow" onclick="dlg();location.href='app-settings:'">Settings</button>` : ''}</div>`);
 }
 // The native app picks a picture with the phone's own photo picker. The web one has only a
 // file input, which is what it keeps.
@@ -8312,17 +8312,17 @@ function postMenu(id) {
     const g = S.groups.find(x => x.id === p.groupId), maker = g && g.created_by === me().id;
     return dlg(`<h2>${esc(name(user(p.userId)))}'s proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
       <div class="menu">
-        ${maker ? `<button type="button" class="bad" onclick="dlg();removePost(${id})">Remove it from ${esc(g.name)}</button>` : ''}
+        ${maker ? `<button type="button" class="bad" onclick="dlg();removePost(${id})">Remove from ${esc(g.name)}</button>` : ''}
         ${reportRows('post', id, p.userId)}
       </div>`);
   }
   dlg(`<h2>Your proof</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <div class="menu">
-      <button type="button" onclick="dlg();captionDlg(${id})">Edit the caption</button>
-      <button type="button" onclick="dlg();sharePost(${id})">Share this to my story</button>
+      <button type="button" onclick="dlg();captionDlg(${id})">Edit caption</button>
+      <button type="button" onclick="dlg();sharePost(${id})">Add to story</button>
       <button type="button" onclick="dlg();showOnProfile(${id},${p.onProfile ? 'false' : 'true'})">${
-        p.onProfile ? 'Take this off my profile' : 'Show this on my profile'}</button>
-      <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete this post</button>
+        p.onProfile ? 'Hide from profile' : 'Show on profile'}</button>
+      <button type="button" class="bad" onclick="dlg();delPost(${id})">Delete</button>
     </div>`);
 }
 // ---- reporting, blocking, and taking a post down
@@ -8336,7 +8336,7 @@ const REASONS = [['spam', 'Spam or a scam'], ['harassment', 'Bullying or harassm
 const REPORTED = {post: 'this post', story: 'this story', comment: 'this comment', message: 'this message'};
 // The two rows every menu about somebody else's thing ends with.
 const reportRows = (what, id, uid) =>
-  `<button type="button" onclick="reportDlg('${what}',${id},'${esc(uid)}')">Report ${REPORTED[what]}</button>
+  `<button type="button" onclick="reportDlg('${what}',${id},'${esc(uid)}')">Report</button>
    <button type="button" class="bad" onclick="blockAsk('${esc(uid)}')">Block @${esc(user(uid).username || '')}</button>`;
 function reportDlg(what, id, uid) {
   const u = user(uid);
@@ -8346,7 +8346,7 @@ function reportDlg(what, id, uid) {
       <div class="reasons">${REASONS.map(([k, l]) => `<label class="check"><input type="radio" name="reason" value="${k}" required><span>${l}</span></label>`).join('')}</div>
       <label>Anything we should know <span class="muted">(optional)</span></label>
       <input name="details" type="text" data-raw maxlength="500" autocomplete="off" placeholder="What happened">
-      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Send report</button></div></form>`);
+      <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Send</button></div></form>`);
 }
 async function sendReport(f, what, id, uid) {
   const d = new FormData(f);
@@ -8363,7 +8363,7 @@ async function sendReport(f, what, id, uid) {
   row.body = String(row.body || '').slice(0, 1000);
   working(f, 'Sending…');
   try { await q(sb.from('reports').insert(row)); }
-  catch (e) { f.querySelectorAll('button').forEach(b => b.disabled = false); f.querySelector('button.primary').textContent = 'Send report'; return; }
+  catch (e) { f.querySelectorAll('button').forEach(b => b.disabled = false); f.querySelector('button.primary').textContent = 'Send'; return; }
   buzz();
   const u = user(uid);
   dlg(`<h2>Report sent</h2><p class="muted">Thank you. Somebody who runs Quota will look at it within 24 hours, and anything that breaks the rules comes down.${S.blocked.has(uid) ? '' : ` If you would rather not see ${esc(name(u))} again in the meantime, you can block them.`}</p>
@@ -8374,7 +8374,7 @@ function blockAsk(uid) {
   const u = user(uid);
   dlg(`<h2>Block @${esc(u.username || '')}?</h2>
     <p class="muted">You will not see anything ${esc(name(u))} posts, comments, sends or puts on a story, anywhere in Quota, and you stop being friends. They are not told. If you are in a group together you both stay in it.</p>
-    <p class="muted" style="margin-top:8px">Settings → Blocked people undoes it.</p>
+    <p class="muted" style="margin-top:8px">Settings → Blocked undoes it.</p>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button>
       <button type="button" class="primary grow" onclick="blockUser('${esc(uid)}')">Block</button></div>`);
 }
@@ -8400,7 +8400,7 @@ async function unblockUser(uid) {
 }
 function blockedDlg() {
   const ids = [...S.blocked];
-  dlg(`<h2>Blocked people</h2><p class="muted">Nothing they make shows up for you. Unblocking brings it back; it does not make you friends again.</p>
+  dlg(`<h2>Blocked</h2><p class="muted">Nothing they make shows up for you. Unblocking brings it back; it does not make you friends again.</p>
     ${ids.length ? `<div class="list" style="margin-top:12px">${ids.map(id => { const u = user(id);
       return `<div class="li">${av(u)}<span class="t"><b>${esc(name(u))}</b><em>@${esc(u.username || '')}</em></span>
         <button type="button" class="small" onclick="unblockUser('${esc(id)}')">Unblock</button></div>`; }).join('')}</div>`
@@ -8415,7 +8415,7 @@ function captionDlg(id) {
   if (!p) return;
   dlg(`<h2>Caption</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <form onsubmit="event.preventDefault();saveCaption(this,${id})">
-      <input name="caption" maxlength="140" autocomplete="off" placeholder="Say something about it" value="${esc(p.caption || '')}">
+      <input name="caption" maxlength="140" autocomplete="off" placeholder="Add a caption" value="${esc(p.caption || '')}">
       <button class="primary" style="width:100%;margin-top:12px">Save</button>
     </form>
     <button type="button" style="width:100%;margin-top:8px" onclick="dlg()">Cancel</button>`);
@@ -8441,12 +8441,12 @@ async function sharePost(id) {
   const open = () => newStory({kind: 'text', body: '',
     style: {post: id, bg: 3, ink: 0, font: 0, size: 0, box: 2, y: .87, px: .5, py: .44}});
   if (p.onProfile) return open();
-  dlg(`<h2>Share to your story</h2>
+  dlg(`<h2>Add to story</h2>
     <p class="muted">Anyone who can watch your story can watch what is on it, so this goes
       on your profile too. The same menu takes it off again.</p>
     <div class="row" style="margin-top:18px">
       <button type="button" class="grow" onclick="dlg()">Cancel</button>
-      <button type="button" class="teal grow" onclick="dlg();showOnProfile(${id},true).then(ok=>ok&&sharePost(${id}))">Share it</button>
+      <button type="button" class="teal grow" onclick="dlg();showOnProfile(${id},true).then(ok=>ok&&sharePost(${id}))">Share</button>
     </div>`);
 }
 // A card on a story is a way through to the post it is a picture of. The story closes
@@ -8542,7 +8542,7 @@ function commentMenu(el) {
   openTray(el, `<button type="button" onclick="replyComment(${postId},${id})">Reply</button>
     <button type="button" onclick="closeTrays();toggleCommentLike(${id})">${liked ? 'Unlike' : 'Like'}</button>
     <button type="button" onclick="closeTrays();copyText(${id},'c')">Copy</button>
-    ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete comment</button>`
+    ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete</button>`
       : `<button type="button" onclick="closeTrays();reportDlg('comment',${id},'${esc(c.userId)}')">Report</button>`}`, 'opts');
 }
 // A comment with replies under it takes them with it, so that is said first.
