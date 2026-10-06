@@ -390,6 +390,332 @@ A real example. Quota was built by two friends, one in College Station, Texas an
 
 **What workouts are best for long-distance accountability?** No-equipment goals like pushups, squats, planks, runs and walks, so travel never breaks the streak.
 
+## The best accountability apps for friends, compared
+
+Source: https://hitquota.app/guides/best-accountability-apps-for-friends
+
+**Short answer:** It depends what makes you quit. If you skip because nobody notices, pick an app where friends see proof, like Quota. If you want to share a list of habits with a friend, HabitShare is simple and free. If games motivate you, Habitica. If only money works, stickK or Beeminder. For running and cycling, Strava. For focused work, Focusmate.
+
+"Accountability app" covers very different things. Some are habit trackers with a share button, some are games, some take your money when you fail. The right one depends on why your habits usually fall apart.
+
+### The short version
+
+| If you want | Look at | How it keeps you honest |
+
+| A small group that sees proof every day | Quota | Photo or 10-second video taken that day, a shared streak |
+
+| To share some of your habits with a friend | HabitShare | Friends see your check-ins and can message you |
+
+| Habits as a game | Habitica | Your party takes damage when you skip |
+
+| Real money on the line | stickK, Beeminder | You pay if you fail |
+
+| Runs and rides with friends | Strava | Your activity appears in friends' feeds |
+
+| To actually sit down and work | Focusmate | A live video session with another person |
+
+### Proof-based groups: Quota
+
+Quota is built for a handful of friends with one daily goal. Everyone posts a photo or up to ten seconds of video, taken in the app that day, before midnight. You keep a personal streak and a group streak, with one pass a month for a missed day, and you can set a forfeit. Best for: one habit you keep dropping, with people you know. Not for: tracking a long list of habits, or keeping a habit private.
+
+### Shared habit trackers: HabitShare
+
+HabitShare is a habit tracker where you choose which habits each friend can see. Friends see your check-ins and can send messages. Best for: several habits, shared selectively. Weak spot: a check-in is a tap, so it is easy to tick something you didn't do. See Quota vs HabitShare.
+
+### Gamified apps: Habitica
+
+Habitica turns habits and to-dos into a role-playing game. You earn experience and gold, and in a party with friends, skipped dailies hurt everyone during a quest. Best for: people who love games and want to manage many tasks. Weak spot: self-reported, and the game can become the point. See Quota vs Habitica.
+
+### Money on the line: stickK and Beeminder
+
+stickK lets you sign a commitment contract with optional money at stake and a referee who confirms your reports. Beeminder charges your card when you fall off your goal's line, and the pledge grows each time. Best for: people for whom only money works. Weak spot: it can feel like a fine rather than a team. See Quota vs stickK and Beeminder.
+
+### Fitness feeds: Strava
+
+Strava records runs, rides and other activities with GPS and shares them with followers and clubs. Best for: runners and cyclists who want stats and a community. Weak spot: no daily deadline, and only for activities it can record. See Quota vs Strava.
+
+### Body doubling: Focusmate
+
+Focusmate pairs you with another person on video for a focused work session. The free plan includes a few sessions a week. Best for: getting started on work you avoid. Not for: daily habits outside a desk.
+
+### Or just a group chat
+
+Many groups start with a chat and "done" messages. It costs nothing and works for a while. See accountability app vs a group chat for why it tends to fade.
+
+### How to choose
+
+- Why did your last attempt stop? Nobody noticed → social proof. Got bored → a game or challenges. Didn't care enough → money.
+
+- Who will do it with you? Friends you talk to daily make any social app work better.
+
+- How many habits? One that matters → a focused app. Many small ones → a tracker.
+
+Details of other apps were checked in October 2026 and can change; check each app for current features and prices.
+
+**What is the best accountability app for friends?** For a small group keeping one daily goal with proof, Quota. For sharing several habits with a friend, HabitShare. For a game, Habitica. For money stakes, stickK or Beeminder. For runs and rides, Strava.
+
+**Are there free accountability apps?** Yes. Quota's base version is free, HabitShare is free, Habitica and Strava have free tiers, and Focusmate has a limited free plan. stickK and Beeminder only cost money if you set stakes and fail.
+
+**Which accountability app is hardest to cheat?** Apps that need proof taken the same day, like Quota's in-app photo or 10-second video, or apps that record activity automatically, like Strava. Apps based on tapping a checkbox are the easiest to fake.
+
+## Accountability app vs a group chat: which works better?
+
+Source: https://hitquota.app/guides/accountability-app-vs-group-chat
+
+**Short answer:** A group chat is a fine way to start, but it usually fades within a few weeks: check-ins get buried under other messages, nobody tracks who missed, and "done" turns into a thumbs-up. An accountability app adds the structure a chat lacks: a fixed deadline, proof, a streak that counts, and agreed rules for misses. Many groups keep the chat for banter and use the app for proof.
+
+### Why groups start in a chat
+
+Everyone already has it, it's free, and setting up a challenge takes one message: "100 pushups a day, post when you're done." For the first week or two it works well.
+
+### Why it fades
+
+- Check-ins get buried. Proof sits between memes, plans and voice notes. Nobody scrolls back to check.
+
+- No one keeps count. Who missed Tuesday? Nobody knows, so a miss costs nothing.
+
+- Proof shrinks. Videos become photos, photos become "done", "done" becomes a thumbs-up.
+
+- No deadline. "Today" gets stretched, and an argument about whether 12:40am counts is nobody's idea of fun.
+
+- Rules live in someone's memory. When a miss happens, the group argues about what was agreed.
+
+### What an accountability app adds
+
+|  | Group chat | Accountability app |
+
+| Deadline | Informal | Fixed, like midnight |
+
+| Proof | Optional, easy to fake | Required, often taken that day |
+
+| Who missed | Nobody tracks it | Shown automatically |
+
+| Streak | None | Counted for you and the group |
+
+| Rules for misses | Remembered, argued about | Set once, applied the same way |
+
+| Banter | Great | Usually has a chat too |
+
+### The best of both
+
+You don't have to give up the chat. Keep it for the conversation and move the proof somewhere it can't get lost. That small separation is often what turns a two-week challenge into a habit that lasts months.
+
+How Quota handles it. In Quota each group has a daily goal, a midnight deadline, proof taken in the app that day, a personal and a group streak, and its own chat for everything that isn't proof.
+
+**Can I use a group chat for accountability?** Yes, and it works for a while. It tends to fade because check-ins get buried, nobody tracks misses, and proof shrinks to "done". Adding a deadline and required proof helps.
+
+**Why do group chat challenges fail?** There is no fixed deadline, no record of who missed, and proof gets easier to fake over time, so skipping costs nothing.
+
+**Do I need to leave my group chat to use an accountability app?** No. Many groups keep the chat for conversation and use the app only for daily proof.
+
+## Quota vs Habitica: which is better for accountability with friends?
+
+Source: https://hitquota.app/guides/quota-vs-habitica
+
+**Short answer:** Habitica is better if you enjoy games and want to manage many habits and to-dos, with friends as a party on quests. Quota is better if you want one daily goal that a small group of friends can actually see you do, through a photo or short video taken that day. Habitica is self-reported; Quota requires proof.
+
+### At a glance
+
+|  | Quota | Habitica |
+
+| Idea | One daily goal, proven to your group | Your habits as a role-playing game |
+
+| How you check in | Photo or up to 10 seconds of video, taken in the app that day | Tick a habit, daily or to-do |
+
+| Friends | A private group sees every post | A party fights bosses together |
+
+| What a miss costs | Your streak and the group's (one pass a month), plus an optional forfeit | Your avatar, and your party during a quest, takes damage |
+
+| Number of habits | One per group | As many as you like |
+
+| Price | Base version free | Free, with an optional subscription |
+
+### Choose Habitica if
+
+- You love games, levels and gear, and that is what gets you moving.
+
+- You want one place for habits, dailies and to-dos.
+
+- You're happy with friends trusting your ticks.
+
+### Choose Quota if
+
+- You keep dropping one specific habit and want your friends to actually see you do it.
+
+- Ticking boxes has stopped meaning anything to you.
+
+- You'd rather have a simple shared streak than points and levels.
+
+### The core difference: trust vs proof
+
+In Habitica, a completed habit is whatever you say it is. That works if you are honest with yourself, and many people are. Quota is for the times when you aren't: the in-app camera means proof was made today, and the group sees it. More on that in why proof works better than a checkbox.
+
+### Using both
+
+Some people run their to-dos and small habits in Habitica and keep the one habit that matters most in Quota with friends.
+
+Habitica details checked in October 2026.
+
+**Is Quota like Habitica?** Both have a social side, but Habitica is a role-playing game for many self-reported habits and tasks, while Quota is one daily goal per group with photo or video proof taken that day.
+
+**Which is better for accountability, Quota or Habitica?** For proof that friends can see, Quota. For a game that motivates you across many habits, Habitica.
+
+**Can you cheat in Habitica?** Habitica relies on you ticking your own habits honestly. Quota requires a photo or short video taken in the app that day.
+
+## Quota vs HabitShare: sharing habits vs proving them
+
+Source: https://hitquota.app/guides/quota-vs-habitshare
+
+**Short answer:** HabitShare is a free habit tracker where you choose which habits each friend can see, and they see your check-ins. Quota is built around one daily goal per group, with a photo or short video taken in the app that day as proof and a streak the group keeps together. Pick HabitShare to share several habits lightly; pick Quota when a check-in is no longer enough.
+
+### At a glance
+
+|  | Quota | HabitShare |
+
+| Check-in | Photo or up to 10 seconds of video, taken in the app that day | Mark a habit done |
+
+| Who sees it | Everyone in the group | The friends you choose, habit by habit |
+
+| Habits | One goal per group (you can be in several groups) | Many habits |
+
+| Streak | Yours and the group's | Yours |
+
+| Rules for misses | Monthly pass, optional forfeit, group votes on doubtful proof | Up to you and your friends |
+
+### Choose HabitShare if
+
+- You track several habits and want different friends to see different ones.
+
+- You want something light: a tick, a message, a high five.
+
+- Some habits should stay private.
+
+### Choose Quota if
+
+- You've noticed it's easy to tick a habit you didn't quite do.
+
+- You want a group to share one goal and one streak, so a miss is noticed.
+
+- You'd like a fixed midnight deadline and agreed rules for misses.
+
+### The real question
+
+Is seeing a friend's tick enough to keep you going? For some people it is. If it isn't, proof is the next step up. See accountability app vs habit tracker.
+
+HabitShare details checked in October 2026.
+
+**What is the difference between Quota and HabitShare?** HabitShare shares habit check-ins with chosen friends. Quota has a small group post a photo or short video as proof of one daily goal, with a shared group streak.
+
+**Is HabitShare free?** HabitShare has been free on iPhone and Android. Quota's base version is also free.
+
+**Which is better for one habit I keep failing?** Usually Quota, because proof taken that day and a shared streak make skipping visible in a way a checkbox doesn't.
+
+## Quota vs stickK and Beeminder: friends or money?
+
+Source: https://hitquota.app/guides/quota-vs-stickk-and-beeminder
+
+**Short answer:** stickK and Beeminder motivate with money: you pay if you fail. stickK uses a commitment contract and an optional referee; Beeminder charges you when you fall off your goal's line, with the pledge rising each time. Quota motivates with friends: a small group sees your proof every day, and any forfeit is never money. Choose money if social pressure has never worked for you; choose friends if you want it to feel like a team.
+
+### How each one works
+
+#### stickK
+
+You write a commitment contract: a goal, a deadline, and optionally money at stake that goes to a friend, a charity or an "anti-charity" if you fail. A referee can confirm your progress reports.
+
+#### Beeminder
+
+You set a goal and a rate, and Beeminder draws a line you have to stay on, often fed by data from other apps. Fall off the line ("derail") and your card is charged, and the next pledge goes up.
+
+#### Quota
+
+A small group shares one daily goal. Everyone posts a photo or up to ten seconds of video, taken in the app that day, before midnight. Misses break your streak and the group's (one pass a month), and a group can set a forfeit that is never money.
+
+### At a glance
+
+|  | Quota | stickK | Beeminder |
+
+| Motivation | Friends and a shared streak | Money and a referee | Money, rising each time |
+
+| Proof | Photo or video taken that day | Self-report, confirmed by a referee | Data you enter or sync |
+
+| What failing costs | A streak, and maybe a forfeit like buying coffee | The stake you set | The current pledge |
+
+| Feels like | A team | A contract | A commitment device |
+
+### Choose money if
+
+- You've tried doing it with friends and it never stuck.
+
+- The goal is something private that friends can't easily see.
+
+- You respond to a clear financial cost.
+
+### Choose friends if
+
+- You have people who want the same habit.
+
+- You'd rather the motivation feel encouraging than punishing.
+
+- You don't want a fight with your bank over a missed day.
+
+Both approaches work for different people. If you're not sure, start with friends; it costs nothing to try. See forfeit ideas that stay friendly.
+
+stickK and Beeminder details checked in October 2026.
+
+**Do money-based accountability apps work?** For some people, yes. stickK and Beeminder rely on loss aversion: paying when you fail. Others find social accountability with friends motivates them more and feels better.
+
+**Does Quota charge money if you miss?** No. Quota's optional forfeits are a line of text the group agrees on, like buying coffee, and are never money.
+
+**What is the difference between Quota and Beeminder?** Beeminder charges your card when you fall behind on a goal. Quota has a group of friends see your daily photo or video proof and keep a streak together.
+
+## Quota vs Strava: which is better for working out with friends?
+
+Source: https://hitquota.app/guides/quota-vs-strava
+
+**Short answer:** Strava is better for runners and cyclists who want GPS tracking, stats and a big community. Quota is better for a small group keeping any daily goal, like pushups, a plank or a walk, with photo or video proof and a midnight deadline. Many people use both: Strava to record the run, Quota to keep the daily streak with friends.
+
+### At a glance
+
+|  | Quota | Strava |
+
+| Best for | Any daily goal you can show | Runs, rides, swims and other GPS activities |
+
+| Proof | Photo or up to 10 seconds of video, taken that day | Recorded activity data |
+
+| Audience | A private group you invite | Followers and clubs |
+
+| Deadline | Every active day, before midnight | None |
+
+| Streaks | Personal and group | Activity-focused stats |
+
+| Price | Base version free | Free, with a paid subscription for training features |
+
+### Choose Strava if
+
+- You run or ride and care about pace, distance and routes.
+
+- You want segments, clubs and a large community.
+
+### Choose Quota if
+
+- Your goal isn't GPS-based: pushups, squats, stretching, a plank, a cold shower.
+
+- You want a small group of friends to notice when you skip a day.
+
+- You want a daily deadline and a shared streak.
+
+### Using both
+
+For a running streak, record the run in Strava and post a photo of the summary to Quota. Strava keeps the stats; Quota keeps the daily promise to your friends.
+
+Strava details checked in October 2026.
+
+**Is Quota a Strava alternative?** Not exactly. Strava records GPS activities for a large community. Quota is a daily goal of any kind, shown with photo or video proof to a small private group.
+
+**Can I use Strava and Quota together?** Yes. Record your run in Strava and post a photo of the summary as your Quota proof.
+
+**Which is better for bodyweight workouts with friends?** Quota, since pushups, squats and planks aren't GPS activities, and a short clip shows them clearly.
+
 ## How to pick a daily goal you will actually keep
 
 Source: https://hitquota.app/guides/pick-a-daily-goal
