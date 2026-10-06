@@ -1,0 +1,6 @@
+# The app itself is mostly behind a sign-in. What it is and how it works is on the website,
+# which is where search and answer engines should look.
+User-agent: *
+Allow: /
+
+Sitemap: https://hitquota.app/sitemap.xml

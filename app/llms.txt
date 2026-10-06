@@ -1,0 +1,11 @@
+# Quota
+
+> Quota is a free accountability app for small groups of friends. Each group sets one daily goal, everyone posts a photo or a clip of up to ten seconds as proof before midnight, and the group keeps a streak together. This address (app.hitquota.app) is the app itself; it installs to the home screen on iPhone and Android.
+
+## About the app
+
+- [What Quota is, for language models](https://hitquota.app/llms.txt): key facts, pages and guides
+- [Full text of the FAQ and guides](https://hitquota.app/llms-full.txt)
+- [How Quota works](https://hitquota.app/what)
+- [FAQ](https://hitquota.app/faq)
+- [Install on iPhone and Android](https://hitquota.app/guides/install-quota)
