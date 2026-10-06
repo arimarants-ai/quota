@@ -25,6 +25,7 @@ const UPDATED_LONG = '6 October 2026';
 const src = readFileSync(join(ROOT, 'site-src', 'site.html'), 'utf8');
 const GROUPS = [
   {file: 'accountability', title: 'Accountability', lead: 'Keeping a goal with other people: partners, groups, and why proof beats a promise.'},
+  {file: 'compare', title: 'Comparisons', lead: 'How Quota compares with other accountability apps, and when another one is the better pick.'},
   {file: 'habits', title: 'Habits and challenges', lead: 'Choosing a daily goal, keeping a streak alive, and challenges and forfeits for friend groups.'},
   {file: 'quota', title: 'Using Quota', lead: 'Setting up a group, how streaks, wheels and flags work, and installing the app.'},
 ];
