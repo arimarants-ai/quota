@@ -1293,6 +1293,11 @@ await withPage(NO_WHEEL, async page => {
     return S.draft.url;
   });
   check('a story draft holds its clip while it is open', /^blob:/.test(url) && await alive(url), url);
+  // An iPhone shows nothing at all for a video that has never played, so the clip in the
+  // editor plays, silently and on a loop, or the draft is a black screen.
+  check('  and plays it, muted and looping, rather than showing a still black frame',
+    await page.evaluate(() => { const v = document.querySelector('#make video.fill');
+      return !!v && v.autoplay && v.loop && v.muted && /^blob:/.test(v.getAttribute('src') || ''); }));
   await page.evaluate(() => closeDraft());
   check('  and hands it back when it is put down', !await alive(url));
 });
@@ -1494,6 +1499,24 @@ await withPage(SIGNED_IN, async page => {
     && !await heart.evaluate(b => b.classList.contains('on'))
     && (await page.evaluate(() => self.__likes)).length === 0,
     (await heart.innerText()).trim());
+
+  // Two quick taps on the clip itself are a like, and two more take it back. Clicked from
+  // the page rather than by mouse, because this post's clip is showing its failure card,
+  // and what is being checked is what the clip does with a pair of taps.
+  const pair = () => page.evaluate(() => { const v = document.querySelector('.post video.proof'); v._tapAt = 0; v.click(); v.click(); });
+  await pair(); await page.waitForTimeout(150);
+  check('  two quick taps on the clip like it', (await heart.innerText()).trim() === '1'
+    && await heart.evaluate(b => b.classList.contains('on')) && (await page.evaluate(() => self.__likes)).length === 1,
+    (await heart.innerText()).trim());
+  check('    with a heart over the clip to say so', await page.locator('.post .reel .burst:not(.off)').count() === 1);
+  await pair(); await page.waitForTimeout(150);
+  check('    and two more take it back', (await heart.innerText()).trim() === '0'
+    && (await page.evaluate(() => self.__likes)).length === 0);
+  await page.evaluate(() => { const v = document.querySelector('.post video.proof'); v._tapAt = 0; v.click(); });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => document.querySelector('.post video.proof').click());
+  await page.waitForTimeout(150);
+  check('    but two slow taps are just two taps', (await heart.innerText()).trim() === '0');
 
   // A big count is shortened the way counts are shortened everywhere, so five digits do
   // not walk across the clip.
@@ -2498,6 +2521,9 @@ await withPage(NO_WHEEL, async page => {
   check('    carrying what the post was worth',
     /50/.test(await page.locator('#make .pcard .foot em').innerText()),
     await page.locator('#make .pcard .foot').innerText());
+  check('    with its clip or picture actually showing, not a black box',
+    await page.evaluate(() => { const m = document.querySelector('#make .pcard .shot');
+      return !!m && !!m.getAttribute('src') && (m.tagName === 'IMG' || m.autoplay); }));
   check('    and it is not a button in here, because in here it is being arranged',
     await page.evaluate(() => document.querySelector('#make .pcard').tagName) === 'DIV');
 
