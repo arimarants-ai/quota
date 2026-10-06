@@ -28,6 +28,7 @@ const page = (title, lead, body) => `<!doctype html>
 <meta name="description" content="${lead}">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/icon-192.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <style>
 :root{--ink:#1d1d1f;--mute:#6e6e73;--line:#d2d2d7;--g1:#12934f;color-scheme:light}
