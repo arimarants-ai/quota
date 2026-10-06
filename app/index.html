@@ -317,6 +317,11 @@ button.rg{border:0;font:inherit}
   padding:0;border:0;border-radius:14px;overflow:hidden;background:#0b0c0e;color:#fff;text-align:left;
   box-shadow:0 18px 44px -12px rgba(0,0,0,.6),0 0 0 3px rgba(255,255,255,.9);touch-action:none;cursor:pointer}
 .face .pcard .shot{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;background:#0b0c0e}
+/* The speaker on a story with a clip in it, in the viewer and in the editor alike. */
+.snd svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.snd .m{display:none}.snd.off .w{display:none}.snd.off .m{display:block}
+#story .who .snd{background:none;color:#fff;padding:4px 6px;margin-left:auto}
+#story .who .snd + .x{margin-left:0}
 .face .pcard .foot{display:flex;align-items:center;gap:7px;padding:8px 10px;background:#0b0c0e;min-width:0}
 .face .pcard .foot b{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .face .pcard .foot em{margin-left:auto;font-style:normal;font-family:Oswald,system-ui,sans-serif;font-weight:600;
@@ -1491,7 +1496,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v122';
+const BUILD = 'quota-v123';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2951,15 +2956,22 @@ function tplFace(y) {
 // safe is that sharing puts the post on your profile, and a post on your profile is
 // readable by exactly the people a story is — can_see_user() decides both — so there is
 // nobody who can be shown this card and cannot be shown what is on it.
+// Tilted a little by default, the way something stuck on is. Turned and sized with two
+// fingers in the editor, and drawn the same way for everyone who watches it.
+const CARD_TILT = -2.4;
+const cardTf = (r, k) => `translate(-50%,-50%) rotate(${r ?? CARD_TILT}deg) scale(${k ?? 1})`;
+// Whether a story has a clip in it, its own or one on a post shared onto it: those are the
+// stories with something to hear.
+const storyClip = st => st.kind === 'video' || (() => { const p = styleOf(st).post && postById(styleOf(st).post); return !!p && !isPhoto(p); })();
 function postCard(y, live, editing) {
   const p = postById(y.post);
   const inner = !p
     ? `<div class="gone">This post is no longer here.</div>`
     : `${isPhoto(p)
         ? `<img class="shot" alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
-        : `<video class="shot" playsinline muted loop${live || editing ? ' autoplay' : ''}${(live || editing) && p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
+        : `<video class="shot" playsinline muted${editing ? ' loop' : ''}${live || editing ? ' autoplay' : ''}${(live || editing) && p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
       <div class="foot">${av(user(p.userId), 'sm')}<b>${esc(name(user(p.userId)))}</b><em>${esc(effort(p))}</em></div>`;
-  const at = `left:${(y.px ?? .5) * 100}%;top:${(y.py ?? .46) * 100}%`;
+  const at = `left:${(y.px ?? .5) * 100}%;top:${(y.py ?? .46) * 100}%;transform:${cardTf(y.pr, y.ps)}`;
   // A tap on it in the viewer is a way through to the post. In the editor it is a thing
   // being dragged about the card, so it is not a button at all.
   return editing
@@ -2975,7 +2987,9 @@ function storyFace(st, live, editing) {
     // In the editor the clip plays too, silently and round and round: a video element that
     // has never played shows nothing at all on an iPhone, so a clip left still there was a
     // black screen where the story should be.
-    : `<video class="fill" playsinline ${live || editing ? 'autoplay' : ''}${editing ? ' loop' : ''} muted="${live ? 'false' : 'true'}"${st.url ? ` src="${esc(st.url)}"` : ''}></video>`;
+    // Muted as drawn, because a phone only lets a muted clip start on its own; storySound()
+    // turns the sound on straight after, which a tap that opened it allows.
+    : `<video class="fill" playsinline ${live || editing ? 'autoplay' : ''}${editing ? ' loop' : ''} muted${st.url ? ` src="${esc(st.url)}"` : ''}></video>`;
   const stk = stickersOf(y).map((k, i) => `<span class="stk" data-i="${i}" style="left:${k.x * 100}%;top:${k.y * 100}%">${esc(k.e)}</span>`).join('');
   return `<div class="face${y.tpl ? ' tpl' : ''}" style="background:${bg};color:${STORY_INK[y.ink] || '#fff'}">${media}${y.tpl ? tplFace(y) : ''}${
     y.post ? postCard(y, live, editing) : ''}${wordsOf(st, editing)}${stk}</div>`;
@@ -3206,6 +3220,7 @@ function paneHTML(uid, all, at, live) {
     <div class="bars">${all.map((x, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}">${i === at ? '<b></b>' : ''}</i>`).join('')}</div>
     <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
       <button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>
+      ${live && storyClip(st) ? `<button type="button" class="snd" onclick="toggleStorySound()" aria-label="Sound">${SPEAKER}</button>` : ''}
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
     ${storyFace(st, live)}
     <button type="button" class="tap back" onclick="stepStory(-1)" aria-label="Previous"></button>
@@ -3235,13 +3250,15 @@ function paintStory() {
   // repaints it, and the clock is not restarted for that: it would make a story you keep
   // reacting to sit there forever. The bar is set from how much has already gone rather
   // than from zero for the same reason — it is the clock drawn, not an animation.
-  if (st.kind !== 'video') {
+  const clip = box.querySelector('.pane video');
+  storySound(box);
+  if (!clip) {
     const gone = Date.now() - (S.story.at || (S.story.at = Date.now()));
     const left = Math.max(1200, STORY_RUN - gone);
     fillBar(Math.min(1, gone / STORY_RUN), left);
     storyTimer = setTimeout(() => S.story && stepStory(1), left);
   } else {
-    const v = box.querySelector('video');
+    const v = clip;
     if (v) {
       v.onended = () => S.story && stepStory(1);
       // A clip's own length is the clock, and it is not known until the file says so.
@@ -3515,6 +3532,7 @@ function paintDraft() {
       <button type="button" class="x" onclick="closeDraft()" aria-label="Close">✕</button>
       <div class="tools">
         ${d.kind === 'text' ? `<button type="button" class="bgbtn${t === 'bg' ? ' on' : ''}" style="background:${STORY_BG[y.bg]}" onclick="draftTray('bg')" aria-label="Background"></button>` : ''}
+        ${storyClip(d) ? `<button type="button" class="tb snd" onclick="toggleStorySound()" aria-label="Sound">${SPEAKER}</button>` : ''}
         ${y.post ? `<button type="button" class="tb" onclick="draftSet('post',null)" aria-label="Take the post off">${BIN}</button>` : ''}
         ${tplOf(y.tpl) ? `<button type="button" class="tb${t === 'tpl' ? ' on' : ''}" onclick="draftTray('tpl')" aria-label="Change the look"><svg viewBox="0 0 24 24"><path d="M4 5h7v7H4zM13 5h7v4h-7zM13 11h7v8h-7zM4 14h7v5H4z"/></svg></button>` : ''}
         <button type="button" class="fontpill${t === 'font' ? ' on' : ''}" onclick="draftTray('font')" style="font-family:${f.css};font-weight:${f.w};font-style:${f.fs || 'normal'}">${f.name}<i>▾</i></button>
@@ -3541,7 +3559,82 @@ function paintDraft() {
   // tap: in here it is a thing being arranged, and the way through to the post is what it
   // does once it is up.
   const card = box.querySelector('.pcard');
-  if (card) dragify(card, (x, yy) => { S.draft.style = {...styleOf(S.draft), px: x, py: yy}; });
+  if (card) cardify(card);
+  storySound(box);
+}
+
+// The card moves under one finger, and under two it turns and grows or shrinks with them,
+// the way a photo does in any phone's editor. Every change is measured from where the
+// gesture began rather than added up move by move, so a long pinch does not drift. Lifting
+// one of two fingers keeps what was done and carries on as a drag with the other.
+function cardify(el) {
+  const pts = new Map();
+  let from = null, now = null;
+  const pair = () => [...pts.values()];
+  const mid = l => l.length > 1 ? {x: (l[0].x + l[1].x) / 2, y: (l[0].y + l[1].y) / 2} : l[0];
+  const gap = l => Math.hypot(l[1].x - l[0].x, l[1].y - l[0].y);
+  const turn = l => Math.atan2(l[1].y - l[0].y, l[1].x - l[0].x);
+  const begin = () => {
+    const y = styleOf(S.draft), l = pair(), c = mid(l);
+    from = {px: y.px ?? .5, py: y.py ?? .46, pr: y.pr ?? CARD_TILT, ps: y.ps ?? 1, c,
+      d: l.length > 1 ? gap(l) : 0, a: l.length > 1 ? turn(l) : 0, f: el.closest('.face').getBoundingClientRect()};
+    now = null;
+  };
+  const keep = () => {
+    if (!now) return;
+    S.draft.style = {...styleOf(S.draft), px: +now.px.toFixed(3), py: +now.py.toFixed(3), pr: +now.pr.toFixed(1), ps: +now.ps.toFixed(3)};
+  };
+  el.addEventListener('pointerdown', e => {
+    if (pts.size >= 2) return;
+    keep();
+    pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    try { el.setPointerCapture(e.pointerId); } catch (x) {}
+    e.preventDefault();
+    begin();
+  });
+  el.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId) || !from) return;
+    pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    const l = pair(), c = mid(l), f = from.f;
+    const t = {px: Math.min(.95, Math.max(.05, from.px + (c.x - from.c.x) / f.width)),
+      py: Math.min(.95, Math.max(.05, from.py + (c.y - from.c.y) / f.height)), pr: from.pr, ps: from.ps};
+    if (l.length > 1 && from.d) {
+      t.ps = Math.min(2.5, Math.max(.35, from.ps * gap(l) / from.d));
+      t.pr = from.pr + (turn(l) - from.a) * 180 / Math.PI;
+    }
+    if (!now && Math.hypot(c.x - from.c.x, c.y - from.c.y) < 4 && t.ps === from.ps && t.pr === from.pr) return;
+    now = t;
+    el.style.left = `${t.px * 100}%`; el.style.top = `${t.py * 100}%`;
+    el.style.transform = cardTf(t.pr, t.ps);
+  });
+  const up = e => {
+    if (!pts.delete(e.pointerId)) return;
+    keep();
+    if (pts.size) begin(); else from = null;
+  };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+}
+
+// ---- sound on a story
+// On by default: a clip on a story is something to watch and hear. A phone may still refuse
+// to start one with sound before anything has been tapped, and then it plays silently and
+// the speaker says so, one tap from sound. Muting is remembered while the app is open, so
+// somebody watching on a bus is not made to mute every story in turn.
+const SPEAKER = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="m" d="M16 9l5 6M21 9l-5 6"/></svg>';
+function storySound(box) {
+  const v = box && box.querySelector('.pane video'); if (!v) return;
+  const show = () => box.querySelectorAll('.snd').forEach(b => { b.classList.toggle('off', v.muted); b.setAttribute('aria-label', v.muted ? 'Sound on' : 'Mute'); });
+  v.muted = !!S.soundOff; show();
+  if (v.muted) return;
+  const go = v.play();
+  if (go && go.catch) go.catch(() => { v.muted = true; show(); v.play().catch(() => {}); });
+}
+function toggleStorySound() {
+  const box = S.draft && !$('#make').hidden ? $('#make') : $('#story');
+  const v = box.querySelector('.pane video'); if (!v) return;
+  S.soundOff = !v.muted;
+  storySound(box);
 }
 
 // Drag a thing about the card. A press that does not move is a tap, and a tap on the words

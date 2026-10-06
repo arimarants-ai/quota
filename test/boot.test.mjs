@@ -1295,9 +1295,14 @@ await withPage(NO_WHEEL, async page => {
   check('a story draft holds its clip while it is open', /^blob:/.test(url) && await alive(url), url);
   // An iPhone shows nothing at all for a video that has never played, so the clip in the
   // editor plays, silently and on a loop, or the draft is a black screen.
-  check('  and plays it, muted and looping, rather than showing a still black frame',
+  check('  and plays it, looping, rather than showing a still black frame',
     await page.evaluate(() => { const v = document.querySelector('#make video.fill');
-      return !!v && v.autoplay && v.loop && v.muted && /^blob:/.test(v.getAttribute('src') || ''); }));
+      return !!v && v.autoplay && v.loop && /^blob:/.test(v.getAttribute('src') || ''); }));
+  check('    with sound, and a speaker to mute it', await page.evaluate(() => {
+    const v = document.querySelector('#make video.fill'), b = document.querySelector('#make .snd');
+    if (!b) return false;
+    const was = v.muted; toggleStorySound(); const now = v.muted; toggleStorySound();
+    return now !== was && v.muted === was && b.classList.contains('off') === v.muted; }));
   await page.evaluate(() => closeDraft());
   check('  and hands it back when it is put down', !await alive(url));
 });
@@ -2537,6 +2542,32 @@ await withPage(NO_WHEEL, async page => {
   check('    and it can be dragged where you want it',
     await page.evaluate(() => styleOf(S.draft).py) < 0.44,
     String(await page.evaluate(() => styleOf(S.draft).py)));
+  check('    tilted to start with', await page.evaluate(() =>
+    /rotate\(-2\.4deg\)/.test(document.querySelector('#make .pcard').style.transform)));
+
+  // Two fingers turn it and size it: apart and a quarter turn round makes it twice the size
+  // and turned ninety degrees. Pointer events by hand, because a mouse has one pointer.
+  const pinch = await page.evaluate(async () => {
+    const c = document.querySelector('#make .pcard'), r = c.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const ev = (type, id, x, y) => c.dispatchEvent(new PointerEvent(type, {pointerId: id, clientX: x, clientY: y, bubbles: true, isPrimary: id === 1, pointerType: 'touch'}));
+    ev('pointerdown', 1, cx - 40, cy); ev('pointerdown', 2, cx + 40, cy);
+    for (let i = 1; i <= 6; i++) {
+      const a = Math.PI / 2 * i / 6, d = 40 + 40 * i / 6;
+      ev('pointermove', 1, cx - d * Math.cos(a), cy - d * Math.sin(a));
+      ev('pointermove', 2, cx + d * Math.cos(a), cy + d * Math.sin(a));
+      await new Promise(r => setTimeout(r, 16));
+    }
+    ev('pointerup', 2, cx, cy + 80); ev('pointerup', 1, cx, cy - 80);
+    const y = styleOf(S.draft);
+    return {ps: y.ps, pr: y.pr, tf: c.style.transform};
+  });
+  check('    and two fingers turn it and pinch it bigger',
+    Math.abs(pinch.ps - 2) < .05 && Math.abs(pinch.pr - (-2.4 + 90)) < 1, JSON.stringify(pinch));
+  check('      kept where they left it', await page.evaluate(() => {
+    paintDraft(); return /scale\(2/.test(document.querySelector('#make .pcard').style.transform); }));
+  check('    and it has a speaker, because it has a clip on it',
+    await page.locator('#make .tools .snd').count() === 1);
 
   await page.locator('#make .go').click();
   await page.waitForTimeout(900);
@@ -2551,6 +2582,11 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(600);
   check('  the card is on the story when it is watched',
     await page.locator('#story .pcard').count() === 1);
+  check('    turned and sized the way it was left', await page.evaluate(() =>
+    /scale\(2/.test(document.querySelector('#story .pcard').style.transform)));
+  check('    with its clip playing to the end rather than round and round, and a speaker',
+    await page.evaluate(() => { const v = document.querySelector('#story .pcard video');
+      return !v || !v.loop; }) && await page.locator('#story .who .snd').count() === 1);
   check('    as a button, above the zones that step the story on',
     await page.evaluate(() => {
       const c = document.querySelector('#story .pcard');
