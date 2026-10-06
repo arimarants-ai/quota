@@ -1,0 +1,1011 @@
+# Quota: full text
+
+> Quota is a free accountability app for small groups of friends. Each group sets one daily goal, everyone posts a photo or a clip of up to ten seconds as proof before midnight, and the group keeps a streak together. Website: https://hitquota.app. App: https://app.hitquota.app.
+
+## Key facts
+
+- Quota is a free accountability app for small groups of friends, made by Ari Marants and Justin Smith.
+- Each group sets one daily goal (a "quota"), in its own words, on the days it chooses. Days outside them leave streaks alone.
+- Everyone posts proof before midnight in their own time zone: a photo or a video clip of up to ten seconds, taken with Quota's in-app camera that day. Nothing old from the camera roll can be uploaded.
+- Each person keeps a streak, and the group keeps a streak of days when everyone posted.
+- Everyone gets one pass a calendar month: the first missed day is covered; a second miss that month resets the streak. The group streak has its own monthly pass.
+- Groups can set an optional forfeit (a line of text like "buys the coffee"), owed for a missed day the pass didn't cover until marked paid. It is never money, and only the last 14 days are ever owed.
+- Groups can add challenge wheels: on a schedule everyone spins to land on a challenge and a number of days. Whoever made the wheel decides whether an unfinished challenge breaks a streak; you can sit out one round.
+- Anyone can flag a post that doesn't show the goal; the group votes, and the poster has no vote. Voting closes three hours before the poster's own midnight, so there is time to post again. An upheld flag means the day counts as if that post had not been made.
+- Groups also have likes, comments, a group chat, one-to-one messages and 24-hour stories.
+- Posts are visible to the group only. There is no public feed, no ads, no analytics, no trackers and no cookies. Data is never sold.
+- Two people is enough for a group. You can be in several groups with a different quota in each.
+- Sign-up needs an email and a password; a code confirms the email, then you choose a username. Emails are never shown to anyone.
+- Price: the base version is free and always will be; a paid version with extra perks may come later.
+- Platforms: a web app at https://app.hitquota.app that installs to the home screen on iPhone (Safari: Share, Add to Home Screen) and Android (Chrome: menu, Install app). App Store and Google Play listings are coming. Reminders only work once installed.
+- Contact: hello@hitquota.app. Account deletion: in the app, Settings → Delete account.
+
+## FAQ
+
+### What is Quota?
+
+Quota is a free accountability app for small groups of friends. Each group sets a daily goal, everyone posts a photo or a clip of up to ten seconds as proof before midnight, and the group keeps a streak together. It runs as a web app on iPhone, Android and computers.
+
+### What counts as proof?
+
+A photo or a clip of up to ten seconds, taken with Quota's camera that day. Quota checks when it was taken, so something old from your camera roll won't go through.
+
+### Why can't I upload something I already took?
+
+Because then anyone could. The point of Quota is that the proof was made today. The in-app camera is the only way in.
+
+### Do I have to post every single day?
+
+No. Each quota has active days. Days outside them leave your streak alone.
+
+### What if I'm travelling in another time zone?
+
+Midnight is midnight where your phone is. Your deadline moves with you.
+
+### What is a forfeit?
+
+An optional consequence your group agrees on, written as a line of text, like "buys the coffee". You owe it for a day you missed that your monthly pass didn't cover, until someone marks it paid. It is never money, and only the last 14 days are ever owed.
+
+### What is a challenge wheel?
+
+An extra a group can add on top of its daily goal. On a schedule, everyone spins a wheel to land on a challenge, like a cold shower or a plank, and how many days to do it. Whoever made the wheel decides whether leaving it unfinished breaks your streak. You can sit out one round.
+
+### What happens if I miss a day?
+
+Everyone gets one pass a calendar month. The first day you miss in a month is covered and your streak carries on; a second miss that month resets it. The group's run of days when everyone posted has its own monthly pass and works the same way. If your group has set a forfeit, you owe it for any missed day the pass didn't cover.
+
+### What if someone posts something that clearly doesn't count?
+
+Anyone in the group can flag it, and the group votes. Quota doesn't decide, and neither do we.
+
+### Can I be in more than one group?
+
+Yes. Each group has its own streak and you can have a different quota in each.
+
+### Can I use it on my own?
+
+You can, but on your own it's a diary with a camera. Quota is a group thing. Make a group, or open the link somebody sent you.
+
+### Can I leave a group?
+
+Yes, any time, from the group's settings. Your past posts stay in the group. The group's streak carries on without you.
+
+### What do I need to sign up?
+
+An email and a password. We email you a code to check the address is yours, then you pick a username.
+
+### What if I forget my password?
+
+Tap "Forgot password?" on the log in screen. We email you a code, and you choose a new password with it.
+
+### How do friends find me?
+
+By your username. Or skip that and send them your group's invite link. Your email is never shown to anyone.
+
+### Who makes Quota?
+
+Two childhood best friends, Ari Marants and Justin Smith, who built it for their own daily pushup quota. Read more on the About us page.
+
+### Who can see my posts?
+
+Your group. There is no public feed, no explore page, no strangers.
+
+### How much does it cost?
+
+The base version is free and always will be. A paid version with extra perks will come eventually.
+
+### Is it on the App Store?
+
+Not yet. Today Quota runs as a web app you add to your home screen. Store links will appear on the Get the app page when they're ready.
+
+### How do I delete my account?
+
+In the app, Settings → Delete account. Everything in it is deleted straight away. Can't get in? Email us and it's done within 30 days. You can also ask for a copy of everything we hold first.
+
+### Does Quota show ads or track me?
+
+No. There are no ads, no analytics, no trackers, and no cookies. Nothing is sold.
+
+### How do I get in touch?
+
+Email hello@hitquota.app, or see the Contact page. You'll hear back from one of the two of us.
+
+## Guides
+
+## How to stay accountable with friends
+
+Source: https://hitquota.app/guides/accountability-with-friends
+
+**Short answer:** Agree on one small daily goal, set a fixed deadline, and have everyone show proof, not just say "done". Keep the group small, make missing a day visible, and agree in advance what happens when someone misses. Accountability works when skipping costs something socially and showing up takes seconds.
+
+Most attempts at "let's keep each other accountable" fade within two weeks. Not because people stop caring, but because the setup makes skipping free. Somebody forgets to check in, nobody notices, and the group chat drifts back to memes. The fix is structural, not motivational.
+
+### 1. Pick one goal, small enough to do on a bad day
+
+A goal that only works on good days will break on the first bad one. Choose something you could still do when you are tired, travelling or ill: 30 pushups rather than a full workout, ten pages rather than a chapter, a 20-minute walk rather than a 10k. You can always do more. The daily minimum is what keeps the streak alive. Our guide to picking a daily goal goes deeper.
+
+### 2. Give it a deadline that is the same for everyone
+
+"Sometime today" turns into "tomorrow" very easily. A fixed deadline, like midnight, removes the negotiation. Everyone knows when the day closes, and a day that has closed cannot be argued about later.
+
+### 3. Ask for proof, not a thumbs-up
+
+Typing "done" costs nothing, so it carries no information. A photo or a few seconds of video taken that day costs a little effort, and that effort is the point. It also turns a check-in into something your friends actually want to see. More on this in why proof works better than checking a box.
+
+### 4. Keep the group small
+
+Two to six people who know each other works best. In a big group, one missing person disappears into the crowd. In a small one, everyone notices, and that is exactly the pressure you want. If you are starting from scratch, see how to start an accountability group.
+
+### 5. Make a missed day visible, and decide the consequence in advance
+
+A shared streak does a lot of quiet work: around the second week, nobody wants to be the one who breaks it. Some groups add a forfeit, like buying the next round of coffee. Agree on it before anyone has missed, so it never feels personal. Here are forfeit ideas that stay friendly.
+
+### 6. Plan for misses before they happen
+
+Everyone misses eventually. Decide now what a miss means: does the streak reset, is there one free pass a month, are weekends rest days? Groups that agree the rules up front argue far less when the first miss arrives.
+
+How Quota handles it. In Quota, your group sets a daily goal and the days it applies to. Everyone posts a photo or a clip of up to ten seconds, taken in the app that day, before midnight. You each keep a streak with one pass a month for a missed day, the group tracks the days everyone showed up, and you can set a forfeit for misses.
+
+**What is the best way to stay accountable with friends?** Agree on one small daily goal and a fixed deadline, and have everyone share proof like a photo or short video instead of saying "done". Keep the group small so a missed day is noticed.
+
+**How many people should be in an accountability group?** Two to six people who already know each other. Smaller groups notice when someone is missing; large ones let people hide.
+
+**What should happen when someone misses a day?** Whatever the group agreed in advance: a reset streak, a monthly free pass, or a light forfeit like buying coffee. Deciding before the first miss keeps it from feeling personal.
+
+## How to find an accountability partner (and make it work)
+
+Source: https://hitquota.app/guides/accountability-partner
+
+**Short answer:** Pick someone you already talk to most days and who wants a similar habit, not necessarily the most disciplined person you know. Agree on one daily goal each, a shared deadline and how you will show proof. Then check in every day, briefly. Consistency matters more than intensity.
+
+An accountability partner is one other person who knows what you said you would do and notices whether you did it. That is all. The tricky part is choosing someone who will still be noticing in week six.
+
+### Who makes a good partner
+
+- Someone you talk to anyway. A friend, sibling or partner you already message daily. A stranger from a forum rarely lasts.
+
+- Someone with a goal of their own. It works best when it runs both ways. One person policing the other turns into nagging.
+
+- Someone at a similar level of seriousness. If one of you wants to train for a marathon and the other wants to walk more, that is fine. What matters is that both of you care about not breaking the chain.
+
+The most disciplined person you know is often a poor choice. They do not need you, and you may feel judged rather than supported.
+
+### What to agree on in the first conversation
+
+- Each person's daily goal, stated as a number: "40 pushups", "read 15 pages", "practise guitar 20 minutes".
+
+- Which days count. Every day, weekdays only, or a set number of days a week.
+
+- The deadline. Midnight in your own time zone is simple and fair.
+
+- What counts as proof. A photo or a short clip taken that day is hard to fake and quick to check.
+
+- What happens on a miss. Agree it now. See forfeit ideas if you want a light consequence.
+
+### The daily routine
+
+Keep it under a minute. Post your proof, look at theirs, react if you like. Long check-in calls feel good in week one and become a chore by week three. The daily habit should be the goal itself, not managing the partnership.
+
+### When a partnership stalls
+
+If one of you keeps missing, talk about the goal, not the person. Usually the goal was set too high. Shrink it until it is easy to do every day, rebuild the streak, then grow it again. If it is still not working, add a third person. Two people can quietly agree to let things slide; three rarely do.
+
+How Quota handles it. Two people is enough for a Quota group. Each of you keeps your own quota and streak, sees the other's proof the moment it is posted, and gets an evening reminder if you haven't posted yet.
+
+**Where can I find an accountability partner?** Start with people you already talk to daily: friends, siblings, a partner, a classmate or a coworker. Existing relationships last far longer than partnerships with strangers.
+
+**Do accountability partners need the same goal?** No. Each person can have their own goal. What matters is a shared deadline, a shared way of showing proof, and both people caring about keeping the streak.
+
+**How often should accountability partners check in?** Every day the goal applies, briefly. A quick photo or video of the day's effort is enough. Long weekly calls are optional.
+
+## How to start an accountability group that lasts
+
+Source: https://hitquota.app/guides/start-an-accountability-group
+
+**Short answer:** Invite two to five people you know, agree on one daily goal and a fixed deadline, and require proof each day. Write the rules down before day one, including what happens on a miss. The first two weeks decide whether the group lasts, so keep the goal small enough that everyone succeeds early.
+
+### Step 1: Invite the right people
+
+Aim for three to six people who already know each other: friends, teammates, a family group, classmates. Each person should want the habit for their own reasons. People who join to be polite tend to drift.
+
+### Step 2: Choose one goal for the group
+
+A single shared goal, like "100 pushups a day" or "read 20 pages a day", makes the group feel like a team. If people's levels differ a lot, keep the activity the same and let each person set their own number.
+
+### Step 3: Set the rules in writing
+
+| Rule | A good default |
+
+| Deadline | Midnight, in each person's own time zone |
+
+| Proof | A photo or a clip of up to ten seconds, taken that day |
+
+| Active days | Every day, or weekdays only |
+
+| Missed day | One free pass a month, then the streak resets |
+
+| Forfeit | Optional and small, like buying the next coffee |
+
+| Disputes | The group votes on proof that doesn't look right |
+
+### Step 4: Run the first two weeks carefully
+
+Early wins matter. Keep the goal modest so everyone completes the first week, and react to each other's proof. Around day ten to fourteen the streak starts to carry itself, because nobody wants to be the one who breaks it.
+
+### Step 5: Handle the first miss well
+
+Someone will miss. Apply the agreed rule, keep it light, and move on. A group that turns the first miss into a lecture rarely sees week four.
+
+### When the group starts slipping
+
+- Several people missing: the goal is too big. Shrink it.
+
+- Proof getting lazy: remind everyone what counts, or let the group vote on doubtful posts.
+
+- Boredom: add a short challenge on top for a week. A challenge wheel does this for you.
+
+How Quota handles it. In Quota you make a group, set its quota and active days, and share an invite link. The deadline, proof, monthly pass, forfeit and flag votes are built in, so nobody has to keep score by hand. See setting up your first group.
+
+**How do you start an accountability group?** Invite a few people you know, agree on one daily goal, a fixed deadline and how proof is shown, and write down what happens on a missed day before you begin.
+
+**What rules should an accountability group have?** A deadline, a definition of proof, which days count, what happens on a miss, and how the group settles disputed proof.
+
+**Why do accountability groups fail?** Usually the goal is too big, check-ins are optional, or misses are invisible. Small goals, required daily proof and a shared streak fix most of it.
+
+## Accountability app vs. habit tracker: which do you need?
+
+Source: https://hitquota.app/guides/accountability-app-vs-habit-tracker
+
+**Short answer:** A habit tracker records what you did, for you. An accountability app shows other people whether you did it. If you keep habits fine on your own and want a record, a tracker is enough. If you tend to drop habits after a couple of weeks, the social pressure of an accountability app is usually what makes the difference.
+
+Both kinds of app help you do something every day. They work in different ways, and the right one depends on why your habits usually fail.
+
+### The difference in one table
+
+|  | Habit tracker | Accountability app |
+
+| Who sees it | Only you | People you chose |
+
+| What you log | A tick or a number | Usually proof, like a photo or video |
+
+| What keeps you going | Your own streak and charts | Not wanting to let others down |
+
+| Best for | Many small habits at once | One habit you keep dropping |
+
+| Weak spot | Easy to stop opening | Needs at least one other person |
+
+### Choose a habit tracker if
+
+- You already stick with habits, and want a record and a nice streak counter.
+
+- You track lots of small things at once: water, vitamins, journaling, steps.
+
+- The habit is private and you don't want anyone else involved.
+
+### Choose an accountability app if
+
+- You have started the same habit several times and stopped around week two.
+
+- You find it easy to tick a box you didn't really earn.
+
+- You have friends who want the same thing, and you'd enjoy seeing their progress.
+
+### Why the social part works
+
+A tick in a tracker is a promise to yourself, and those are easy to renegotiate at 11pm. Proof shown to people you know is harder to skip, because skipping is visible. That is the whole mechanism, and it is why proof beats a checkbox.
+
+### You can use both
+
+Many people track several small habits privately and keep one important habit with friends. Put the habit you keep failing at in the accountability app, and leave the rest in a tracker.
+
+Where Quota fits. Quota is an accountability app: one daily goal per group, proof taken in the app before midnight, seen only by your group. It deliberately leaves out points, levels and public feeds.
+
+**Is an accountability app better than a habit tracker?** It depends why your habits fail. If you drop habits after a few weeks, an accountability app's social pressure usually helps more. If you keep habits fine alone, a tracker is enough.
+
+**What is an accountability app?** An app where a small group sees whether each person did their goal, usually through proof like a photo or video, instead of a private checkbox.
+
+**Can I use a habit tracker and an accountability app together?** Yes. Track small habits privately and keep the one you most often drop with friends.
+
+## Why proof works better than checking a box
+
+Source: https://hitquota.app/guides/proof-not-checkboxes
+
+**Short answer:** A checkbox or a "done" message costs nothing to send, so it means very little, and it's easy to send one you didn't earn. Proof taken that day, like a photo or a short clip, takes a few seconds of real effort and is seen by people you know. That small cost is what makes skipping noticeable, and what makes the habit stick.
+
+### The problem with "done"
+
+When a group checks in by text, the messages slowly shrink: "did 100", then "done", then a thumbs-up, then nothing. Each step is a little easier to fake, and once the group suspects people are faking, everyone stops trying.
+
+### What proof changes
+
+- It costs a little. Filming ten seconds of your last set takes effort, and that effort is a signal.
+
+- It is hard to fake. Especially if it has to be taken that day, rather than picked from an old camera roll.
+
+- It is interesting to see. Friends actually look at each other's clips, react and comment. A tick in a list gets no reaction.
+
+- It settles arguments. When proof is visible, "did they really?" turns into a quick look rather than a debate.
+
+### What good proof looks like
+
+| Goal | Good proof |
+
+| Pushups, squats, planks | A clip of the last few reps or the final seconds |
+
+| A run or walk | A photo of the watch or app summary, or a clip outside |
+
+| Reading | A photo of the page number you reached |
+
+| Practising an instrument | A clip of you playing |
+
+| Studying | A photo of the notes you made today |
+
+| Cold shower | A clip of the water running cold (keep it decent) |
+
+### When proof is disputed
+
+Sometimes a post clearly doesn't show the goal. The fairest fix is to let the group decide, not one person. A quick vote keeps it about the post, not about who called it out.
+
+How Quota handles it. Quota only accepts a photo or a clip of up to ten seconds taken with its own camera that day, so nothing old from your camera roll gets through. Anyone can flag a post that doesn't show the goal, and the group votes on it.
+
+**Why is photo or video proof better than a checkmark?** A checkmark costs nothing and is easy to fake. Proof taken the same day takes a little effort and is seen by people you know, which makes skipping visible.
+
+**What counts as proof for a habit?** Anything that shows the goal was done today: a short clip of the last reps, a photo of a run summary, the page number you reached, notes you made.
+
+**What if someone posts fake proof?** Let the group vote on it rather than one person deciding. In Quota, anyone can flag a post and the group decides whether it counts.
+
+## How to work out with friends who live far away
+
+Source: https://hitquota.app/guides/long-distance-workout-friends
+
+**Short answer:** Agree on the same daily workout goal, do it whenever suits each of you, and share short proof each day before your own midnight. You don't need to train at the same time to train together; you need to see each other show up every day. Time zones stop mattering once each person's deadline is their own midnight.
+
+Training "together" used to mean being in the same gym. For friends who live apart, that just isn't possible, but the part of training together that actually helps is not the shared room. It is knowing your friend will see whether you showed up.
+
+### Pick a goal that needs no equipment
+
+Bodyweight goals work anywhere: pushups, squats, a plank, a run or a walk. If one of you travels a lot, a goal that fits in a hotel room keeps the streak alive.
+
+### Forget training at the same time
+
+Scheduling live video workouts across time zones falls apart quickly. Instead, let each person train whenever suits them, and share proof afterwards. The friend in Toronto sees the clip from Texas when they wake up, and that is enough to keep both going.
+
+### Use each person's own midnight
+
+A single shared deadline punishes whoever is ahead in time. Midnight in each person's own time zone is fair, and it moves with you when you travel.
+
+### Make it a little social
+
+- React to each other's clips. It takes a second and it matters.
+
+- Keep a group chat for the banter, separate from the proof.
+
+- Once a month, do a short challenge together, like a plank-off or a pushup max.
+
+A real example. Quota was built by two friends, one in College Station, Texas and one in Toronto, who keep a daily pushup quota together. Every night both post proof before their own midnight. Read the story.
+
+**How can I work out with a friend who lives in another city?** Agree on a daily goal, train whenever suits each of you, and share short proof every day. Seeing each other show up matters more than training at the same time.
+
+**How do time zones work for a shared daily goal?** Give each person their own midnight as the deadline. It's fair to everyone and moves with you when you travel.
+
+**What workouts are best for long-distance accountability?** No-equipment goals like pushups, squats, planks, runs and walks, so travel never breaks the streak.
+
+## How to pick a daily goal you will actually keep
+
+Source: https://hitquota.app/guides/pick-a-daily-goal
+
+**Short answer:** Pick a goal you could still do on your worst day, state it as a number ("40 pushups", "10 pages"), and make sure you can show it in a photo or a few seconds of video. Start smaller than feels impressive. You can always do more than the minimum, but a minimum you keep missing ends the habit.
+
+### The four tests of a good daily goal
+
+- Specific. "Work out" invites arguments with yourself. "50 squats" doesn't.
+
+- Small enough for a bad day. Imagine the day you are tired, late and slightly ill. Could you still do it in under 20 minutes? If not, shrink it.
+
+- Provable. If you can't show it, you will eventually fudge it. Good goals leave something to photograph or film.
+
+- Yours. A goal you picked because someone else does it fades fast. Choose something you'd want even if nobody was watching.
+
+### Examples that work
+
+| Instead of | Try |
+
+| Get fit | 30 pushups a day |
+
+| Read more | 10 pages a day |
+
+| Run more | A 2 km run or 20-minute walk, every weekday |
+
+| Learn guitar | 15 minutes of practice, filmed for 10 seconds |
+
+| Study harder | One page of handwritten notes a day |
+
+| Eat better | A photo of one home-cooked meal a day |
+
+| Stretch | A 2-minute plank or 10 minutes of stretching |
+
+### Every day or only some days?
+
+Every day is easiest to remember. If your goal needs recovery, like heavy training, choose fixed active days such as Monday to Friday. Fixed days are better than "three times a week", which quietly turns into Friday, Saturday and Sunday in a panic.
+
+### When to raise the bar
+
+Once a goal has felt easy for two or three weeks, raise it a little: 30 pushups becomes 40. Raise it slowly. The streak is worth more than the extra ten.
+
+In Quota. Your quota is written in your own words, so it can be anything you can show, and you choose the days it applies to. Days outside them leave your streak alone. See setting up your first group.
+
+**How do I choose a daily goal?** Make it specific, small enough to do on your worst day, provable with a photo or short video, and something you want for yourself.
+
+**Should a daily goal be every day?** Every day is easiest to remember. If you need rest days, pick fixed active days like weekdays rather than a number of days per week.
+
+**How big should my daily goal be?** Smaller than feels impressive. Something you can finish in under 20 minutes on a bad day. Raise it slowly once it has felt easy for a few weeks.
+
+## How to keep a streak going (and what to do when it breaks)
+
+Source: https://hitquota.app/guides/keep-a-streak-going
+
+**Short answer:** Do it early in the day, keep a minimum version for bad days, and set an evening reminder as a safety net. Plan ahead for travel and busy days. If the streak breaks, restart the next day without a long pause; the habit matters more than the number.
+
+### Do it before the day gets away from you
+
+Most streaks die between 9pm and midnight. Doing the goal in the morning, or at a fixed point like straight after work, removes the late-night scramble.
+
+### Keep a minimum version
+
+Decide now what the smallest acceptable version is. If your usual is a 5 km run, maybe the floor is a 20-minute walk. On a bad day, do the floor and keep the chain.
+
+### Use a reminder as a net, not a plan
+
+An evening reminder catches the days you forgot. It shouldn't be how you remember every day; by then you are working against the clock.
+
+### Plan for the days you know are coming
+
+- Travel: pick a goal that needs no equipment, or agree a travel version in advance.
+
+- Illness: know what your group accepts. A short walk or stretching often counts.
+
+- Busy days: do it first thing.
+
+### Why a shared streak is sturdier
+
+A solo streak only answers to you, and you are very good at excusing yourself. A streak you hold with friends adds a second reason to show up: nobody wants to be the one who breaks it for everyone. That's why keeping a goal with friends tends to outlast going alone.
+
+### When it breaks
+
+Restart the next day. The real danger after a broken streak is the pause, "I'll start again Monday", which can stretch for months. A streak of one day is still a streak.
+
+In Quota. Everyone gets one pass a calendar month: the first missed day is covered and your streak carries on. The group also keeps its own streak of days when everyone posted. Read how streaks work in Quota.
+
+**How do I keep a daily streak going?** Do it early in the day, keep a minimum version for bad days, set an evening reminder as a safety net, and plan ahead for travel.
+
+**What should I do when my streak breaks?** Start again the next day. The pause after a broken streak is what ends habits, not the broken streak itself.
+
+**Are group streaks easier to keep than solo streaks?** Usually. A shared streak adds a social reason to show up, since nobody wants to break it for everyone else.
+
+## How long does it take to build a habit?
+
+Source: https://hitquota.app/guides/build-a-habit-that-sticks
+
+**Short answer:** There is no magic 21 days. A well-known study by Phillippa Lally and colleagues at University College London found it took a median of about 66 days for a daily behaviour to feel automatic, with a range from 18 to 254 days. Missing a single day did not meaningfully set people back. What matters is repeating it in a consistent context.
+
+### Where "21 days" came from
+
+The 21-day figure traces back to a 1960 self-help book about how long patients took to adjust to changes after surgery. It was never a measurement of habit formation, but it stuck because it is short and tidy.
+
+### What the research found
+
+In the 2009 study by Lally and colleagues, participants picked a daily eating, drinking or exercise behaviour and reported each day how automatic it felt. On average it took around two months to level off, and simpler behaviours, like drinking a glass of water, got there faster than harder ones, like 50 sit-ups.
+
+One finding is especially useful: missing one day did not significantly affect the outcome. A single miss is not a reset. Giving up after it is.
+
+### Why the first two weeks are hardest
+
+Early on, nothing about the habit is automatic. Every day it needs a decision, and decisions are where excuses live. This is when outside structure helps most: a fixed time, a fixed place, and other people who will notice.
+
+### What helps a habit form
+
+- Same cue every day. After coffee, after work, before dinner.
+
+- Small at first. Easier behaviours become automatic sooner. See how to pick a daily goal.
+
+- Visible progress. A streak count turns an invisible process into a number you don't want to lose.
+
+- Other people. Accountability carries you through the stretch before the habit carries itself.
+
+- A plan for misses. Decide in advance that one miss is fine and two in a row is not.
+
+In Quota. The monthly pass reflects the research: one missed day a month doesn't break your streak, so a single bad day doesn't undo weeks of work.
+
+**How long does it take to form a habit?** In a 2009 University College London study it took a median of about 66 days for a daily behaviour to feel automatic, ranging from 18 to 254 days depending on the person and the behaviour.
+
+**Is it true it takes 21 days to build a habit?** No. The 21-day figure comes from a 1960s self-help book, not habit research. Real habits usually take longer, often around two months.
+
+**Does missing one day ruin a habit?** No. The same study found a single missed day did not meaningfully affect habit formation. What matters is getting back to it the next day.
+
+## 30-day pushup challenge for friends
+
+Source: https://hitquota.app/guides/30-day-pushup-challenge
+
+**Short answer:** Pick a starting number everyone can do in a few sets, add a few reps every few days, and film the last reps each day as proof. Let each person set their own starting point so beginners and regulars can do it together. Thirty days of daily pushups builds a real habit and noticeable strength.
+
+### Find your starting number
+
+Do as many good pushups as you can in one go. Your daily starting number is about twice that, split into sets across the day. Knee pushups or incline pushups against a bench count; good form beats more reps.
+
+### The plan
+
+| Days | Beginner (per day) | Regular (per day) |
+
+| 1 to 5 | 20 | 50 |
+
+| 6 to 10 | 25 | 60 |
+
+| 11 to 15 | 30 | 70 |
+
+| 16 to 20 | 35 | 80 |
+
+| 21 to 25 | 40 | 90 |
+
+| 26 to 30 | 50 | 100 |
+
+Split each day's number into as many sets as you need. Many people do a set every time they get up from their desk.
+
+### Form in three cues
+
+- Hands just wider than shoulders, body in one straight line from head to heels.
+
+- Lower until your chest is a fist's height from the floor.
+
+- Elbows at about 45 degrees to your body, not flared straight out.
+
+Stop if anything hurts beyond normal muscle tiredness, and check with a professional if you have an injury.
+
+### Doing it as a group
+
+- Everyone picks the column that suits them. Same challenge, different numbers.
+
+- Proof is a short clip of your last few reps that day.
+
+- The deadline is midnight where each person is.
+
+- Agree a small forfeit for misses if you like.
+
+### After day 30
+
+Don't stop dead. Keep a lower daily number as your ongoing quota so the habit survives the end of the challenge.
+
+Why we care. Quota started as a daily pushup quota between two friends, in two different countries. See our story, or start a group for your own challenge.
+
+**How many pushups should I do in a 30-day challenge?** Start at about twice the number you can do in one set, split across the day, and add a few reps every five days. Beginners might go from 20 to 50 a day; regulars from 50 to 100.
+
+**Do knee pushups count?** Yes. Knee or incline pushups with good form are better than sloppy full pushups, and a great way to start.
+
+**How do you prove you did your pushups?** Film a short clip of your last few reps each day and share it with the group before midnight.
+
+## How to start a running streak
+
+Source: https://hitquota.app/guides/running-streak
+
+**Short answer:** A running streak means running at least a set minimum every day, commonly one mile (about 1.6 km). Keep most days short and easy, save harder runs for when you feel fresh, and treat the minimum as your floor, not your target. Share a photo of your watch or app each day to keep it honest.
+
+### Set the minimum
+
+The most common definition is at least one mile a day. Pick a minimum you could run when tired, in bad weather, on a busy day. The minimum keeps the streak; it isn't meant to be every run.
+
+### Keep most runs easy
+
+Running hard every day is how streaks end in injury. Most days should be at a conversational pace. Do longer or faster runs only when your legs feel good.
+
+### Listen to warning signs
+
+Ordinary tiredness is fine. Sharp pain, pain that changes how you run, or pain that gets worse during a run is not. A broken streak is better than a stress fracture. If your group allows it, agree a recovery version like a walk.
+
+### Make it easy to start each day
+
+- Lay out your kit the night before.
+
+- Have a default route that takes 10 to 15 minutes.
+
+- Run at the same time each day.
+
+### Doing it with friends
+
+Friends don't need to run together to keep a running streak together. Each person runs when it suits them and shares a photo of their watch or running app, or a few seconds of the run. Seeing their run come in is a strong nudge to go out for yours. See working out with friends who live far away.
+
+In Quota. Set your quota to something like "Run 1 mile", choose the days, and post a photo or clip before midnight. Your group sees it, and your streak keeps count.
+
+**What counts as a running streak?** Running at least a set minimum every day, usually one mile (about 1.6 km). The minimum is the floor that keeps the streak alive, not a daily target.
+
+**Is it safe to run every day?** For many people it is, if most runs are short and easy. Stop and rest if you have sharp or worsening pain, and get advice for any injury.
+
+**How do I prove a run?** A photo of your watch or running app summary, or a few seconds of video during the run.
+
+## 40 daily challenge ideas for friend groups
+
+Source: https://hitquota.app/guides/group-challenge-ideas
+
+**Short answer:** Good group challenges are daily, quick, and easy to prove with a photo or a few seconds of video. Fitness ideas include pushups, a plank or a 2 km run; mind ideas include reading 10 pages or journaling; skill ideas include instrument or language practice. Pick one the whole group can do, and let each person set their own number.
+
+### Fitness
+
+- 50 pushups (film the last reps)
+
+- 100 squats
+
+- A 1-minute plank (film the last seconds)
+
+- Run or walk 2 km (photo of the app)
+
+- 10,000 steps (screenshot of the step count)
+
+- 20 pull-ups
+
+- 50 burpees
+
+- 10 minutes of stretching
+
+- A 20-minute bike ride
+
+- One swim session
+
+### Mind
+
+- Read 10 pages (photo of the page number)
+
+- Journal one page
+
+- 10 minutes of meditation
+
+- Write 300 words
+
+- One crossword or sudoku
+
+- No phone for the first hour of the day
+
+- Write down three things you're grateful for
+
+- Listen to one podcast episode and note one idea
+
+- Learn and write down one new word
+
+- Draw something, anything
+
+### Skills
+
+- 15 minutes of instrument practice (10-second clip)
+
+- One language lesson
+
+- Code for 30 minutes
+
+- Practise a card trick or juggling
+
+- One photo you're proud of
+
+- Cook something new
+
+- Sketch for 15 minutes
+
+- Practise handwriting or calligraphy
+
+- Learn one chess opening line
+
+- Type-speed practice for 10 minutes
+
+### Health and home
+
+- Drink 2 litres of water
+
+- Cold shower (keep the clip decent)
+
+- In bed by 11pm
+
+- Make your bed
+
+- A home-cooked meal
+
+- Eat a piece of fruit
+
+- Tidy one area for 10 minutes
+
+- Go outside for 20 minutes
+
+- Floss
+
+- No sugary drinks
+
+### Picking the right one for your group
+
+Choose something everyone can do from wherever they are. If abilities vary, keep the activity shared and let each person set their own number. For variety, keep a main daily goal and add a short challenge on top for a week now and then, which is what a challenge wheel is for.
+
+In Quota. Any of these can be a quota, as long as you can show it in a photo or a clip of up to ten seconds. Start a group and pick one tonight.
+
+**What are good daily challenges for a group of friends?** Quick, provable goals everyone can do anywhere: pushups, a plank, a short run, reading 10 pages, journaling, instrument practice, drinking 2 litres of water.
+
+**How do you make a group challenge fair for different fitness levels?** Keep the activity the same and let each person choose their own number.
+
+**How long should a group challenge last?** Thirty days is a common length. Many groups then keep a smaller version as an ongoing daily goal.
+
+## Forfeit ideas for missing a group goal
+
+Source: https://hitquota.app/guides/forfeit-ideas
+
+**Short answer:** Good forfeits are small, social and a little embarrassing, never expensive or harmful: buying the next round of coffee, a 30-second cold shower on camera, changing your profile picture for a day. Agree on the forfeit before anyone misses, so it is about the rule and not the person.
+
+### Why forfeits help
+
+A forfeit gives a missed day a small, concrete cost. It doesn't need to hurt. It just needs to be a little more annoying than doing the goal.
+
+### Ideas that stay friendly
+
+#### Buy something small
+
+- Buy the next round of coffee
+
+- Bring snacks next time you meet
+
+- Pay for the pizza on game night
+
+#### A little embarrassing
+
+- Let the group pick your profile picture for a day
+
+- Post a song recommendation the group gets to mock
+
+- Sing a verse of a song the group picks, on video
+
+- Wear your least favourite team's shirt to the next meetup
+
+#### Extra effort
+
+- Double tomorrow's quota
+
+- A 30-second cold shower
+
+- 50 extra pushups or squats
+
+- Do one chore for someone in the group
+
+### Rules for forfeits that stay fun
+
+- Agree in advance. Never invent a forfeit after someone has missed.
+
+- Keep it small. It should be easy to pay and over quickly.
+
+- Never harmful or humiliating. Nothing dangerous, nothing that would upset someone.
+
+- Avoid real money stakes. Betting money changes a friendly group into a contract.
+
+- Mark it paid. Once it's done, it's done.
+
+In Quota. A group can set a forfeit as a line of text, like "buys the coffee". You owe it for a missed day your monthly pass didn't cover, until someone marks it paid. It's never money, and only the last 14 days are ever owed.
+
+**What is a good forfeit for missing a goal?** Something small and social: buying the next coffee, a short cold shower on camera, or letting the group pick your profile picture for a day.
+
+**Should forfeits involve money?** Better not. Money stakes turn a friendly group into a contract and cause arguments. Keep forfeits light.
+
+**When should a group agree on a forfeit?** Before anyone misses a day, so it is about the rule and not the person.
+
+## How to set up your first Quota group
+
+Source: https://hitquota.app/guides/set-up-your-first-group
+
+**Short answer:** Open app.hitquota.app and add it to your home screen, sign up with an email and password, then make a group. Name the goal, choose which days it applies to, and share the group's invite link with your friends. Post your first photo or clip before midnight and your streak starts.
+
+### 1. Install Quota
+
+Quota is a web app. Open app.hitquota.app in Safari on iPhone or Chrome on Android, then add it to your home screen. Reminders and the camera work once it's installed. Full steps in installing Quota on iPhone and Android.
+
+### 2. Sign up
+
+You need an email and a password. Quota emails a code to check the address is yours, and then you pick a username. Your email is never shown to anyone.
+
+### 3. Make a group
+
+Give the group a name. Two people is enough; it was built for a handful of people who actually know each other.
+
+### 4. Set the quota
+
+- The goal, in your own words, like "50 pushups" or "Read 10 pages". See how to pick a daily goal.
+
+- Active days. Every day, or only the days you choose. Days outside them leave streaks alone.
+
+- A forfeit, if you want one. It's optional. See forfeit ideas.
+
+### 5. Invite your friends
+
+Share the group's invite link by text or in your group chat. Anyone who opens it can join after signing up. Friends can also find you by username.
+
+### 6. Post your first proof
+
+Do the goal, then post a photo or a clip of up to ten seconds with Quota's camera before midnight where you are. Your group sees it straight away, and your streak begins.
+
+### Optional extras
+
+- Add a challenge wheel for variety.
+
+- Turn on notifications for the evening reminder.
+
+- Use the group chat for everything that isn't proof.
+
+**How do I start a group in Quota?** Install Quota from app.hitquota.app, sign up, tap to make a group, set the daily goal and active days, then share the invite link with friends.
+
+**How many people do I need for a Quota group?** Two is enough. Quota works at any size but was built for small groups of people who know each other.
+
+**How do friends join my Quota group?** Send them the group's invite link. They open it, sign up, and they're in.
+
+## How to install Quota on iPhone and Android
+
+Source: https://hitquota.app/guides/install-quota
+
+**Short answer:** Quota runs as a web app. On iPhone, open app.hitquota.app in Safari, tap Share, then Add to Home Screen. On Android, open it in Chrome, tap the three-dot menu, then Install app or Add to Home screen. App Store and Google Play listings are coming.
+
+### iPhone
+
+- Open app.hitquota.app in Safari. It has to be Safari.
+
+- Tap the Share button at the bottom of the screen.
+
+- Scroll down and tap Add to Home Screen.
+
+- Tap Add. Quota now opens from your home screen like any app.
+
+### Android
+
+- Open app.hitquota.app in Chrome.
+
+- Tap the three-dot menu in the top corner.
+
+- Tap Install app, or Add to Home screen.
+
+- Tap Install. Quota appears with your other apps.
+
+### On a computer
+
+You can open app.hitquota.app in any modern browser to look around, but proof is filmed with your phone's camera, so most people use Quota on their phone.
+
+### Why install it instead of using the browser?
+
+Notifications and the camera work once the app is installed. If you skip the install and use it in a browser tab, reminders will not arrive.
+
+### What Quota asks for
+
+- Camera and microphone, to film proof. Only used while you're recording.
+
+- Notifications, for the evening reminder and group activity. Optional.
+
+### Is it on the App Store or Google Play?
+
+Not yet. Store listings are coming, and the links will appear on the Get the app page when they're ready. The web app is the full app, and it's free.
+
+**Is Quota on the App Store?** Not yet. Quota runs as a web app at app.hitquota.app that you add to your home screen. App Store and Google Play listings are coming.
+
+**How do I install Quota on iPhone?** Open app.hitquota.app in Safari, tap the Share button, then Add to Home Screen, then Add.
+
+**How do I install Quota on Android?** Open app.hitquota.app in Chrome, tap the three-dot menu, then Install app or Add to Home screen.
+
+**Why don't I get Quota reminders?** Reminders only arrive when Quota is installed to your home screen and notifications are allowed. In a plain browser tab they won't arrive.
+
+## How streaks work in Quota
+
+Source: https://hitquota.app/guides/how-quota-streaks-work
+
+**Short answer:** You keep a streak of active days you posted proof before midnight. The group keeps a separate streak of days everyone posted. Each streak has one pass a calendar month: the first missed day is covered, a second miss that month resets it. Days outside your active days don't count either way.
+
+### Your streak
+
+Your streak counts the active days in a row you posted proof before midnight. Post on an active day and it grows by one.
+
+### The group streak
+
+The group keeps its own count: the run of days when everyone in the group posted. A group day counts only when everyone posts, so a missed day is never private. That shared number is what makes Quota work; around the second week, nobody wants to be the one who breaks it.
+
+### The monthly pass
+
+Everyone gets one pass a calendar month. The first day you miss in a month is covered and your streak carries on. A second miss that month resets it. The group streak has its own monthly pass that works the same way.
+
+### Active days
+
+Each quota has active days, like every day or weekdays only. Days outside them leave your streak alone: no post needed, and nothing lost.
+
+### The deadline
+
+Posts are due before midnight where you are. Your deadline moves with your phone's time zone, so travelling is fair. An evening reminder comes if you haven't posted.
+
+### Forfeits
+
+If your group has set a forfeit, you owe it for any missed day the pass didn't cover, until someone marks it paid. It's never money, and only the last 14 days are ever owed.
+
+### Milestones
+
+Long streaks get marked along the way.
+
+### Flags
+
+If someone posts something that clearly doesn't show the goal, it can be flagged and the group votes. See how flags work.
+
+**How does the Quota streak work?** Your streak counts the active days in a row you posted proof before midnight. The group has a separate streak of days everyone posted.
+
+**What happens if I miss a day in Quota?** The first missed day each calendar month is covered by your monthly pass and your streak carries on. A second miss that month resets it.
+
+**Do rest days break my Quota streak?** No. Days outside your quota's active days leave your streak alone.
+
+**What time is the Quota deadline?** Midnight in your phone's current time zone.
+
+## How the challenge wheel works in Quota
+
+Source: https://hitquota.app/guides/challenge-wheel
+
+**Short answer:** A challenge wheel is an optional extra a group adds on top of its daily goal. On a schedule, everyone spins it to land on a challenge, like a cold shower or a plank, and how many days to do it. Whoever made the wheel decides whether leaving it unfinished breaks your streak, and you can sit out one round.
+
+### Why use a wheel
+
+A daily goal is the backbone of a habit, but doing the same thing for months gets dull. A wheel adds a short, random challenge on top, so the group has something new to talk about without changing the main goal.
+
+### How it works
+
+- Someone in the group makes a wheel and fills it with challenges, like "cold shower", "1-minute plank" or "no sugar".
+
+- They set how often it runs, for example every seven days.
+
+- On a spin day, everyone spins before they post. The wheel lands on a challenge and how many days to do it.
+
+- You do the challenge alongside your daily quota, and show it in your proof.
+
+### Rules worth knowing
+
+- Everyone in the group can see what's on the wheel, since everyone has to spin it.
+
+- The wheel's maker decides whether an unfinished challenge breaks your streak.
+
+- You can sit out one round if the timing is bad.
+
+- The spin-day reminder arrives in your morning, wherever you are.
+
+### Challenge ideas for a wheel
+
+Short and doable anywhere: cold shower, 1-minute plank, 50 squats, no phone after 10pm, 10 pages, a 20-minute walk, a home-cooked meal. More in 40 daily challenge ideas.
+
+**What is the Quota challenge wheel?** An optional extra on top of a group's daily goal. On a schedule, everyone spins it to land on a challenge and how many days to do it.
+
+**Can I skip a wheel challenge in Quota?** You can sit out one round. Whether leaving a challenge unfinished breaks your streak is decided by whoever made the wheel.
+
+**Who can see what is on a challenge wheel?** Everyone in the group, since everyone has to spin it.
+
+## How flags and disputed proof work in Quota
+
+Source: https://hitquota.app/guides/flags-and-disputed-proof
+
+**Short answer:** If a post clearly doesn't show the goal, anyone else in the group can flag it with a reason. The group then votes. If the flag is upheld, the day goes back to what it would have been without that post. Quota itself never judges posts, and neither do the people who make it.
+
+### Why flags exist
+
+Proof only works if it means something. Most posts are obviously fine, but now and then one clearly isn't: the wrong activity, an empty room, a clip of the ceiling. Flags let the group deal with that fairly, without one person playing referee.
+
+### How a flag works
+
+- Someone in the group flags a post and says why. You can't flag your own post.
+
+- The group votes on whether the post shows the goal.
+
+- The vote closes ahead of the poster's own midnight, so there's time to post again if needed.
+
+- If the flag is upheld, the day goes back to what it would have been without that post.
+
+### Keeping flags friendly
+
+- Flag the post, not the person. Say what's missing.
+
+- Agree as a group what counts as proof for your goal. See what good proof looks like.
+
+- Give the benefit of the doubt on borderline posts; save flags for clear misses.
+
+### Who decides
+
+The group. Quota doesn't review posts, and neither do we. Your posts are visible to your group only.
+
+**What happens when a post is flagged in Quota?** The group votes on it. If the flag is upheld, the day goes back to what it would have been without that post.
+
+**Can Quota tell if proof is fake?** Quota only accepts photos and clips taken with its own camera that day, so old media can't be used. Whether a post shows the goal is decided by the group through flags.
+
+**Can I flag my own post?** No. Flags are for other people in the group to question a post.

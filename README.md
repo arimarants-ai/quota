@@ -9,7 +9,7 @@ One static page talking straight to Supabase (accounts, database, video storage)
 | Folder | What it is | Deployed as |
 |---|---|---|
 | `app/` | The app: `index.html`, `sw.js`, the manifest and icons. No build step. | Vercel project `quota`, Root Directory `app` |
-| `site/` | The website about Quota, plus `privacy.html`, `terms.html` and `support.html`, generated from the app's `LEGAL` by `node test/legal-pages.mjs --write`. No build step. | Vercel project `quota-site`, Root Directory `site` |
+| `site/` | The website about Quota. Every page, the guides under `site/guides/`, `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` are generated from `site-src/` by `node test/site-pages.mjs --write`; `privacy.html`, `terms.html` and `support.html` from the app's `LEGAL` by `node test/legal-pages.mjs --write`. The output is committed, so Vercel has no build step. | Vercel project `quota-site`, Root Directory `site` |
 | `native/` | The iOS and Android app: `app/` inside Capacitor. | Built in Xcode / Android Studio, see `STORE_SUBMISSION.md` |
 | `supabase/` | `schema.sql` and the edge functions. Both of the above share this one project. | Supabase |
 | `test/` | Every check, for all of the above. CI runs them on each push. | Not deployed |

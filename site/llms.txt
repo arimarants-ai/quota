@@ -1,0 +1,59 @@
+# Quota
+
+> Quota is a free accountability app for small groups of friends. Each group sets one daily goal, everyone posts a photo or a clip of up to ten seconds as proof before midnight, and the group keeps a streak together. Website: https://hitquota.app. App: https://app.hitquota.app.
+
+Key facts:
+
+- Quota is a free accountability app for small groups of friends, made by Ari Marants and Justin Smith.
+- Each group sets one daily goal (a "quota"), in its own words, on the days it chooses. Days outside them leave streaks alone.
+- Everyone posts proof before midnight in their own time zone: a photo or a video clip of up to ten seconds, taken with Quota's in-app camera that day. Nothing old from the camera roll can be uploaded.
+- Each person keeps a streak, and the group keeps a streak of days when everyone posted.
+- Everyone gets one pass a calendar month: the first missed day is covered; a second miss that month resets the streak. The group streak has its own monthly pass.
+- Groups can set an optional forfeit (a line of text like "buys the coffee"), owed for a missed day the pass didn't cover until marked paid. It is never money, and only the last 14 days are ever owed.
+- Groups can add challenge wheels: on a schedule everyone spins to land on a challenge and a number of days. Whoever made the wheel decides whether an unfinished challenge breaks a streak; you can sit out one round.
+- Anyone can flag a post that doesn't show the goal; the group votes, and the poster has no vote. Voting closes three hours before the poster's own midnight, so there is time to post again. An upheld flag means the day counts as if that post had not been made.
+- Groups also have likes, comments, a group chat, one-to-one messages and 24-hour stories.
+- Posts are visible to the group only. There is no public feed, no ads, no analytics, no trackers and no cookies. Data is never sold.
+- Two people is enough for a group. You can be in several groups with a different quota in each.
+- Sign-up needs an email and a password; a code confirms the email, then you choose a username. Emails are never shown to anyone.
+- Price: the base version is free and always will be; a paid version with extra perks may come later.
+- Platforms: a web app at https://app.hitquota.app that installs to the home screen on iPhone (Safari: Share, Add to Home Screen) and Android (Chrome: menu, Install app). App Store and Google Play listings are coming. Reminders only work once installed.
+- Contact: hello@hitquota.app. Account deletion: in the app, Settings → Delete account.
+
+## Pages
+
+- [How Quota works](https://hitquota.app/what): groups, quotas, proof, streaks, flags, and the rest of the app
+- [Our approach](https://hitquota.app/approach): why proof instead of a checkbox, and what was left out on purpose
+- [About us](https://hitquota.app/about): who makes Quota and why
+- [Get the app](https://hitquota.app/get): installing the web app on iPhone and Android
+- [FAQ](https://hitquota.app/faq): answers about proof, streaks, forfeits, wheels, accounts, privacy and cost
+- [Privacy summary](https://hitquota.app/privacy-summary): the short version of what Quota keeps and who sees it
+- [Contact](https://hitquota.app/contact): how to reach the people who make Quota
+
+## Guides
+
+- [How to stay accountable with friends](https://hitquota.app/guides/accountability-with-friends): A practical way to keep a daily goal with friends: one shared goal, a hard deadline, proof instead of promises, and a streak you keep together.
+- [How to find an accountability partner (and make it work)](https://hitquota.app/guides/accountability-partner): Who makes a good accountability partner, what to agree on in the first conversation, and the simple daily routine that keeps a partnership going.
+- [How to start an accountability group that lasts](https://hitquota.app/guides/start-an-accountability-group): Step by step: who to invite, how to set the goal and rules, how to run the first two weeks, and what to do when the group starts slipping.
+- [Accountability app vs. habit tracker: which do you need?](https://hitquota.app/guides/accountability-app-vs-habit-tracker): The difference between tracking a habit alone and keeping it with other people, and how to tell which one will actually work for you.
+- [Why proof works better than checking a box](https://hitquota.app/guides/proof-not-checkboxes): Why a photo or a few seconds of video, taken the same day and seen by your group, keeps habits going when checkmarks and "done" messages don't.
+- [How to work out with friends who live far away](https://hitquota.app/guides/long-distance-workout-friends): Keep a fitness habit with friends in other cities or countries: one shared daily goal, proof each day, and a deadline that works across time zones.
+- [How to pick a daily goal you will actually keep](https://hitquota.app/guides/pick-a-daily-goal): Choose a daily goal that survives bad days: make it specific, small enough for your worst day, easy to prove, and tied to something you already care about.
+- [How to keep a streak going (and what to do when it breaks)](https://hitquota.app/guides/keep-a-streak-going): Practical ways to protect a daily streak: do it early, keep a fallback version, use reminders, plan for travel, and restart fast after a miss.
+- [How long does it take to build a habit?](https://hitquota.app/guides/build-a-habit-that-sticks): What the research says about how long habits take to form, why the first two weeks are the hardest, and how to get through them.
+- [30-day pushup challenge for friends](https://hitquota.app/guides/30-day-pushup-challenge): A simple 30-day pushup plan you can do with friends at any level, with daily numbers, form tips and how to keep each other honest.
+- [How to start a running streak](https://hitquota.app/guides/running-streak): Run every day without burning out: the minimum distance that counts, how to handle recovery, and how to keep a running streak going with friends.
+- [40 daily challenge ideas for friend groups](https://hitquota.app/guides/group-challenge-ideas): Daily challenge ideas for friend groups across fitness, mind, skills and health, each with a simple way to prove it.
+- [Forfeit ideas for missing a group goal](https://hitquota.app/guides/forfeit-ideas): Friendly, low-stakes forfeits for friend groups when someone misses a daily goal, plus how to set them so they stay fun.
+- [How to set up your first Quota group](https://hitquota.app/guides/set-up-your-first-group): Step by step: install Quota, make a group, set its daily quota and active days, invite friends and post your first proof before midnight.
+- [How to install Quota on iPhone and Android](https://hitquota.app/guides/install-quota): Quota is a web app: open app.hitquota.app and add it to your home screen. Steps for iPhone (Safari) and Android (Chrome), plus why installing matters.
+- [How streaks work in Quota](https://hitquota.app/guides/how-quota-streaks-work): Your streak, the group streak, active days, the monthly pass, midnight in your own time zone, and what happens when someone misses.
+- [How the challenge wheel works in Quota](https://hitquota.app/guides/challenge-wheel): Add variety on top of a daily goal: everyone in the group spins a wheel on a schedule to land on a challenge and how many days to do it.
+- [How flags and disputed proof work in Quota](https://hitquota.app/guides/flags-and-disputed-proof): What happens when a post doesn't show the goal: anyone in the group can flag it, the group votes, and an upheld flag means the day counts as if it wasn't posted.
+
+## Optional
+
+- [Full text of the FAQ and every guide](https://hitquota.app/llms-full.txt)
+- [Privacy policy](https://hitquota.app/privacy)
+- [Terms of use](https://hitquota.app/terms)
+- [Support](https://hitquota.app/support)

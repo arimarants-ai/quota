@@ -29,6 +29,11 @@ jobs:
       # that has drifted says something different from what people agreed to in the app.
       - run: node test/legal-pages.mjs
 
+      # Every page on the website, the guides, the sitemap and llms.txt are generated from
+      # site-src/. A page edited by hand, or a source edited without regenerating, would
+      # quietly drift from what search and answer engines are told.
+      - run: node test/site-pages.mjs
+
       - run: node test/language.test.mjs
 
       # The crop maths decides which part of a picture becomes somebody's face. A wrong
