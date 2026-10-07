@@ -892,3 +892,45 @@ exception when raise_exception then
   if sqlerrm <> 'not signed in' then raise; end if;
 end $$;
 reset role;
+
+-- v48: a comment or a message can be edited for 15 minutes, by whoever wrote it, and only
+-- its words change. After that, or by anybody else, it stays as it was said.
+set role app;
+do $$
+declare c bigint; old_c bigint; m bigint; p bigint; n int; row public.comments; mrow public.messages;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  select id into p from public.posts where group_id = 1 limit 1;
+  insert into public.comments (post_id, user_id, body) values (p, auth.uid(), 'typo') returning id into c;
+  update public.comments set body = 'fixed', post_id = -1, user_id = '22222222-2222-2222-2222-222222222222' where id = c;
+  select * into row from public.comments where id = c;
+  if row.body <> 'fixed' then raise exception 'an edit within 15 minutes did not save'; end if;
+  if row.edited_at is null then raise exception 'an edited comment does not say it was edited'; end if;
+  if row.post_id <> p or row.user_id <> auth.uid() then raise exception 'an edit moved the comment or changed who wrote it'; end if;
+
+  insert into public.messages (group_id, user_id, body) values (1, auth.uid(), 'helo') returning id into m;
+  update public.messages set body = 'hello' where id = m;
+  select * into mrow from public.messages where id = m;
+  if mrow.body <> 'hello' or mrow.edited_at is null then raise exception 'a message edit within 15 minutes did not save'; end if;
+
+  -- Somebody else's: the policy does not let them touch it, so nothing changes.
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  update public.messages set body = 'rewritten' where id = m;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'somebody edited a message that was not theirs'; end if;
+end $$;
+reset role;
+-- An old one: written 20 minutes ago (put in as the owner, which the app cannot do).
+insert into public.comments (post_id, user_id, body, created_at)
+  select id, '11111111-1111-1111-1111-111111111111', 'said a while ago', now() - interval '20 minutes'
+  from public.posts where group_id = 1 limit 1;
+set role app;
+do $$
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  update public.comments set body = 'too late' where body = 'said a while ago';
+  raise exception 'a comment was edited after 15 minutes';
+exception when raise_exception then
+  if sqlerrm <> 'too late to edit' then raise; end if;
+end $$;
+reset role;

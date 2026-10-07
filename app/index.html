@@ -947,8 +947,8 @@ button.rg{border:0;font:inherit}
 .trayback{position:fixed;inset:0;z-index:1;background:none}
 .m .reactpick{position:absolute;bottom:100%;margin-bottom:6px;z-index:6;display:flex;gap:2px;background:var(--sheet);
   border:1px solid var(--line);border-radius:999px;padding:4px 6px;box-shadow:0 10px 26px -8px rgba(0,0,0,.35)}
-.m.them .reactpick{left:0}
-.m.me .reactpick{right:0}
+.m.them .reactpick{left:0;right:auto}
+.m.me .reactpick{left:auto;right:0;transform-origin:right bottom}
 /* flex:none or there is nothing to scroll: sixty emoji in a flex row shrink to fit the
    tray instead of running off the end of it, and a strip that fits never overflows. */
 .m .reactpick button{background:none;padding:3px 4px;font-size:21px;line-height:1;flex:none}
@@ -1166,14 +1166,19 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .reactpick.opts button.bad{color:#d1344f}
 .clist .c .reactpick.opts{left:40px;top:calc(100% - 4px)}
 .m .reactpick.opts{border-radius:12px}
-.m.them .reactpick.opts{left:0}
-.m.me .reactpick.opts{right:0}
+.m.them .reactpick.opts{left:0;right:auto}
+.m.me .reactpick.opts{left:auto;right:0}
+/* Turned upward when there is no room under the thing it belongs to. */
+.reactpick.opts.up,.clist .c .reactpick.opts.up{top:auto;bottom:100%;margin:0 0 6px}
 .m{touch-action:pan-y}
 .m .say{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .m::before{content:"\21A9";position:absolute;left:-30px;top:50%;margin-top:-11px;width:22px;height:22px;border-radius:50%;
   display:grid;place-items:center;background:var(--soft);color:var(--muted);font-size:13px;opacity:0;transition:opacity .15s}
 .m.armed::before{opacity:1;color:var(--mk)}
 .m.lit .say{animation:lit 1.2s ease-out}
+/* Said differently than it first was, and says so. */
+.clist .c .ed{font-style:normal;font-size:12px;font-weight:600;color:var(--muted)}
+.m .say .ed{display:block;font-style:normal;font-size:11px;font-weight:600;opacity:.7;margin-top:2px;text-align:right}
 @keyframes lit{0%,40%{box-shadow:0 0 0 4px var(--mkveil)}}
 .cquote{display:flex;flex-direction:column;max-width:72%;background:none;padding:0;margin:10px 0 2px;text-align:left}
 .cquote.me{align-self:flex-end;align-items:flex-end}
@@ -1498,7 +1503,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v126';
+const BUILD = 'quota-v127';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2067,7 +2072,7 @@ async function fetchAll() {
   // Oldest first, which is the order a conversation is read in. The query asks for the
   // newest so the limit takes the right end of a long one.
   S.msgs = (msgs || []).map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
-    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null})).sort((x, y) => x.ts - y.ts);
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null, edited: !!x.edited_at})).sort((x, y) => x.ts - y.ts);
   S.mreacts = (mreacts || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
   S.reads = (reads || []).map(r => ({k: r.chat, ts: Date.parse(r.seen_at)}));
   // A post the group decided did not count is left out of the day it was posted on, which
@@ -2091,7 +2096,7 @@ async function fetchAll() {
   // one of the names asked for or the card on the story has nobody on it.
   await storyPosts();
   const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
-  S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null}));
+  S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at}));
   hideBlocked();
   const ids = [...new Set([uid, ...S.blocked, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
@@ -4953,10 +4958,10 @@ async function refreshChat() {
   ]);
   if (!rows) return;
   const msgs = rows.map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
-    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null})).sort((x, y) => x.ts - y.ts);
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null, edited: !!x.edited_at})).sort((x, y) => x.ts - y.ts);
   const mreacts = (rx || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
   const same = msgs.length === S.msgs.length && mreacts.length === S.mreacts.length
-    && msgs.every((x, i) => x.id === S.msgs[i].id);
+    && msgs.every((x, i) => x.id === S.msgs[i].id && x.body === S.msgs[i].body);
   if (same) return;
   // Anything still in flight keeps its place until the real row arrives.
   const pending = S.msgs.filter(x => x.pending && !msgs.some(y => y.body === x.body && y.userId === x.userId));
@@ -5014,7 +5019,7 @@ function openChat(key) {
   if (!viaHub) backY.push(0);
   markChatRead(key);
 }
-function closeChat() { S.chat = S.chat !== 'list' ? 'list' : null; stackOff(); }
+function closeChat() { S.chat = S.chat !== 'list' ? 'list' : null; S.medit = null; stackOff(); }
 // Written once when a chat is opened, and again when something lands while it is open —
 // which is also what stops a notification for a message you are looking at.
 async function markChatRead(key) {
@@ -5078,7 +5083,7 @@ function chatBody(key) {
     const quote = to ? `<button type="button" class="cquote ${mine ? 'me' : 'them'}" onclick="jumpToMsg(${to.id})"><b>${
       mine ? 'You' : esc(name(user(msg.userId)))} replied to ${whoTo}</b><span>${esc(clip(to.body, 90))}</span></button>` : '';
     return head + nameLine + quote + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
-      <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}</button>
+      <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}${msg.edited ? '<em class="ed">Edited</em>' : ''}</button>
       ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
         onclick="toggleMsgReact(${msg.id},'${r.e}')">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
 </div>`;
@@ -5104,8 +5109,8 @@ function chatView(key) {
     ${replyBar(key)}
     <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
       <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
-      <input name="body" placeholder="Message" maxlength="2000" required autocomplete="off">
-      <button class="primary">Send</button>
+      <input name="body" placeholder="${S.medit && S.medit.key === key ? 'Edit your message' : 'Message'}" maxlength="2000" required autocomplete="off">
+      <button class="primary">${S.medit && S.medit.key === key ? 'Save' : 'Send'}</button>
     </form>`;
 }
 
@@ -5115,6 +5120,7 @@ function chatView(key) {
 async function sendMessage(f, key) {
   const body = f.body.value.trim();
   if (!body) return;
+  if (S.medit && S.medit.key === key) return saveEdit('message', S.medit.id, body, f);
   f.body.value = '';                       // before the redraw, the same as a comment
   const m = me(), isGroup = key.startsWith('g:');
   const replyTo = S.mreply && S.mreply.key === key ? S.mreply.id : null;
@@ -5171,7 +5177,34 @@ function openTray(parent, html, cls) {
   box.className = 'reactpick' + (cls ? ' ' + cls : '');
   box.innerHTML = html;
   parent.appendChild(box);
+  fitTray(box);
   return box;
+}
+// A tray hangs off the thing it was opened from, and that thing can be anywhere: the last
+// comment on a post, whose card cuts off whatever sticks out of it, so the menu was simply
+// not there; or a short message of your own, whose row of reactions ran off the side of
+// the screen and pulled the conversation sideways after it. So once it is on screen it is
+// measured: a menu with no room underneath opens upwards, and one past either edge is
+// brought back in.
+function fitTray(box) {
+  if (!box || !box.isConnected) return;
+  const clip = box.parentElement.closest('.post, #msgs, .sheet, dialog');
+  const bar = $('#bar'), barTop = bar && bar.offsetParent ? bar.getBoundingClientRect().top : innerHeight;
+  const floor = Math.min(innerHeight, barTop, clip ? clip.getBoundingClientRect().bottom : innerHeight) - 6;
+  let r = box.getBoundingClientRect();
+  // A message's menu shares the space above it with its reactions, so it stays under the
+  // line and the conversation scrolls to it instead.
+  if (box.classList.contains('opts') && !box.closest('.m') && r.bottom > floor) {
+    const room = box.parentElement.getBoundingClientRect().top - (clip ? Math.max(0, clip.getBoundingClientRect().top) : 0);
+    if (room > r.height + 12) box.classList.add('up');
+    else box.scrollIntoView({block: 'nearest', inline: 'nearest'});
+    r = box.getBoundingClientRect();
+  }
+  const over = r.right - (innerWidth - 8), under = 8 - r.left;
+  if (over > 0 || under > 0) {
+    const left = box.offsetLeft - Math.max(over, 0) + Math.max(under, 0);
+    box.style.left = `${left}px`; box.style.right = 'auto';
+  }
 }
 function closeTrays() {
   document.querySelectorAll('.reactpick, .trayback').forEach(x => x.remove());
@@ -5192,12 +5225,14 @@ function msgMenu(row, id) {
   opts.className = 'reactpick opts';
   opts.innerHTML = `<button type="button" onclick="startMsgReply(${id})">Reply</button>
     <button type="button" onclick="closeTrays();copyText(${id},'m')">Copy</button>
+    ${canEdit(msg) ? `<button type="button" onclick="startEdit('message',${id})">Edit</button>` : ''}
     ${msg.userId === me().id ? `<button type="button" class="bad" onclick="closeTrays();delMessage(${id})">Delete</button>`
       : `<button type="button" onclick="closeTrays();reportDlg('message',${id},'${esc(msg.userId)}')">Report</button>`}`;
   row.appendChild(opts);
   // The last few lines sit right on the box you type in, and a menu under one of them would
-  // open underneath it. The conversation scrolls far enough to show all of it.
-  requestAnimationFrame(() => opts.scrollIntoView({block: 'nearest'}));
+  // open underneath it. The conversation scrolls far enough to show all of it, up and down
+  // only: sideways would pull the whole conversation over with it.
+  requestAnimationFrame(() => { fitTray(opts); opts.scrollIntoView({block: 'nearest', inline: 'nearest'}); });
 }
 // A reply: the bar over the box says what it answers, and the keyboard comes up.
 function startMsgReply(id) {
@@ -5208,6 +5243,8 @@ function startMsgReply(id) {
   const box = $('#app .csend input'); if (box) box.focus();
 }
 function replyBar(key) {
+  if (S.medit && S.medit.key === key) return `<div class="replying chat"><span><b>Editing</b> your message</span>
+    <button type="button" onclick="stopEdit()" aria-label="Stop editing">\u2715</button></div>`;
   const to = S.mreply && S.mreply.key === key ? S.msgs.find(x => x.id === S.mreply.id) : null;
   if (!to) return '';
   return `<div class="replying chat"><span>Replying to <b>${to.userId === me().id ? 'yourself' : esc(name(user(to.userId)))}</b>
@@ -5399,6 +5436,7 @@ function commentsFor(p, cs) {
   if (S.noComments) return `<div class="cmts"><p class="muted">Comments aren't available yet.</p></div>`;
   const byId = new Map(cs.map(c => [c.id, c]));
   const replying = S.creply && S.creply.post === p.id ? byId.get(S.creply.id) : null;
+  const editing = S.cedit && S.cedit.post === p.id ? byId.get(S.cedit.id) : null;
   return `<div class="cmts">
     ${cs.length ? `<div class="clist">${threaded(cs).map(c => {
       const to = c.replyTo ? byId.get(c.replyTo) : null;
@@ -5406,16 +5444,18 @@ function commentsFor(p, cs) {
       // does not need to, because that is the one right above it.
       const at = to && to.replyTo ? `<em class="at">@${esc(user(to.userId).username || '')}</em> ` : '';
       return `<div class="c${c.pending ? ' pending' : ''}${to ? ' reply' : ''}" data-cmt="${c.id}" data-cpost="${p.id}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
-      <span>${at}${esc(c.body)}</span>${c.pending ? '' : `<button type="button" class="creply" onclick="replyComment(${p.id},${c.id})">Reply</button>`}</div>${
+      <span>${at}${esc(c.body)}${c.edited ? ' <em class="ed">Edited</em>' : ''}</span>${c.pending ? '' : `<button type="button" class="creply" onclick="replyComment(${p.id},${c.id})">Reply</button>`}</div>${
         c.pending ? '' : `<button type="button" class="clk${iLikeComment(c.id) ? ' on' : ''}" onclick="toggleCommentLike(${c.id})" aria-label="${iLikeComment(c.id) ? 'Unlike' : 'Like'} this comment">${HEART}${
         commentLikes(c.id).length ? `<i>${num(commentLikes(c.id).length)}</i>` : ''}</button>`}</div>`;
     }).join('')}</div>` : ''}
-    ${replying ? `<div class="replying"><span>Replying to <b>${esc(name(user(replying.userId)))}</b></span>
+    ${editing ? `<div class="replying"><span><b>Editing</b> your comment</span>
+      <button type="button" onclick="stopEdit()" aria-label="Stop editing">✕</button></div>`
+    : replying ? `<div class="replying"><span>Replying to <b>${esc(name(user(replying.userId)))}</b></span>
       <button type="button" onclick="S.creply=null;render()" aria-label="Stop replying">✕</button></div>` : ''}
     <form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})">
       <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">${SMILEY}</button>
-      <input name="body" placeholder="${replying ? 'Write a reply' : 'Write a comment'}" maxlength="500" required autocomplete="off">
-      <button class="primary">Send</button>
+      <input name="body" placeholder="${editing ? 'Edit your comment' : replying ? 'Write a reply' : 'Write a comment'}" maxlength="500" required autocomplete="off">
+      <button class="primary">${editing ? 'Save' : 'Send'}</button>
     </form>
     <div class="emoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putEmoji(this,'${e}')">${e}</button>`).join('')}</div>
   </div>`;
@@ -8683,6 +8723,7 @@ async function toggleCommentLike(id) {
 }
 async function addComment(f, postId) {
   const body = f.body.value.trim(); if (!body) return;
+  if (S.cedit && S.cedit.post === postId) return saveEdit('comment', S.cedit.id, body, f);
   working(f, '…');
   // Emptied before the redraw, not after. render() carries half-typed replies across a
   // rebuild so a like somewhere else on the page cannot eat what you were in the middle
@@ -8727,6 +8768,7 @@ function commentMenu(el) {
   openTray(el, `<button type="button" onclick="replyComment(${postId},${id})">Reply</button>
     <button type="button" onclick="closeTrays();toggleCommentLike(${id})">${liked ? 'Unlike' : 'Like'}</button>
     <button type="button" onclick="closeTrays();copyText(${id},'c')">Copy</button>
+    ${canEdit(c) ? `<button type="button" onclick="startEdit('comment',${id})">Edit</button>` : ''}
     ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete</button>`
       : `<button type="button" onclick="closeTrays();reportDlg('comment',${id},'${esc(c.userId)}')">Report</button>`}`, 'opts');
 }
@@ -8744,6 +8786,55 @@ async function delComment(id) {
     await q(sb.from('comments').delete().eq('id', id));
   } catch (e) { await load(); throw e; }
   const y = scrollY; await load(); scrollTo(0, y);
+}
+
+// ---- editing what you said
+// Your own comment or message can be put right for 15 minutes after it went: long enough
+// to fix the typo you only see once it is up, short enough that nothing can be rewritten
+// after people have answered it. The database keeps the same window, so a phone with its
+// clock set back gets no further. An edited one says so, wherever it is shown.
+const EDIT_MS = 15 * 60e3;
+const canEdit = x => !!x && !x.pending && x.userId === me().id && Date.now() - x.ts < EDIT_MS;
+// The box it was typed in becomes the box it is changed in, with what it says already in it.
+function startEdit(what, id) {
+  closeTrays();
+  const list = what === 'comment' ? S.comments : S.msgs, x = list.find(y => y.id === id);
+  if (!canEdit(x)) return alert('Edits close 15 minutes after sending.');
+  if (what === 'comment') { S.creply = null; S.cedit = {post: x.postId, id}; }
+  else { S.mreply = null; S.medit = {key: S.chat, id}; }
+  render();
+  const box = what === 'comment'
+    ? (document.querySelector(`#onewrap .post[data-post="${x.postId}"] .cin input`) || document.querySelector(`#app .post[data-post="${x.postId}"] .cin input`))
+    : $('#app .csend input');
+  if (!box) return;
+  box.value = x.body; box.focus();
+  try { box.setSelectionRange(x.body.length, x.body.length); } catch (e) {}
+  if (what === 'comment') box.closest('.cmts').scrollIntoView({block: 'nearest', behavior: 'smooth'});
+}
+function stopEdit() {
+  const box = S.cedit ? document.querySelector('.cmts .cin input') : S.medit ? $('#app .csend input') : null;
+  S.cedit = S.medit = null;
+  if (box) box.value = '';
+  render();
+}
+// Changed on screen straight away, and put back if the database says no.
+async function saveEdit(what, id, body, f) {
+  const list = what === 'comment' ? S.comments : S.msgs, x = list.find(y => y.id === id);
+  if (what === 'comment') S.cedit = null; else S.medit = null;
+  f.body.value = '';
+  if (!x || x.body === body) return render();
+  const was = {body: x.body, edited: x.edited};
+  x.body = body; x.edited = true;
+  render();
+  try {
+    await q(sb.from(what === 'comment' ? 'comments' : 'messages').update({body}).eq('id', id));
+  } catch (e) {
+    x.body = was.body; x.edited = was.edited;
+    render();
+    return /too late/i.test(String(e && e.message || e))
+      ? alert('Edits close 15 minutes after sending, so that one stays as it was.')
+      : showErr(`That ${what} did not save.`, String(e && e.message || e));
+  }
 }
 
 // An installed app comes back to the foreground constantly, and this refetches every

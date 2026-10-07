@@ -1574,8 +1574,8 @@ await withPage(SIGNED_IN, async page => {
 
   await hold(page, page.locator('.post .clist .c').first());
   const opts = await page.locator('.post .clist .reactpick.opts button').allInnerTexts();
-  check('  holding your comment offers reply, like, copy and delete',
-    opts.join('|') === 'Reply|Like|Copy|Delete', JSON.stringify(opts));
+  check('  holding your comment offers reply, like, copy, edit (it is new) and delete',
+    opts.join('|') === 'Reply|Like|Copy|Edit|Delete', JSON.stringify(opts));
   await page.locator('.post .clist .reactpick.opts button:has-text("Delete")').click();
   await page.waitForTimeout(900);
   check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
@@ -2921,7 +2921,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   // a line in a conversation gets agreeing with it or not.
   const quick = await page.locator('#app .m .reactpick:not(.opts) button').allInnerTexts();
   const under = await page.locator('#app .m .reactpick.opts button').allInnerTexts();
-  check('    and under the line, what else can be done with it', under.join('|') === 'Reply|Copy|Delete',
+  check('    and under the line, what else can be done with it', under.join('|') === 'Reply|Copy|Edit|Delete',
     JSON.stringify(under));
   check('    with answers a conversation actually takes',
     quick.includes('❤️') && quick.includes('👍') && quick.includes('👎') && !quick.includes('💪'),
@@ -4874,6 +4874,78 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('#dlg button:has-text("Unmute")').click();
   await page.waitForTimeout(500);
   check('  and unmutes again', await page.evaluate(() => !self.__muted[1]));
+});
+
+// ---- editing, and menus that fit
+// Your own comment or message can be changed for 15 minutes after it went, and then says
+// it was. A menu held open on the last comment, which the post card used to cut off
+// entirely, opens upwards; one on a short message of your own stays on the screen.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { const now = Date.now();
+    self.__cmts.push({ id: 760, post_id: 1, user_id: 'u2', body: 'Strong finish', created_at: new Date(now - 3e5).toISOString() });
+    self.__cmts.push({ id: 761, post_id: 1, user_id: 'u1', body: 'thnaks', created_at: new Date(now - 6e4).toISOString() });
+    self.__cmts.push({ id: 762, post_id: 1, user_id: 'u1', body: 'said a while ago', created_at: new Date(now - 20 * 6e4).toISOString() });
+    self.__msgs.push({ id: 960, group_id: 1, a: null, b: null, user_id: 'u2', body: 'Wheel today?', created_at: new Date(now - 2e5).toISOString() });
+    self.__msgs.push({ id: 961, group_id: 1, a: null, b: null, user_id: 'u1', body: 'Spinnign', created_at: new Date(now - 6e4).toISOString() });
+    return load(); });
+  await page.waitForTimeout(600);
+  await page.evaluate(() => openPost(1));
+  await page.waitForTimeout(700);
+  const opts = async () => page.locator('#onewrap .reactpick.opts button').allInnerTexts();
+  await page.locator('#onewrap .clist .c').last().scrollIntoViewIfNeeded();
+  await page.evaluate(() => commentMenu([...document.querySelectorAll('#onewrap .clist .c')].pop()));
+  await page.waitForTimeout(300);
+  check('the menu on the last comment is all there, not cut off by the card', await page.evaluate(() => {
+    const b = document.querySelector('#onewrap .reactpick.opts').getBoundingClientRect(), card = document.querySelector('#onewrap .post').getBoundingClientRect();
+    return b.height > 100 && b.top >= card.top && b.bottom <= card.bottom + 1 && b.bottom <= innerHeight; }));
+  await page.evaluate(() => { closeTrays(); commentMenu(document.querySelector('#onewrap .clist .c[data-cmt="762"]')); });
+  await page.waitForTimeout(200);
+  check('  and a comment of yours from 20 minutes ago can no longer be edited', !(await opts()).includes('Edit'), JSON.stringify(await opts()));
+  await page.evaluate(() => { closeTrays(); commentMenu(document.querySelector('#onewrap .clist .c[data-cmt="761"]')); });
+  await page.waitForTimeout(200);
+  check('  one from a minute ago can', (await opts()).includes('Edit'), JSON.stringify(await opts()));
+  await page.evaluate(() => { closeTrays(); commentMenu(document.querySelector('#onewrap .clist .c[data-cmt="760"]')); });
+  await page.waitForTimeout(200);
+  check('  and somebody else\'s never can', !(await opts()).includes('Edit'), JSON.stringify(await opts()));
+  await page.evaluate(() => { closeTrays(); startEdit('comment', 761); });
+  await page.waitForTimeout(300);
+  const box = page.locator('#onewrap .cin input');
+  check('editing a comment puts it in the box to change', await box.inputValue() === 'thnaks', await box.inputValue());
+  check('  and says that is what the box is doing', /Editing/.test(await page.locator('#onewrap .replying').innerText())
+    && /Save/.test(await page.locator('#onewrap .cin button.primary').innerText()));
+  await box.fill('thanks');
+  await page.locator('#onewrap .cin button.primary').click();
+  await page.waitForTimeout(500);
+  const saved = await page.evaluate(() => self.__cmts.find(c => c.id === 761));
+  check('  saving it changes it, for everyone', saved.body === 'thanks' && !!saved.edited_at, JSON.stringify(saved));
+  check('  and it says it was edited', /thanks\s*Edited/.test(await page.locator('#onewrap .clist .c[data-cmt="761"] span').first().innerText()));
+  check('  and the box goes back to being for new comments', await box.inputValue() === ''
+    && /Send/.test(await page.locator('#onewrap .cin button.primary').innerText()));
+  await page.evaluate(() => closePost());
+  await page.waitForTimeout(300);
+
+  await page.evaluate(() => openChat(gKey(1)));
+  await page.waitForTimeout(600);
+  await page.evaluate(() => { const r = document.querySelector('#msgs .m[data-msg="961"]'); msgMenu(r, 961); });
+  await page.waitForTimeout(400);
+  check('a short message of yours keeps its reactions and menu on the screen', await page.evaluate(() =>
+    [...document.querySelectorAll('#msgs .reactpick')].every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })
+    && scrollX === 0 && document.querySelector('#msgs').scrollLeft === 0));
+  check('  and offers to edit it', (await page.locator('#app .m .reactpick.opts button').allInnerTexts()).includes('Edit'));
+  await page.locator('#app .m .reactpick.opts button:has-text("Edit")').click();
+  await page.waitForTimeout(300);
+  const mbox = page.locator('#app .csend input');
+  check('  which puts it in the box', await mbox.inputValue() === 'Spinnign', await mbox.inputValue());
+  await mbox.fill('Spinning');
+  await page.locator('#app .csend button.primary').click();
+  await page.waitForTimeout(500);
+  const m = await page.evaluate(() => self.__msgs.find(x => x.id === 961));
+  check('  and saving changes it, marked as edited', m.body === 'Spinning' && !!m.edited_at
+    && /Edited/.test(await page.locator('#msgs .m[data-msg="961"] .say').innerText()), JSON.stringify(m));
+  await page.evaluate(() => { const r = document.querySelector('#msgs .m[data-msg="960"]'); msgMenu(r, 960); });
+  await page.waitForTimeout(200);
+  check('  somebody else\'s message cannot be edited', !(await page.locator('#app .m .reactpick.opts button').allInnerTexts()).includes('Edit'));
 });
 
 // ---- text invites

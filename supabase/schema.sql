@@ -2871,3 +2871,53 @@ create view private.open_reports as
 -- account finished long ago never does that again.
 -- ============================================================
 alter table public.profiles add column if not exists welcomed_at timestamptz;
+
+-- ============================================================
+-- v48 (editing a comment or a message): safe to run on an existing project. No redeploy.
+--
+-- Your own comment or message can be edited for 15 minutes after it was sent: long enough
+-- to fix the typo you notice once it is up, short enough that nobody can rewrite what
+-- was said after the conversation has moved on. An edited one says so. Only the words
+-- change; who said it, where and when stay exactly as they were. The window is kept here
+-- as well as in the app, because a rule only an app keeps is a suggestion.
+-- ============================================================
+alter table public.comments add column if not exists edited_at timestamptz;
+alter table public.messages add column if not exists edited_at timestamptz;
+
+create or replace function public.words_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- Nothing about where it was said, by whom or when can change.
+  new.id := old.id; new.user_id := old.user_id; new.created_at := old.created_at;
+  if tg_table_name = 'comments' then
+    new.post_id := old.post_id;
+  else
+    new.group_id := old.group_id; new.a := old.a; new.b := old.b;
+  end if;
+  -- The one other change: a reply lets go of what it answered when that is deleted, which
+  -- the database does itself through the foreign key.
+  new.reply_to := case when new.reply_to is null then null else old.reply_to end;
+  if new.body is distinct from old.body then
+    if old.created_at < now() - interval '15 minutes' then
+      raise exception 'too late to edit' using errcode = 'P0001', hint = 'edits close 15 minutes after sending';
+    end if;
+    new.edited_at := now();
+  else
+    new.edited_at := old.edited_at;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists comments_edit_guard on public.comments;
+create trigger comments_edit_guard before update on public.comments
+  for each row execute function public.words_edit_guard();
+drop trigger if exists messages_edit_guard on public.messages;
+create trigger messages_edit_guard before update on public.messages
+  for each row execute function public.words_edit_guard();
+
+drop policy if exists "edit own comments" on public.comments;
+create policy "edit own comments" on public.comments for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "edit own messages" on public.messages;
+create policy "edit own messages" on public.messages for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
