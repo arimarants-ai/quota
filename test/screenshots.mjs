@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const STUB = await readFile(join(ROOT, '../test/stub-supabase.js'), 'utf8');
@@ -53,6 +54,21 @@ const seed = `(() => {
   render();
 })()`;
 
+// The app's fonts come from Google Fonts. Where the network is only reachable through a
+// proxy the browser does not use, they would quietly fall back to a system font and the
+// screenshots would show a typeface the app does not have, so they are fetched with curl,
+// which does use it.
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+async function fonts(page) {
+  if (!process.env.HTTPS_PROXY) return;
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => {
+    try {
+      const body = execFileSync('curl', ['-sS', '-A', UA, r.request().url()], { maxBuffer: 1 << 24 });
+      r.fulfill({ body, contentType: /googleapis/.test(r.request().url()) ? 'text/css' : 'font/woff2' });
+    } catch { r.abort(); }
+  });
+}
+
 async function shot(name, mode, body) {
   const ctx = await browser.newContext({
     viewport: { width: 428, height: 926 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
@@ -60,6 +76,7 @@ async function shot(name, mode, body) {
   const page = await ctx.newPage();
   page.on('dialog', d => d.dismiss());
   await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
+  await fonts(page);
   await page.addInitScript(m => { self.__MODE = m; }, mode);
   // Half past seven in the evening, when people post: a feed of proof stamped 2:34 AM,
   // because that is when somebody ran this, is not a picture of how the app is used.
@@ -71,6 +88,7 @@ async function shot(name, mode, body) {
   await page.waitForTimeout(400);
   if (body) await body(page);
   await page.waitForTimeout(500);
+  await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: join(ROOT, name) });
   console.log('wrote', name);
   await ctx.close();
