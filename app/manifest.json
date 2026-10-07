@@ -75,11 +75,11 @@
       "label": "Posting proof, with the day's challenge ticked off"
     },
     {
-      "src": "/screenshot-camera.png",
+      "src": "/screenshot-month.png",
       "sizes": "1284x2778",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Record a clip or take a picture without leaving the app"
+      "label": "The month at a glance: who showed up, day by day"
     }
   ]
 }

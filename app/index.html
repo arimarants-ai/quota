@@ -1362,11 +1362,13 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .wh{border:1px solid var(--line);border-radius:0;padding:13px 14px;margin-top:10px}
 .wh:first-of-type{margin-top:0}
 .wh .top{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;
-  font:inherit;color:inherit;text-align:left;cursor:pointer}
+  font:inherit;color:inherit;text-align:left;cursor:pointer;white-space:normal}
 .wh .top:active{transform:none;opacity:.6}
 .wh .chev{width:16px;height:16px;flex:none;margin-left:-2px;stroke:var(--muted);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
-.wh b{font-size:15px}
-.wh .when{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+.wh b{font-size:15px;min-width:min-content}
+/* Wraps under itself on a narrow phone rather than pushing the card off the side of it. */
+.wh .when{flex:1 1 0;margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;text-align:right;min-width:0}
+.wh .when i{font-style:normal;white-space:nowrap}
 .wh .got{font-weight:800;font-size:15px;margin-top:8px}
 .wh .got.out{color:var(--muted);font-weight:700}
 .wh .who{font-size:13px;font-weight:600;color:var(--muted);margin-top:2px}
@@ -1496,7 +1498,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v123';
+const BUILD = 'quota-v124';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2496,7 +2498,7 @@ function wheelCard(g, w) {
   const others = g.members.filter(id => id !== m.id).map(id => ({id, sp: spinOf(w, id, c)}));
   const head = `<button class="top" onclick="wheelInfoDlg(${w.id})" title="See what is on this wheel">
       <b>${esc(w.name)}</b><span class="when">${soon ? `starts ${dayLabel(w.starts_on)}`
-    : `every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, c + 1))}`}</span>
+    : `<i>every ${plural(w.every_days, 'day')} ·</i> <i>next ${dayLabel(cycleStart(w, c + 1))}</i>`}</span>
       <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`
     + (w.breaks_streak ? `<div class="who">Not finishing this breaks your streak.</div>` : '');
   const yours = soon ? '' : !mine
