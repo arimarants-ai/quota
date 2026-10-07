@@ -19,6 +19,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- An invite link, opened here rather than in the browser. Verified against
+                 app.hitquota.app/.well-known/assetlinks.json, so Android asks nobody. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="app.hitquota.app" android:pathPrefix="/join/" />
+            </intent-filter>
             <!-- hitquota://record from the countdown and the widget. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

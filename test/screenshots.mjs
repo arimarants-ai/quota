@@ -61,6 +61,10 @@ async function shot(name, mode, body) {
   page.on('dialog', d => d.dismiss());
   await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
   await page.addInitScript(m => { self.__MODE = m; }, mode);
+  // Half past seven in the evening, when people post: a feed of proof stamped 2:34 AM,
+  // because that is when somebody ran this, is not a picture of how the app is used.
+  const at = new Date(); at.setHours(19, 32, 0, 0);
+  await page.clock.setFixedTime(at);
   await page.goto(`${base}/?local`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(900);
   await page.evaluate(seed);
@@ -84,11 +88,11 @@ await shot('screenshot-post.png', NO_WHEEL, async page => {
   await page.locator('.bar .add').click();
   await page.waitForTimeout(400);
 });
-await shot('screenshot-camera.png', NO_WHEEL, async page => {
-  await page.locator('.bar .add').click();
-  await page.waitForTimeout(300);
-  await page.locator('#dlg button:has-text("Record")').click();
-  await page.waitForTimeout(1500);
+// There used to be a fourth of Quota's own camera. Proof is filmed with the phone's camera
+// now, and a store listing that shows a screen the app does not have is a rejection.
+await shot('screenshot-month.png', SIGNED_IN, async page => {
+  await page.evaluate(() => { openGroup(1); openSub('month', 1); });
+  await page.waitForTimeout(600);
 });
 
 await browser.close();

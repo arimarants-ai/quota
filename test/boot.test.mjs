@@ -4699,13 +4699,21 @@ await withPage(NO_WHEEL, async page => {
     out.whole = codeFrom('https://quota-jet.vercel.app/#join-abc123XYZ789');
     out.bare = codeFrom('abc123XYZ789');
     out.hash = codeFrom('#join-abc123XYZ789');
+    out.path = codeFrom('https://app.hitquota.app/join/abc123XYZ789/');
     out.junk = codeFrom('https://example.com/nothing');
     return out;
   });
   check('a pasted invite is read as a link, a hash or a bare code',
-    got.whole === 'abc123XYZ789' && got.bare === 'abc123XYZ789' && got.hash === 'abc123XYZ789',
+    got.whole === 'abc123XYZ789' && got.bare === 'abc123XYZ789' && got.hash === 'abc123XYZ789' && got.path === 'abc123XYZ789',
     JSON.stringify(got));
   check('  and anything else is not a code', got.junk === '');
+  // An invite has an address of its own now, so a phone can hand it to the installed app.
+  const caught = await page.evaluate(() => {
+    history.replaceState(null, '', '/join/pathPATH1234'); catchInvite();
+    const out = {code: pendingJoin(), left: location.pathname}; setPending(''); return out;
+  });
+  check('  an invite at /join/<code> is caught the same way, and the address tidied after',
+    caught.code === 'pathPATH1234' && caught.left === '/', JSON.stringify(caught));
 });
 
 // A clip that could not go up is not a clip to lose: it was recorded live and there is no
@@ -4880,7 +4888,7 @@ await withPage(NO_WHEEL, async page => {
   check('texting an invite opens Messages with it already written', /^sms:\?&body=/.test(href || ''), href);
   check('  from you, to that group, saying what it does', /^Ari invited you to Mornings on Quota: 50 pushups a day\. Post proof before midnight/.test(body)
     && !/proof or it didn/i.test(body), body);
-  check('  with your own link in it, not the group\'s', /#join-mine12345678$/.test(body), body);
+  check('  with your own link in it, not the group\'s', /\/join\/mine12345678$/.test(body), body);
   check('  and another way to share beside it', await page.locator('#dlg button:has-text("More")').count() === 1);
 });
 

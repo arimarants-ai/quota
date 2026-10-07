@@ -137,18 +137,20 @@ Paste this, with the password filled in:
 > **Posting proof:** tap + and record a photo or clip with the camera. Proof must be taken in the app that day, so the photo library isn't offered for proof. It is used for profile and group pictures.
 >
 > **User-generated content safeguards (Guideline 1.2):**
-> - *Terms / EULA:* accepted by checkbox at sign-up (Terms of use, with zero tolerance for objectionable content and abusive users), and shown again whenever they change. Settings → Terms of use.
-> - *Report:* tap ⋯ on any post or story → "Report this post/story"; press and hold any comment or message → Report; open any profile → Report. A reason is required.
-> - *Block:* open any profile → Block, or ⋯ on their post → Block. Their content disappears immediately. Settings → Blocked people to undo.
-> - *Remove content:* the creator of a group can remove any post in it (⋯ → "Remove it from …"). Authors can delete their own.
+> - *Terms / EULA:* agreed to at sign-up ("By continuing you agree to Quota's terms, privacy policy and guidelines, which allow no abuse or objectionable content"), and again on an "I agree" screen whenever they change. All of them are under Settings → Legal.
+> - *Report:* tap ⋯ on any post or story → Report; press and hold any comment or message → Report; open any profile → Report. A reason is required.
+> - *Block:* open any profile → Block, or ⋯ on their post → Block. Their content disappears immediately. Settings → Blocked to undo.
+> - *Remove content:* the creator of a group can remove any post in it (⋯ → "Remove from <group name>"). Authors can delete their own.
 > - *Filtering:* slurs, sexual words and strong profanity are refused in all typed text.
 > - *Moderation:* reports are reviewed within 24 hours; contact hello@hitquota.app, also shown in Settings → Support.
 >
-> **Account deletion (5.1.1(v)):** Settings (gear on the Profile tab) → Delete my account → type "delete". It deletes the account and all its data immediately.
+> **Account deletion (5.1.1(v)):** Settings (gear on the Profile tab) → Delete account → type "delete" → Delete everything. It deletes the account and all its data immediately.
 >
 > **Sign in with Apple:** not offered because Quota has no third-party or social login, only email and password.
 >
-> **Native features:** push notifications (daily reminder, a crew member posting, a last call before midnight), haptics, camera, photo picker.
+> **Native features:** home-screen streak widgets, a lock-screen countdown to midnight (Live Activity), push notifications (daily reminder, a crew member posting, a last call before midnight), haptics and the camera. The app's screens are bundled in the app, not loaded from a website.
+>
+> **In-app purchases:** none. Everything in the app is free, so there is nothing to restore.
 
 Google Play → App content → App access: "All or some functionality is restricted", with the same demo account and the first three paragraphs above.
 
@@ -246,7 +248,10 @@ Enrol in **Play App Signing** when you upload (the default).
 
 **After launch**
 16. Update the website's "Get the app" badges and the FAQ answer "Is it on the App Store?", and point the site's QR code at the store listing.
-17. Invite links (`app.hitquota.app/#join-…`) still open the web app. Opening them in the installed app needs universal links / app links (an `apple-app-site-association` file and the associated-domains entitlement). That's worth doing next, but it isn't needed to pass review.
+17. Invite links are `app.hitquota.app/join/<code>` and open the installed app when it's there (old `#join-` links still work, in the browser). Two placeholders to fill in once the accounts exist, then redeploy the app project:
+    - `app/.well-known/apple-app-site-association`: replace `REPLACE_WITH_TEAM_ID` with your Team ID (Membership page). The Associated Domains entitlement is already in `App.entitlements`.
+    - `app/.well-known/assetlinks.json`: the SHA-256 fingerprint from step 10.
+    Check both with `curl -sI https://app.hitquota.app/.well-known/apple-app-site-association` (it should answer 200 with `application/json`).
 
 ---
 
