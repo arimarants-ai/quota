@@ -189,6 +189,12 @@
           ? { forfeit: st.row.forfeit, forfeit_since: was.forfeit_since || new Date().toISOString() }
           : { forfeit: null, forfeit_since: null };
       }
+      // An edit to a comment or a message, with the database's 15 minutes.
+      if (st.op === 'update' && (t === 'comments' || t === 'messages') && st.row && st.filters.id != null) {
+        const key = t === 'comments' ? '__cmts' : '__msgs', x = self[key].find(r => r.id === st.filters.id);
+        if (x && Date.now() - Date.parse(x.created_at) > 15 * 60e3) return { data: null, error: { message: 'too late to edit' } };
+        if (x) { x.body = st.row.body; x.edited_at = new Date().toISOString(); }
+      }
       if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
         self.__onprofile[st.filters.id] = st.row.on_profile;
       }
