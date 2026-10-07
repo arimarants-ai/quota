@@ -1498,7 +1498,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v124';
+const BUILD = 'quota-v125';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3827,22 +3827,29 @@ function missLine(g) {
 // Knowing the length exactly is what lets a bare code be told apart from the last word of
 // some other URL somebody pasted by mistake.
 const JOIN_RE = /^#?join-([A-Za-z0-9]{12})$/, BARE_RE = /^[A-Za-z0-9]{12}$/;
+// An invite is an address of its own, app.hitquota.app/join/<code>, because a phone hands
+// a link to an installed app by its path and never by what follows the #. Old #join- links
+// still work everywhere.
+const JOIN_PATH = /^\/join\/([A-Za-z0-9]{12})\/?$/;
+// Where links point. Inside the store app the page's own address is the phone's
+// (capacitor://localhost), which is no address to send to a friend.
+const APP_URL = 'https://app.hitquota.app';
 const pendingJoin = () => { try { return localStorage.pendingJoin || ''; } catch (e) { return ''; } };
 const setPending = c => { try { c ? localStorage.pendingJoin = c : delete localStorage.pendingJoin; } catch (e) {} };
 // A whole link, a bare code, or the hash off the end of one. Somebody pasting into a box
 // will paste any of the three.
 const codeFrom = t => {
-  const tail = String(t || '').trim().split(/[#/]/).pop() || '';
+  const tail = String(t || '').trim().replace(/\/+$/, '').split(/[#/]/).pop() || '';
   const m = JOIN_RE.exec(tail);
   return m ? m[1] : BARE_RE.test(tail) ? tail : '';
 };
 function catchInvite() {
-  const m = JOIN_RE.exec(location.hash || '');
+  const m = JOIN_RE.exec(location.hash || '') || JOIN_PATH.exec(location.pathname || '');
   if (!m) return;
   setPending(m[1]);
-  history.replaceState(null, '', location.pathname);
+  history.replaceState(null, '', JOIN_PATH.test(location.pathname) ? '/' : location.pathname);
 }
-const inviteLink = code => `${location.origin}${location.pathname}#join-${code}`;
+const inviteLink = code => `${NATIVE ? APP_URL : location.origin}/join/${code}`;
 
 let joining = false;
 // Called once there is an account, however that came about: already signed in when the
@@ -3914,7 +3921,7 @@ function fillPreset(btn, i) {
 function joinDlg() {
   dlg(`<h2>Paste your invite</h2><p class="muted">The whole link or just the code at the end of it.</p>
     <form onsubmit="event.preventDefault();joinFromBox(this)">
-      <input name="code" placeholder="quota.app/#join-..." autocapitalize="off" autocorrect="off" spellcheck="false" required>
+      <input name="code" placeholder="app.hitquota.app/join/..." autocapitalize="off" autocorrect="off" spellcheck="false" required>
       <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Join</button></div>
     </form>`);
 }
@@ -7742,7 +7749,12 @@ function recordFromPhone() {
 }
 if (plug('Quota')) {
   setInterval(() => syncPhone(), 60 * 1000);   // catches 10:15 and midnight with the app open
-  plug('App')?.addListener('appUrlOpen', ({url}) => { if (/^hitquota:\/\/record/.test(url || '')) recordFromPhone(); });
+  plug('App')?.addListener('appUrlOpen', ({url}) => {
+    if (/^hitquota:\/\/record/.test(url || '')) return recordFromPhone();
+    // An invite tapped in Messages or anywhere else, opened here instead of in Safari.
+    const code = codeFrom(url);
+    if (code && /^https:\/\/app\.hitquota\.app\//.test(url || '')) goTarget(`#join-${code}`);
+  });
 }
 function permDlg(what) {
   const [thing, why] = what === 'photos'

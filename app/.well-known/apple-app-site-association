@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_TEAM_ID.app.hitquota.quota"],
+        "components": [
+          { "/": "/join/*", "comment": "An invite to a group" },
+          { "/": "/", "#": "join-*", "comment": "An invite from before invites had their own address" }
+        ]
+      }
+    ]
+  }
+}

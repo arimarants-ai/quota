@@ -248,7 +248,10 @@ Enrol in **Play App Signing** when you upload (the default).
 
 **After launch**
 16. Update the website's "Get the app" badges and the FAQ answer "Is it on the App Store?", and point the site's QR code at the store listing.
-17. Invite links (`app.hitquota.app/#join-…`) still open the web app. Opening them in the installed app needs universal links / app links (an `apple-app-site-association` file and the associated-domains entitlement). That's worth doing next, but it isn't needed to pass review.
+17. Invite links are `app.hitquota.app/join/<code>` and open the installed app when it's there (old `#join-` links still work, in the browser). Two placeholders to fill in once the accounts exist, then redeploy the app project:
+    - `app/.well-known/apple-app-site-association`: replace `REPLACE_WITH_TEAM_ID` with your Team ID (Membership page). The Associated Domains entitlement is already in `App.entitlements`.
+    - `app/.well-known/assetlinks.json`: the SHA-256 fingerprint from step 10.
+    Check both with `curl -sI https://app.hitquota.app/.well-known/apple-app-site-association` (it should answer 200 with `application/json`).
 
 ---
 
