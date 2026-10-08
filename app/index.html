@@ -1513,7 +1513,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v128';
+const BUILD = 'quota-v129';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1658,6 +1658,20 @@ const openFlags = () => S.flags.filter(f => !f.outcome);
 // stored and every post that already exists is a clip, as it was.
 const IMAGE = /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i;
 const isPhoto = p => IMAGE.test(p.path || '');
+// A clip's still: one frame saved beside the clip as a picture when it is posted. A <video>
+// with no source loaded paints nothing at all, and a phone keeps only a handful loaded at
+// once, so without this every clip past those few was a black box until it was played.
+const POSTER = path => `${path}.jpg`;
+const posterAttr = p => p && p.poster ? ` poster="${esc(p.poster)}"` : '';
+// Signs a batch of posts' files and their stills in one request. A clip posted before
+// stills existed has none, and storage says so for that one path without failing the rest.
+async function signProof(list) {
+  const clips = list.filter(x => x.path && !isPhoto(x));
+  const paths = [...list.map(x => x.path), ...clips.map(x => POSTER(x.path))];
+  const urls = await q(sb.storage.from('proof').createSignedUrls(paths, 3600));
+  list.forEach((x, i) => { x.url = (urls[i] || {}).signedUrl; });
+  clips.forEach((x, i) => { const u = urls[list.length + i]; x.poster = u && !u.error ? u.signedUrl || '' : ''; });
+}
 const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
 // Which days of the week the quota is actually expected on. Nothing set, or all seven,
 // means every day — which is what every group had before this existed.
@@ -2100,7 +2114,7 @@ async function fetchAll() {
   // a curtain, not a lock, so the URL is simply never asked for — posting calls load()
   // again, and that is where the day's clips get theirs.
   const open = S.posts.filter(p => !locked(p, uid));
-  if (open.length) { const urls = await q(sb.storage.from('proof').createSignedUrls(open.map(p => p.path), 3600)); urls.forEach((u, i) => open[i].url = u.signedUrl); }
+  if (open.length) await signProof(open);
   // After S.posts, because a story pointing at a post the feed already carries needs no
   // second fetch, and before the profiles below, because whoever made that post has to be
   // one of the names asked for or the card on the story has nobody on it.
@@ -2112,7 +2126,7 @@ async function fetchAll() {
   S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
   S.me = S.profiles[uid];
   if (!S.me) { console.error('Quota: no profile row for', uid); alert("Something went wrong setting up your account. Try again, and if it keeps happening, reopen the app."); await sb.auth.signOut(); }
-  else keepTz();
+  else { keepTz(); setTimeout(backfillPosters, 5000); }
 }
 
 // Proof somebody put on a story, fetched as itself. The feed carries the last two hundred
@@ -2133,10 +2147,7 @@ async function storyPosts() {
     const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
       amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
       challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
-    if (list.length) {
-      const urls = await q(sb.storage.from('proof').createSignedUrls(list.map(x => x.path), 3600));
-      urls.forEach((u, i) => { list[i].url = u.signedUrl; });
-    }
+    if (list.length) await signProof(list);
     S.spost = Object.fromEntries(list.map(p => [p.id, p]));
   } catch (e) { S.spost = {}; }            // a card that says the post has gone beats no stories at all
 }
@@ -2986,7 +2997,7 @@ function postCard(y, live, editing) {
     ? `<div class="gone">This post is no longer here.</div>`
     : `${isPhoto(p)
         ? `<img class="shot" alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
-        : `<video class="shot" playsinline muted${editing ? ' loop' : ''}${live || editing ? ' autoplay' : ''}${(live || editing) && p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
+        : `<video class="shot" playsinline muted${posterAttr(p)}${editing ? ' loop' : ''}${live || editing ? ' autoplay' : ''}${(live || editing) && p.url ? ` src="${esc(p.url)}"` : ''}></video>`}
       <div class="foot">${av(user(p.userId), 'sm')}<b>${esc(name(user(p.userId)))}</b><em>${esc(effort(p))}</em></div>`;
   const at = `left:${(y.px ?? .5) * 100}%;top:${(y.py ?? .46) * 100}%;transform:${cardTf(y.pr, y.ps)}`;
   // A tap on it in the viewer is a way through to the post. In the editor it is a thing
@@ -4230,7 +4241,7 @@ function recapsView(g) {
   const rs = recapsOf(g), open = openPeriod(g), seen = watched();
   const card = r => `<div class="rwrap"><button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
     <span class="sheet">${r.posts.slice(0, 8).map((p, i) => `<i style="--n:${i}"></i>`).join('')}
-      <video class="proof" muted playsinline preload="metadata" data-src="${esc(r.posts[0].url)}"></video></span>
+      <video class="proof" muted playsinline preload="metadata"${posterAttr(r.posts[0])} data-src="${esc(r.posts[0].url)}"></video></span>
     <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
     <span class="meta"><b>${esc(r.name)}</b><em>${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
     ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>
@@ -4585,7 +4596,7 @@ function feed(ps, showGroup, bare) {
       ${locked(p) ? lockedReel(p) : `<div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="likeTap(this,${p.id})" onerror="clipBust(this,${p.id})">`
-        : `<video class="proof" playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
+        : `<video class="proof" playsinline preload="metadata"${posterAttr(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
       <div class="badge">+${effort(p)}</div>
       ${isPhoto(p) ? '' : `<div class="play"><i></i></div>
       <button type="button" class="sound" onclick="clipSound(this)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6"/><path class="m" d="M4 4l16 16"/></svg></button>
@@ -5603,7 +5614,7 @@ function flagsView() {
       const yes = v.filter(x => x.yes).length;
       return `<button type="button" class="frow" onclick="openFlag(${f.id})">
         <span class="th">${isPhoto(p) ? `<img alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
-          : `<video muted playsinline preload="metadata"${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}</span>
+          : `<video muted playsinline preload="metadata"${posterAttr(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}</span>
         <span class="gr"><b>${esc(name(u))} · ${esc(effort(p))}</b>
           <em>${f.outcome === 'upheld' ? 'Needs redoing' : f.outcome ? 'Stands' : `${yes} of ${v.length} say redo`}</em></span>
         ${f.outcome ? `<span class="tag ${f.outcome === 'upheld' ? 'bad' : 'good'}">${f.outcome === 'upheld' ? 'Redo' : 'Stands'}</span>`
@@ -5990,7 +6001,10 @@ async function deleteAccount(f) {
     // below, which says nothing was deleted, rather than a general one.
     const mine = await sb.rpc('my_files');
     if (mine.error) throw mine.error;
-    for (const x of mine.data || []) paths[x.bucket]?.add(x.path);
+    for (const x of mine.data || []) {
+      paths[x.bucket]?.add(x.path);
+      if (x.bucket === 'proof' && !IMAGE.test(x.path)) paths.proof.add(POSTER(x.path));   // and its still
+    }
     for (const b of ['avatars', 'stories']) {
       const {data} = await sb.storage.from(b).list(uid, {limit: 1000});
       for (const o of data || []) paths[b].add(`${uid}/${o.name}`);
@@ -6125,7 +6139,7 @@ function tile(p, own) {
   const pub = own && p.onProfile;
   return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}${own ? (p.onProfile ? ', on show' : ', only you can see this') : ''}">
     ${pic ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''}>`
-      : `<video class="proof" playsinline preload="metadata" muted${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}
+      : `<video class="proof" playsinline preload="metadata" muted${posterAttr(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}
     ${pic ? '' : `<svg class="pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`}
     ${pub ? `<i class="seen" aria-hidden="true">${MARKED}</i>` : ''}
     <b>+${num(p.amount)}</b></button>`;
@@ -7341,10 +7355,7 @@ async function loadProfile(uid) {
     const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
       amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
       challenge: p.challenge, spinId: p.spin_id, onProfile: own ? !!p.on_profile : true}));
-    if (list.length) {
-      const urls = await q(sb.storage.from('proof').createSignedUrls(list.map(x => x.path), 3600));
-      urls.forEach((u, i) => { list[i].url = u.signedUrl; });
-    }
+    if (list.length) await signProof(list);
     S.pro[uid] = {loading: false, posts: list};
   } catch (e) { S.pro[uid] = {loading: false, posts: [], err: true}; }
   if (S.who === uid) render();
@@ -8363,7 +8374,9 @@ async function flushOutbox() {
           // the world like a network problem while the clip sat there intact.
           const bytes = await clipBytes(row.file);
           if (!bytes) throw Object.assign(new Error('gone'), {dead: true});
-          await upload('proof', row.path, new Blob([bytes], {type: row.file.type || 'video/mp4'}), () => {});
+          const blob = new Blob([bytes], {type: row.file.type || 'video/mp4'});
+          await upload('proof', row.path, blob, () => {});
+          if (!isPhoto({path: row.path})) await putPoster(row.path, blob);
           row.upPath = row.path;
           await outPut(row);
         }
@@ -8445,6 +8458,63 @@ async function upload(bucket, path, file, onProgress, tries = 3) {
       await new Promise(r => setTimeout(r, go === 1 ? 2000 : 5000));
     }
   }
+}
+// One frame of a clip, as a small JPEG. Read from the file itself, on this phone, so there
+// is no question of whether the browser lets the page look at it. A few frames in rather
+// than the very first, which is often black while the camera's exposure settles. Nothing
+// comes back from a clip the phone cannot decode, or one that takes too long to try.
+async function grabPoster(file) {
+  const url = URL.createObjectURL(file), v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+  // iOS decodes nothing for a video that is not in the page.
+  v.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(v);
+  try {
+    const ready = new Promise((ok, no) => {
+      v.onseeked = ok; v.onerror = no;
+      v.onloadeddata = () => { try { v.currentTime = Math.min(0.3, (v.duration || 1) / 3); } catch (e) { ok(); } };
+    });
+    v.src = url;
+    v.play().then(() => v.pause()).catch(() => {});   // some phones decode nothing until asked to play
+    await Promise.race([ready, new Promise((_, no) => setTimeout(no, 6000))]);
+    if (!v.videoWidth) return null;
+    const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(b => r(b && b.size ? b : null), 'image/jpeg', 0.72));
+  } catch (e) { return null; }
+  finally { v.removeAttribute('src'); try { v.load(); } catch (e) {} v.remove(); URL.revokeObjectURL(url); }
+}
+// The still goes up beside the clip. Never a reason for a post to fail: a clip without one
+// shows black until it plays, which is how every clip was before.
+async function putPoster(path, file) {
+  try {
+    const jpg = await grabPoster(file);
+    if (jpg) await upload('proof', POSTER(path), new File([jpg], 'poster.jpg', {type: 'image/jpeg'}), () => {}, 1);
+    return jpg;
+  } catch (e) { return null; }
+}
+// Your own clips from before stills existed get theirs from your phone, a few at a time and
+// one after another, in the background: it has to fetch the clip to read a frame from it,
+// so it is never more than a handful a launch, and never on a connection asking for less.
+const backfilled = new Set();
+async function backfillPosters() {
+  if (backfillPosters.busy || (navigator.connection && navigator.connection.saveData)) return;
+  backfillPosters.busy = true;
+  try {
+    const mine = [...S.posts, ...((S.pro[me().id] || {}).posts || [])]
+      .filter(p => p.userId === me().id && p.url && !p.poster && !isPhoto(p) && !backfilled.has(p.path));
+    for (const p of mine.slice(0, 4)) {
+      backfilled.add(p.path);
+      const res = await fetch(p.url);
+      if (!res.ok) continue;
+      const jpg = await putPoster(p.path, await res.blob());
+      if (jpg) for (const x of [...S.posts, ...((S.pro[me().id] || {}).posts || [])]) if (x.path === p.path) x.poster = URL.createObjectURL(jpg);
+    }
+  } catch (e) {}
+  backfillPosters.busy = false;
 }
 async function uploadOnce(bucket, path, file, onProgress) {
   const {data: {session}} = await sb.auth.getSession();
@@ -8570,6 +8640,7 @@ async function sendPost(f, gid) {
       if (bar) bar.style.setProperty('--w', `${pct}%`);
       if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
     });
+    if (!isPhoto({path})) { working(f, 'Posting…'); await putPoster(path, video); }
     working(f, 'Posting…');
     wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
     chalWas = doneChallengeIds();
@@ -8776,7 +8847,7 @@ async function delPost(id, ask = 'Delete this post?') {
   const p = postById(id);
   if (!p) return;
   await q(sb.from('posts').delete().eq('id', id));
-  await sb.storage.from('proof').remove([p.path]);
+  await sb.storage.from('proof').remove(isPhoto(p) ? [p.path] : [p.path, POSTER(p.path)]);
   load();
 }
 // A comment can be liked, the same gesture as liking the post it sits under, and whoever
