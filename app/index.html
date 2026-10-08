@@ -434,12 +434,21 @@ button.rg{border:0;font:inherit}
   padding:calc(8px + env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))}
 /* A strip rather than a single card, so the one you are heading for is already beside the
    one you are on and the whole thing can move with your finger. */
-#story{overflow:hidden}
+#story{overflow:hidden;background:rgb(5 7 6 / var(--fade,1))}
 #story .track{position:relative;width:min(100%,430px);height:100%;display:flex;will-change:transform;
-  transform:translateX(calc(var(--base,0px) + var(--dx,0px)));
-  transition:transform 320ms cubic-bezier(.32,.72,0,1)}
+  transform:translate(calc(var(--base,0px) + var(--dx,0px)),var(--dy,0px)) scale(var(--sc,1));
+  opacity:var(--op,1);transition:transform 320ms cubic-bezier(.32,.72,0,1)}
 #story .track.grab{transition:none}
-#story .track > .pane{flex:0 0 100%;width:100%}
+#story .track > .pane{flex:0 0 100%;width:100%;background:#050706}
+/* Pulled down, the story comes away from the screen as a card: it shrinks, its corners
+   round, and what you came from shows through behind it. Let go short and it springs back;
+   far enough, or thrown, and it carries on down and is gone. */
+#story.pull .track > .pane{border-radius:var(--rad,0px);overflow:hidden}
+#story.letgo{transition:background-color 260ms ease-out}
+#story.letgo .track{transition:transform 260ms cubic-bezier(.32,.72,0,1),opacity 220ms ease-out}
+#story.opening .track > .pane{animation:storyin 240ms cubic-bezier(.2,.8,.2,1)}
+@keyframes storyin{from{opacity:0;transform:scale(.92)}}
+@media (prefers-reduced-motion:reduce){#story.opening .track > .pane{animation:none}}
 #story .bars,#recap .bars{display:flex;gap:4px;padding:0 10px}
 #story .bars i,#recap .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
 #story .bars i.done,#recap .bars i.done{background:rgba(255,255,255,.85)}
@@ -463,9 +472,10 @@ button.rg{border:0;font:inherit}
 #story .who .bin svg{width:20px;height:20px;display:block;fill:currentColor;
   filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))}
 #story .face,#recap .face{flex:1;aspect-ratio:auto;min-height:0}
-/* Sideways is ours, so a swipe across is not taken as a page gesture first. Up and down
-   is left alone, because the list of who watched scrolls. */
-#story{touch-action:pan-y}
+/* Every direction is ours: sideways steps, down closes. Only the list of who watched
+   scrolls, so that is the one place the page keeps its own gestures. */
+#story{touch-action:none}
+#story .seenby{touch-action:pan-y}
 /* Half each, under everything: forward on the right the way every app does it. */
 #story .tap,#recap .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
 #story .tap.back,#recap .tap.back{left:0}
@@ -1503,7 +1513,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v127';
+const BUILD = 'quota-v128';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3048,11 +3058,15 @@ function openStory(uid) {
   if (!q.includes(uid)) q = [uid];         // opened from a notification, by somebody no longer in the row
   const from = all.findIndex(x => !S.seen.includes(x.id));
   S.story = {q, p: q.indexOf(uid), uid, i: from < 0 ? 0 : from, at: Date.now()};
+  // It grows into place rather than appearing, the same card that pulling down puts away.
+  const box = $('#story');
+  box.classList.add('opening'); setTimeout(() => box.classList.remove('opening'), 300);
   paintStory();
   trimClips();                             // the feed is behind a cover now: give its decoders back
 }
 function closeStory() { clearTimeout(storyTimer); clearTimeout(holdTimer); holdTimer = null; held = false;
-  S.story = null; $('#story').classList.remove('held'); $('#story').hidden = true; $('#story').innerHTML = '';
+  S.story = null; $('#story').classList.remove('held', 'pull', 'letgo', 'opening'); $('#story').removeAttribute('style');
+  $('#story').hidden = true; $('#story').innerHTML = '';
   render(); watchClips(); }
 // Coming back out from under a cover needs asking for. An observer reports crossings, and
 // a clip that sat on screen the whole time the story was over it never crossed anything —
@@ -3143,7 +3157,7 @@ function armSlide(d, cross) {
 }
 $('#story').addEventListener('pointerdown', e => {
   if (e.target.closest('.seenby, .reactpick')) return;
-  sdrag = {x: e.clientX, y: e.clientY, last: e.clientX, lt: performance.now(), v: 0, live: false};
+  sdrag = {x: e.clientX, y: e.clientY, last: e.clientX, ly: e.clientY, lt: performance.now(), v: 0, vy: 0, live: false};
   swiped = false;
   // Not on the buttons along the top and bottom: holding the close button is not asking
   // for more time with the story.
@@ -3157,8 +3171,28 @@ $('#story').addEventListener('pointermove', e => {
   const dx = e.clientX - sdrag.x, dy = e.clientY - sdrag.y;
   if (!sdrag.live) {
     if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
-    if (Math.abs(dx) <= Math.abs(dy)) { sdrag = null; return; }       // down the screen: not this
-    sdrag.live = true;
+    if (Math.abs(dx) <= Math.abs(dy)) {
+      // Down the screen is the way out. Up is nothing, and so is anything while the list
+      // of who watched is open: that is a sheet you scroll, not a story you pull.
+      if (dy <= 0 || $('#story .seenby:not([hidden])')) { sdrag = null; return; }
+      sdrag.live = sdrag.pull = true;
+      clearTimeout(holdTimer); holdTimer = null;
+      holdStory();                         // the clock and the clip wait while it is in your hand
+      $('#story').classList.add('pull');
+      const t = strack(); if (t) t.classList.add('grab');
+      try { $('#story').setPointerCapture(e.pointerId); } catch (x) {}
+    } else sdrag.live = true;
+  }
+  if (sdrag.pull) {
+    sdrag.vy = (e.clientY - sdrag.ly) / Math.max(1, performance.now() - sdrag.lt);
+    sdrag.ly = e.clientY; sdrag.lt = performance.now();
+    sdrag.dx = dx; sdrag.dy = dy;
+    if (!sdrag.raf) sdrag.raf = requestAnimationFrame(() => { if (sdrag) { sdrag.raf = 0; pullTo(sdrag.dx, sdrag.dy); } });
+    e.preventDefault();
+    return;
+  }
+  if (!sdrag.armedSide) {
+    sdrag.armedSide = true;
     clearTimeout(holdTimer); holdTimer = null;   // a drag is not a hold
     if (held) { held = false; $('#story').classList.remove('held'); if (S.story) S.story.heldAt = null; }
     clearTimeout(storyTimer);              // it must not step out from under the finger
@@ -3207,8 +3241,47 @@ function endSwipe(e) {
     paintStory();
   }, 240);
 }
-$('#story').addEventListener('pointerup', e => { releaseStory(); endSwipe(e); });
-$('#story').addEventListener('pointercancel', e => { releaseStory(); if (sdrag && sdrag.live) endSwipe(e); else sdrag = null; });
+// Where a pull down has got to. The further it comes the smaller the card, the rounder its
+// corners and the more of what is behind shows through, so the screen says what letting go
+// will do before you do it. Back up past where it started pulls against you.
+const PULL_OUT = 110;                      // px down that means "out", if it was not thrown
+function pullTo(dx, dy) {
+  const box = $('#story'), y = dy < 0 ? dy / 4 : dy;
+  const p = Math.min(1, Math.max(0, y) / (innerHeight * .6));
+  box.style.setProperty('--dx', `${dx}px`);
+  box.style.setProperty('--dy', `${y}px`);
+  box.style.setProperty('--sc', `${1 - .25 * p}`);
+  box.style.setProperty('--rad', `${Math.min(28, Math.max(0, y) / 4)}px`);
+  box.style.setProperty('--fade', `${1 - .8 * p}`);
+}
+function endPull(e) {
+  const d = sdrag; sdrag = null;
+  if (d.raf) cancelAnimationFrame(d.raf);
+  swiped = true;                           // the click the browser sends after is not a tap
+  const box = $('#story'), t = strack(), dy = e.clientY - d.y;
+  const out = e.type !== 'pointercancel' && (dy > PULL_OUT || (d.vy > FLICK && dy > 30));
+  if (t) t.classList.remove('grab');
+  if (out && still()) return closeStory();
+  box.classList.add('letgo');
+  if (out) {
+    // Carried on the way it was going, smaller and fading, and gone.
+    box.style.setProperty('--dy', `${Math.max(dy, 0) + innerHeight * .35}px`);
+    box.style.setProperty('--sc', '.6');
+    box.style.setProperty('--op', '0');
+    box.style.setProperty('--fade', '0');
+    setTimeout(() => { if (S.story) closeStory(); }, 260);
+    return;
+  }
+  // Short of it, it springs back into place and carries on from where it was held.
+  for (const k of ['--dx', '--dy', '--sc', '--fade']) box.style.removeProperty(k);
+  box.style.setProperty('--rad', '0px');
+  setTimeout(() => {
+    box.classList.remove('letgo', 'pull'); box.removeAttribute('style');
+    if (S.story) releaseStory();
+  }, 260);
+}
+$('#story').addEventListener('pointerup', e => { if (sdrag && sdrag.pull) return endPull(e); releaseStory(); endSwipe(e); });
+$('#story').addEventListener('pointercancel', e => { if (sdrag && sdrag.pull) return endPull(e); releaseStory(); if (sdrag && sdrag.live) endSwipe(e); else sdrag = null; });
 $('#story').addEventListener('click', e => {
   // A swipe and a hold both end in a click the browser sends afterwards, and neither is a
   // tap. Swallowed here rather than by making the zones smaller, because tapping to step
@@ -6903,6 +6976,7 @@ function forfeitDlg(gid) {
 async function saveForfeit(f, gid) {
   const g = S.groups.find(x => x.id === gid); if (!g) return;
   const v = f ? String(f.forfeit.value || '').trim().slice(0, 60) : '';
+  if (!f && !confirm(`Remove the forfeit from ${g.name}?`)) return;
   if (f) working(f, 'Saving…');
   const {error} = await sb.from('groups').update({forfeit: v || null}).eq('id', gid);
   if (error) { if (f) working(f, 'Save'); f && f.querySelectorAll('button').forEach(b => b.disabled = false); return alert(friendlyError(error, "Couldn't save the forfeit. Try again in a moment.")); }
@@ -8764,18 +8838,18 @@ function replyComment(postId, id) {
 function commentMenu(el) {
   const id = +el.dataset.cmt, postId = +el.dataset.cpost, c = S.comments.find(x => x.id === id);
   if (!c) return;
-  const mine = c.userId === me().id, liked = iLikeComment(id);
+  const mine = c.userId === me().id;
+  // No Like here: the heart beside the comment is one tap, and the same thing twice is clutter.
   openTray(el, `<button type="button" onclick="replyComment(${postId},${id})">Reply</button>
-    <button type="button" onclick="closeTrays();toggleCommentLike(${id})">${liked ? 'Unlike' : 'Like'}</button>
     <button type="button" onclick="closeTrays();copyText(${id},'c')">Copy</button>
     ${canEdit(c) ? `<button type="button" onclick="startEdit('comment',${id})">Edit</button>` : ''}
     ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete</button>`
       : `<button type="button" onclick="closeTrays();reportDlg('comment',${id},'${esc(c.userId)}')">Report</button>`}`, 'opts');
 }
-// A comment with replies under it takes them with it, so that is said first.
+// Asked first, like every delete. One with replies under it takes them with it, so that is said too.
 function delCommentAsk(id) {
   const under = S.comments.filter(c => c.replyTo === id).length;
-  if (under && !confirm(`Delete this comment? The ${under === 1 ? 'reply' : `${under} replies`} under it go too.`)) return;
+  if (!confirm(under ? `Delete this comment? The ${under === 1 ? 'reply' : `${under} replies`} under it go too.` : 'Delete this comment?')) return;
   delComment(id);
 }
 async function delComment(id) {
