@@ -553,6 +553,33 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#app .post video.proof').count() > 0 && await page.locator('#app .post video.proof[poster]').count() === 0);
 });
 
+// Typing past the end of the line takes another line, rather than scrolling sideways out
+// of sight, up to about six; and Enter still sends.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const box = page.locator('.post .cin [name=body]').first();
+  const h0 = (await box.boundingBox()).height;
+  await box.fill('this is a long comment that will not fit on one line of the box so it should wrap onto the next line instead');
+  await page.waitForTimeout(100);
+  const grown = await box.evaluate(t => ({h: t.getBoundingClientRect().height, sw: t.scrollWidth, cw: t.clientWidth, tag: t.tagName}));
+  check('a long comment wraps onto more lines and the box grows to fit',
+    grown.tag === 'TEXTAREA' && grown.h > h0 + 10 && grown.sw <= grown.cw + 1, JSON.stringify({h0, ...grown}));
+  await box.fill('word '.repeat(200));
+  await page.waitForTimeout(100);
+  const tall = await box.evaluate(t => ({h: t.getBoundingClientRect().height, oy: getComputedStyle(t).overflowY}));
+  check('  but stops at a few lines and scrolls after that', tall.h < 200 && tall.oy === 'auto', JSON.stringify(tall));
+  await box.fill('short');
+  await page.waitForTimeout(100);
+  check('  and shrinks back when the text does', Math.abs((await box.boundingBox()).height - h0) < 2);
+  const before = await page.evaluate(() => S.comments.length);
+  await box.press('Enter');
+  await page.waitForTimeout(600);
+  check('  Enter still sends it, with no line break added',
+    await page.evaluate(() => S.comments.length) === before + 1 && await page.evaluate(() => S.comments.at(-1).body) === 'short',
+    await page.evaluate(() => JSON.stringify(S.comments.at(-1))));
+  check('  and the box is back to one line after', Math.abs((await box.boundingBox()).height - h0) < 2);
+});
+
 // Re-encoding costs about the length of the clip before a byte moves. On a connection
 // fast enough to have sent the original in less time than that, the whole wait is the
 // app's own doing, so it does not happen. The rate is what this phone's uploads managed.
@@ -1590,12 +1617,12 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   // Comments sit under the post again, with a box that is always ready: on a post you are
   // already looking at, the thing to say is the thing in front of you.
   check('the replies are under the post, not behind a sheet', await page.locator('.post .cmts').count() > 0);
-  check('  with somewhere to type already there', await page.locator('.post .cin input').count() > 0);
+  check('  with somewhere to type already there', await page.locator('.post .cin [name=body]').count() > 0);
   check('  and nothing to open first', await page.locator('#cmt').count() === 0);
   check('  the caption is under the clip, where it reads',
     await page.locator('.post .cap').first().isVisible());
 
-  const box = page.locator('.post .cin input').first();
+  const box = page.locator('.post .cin [name=body]').first();
   const send = page.locator('.post form.cin button.primary').first();
   const list = () => page.locator('.post .clist').first().innerText();
 
@@ -1669,7 +1696,7 @@ await withPage(SIGNED_IN, async (page, alerts) => {
 
   // Every post carries its own box and its own tray, so the one you opened is the one that
   // answers — the second post must not have taken the first one's emoji.
-  const many = await page.evaluate(() => document.querySelectorAll('.post .cin input').length);
+  const many = await page.evaluate(() => document.querySelectorAll('.post .cin [name=body]').length);
   if (many > 1) {
     const second = await page.locator('.post .cmts .emoji').nth(1).isHidden();
     check('    and the tray belongs to the post it was opened from', second === true);
@@ -2880,7 +2907,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
 
   await page.locator('.crow').click();
   await page.waitForTimeout(600);
-  check('  opening it gives you somewhere to type', await page.locator('.csend input').count() === 1);
+  check('  opening it gives you somewhere to type', await page.locator('.csend [name=body]').count() === 1);
   // The status bar is translucent and the page runs under it. Every header pads past it;
   // this one did not, and the name and the way back sat under the clock. Read off the
   // stylesheet rather than the box, because a desktop browser has no notch to measure.
@@ -2930,7 +2957,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
     /everyone in the group/i.test(await page.locator('#app .msgs').innerText()),
     await page.locator('#app .msgs').innerText());
 
-  const box = page.locator('.csend input');
+  const box = page.locator('.csend [name=body]');
   await box.fill('who is doing the 6am one');
   await page.evaluate(() => { self.__stall = new Promise(r => { self.__go = r; }); });
   await page.locator('.csend button.primary').click();
@@ -2951,12 +2978,12 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   // somebody is in the middle of writing — the same fault as the comment box, in the one
   // place it would happen without anybody touching anything.
   await box.fill('half a thought');
-  await page.evaluate(() => { document.querySelector('#app .csend input').focus(); render(); });
+  await page.evaluate(() => { document.querySelector('#app .csend [name=body]').focus(); render(); });
   await page.waitForTimeout(250);
   check('  a redraw does not take a half-written message',
     await box.inputValue() === 'half a thought', JSON.stringify(await box.inputValue()));
   check('    and leaves the caret where it was',
-    await page.evaluate(() => document.activeElement === document.querySelector('#app .csend input')));
+    await page.evaluate(() => document.activeElement === document.querySelector('#app .csend [name=body]')));
   await box.fill('');
 
   // Reacting to one, which is the same gesture as reacting to a post.
@@ -3011,9 +3038,9 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.waitForTimeout(300);
   check('  Reply puts what it answers over the box', /replying to/i.test(await page.locator('#app .replying').innerText())
     && /6am one/.test(await page.locator('#app .replying').innerText()), await page.locator('#app .replying').innerText().catch(() => ''));
-  check('    and gives the box the keyboard', await page.evaluate(() => document.activeElement === document.querySelector('#app .csend input')));
+  check('    and gives the box the keyboard', await page.evaluate(() => document.activeElement === document.querySelector('#app .csend [name=body]')));
   const answered = await page.evaluate(() => S.mreply && S.mreply.id);
-  await page.locator('.csend input').fill('me, probably');
+  await page.locator('.csend [name=body]').fill('me, probably');
   await page.locator('.csend button.primary').click();
   await page.waitForTimeout(900);
   const reply = await page.evaluate(() => self.__msgs.at(-1));
@@ -3068,8 +3095,8 @@ await withPage(SIGNED_IN, async page => {
     /replying to/i.test(await post.locator('.replying').innerText()) && /sam/i.test(await post.locator('.replying').innerText()),
     await post.locator('.replying').innerText().catch(() => ''));
   check('  and gives its box the keyboard', await page.evaluate(id =>
-    document.activeElement === document.querySelector(`#app .post[data-post="${id}"] .cin input`), pid));
-  await post.locator('.cin input').fill('second');
+    document.activeElement === document.querySelector(`#app .post[data-post="${id}"] .cin [name=body]`), pid));
+  await post.locator('.cin [name=body]').fill('second');
   await post.locator('.cin button.primary').click();
   await page.waitForTimeout(900);
   const sent = await page.evaluate(() => self.__cmts.at(-1));
@@ -3080,7 +3107,7 @@ await withPage(SIGNED_IN, async page => {
   // Answering the answer names who it is to, since it is not the one right above it.
   await post.locator('.clist .c.reply .creply').click();
   await page.waitForTimeout(250);
-  await post.locator('.cin input').fill('third');
+  await post.locator('.cin [name=body]').fill('third');
   await post.locator('.cin button.primary').click();
   await page.waitForTimeout(900);
   check('  a reply to a reply stays in the same thread, naming who it answers',
@@ -3235,7 +3262,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async (page, alerts) => {
   check('  which opens a chat with only the two of you in it',
     /only you and/i.test(await page.locator('#app .msgs').innerText()),
     await page.locator('#app .msgs').innerText());
-  await page.locator('.csend input').fill('see you tomorrow');
+  await page.locator('.csend [name=body]').fill('see you tomorrow');
   await page.locator('.csend button.primary').click();
   await page.waitForTimeout(900);
   const dm = await page.evaluate(() => self.__msgs.at(-1));
@@ -3247,7 +3274,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async (page, alerts) => {
   // notice does not quote it: nobody needs it on the screen to know which one it was.
   const swear = await page.evaluate(() => (BAD.swear.word || [])[0] || (BAD.swear.any || [])[0]);
   alerts.length = 0;
-  await page.locator('.csend input').fill(`well ${swear} then`);
+  await page.locator('.csend [name=body]').fill(`well ${swear} then`);
   await page.locator('.csend button.primary').click();
   await page.waitForTimeout(500);
   const said = alerts.join(' | ');
@@ -3257,7 +3284,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async (page, alerts) => {
   check('      while still saying which kind it was', /swear word/i.test(said), said);
   check('    and nothing was sent', await page.evaluate(() => self.__msgs.length) === 1,
     String(await page.evaluate(() => self.__msgs.length)));
-  await page.locator('.csend input').fill('');
+  await page.locator('.csend [name=body]').fill('');
 
   // Back out of a conversation is always the hub, however it was reached; back out of the
   // hub is wherever you were before any of it. Opened from Friends, that is Friends.
@@ -3397,7 +3424,7 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.evaluate(() => { location.hash = '#chat-g:1'; });
   await page.waitForTimeout(700);
   check('  a notification about a message opens that conversation',
-    await page.evaluate(() => S.chat) === 'g:1' && await page.locator('.csend input').count() === 1);
+    await page.evaluate(() => S.chat) === 'g:1' && await page.locator('.csend [name=body]').count() === 1);
 });
 
 // A project where the v28 block has not been run.
@@ -5005,7 +5032,7 @@ await withPage(NO_WHEEL, async page => {
   check('  and somebody else\'s never can', !(await opts()).includes('Edit'), JSON.stringify(await opts()));
   await page.evaluate(() => { closeTrays(); startEdit('comment', 761); });
   await page.waitForTimeout(300);
-  const box = page.locator('#onewrap .cin input');
+  const box = page.locator('#onewrap .cin [name=body]');
   check('editing a comment puts it in the box to change', await box.inputValue() === 'thnaks', await box.inputValue());
   check('  and says that is what the box is doing', /Editing/.test(await page.locator('#onewrap .replying').innerText())
     && /Save/.test(await page.locator('#onewrap .cin button.primary').innerText()));
@@ -5030,7 +5057,7 @@ await withPage(NO_WHEEL, async page => {
   check('  and offers to edit it', (await page.locator('#app .m .reactpick.opts button').allInnerTexts()).includes('Edit'));
   await page.locator('#app .m .reactpick.opts button:has-text("Edit")').click();
   await page.waitForTimeout(300);
-  const mbox = page.locator('#app .csend input');
+  const mbox = page.locator('#app .csend [name=body]');
   check('  which puts it in the box', await mbox.inputValue() === 'Spinnign', await mbox.inputValue());
   await mbox.fill('Spinning');
   await page.locator('#app .csend button.primary').click();
@@ -5403,7 +5430,7 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('#dlg button:text-is("Report")').click(); await page.waitForTimeout(150);
   check('reporting asks for a reason from a list', await page.locator('#dlg input[name=reason]').count() === 8);
   await page.locator('#dlg input[value=harassment]').check();
-  await page.locator('#dlg input[name=details]').fill('keeps doing this');
+  await page.locator('#dlg [name=details]').fill('keeps doing this');
   await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
   const r = await page.evaluate(() => self.__reports);
   check('  and sends what, who, why, and what was on screen', r.length === 1 && r[0].what === 'post' && r[0].thing_id === 100
