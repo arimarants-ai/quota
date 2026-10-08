@@ -1462,7 +1462,7 @@ await withPage({ ...SIGNED_IN, photos: true }, async page => {
 // Under the clip and straight above the replies, so liking a post and answering it are
 // the same gesture in the same place. The count moves the instant it is tapped rather
 // than after a round trip.
-await withPage(SIGNED_IN, async page => {
+await withPage(SIGNED_IN, async (page, alerts) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await settle(page);
   const heart = page.locator('.post .acts .lk').first();
@@ -1574,8 +1574,15 @@ await withPage(SIGNED_IN, async page => {
 
   await hold(page, page.locator('.post .clist .c').first());
   const opts = await page.locator('.post .clist .reactpick.opts button').allInnerTexts();
-  check('  holding your comment offers reply, like, copy, edit (it is new) and delete',
-    opts.join('|') === 'Reply|Like|Copy|Edit|Delete', JSON.stringify(opts));
+  check('  holding your comment offers reply, copy, edit (it is new) and delete, but not like: the heart is right there',
+    opts.join('|') === 'Reply|Copy|Edit|Delete', JSON.stringify(opts));
+  // Every delete asks first. Saying no leaves it where it was.
+  await page.locator('.post .clist .reactpick.opts button:has-text("Delete")').click();
+  await page.waitForTimeout(400);
+  check('  deleting it asks first, and no keeps it', alerts.includes('Delete this comment?')
+    && /^1 comment$/.test((await bubble.innerText()).trim()), JSON.stringify(alerts));
+  await page.evaluate(() => { self.confirm = () => true; });
+  await hold(page, page.locator('.post .clist .c').first());
   await page.locator('.post .clist .reactpick.opts button:has-text("Delete")').click();
   await page.waitForTimeout(900);
   check('  taking one back drops the count with it', /^0 comments$/.test((await bubble.innerText()).trim()),
@@ -3029,7 +3036,7 @@ await withPage(SIGNED_IN, async page => {
     await post.locator('.clist').innerText());
   await hold(page, post.locator('.clist .c').first());
   const opts = await post.locator('.clist .reactpick.opts button').allInnerTexts();
-  check('  holding somebody else\'s comment has no delete in it, but can report it', opts.join('|') === 'Reply|Like|Copy|Report', JSON.stringify(opts));
+  check('  holding somebody else\'s comment has no delete in it, but can report it', opts.join('|') === 'Reply|Copy|Report', JSON.stringify(opts));
 });
 
 // A clip kept through redraws: the same element stays, an old link gets a fresh one rather
@@ -3992,6 +3999,42 @@ await withPage(SIGNED_IN, async page => {
   await swipe(1);
   check('  and swiping back from them reaches the person before',
     JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}', JSON.stringify(await where()));
+
+  // Pulled down, it comes away as a card you are holding: smaller, with what is behind
+  // showing through, and the clock stopped while it is in your hand.
+  await page.mouse.move(195, 300);
+  await page.mouse.down();
+  await page.mouse.move(197, 360, { steps: 6 });
+  await page.waitForTimeout(80);
+  const pulled = await page.evaluate(() => ({ pull: $('#story').classList.contains('pull'), held: $('#story').classList.contains('held'),
+    sc: +getComputedStyle($('#story')).getPropertyValue('--sc'), fade: +getComputedStyle($('#story')).getPropertyValue('--fade') }));
+  check('pulling a story down shrinks it, shows what is behind, and holds the clock',
+    pulled.pull && pulled.held && pulled.sc < 1 && pulled.fade < 1, JSON.stringify(pulled));
+  // Not far enough, and it springs back and carries on, on the same story.
+  await page.mouse.move(197, 330, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  check('  let go short and it springs back to the same story, running again',
+    JSON.stringify(await where()) === '{"uid":"u3","i":0,"p":1}'
+    && await page.evaluate(() => !$('#story').classList.contains('pull') && !$('#story').classList.contains('held')
+      && !$('#story').getAttribute('style')), JSON.stringify(await where()));
+  // Far enough and it is gone, without the drag also counting as a tap on the way.
+  await page.mouse.move(195, 250);
+  await page.mouse.down();
+  await page.mouse.move(200, 450, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+  check('  pull it far enough and it closes',
+    await page.locator('#story').isHidden() && await page.evaluate(() => S.story) === null);
+  // Up the screen is not a way out.
+  await page.evaluate(() => openStory('u3'));
+  await page.waitForTimeout(350);
+  await page.mouse.move(195, 500);
+  await page.mouse.down();
+  await page.mouse.move(195, 300, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  check('  while pushing it up does nothing', await page.locator('#story').isVisible());
   await page.locator('#story .who .x').click();
   await page.waitForTimeout(250);
 
