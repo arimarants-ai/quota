@@ -100,6 +100,10 @@ button:disabled{opacity:.6}
 input,select,textarea{font:inherit;font-size:16px;width:100%;padding:12px 14px;border-radius:0;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--mk);box-shadow:0 0 0 3px var(--mkring)}
 textarea{resize:vertical;line-height:1.5}
+/* A box you type a line into, that takes another line when the first is full instead of
+   scrolling sideways out of sight. It grows to about six lines and scrolls after that.
+   Enter still sends, the way the single line it replaced did. */
+textarea.autogrow{resize:none;display:block;line-height:1.35;overflow-y:hidden;max-height:calc(6 * 1.35em + 24px);field-sizing:content;min-height:0}
 .check input{width:19px}
 input[type=file]{padding:10px;font-size:16px}
 label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 6px}
@@ -971,11 +975,11 @@ button.rg{border:0;font:inherit}
 /* In the flow at the foot of the column rather than pinned over it. The column is the
    height of the screen less the keyboard, so the box sits above the keyboard because the
    column ends there, not because anything worked out where the keyboard is. */
-.csend{flex:none;margin:8px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;padding:8px;
+.csend{flex:none;margin:8px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:8px;padding:8px;
   background:var(--card);border:1px solid var(--line)}
 .csend .emo{width:34px;height:34px;background:var(--soft);display:grid;place-items:center;flex:none;padding:0}
 .csend .emo svg{width:19px;height:19px;fill:none;stroke:var(--muted);stroke-width:1.9}
-.csend input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);
+.csend [name=body]{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);
   font:inherit;font-size:16px;border-radius:0}
 .csend button.primary{background:none;color:var(--mkt);font-weight:800;font-size:15px;padding:6px 6px;flex:none}
 .cemoji{flex:none;margin:0 12px}
@@ -1080,6 +1084,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .fchip em{font-style:normal;font-size:12px;color:var(--muted)}
 #dlg textarea{width:100%;padding:12px;border:1px solid var(--line);background:var(--card);color:var(--text);
   font:inherit;font-size:16px;resize:none;border-radius:0}
+#dlg textarea.autogrow{padding:12px 14px}
 /* ---- settings ---- */
 .sec{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 18px 7px}
 /* A switch on its own does not say what it switches, so the list stays either way. */
@@ -1199,8 +1204,8 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* Arrived here from a notification: say which reply it was, then stop saying it. */
 .clist .c.found{background:var(--mktint);box-shadow:0 0 0 6px var(--mktint);animation:foundit 2.2s ease-out}
 @keyframes foundit{0%,55%{background:var(--mkveil);box-shadow:0 0 0 6px var(--mkveil)}}
-.cin{display:flex;gap:8px;margin-top:4px;align-items:center}
-.cin input{padding:10px 12px}          /* 16px, like every field: smaller and iOS zooms in */
+.cin{display:flex;gap:8px;margin-top:4px;align-items:flex-end}
+.cin [name=body]{padding:10px 12px}          /* 16px, like every field: smaller and iOS zooms in */
 .cin button{padding:0 14px}
 /* A word, not a button. The box around it was doing nothing the word was not already
    doing, and the padding is what keeps the tap target the size of a thumb without it. */
@@ -1513,7 +1518,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v130';
+const BUILD = 'quota-v131';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2486,6 +2491,59 @@ function badWords(v) {
   return [...hits].map(([word, why]) => ({word, why})).sort((a, b) => rank[a.why] - rank[b.why]);
 }
 // filter:end
+// Boxes that grow a line at a time as you type (textarea.autogrow). Browsers that can size
+// a field to its content in CSS already have; this is the same thing for the rest, and it
+// is run however the text got there — typed, pasted, an emoji tapped in, or put there by
+// the app when you start editing something you sent. Past about six lines it stops growing
+// and scrolls, which is what the max-height in the stylesheet says.
+function fitBox(t) {
+  if (!t || !t.isConnected || !t.getClientRects().length) return;   // not on screen yet: nothing to measure
+  t.style.height = 'auto';
+  const max = parseFloat(getComputedStyle(t).maxHeight) || Infinity;
+  const h = t.scrollHeight + (t.offsetHeight - t.clientHeight);   // plus the border
+  t.style.height = `${Math.min(h, max)}px`;
+  t.style.overflowY = h > max ? 'auto' : 'hidden';
+}
+{
+  // Set by the app as well as by a finger: the value setter is where both end up.
+  const vd = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  Object.defineProperty(HTMLTextAreaElement.prototype, 'value', {...vd,
+    set(v) { vd.set.call(this, v); if (this.classList.contains('autogrow')) fitBox(this); }});
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (!t.classList || !t.classList.contains('autogrow')) return;
+    // One line of text, however long. A newline pasted in becomes a space, where the box it
+    // replaced would have dropped it the same way.
+    if (/[\r\n]/.test(t.value)) {
+      const at = t.selectionStart;
+      vd.set.call(t, t.value.replace(/\r?\n/g, ' '));
+      try { t.setSelectionRange(at, at); } catch (x) {}
+    }
+    fitBox(t);
+  });
+  // Enter sends, as it did when this was a single line. Shift+Enter too: there are no line
+  // breaks in what these hold, only lines that wrap.
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (e.key !== 'Enter' || e.isComposing || !t.classList || !t.classList.contains('autogrow')) return;
+    e.preventDefault();
+    const f = t.form;
+    if (f) { if (f.requestSubmit) f.requestSubmit(); else f.dispatchEvent(new Event('submit', {cancelable: true})); }
+  });
+  // Drawn with something already in it (a caption being changed, a goal), or redrawn by
+  // render(): fitted the moment it is on the page.
+  new MutationObserver(ms => {
+    for (const m of ms) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      const ts = n.matches('textarea.autogrow') ? [n] : [...n.querySelectorAll('textarea.autogrow')];
+      // Again a frame later: a sheet is filled in before it is opened, and a box in a sheet
+      // that is not open yet has no size to take.
+      ts.forEach(fitBox); if (ts.length) requestAnimationFrame(() => ts.forEach(fitBox));
+    }
+  }).observe(document.documentElement, {childList: true, subtree: true});
+  addEventListener('resize', () => document.querySelectorAll('textarea.autogrow').forEach(fitBox));
+  document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('autogrow')) fitBox(e.target); });
+}
 // Typed text only. A password is never read here, and neither is anything marked data-raw,
 // like a code from an email: being locked out of your own account by a coincidence is
 // worse than the word.
@@ -4747,7 +4805,7 @@ function toggleEmoji(btn) {
   if (box) box.hidden = !box.hidden;
 }
 function putEmoji(btn, e) {
-  const input = postPart(btn, '.cin input');
+  const input = postPart(btn, '.cin [name=body]');
   if (!input) return;
   const at = input.selectionStart ?? input.value.length;
   input.value = input.value.slice(0, at) + e + input.value.slice(input.selectionEnd ?? at);
@@ -5194,7 +5252,7 @@ function chatView(key) {
     ${replyBar(key)}
     <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
       <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
-      <input name="body" placeholder="${S.medit && S.medit.key === key ? 'Edit your message' : 'Message'}" maxlength="2000" required autocomplete="off">
+      <textarea class="autogrow" rows="1" name="body" placeholder="${S.medit && S.medit.key === key ? 'Edit your message' : 'Message'}" maxlength="2000" required autocomplete="off" enterkeyhint="send"></textarea>
       <button class="primary">${S.medit && S.medit.key === key ? 'Save' : 'Send'}</button>
     </form>`;
 }
@@ -5218,7 +5276,7 @@ async function sendMessage(f, key) {
   try { await q(sb.from('messages').insert(row)); }
   catch (e) {
     S.msgs = S.msgs.filter(x => x !== tmp);
-    const back = document.querySelector('#app .csend input');
+    const back = document.querySelector('#app .csend [name=body]');
     if (back) back.value = body;           // it did not send: give them back what they wrote
     if (replyTo) S.mreply = {key, id: replyTo};
     render();
@@ -5325,7 +5383,7 @@ function startMsgReply(id) {
   if (!S.chat || S.chat === 'list') return;
   S.mreply = {key: S.chat, id};
   render();
-  const box = $('#app .csend input'); if (box) box.focus();
+  const box = $('#app .csend [name=body]'); if (box) box.focus();
 }
 function replyBar(key) {
   if (S.medit && S.medit.key === key) return `<div class="replying chat"><span><b>Editing</b> your message</span>
@@ -5441,7 +5499,7 @@ function toggleChatEmoji(btn) {
   const box = $('#app .cemoji'); if (box) box.hidden = !box.hidden;
 }
 function putChatEmoji(btn, e) {
-  const input = $('#app .csend input'); if (!input) return;
+  const input = $('#app .csend [name=body]'); if (!input) return;
   const at = input.selectionStart ?? input.value.length;
   input.value = input.value.slice(0, at) + e + input.value.slice(input.selectionEnd ?? at);
   input.focus();
@@ -5539,7 +5597,7 @@ function commentsFor(p, cs) {
       <button type="button" onclick="S.creply=null;render()" aria-label="Stop replying">✕</button></div>` : ''}
     <form class="cin" onsubmit="event.preventDefault();addComment(this,${p.id})">
       <button type="button" class="emo" onclick="toggleEmoji(this)" aria-label="Emoji">${SMILEY}</button>
-      <input name="body" placeholder="${editing ? 'Edit your comment' : replying ? 'Write a reply' : 'Write a comment'}" maxlength="500" required autocomplete="off">
+      <textarea class="autogrow" rows="1" name="body" placeholder="${editing ? 'Edit your comment' : replying ? 'Write a reply' : 'Write a comment'}" maxlength="500" required autocomplete="off" enterkeyhint="send"></textarea>
       <button class="primary">${editing ? 'Save' : 'Send'}</button>
     </form>
     <div class="emoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putEmoji(this,'${e}')">${e}</button>`).join('')}</div>
@@ -6955,7 +7013,7 @@ function submitDlg(gid) {
     ${challengeBlock(g)}
     <label class="check chk" style="margin-top:16px"><input type="checkbox" name="onprofile">
       <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label>
-    <label>Caption (optional)</label><input name="caption" placeholder="20 more in the bag" maxlength="200">
+    <label>Caption (optional)</label><textarea class="autogrow" rows="1" name="caption" placeholder="20 more in the bag" maxlength="200"></textarea>
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
 }
 const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
@@ -7012,7 +7070,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
     <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
     ${g.id ? '' : `<label>Start from</label><div class="presets mini">${PRESETS.map((x, i) => `<button type="button" onclick="fillPreset(this,${i})">${esc(x.label)}</button>`).join('')}</div>`}
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
-    <label>Group goal</label><input name="goal" value="${esc(g.goal)}" placeholder="e.g. 100 pushups a day for 30 days">
+    <label>Group goal</label><textarea class="autogrow" rows="1" name="goal" placeholder="e.g. 100 pushups a day for 30 days">${esc(g.goal || '')}</textarea>
     <label>Daily quota (per person)</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
     <label class="check" style="margin-top:16px"><input type="checkbox" name="somedays" ${everyDay(g) ? '' : 'checked'}
       onchange="$('#gdays').hidden=!this.checked"><span>Only on certain days</span></label>
@@ -8720,7 +8778,7 @@ function reportDlg(what, id, uid) {
     <form onsubmit="event.preventDefault();sendReport(this,'${what}',${id || 0},'${esc(uid)}')">
       <div class="reasons">${REASONS.map(([k, l]) => `<label class="check"><input type="radio" name="reason" value="${k}" required><span>${l}</span></label>`).join('')}</div>
       <label>Anything we should know <span class="muted">(optional)</span></label>
-      <input name="details" type="text" data-raw maxlength="500" autocomplete="off" placeholder="What happened">
+      <textarea class="autogrow" rows="1" name="details" data-raw maxlength="500" autocomplete="off" placeholder="What happened"></textarea>
       <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Send</button></div></form>`);
 }
 async function sendReport(f, what, id, uid) {
@@ -8790,7 +8848,7 @@ function captionDlg(id) {
   if (!p) return;
   dlg(`<h2>Caption</h2><p class="muted">${esc(effort(p))} \u00b7 ${esc(dayLabel(p.day))}</p>
     <form onsubmit="event.preventDefault();saveCaption(this,${id})">
-      <input name="caption" maxlength="140" autocomplete="off" placeholder="Add a caption" value="${esc(p.caption || '')}">
+      <textarea class="autogrow" rows="1" name="caption" maxlength="140" autocomplete="off" placeholder="Add a caption">${esc(p.caption || '')}</textarea>
       <button class="primary" style="width:100%;margin-top:12px">Save</button>
     </form>
     <button type="button" style="width:100%;margin-top:8px" onclick="dlg()">Cancel</button>`);
@@ -8893,7 +8951,7 @@ async function addComment(f, postId) {
     await q(sb.from('comments').insert({post_id: postId, user_id: me().id, body, ...(replyTo ? {reply_to: replyTo} : {})}));
   } catch (e) {
     S.comments = S.comments.filter(c => c !== tmp);
-    const back = document.querySelector(`#app .post[data-post="${postId}"] .cin input`);
+    const back = document.querySelector(`#app .post[data-post="${postId}"] .cin [name=body]`);
     if (back) back.value = body;           // it did not send: give them back what they wrote
     if (replyTo) S.creply = {post: postId, id: replyTo};
     render();
@@ -8906,8 +8964,8 @@ function replyComment(postId, id) {
   closeTrays();
   S.creply = {post: postId, id};
   render();
-  const box = document.querySelector(`#onewrap .post[data-post="${postId}"] .cin input`)
-    || document.querySelector(`#app .post[data-post="${postId}"] .cin input`);
+  const box = document.querySelector(`#onewrap .post[data-post="${postId}"] .cin [name=body]`)
+    || document.querySelector(`#app .post[data-post="${postId}"] .cin [name=body]`);
   if (box) { box.focus(); box.closest('.cmts').scrollIntoView({block: 'nearest', behavior: 'smooth'}); }
 }
 // Held: what can be done with a comment. Yours can be deleted from here; there is no X.
@@ -8954,15 +9012,15 @@ function startEdit(what, id) {
   else { S.mreply = null; S.medit = {key: S.chat, id}; }
   render();
   const box = what === 'comment'
-    ? (document.querySelector(`#onewrap .post[data-post="${x.postId}"] .cin input`) || document.querySelector(`#app .post[data-post="${x.postId}"] .cin input`))
-    : $('#app .csend input');
+    ? (document.querySelector(`#onewrap .post[data-post="${x.postId}"] .cin [name=body]`) || document.querySelector(`#app .post[data-post="${x.postId}"] .cin [name=body]`))
+    : $('#app .csend [name=body]');
   if (!box) return;
   box.value = x.body; box.focus();
   try { box.setSelectionRange(x.body.length, x.body.length); } catch (e) {}
   if (what === 'comment') box.closest('.cmts').scrollIntoView({block: 'nearest', behavior: 'smooth'});
 }
 function stopEdit() {
-  const box = S.cedit ? document.querySelector('.cmts .cin input') : S.medit ? $('#app .csend input') : null;
+  const box = S.cedit ? document.querySelector('.cmts .cin [name=body]') : S.medit ? $('#app .csend [name=body]') : null;
   S.cedit = S.medit = null;
   if (box) box.value = '';
   render();
