@@ -106,6 +106,8 @@ end $$;
 
 -- ---- the same rules from a normal user's seat, where row level security applies
 create role app nologin;
+-- A signed-in account, as far as policies written `to authenticated` are concerned.
+grant authenticated to app;
 grant usage on schema public, auth to app;
 grant select, insert, update, delete on all tables in schema public to app;
 grant usage, select on all sequences in schema public to app;

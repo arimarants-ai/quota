@@ -1518,7 +1518,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v131';
+const BUILD = 'quota-v132';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2128,11 +2128,20 @@ async function fetchAll() {
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at}));
   hideBlocked();
   const ids = [...new Set([uid, ...S.blocked, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
-  S.profiles = Object.fromEntries((await q(sb.from('profiles').select('*').in('id', ids))).map(p => [p.id, p]));
+  // Everybody's public side, and your own row in full. A birthday, a time zone and the like
+  // are only ever readable as your own (v49); before that SQL is run, the old read still works.
+  S.profiles = Object.fromEntries((await q(sb.from('profiles').select(PROFILE_COLS).in('id', ids))).map(p => [p.id, p]));
+  let own = await sb.rpc('my_profile');
+  if (own.error) own = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+  if (own.data && own.data.id) S.profiles[uid] = {...S.profiles[uid], ...own.data};
   S.me = S.profiles[uid];
   if (!S.me) { console.error('Quota: no profile row for', uid); alert("Something went wrong setting up your account. Try again, and if it keeps happening, reopen the app."); await sb.auth.signOut(); }
   else { keepTz(); setTimeout(backfillPosters, 5000); }
 }
+
+// What anybody signed in may read of somebody else's profile. Everything else on the row is
+// the owner's alone, and the database enforces that with a column grant (v49).
+const PROFILE_COLS = 'id,username,display_name,avatar_path,bio,shown_groups,created_at';
 
 // Proof somebody put on a story, fetched as itself. The feed carries the last two hundred
 // posts in groups this account is in, and a story can point at neither — somebody's own

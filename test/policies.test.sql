@@ -138,7 +138,71 @@ begin
   end if;
 end $$;
 
+-- ---- profiles (v49)
+-- The anon key is in the app and on the website, so whatever anon can read, anybody can.
+-- A profile is for signed-in people, and of it only the public side: a birthday, a gender
+-- and a time zone are the owner's alone, fetched through my_profile().
+do $$
+begin
+  if has_table_privilege('anon', 'public.profiles', 'SELECT')
+     or has_column_privilege('anon', 'public.profiles', 'username', 'SELECT') then
+    raise exception 'anyone with the anon key could read profiles';
+  end if;
+  if has_column_privilege('authenticated', 'public.profiles', 'birthday', 'SELECT')
+     or has_column_privilege('authenticated', 'public.profiles', 'gender', 'SELECT')
+     or has_column_privilege('authenticated', 'public.profiles', 'tz', 'SELECT') then
+    raise exception 'any signed-in account could read everybody''s birthday, gender or time zone';
+  end if;
+  if not has_column_privilege('authenticated', 'public.profiles', 'username', 'SELECT')
+     or not has_column_privilege('authenticated', 'public.profiles', 'avatar_path', 'SELECT') then
+    raise exception 'signed-in accounts can no longer see who anybody is';
+  end if;
+  if has_function_privilege('anon', 'public.my_profile()', 'EXECUTE') then
+    raise exception 'my_profile() is open to the anon key';
+  end if;
+  -- Every table in public has RLS on. A new one without it is open to the anon key.
+  if exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+             where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity) then
+    raise exception 'a table in public has row level security off: %', (select string_agg(c.relname, ', ')
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity);
+  end if;
+end $$;
+
+-- As a signed-in account: somebody else's public side reads, their birthday does not, and
+-- your own birthday comes back through my_profile().
+update public.profiles set birthday = '2000-01-02', tz = 'America/Chicago' where username in ('polari', 'polsam');
+set role authenticated;
+select set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000001', false);
+do $$
+declare n int; b date;
+begin
+  select count(*) into n from public.profiles where username = 'polsam';
+  if n <> 1 then raise exception 'a signed-in account cannot see somebody else''s username'; end if;
+  begin
+    perform birthday from public.profiles where username = 'polsam';
+    raise exception 'a signed-in account read somebody else''s birthday';
+  exception when insufficient_privilege then null;
+  end;
+  select (public.my_profile()).birthday into b;
+  if b is distinct from '2000-01-02' then raise exception 'my_profile() did not return your own birthday: %', b; end if;
+end $$;
+reset role;
+set role anon;
+select set_config('test.uid', '', false);
+do $$
+begin
+  begin
+    perform 1 from public.profiles limit 1;
+    raise exception 'the anon key read profiles';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
 create role app2 nologin;
+-- A signed-in account, as far as policies written `to authenticated` are concerned.
+grant authenticated to app2;
 grant usage on schema public, auth to app2;
 grant select, insert, update, delete on all tables in schema public to app2;
 grant usage, select on all sequences in schema public to app2;

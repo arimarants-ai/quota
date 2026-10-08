@@ -2921,3 +2921,33 @@ create policy "edit own comments" on public.comments for update
 drop policy if exists "edit own messages" on public.messages;
 create policy "edit own messages" on public.messages for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ============================================================
+-- v49 (private profile fields): a profile is for the people using Quota, and only the
+-- parts of it that are meant to be seen. Safe to run on an existing project.
+-- ============================================================
+
+-- The anon key ships inside the app and the website on purpose, and RLS is what stands
+-- behind it. Profiles were the one table it opened to anybody at all: "usernames are
+-- public" had no role on it, so a visitor who never signed up could read every account,
+-- birthday and time zone included. Now it is signed-in accounts only.
+drop policy if exists "usernames are public" on public.profiles;
+create policy "usernames are public" on public.profiles for select to authenticated
+  using (username is not null or id = auth.uid());
+
+-- And of a row they can see, only what the app shows about somebody: who they are, their
+-- picture, their bio and which groups they put on their profile. A birthday, a gender, a
+-- time zone and when somebody last opened the app are nobody else's. A policy picks rows,
+-- not columns, so this is a column grant: the API serves only what is granted.
+revoke select on public.profiles from anon, authenticated;
+grant select (id, username, display_name, avatar_path, bio, shown_groups, created_at)
+  on public.profiles to authenticated;
+
+-- Your own row, all of it, which the app needs to know whether you have accepted the
+-- terms and what time zone it last saw you in.
+create or replace function public.my_profile() returns public.profiles
+language sql stable security definer set search_path = public as $$
+  select * from public.profiles where id = auth.uid();
+$$;
+revoke all on function public.my_profile() from public, anon, authenticated;
+grant execute on function public.my_profile() to authenticated;
