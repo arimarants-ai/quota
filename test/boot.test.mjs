@@ -841,6 +841,8 @@ await withPage(SIGNED_IN, async page => {
   check('sitting out shows on your own wheel', /Sitting this one out/.test(text), text.slice(0, 400));
   check('  with no days to tick off', await page.locator('.tick').count() === 0);
   check('  and posting is no longer blocked', await page.evaluate(() => dueIn(S.groups[0]).length) === 0);
+  check('  with a Spin still there on the wheel, for changing your mind',
+    await page.locator('#app .wh button:has-text("Spin")').count() === 1);
 
   // The obligation goes with it. Checked both ways round on the same closed cycle, or
   // "does not break the streak" would pass just as well if nothing ever broke it.
@@ -858,6 +860,26 @@ await withPage(SIGNED_IN, async page => {
   });
   check('  an unfinished challenge still breaks the streak', res.unfinished === true, JSON.stringify(res));
   check('  and a cycle sat out does not', res.sat === false, JSON.stringify(res));
+});
+
+// Changing your mind after sitting out: the group screen's wheel offers the spin, the
+// dialog does not offer sitting out again, and the result replaces the sit-out.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(async () => { await sb.rpc('sit_out', {p_wheel: 7, p_day: today()}); await load(); openGroup(1); });
+  await page.waitForTimeout(300);
+  await page.locator('#app .wh button:has-text("Spin")').click();
+  await page.waitForTimeout(300);
+  check('spinning after sitting out opens the wheel', await page.locator('#dlg .wheel-face').count() > 0
+    && await page.locator('#dlg button:has-text("Sit out")').count() === 0, await page.locator('#dlg').innerText());
+  await page.locator('#dlg button:has-text("Spin")').click();
+  await page.locator('#dlg button:has-text("OK")').waitFor({ timeout: 20000 }).catch(() => {});
+  await page.locator('#dlg button:has-text("OK")').click().catch(() => {});
+  await page.waitForTimeout(500);
+  const after = await page.evaluate(() => ({ sat: S.spins.filter(x => x.wheel_id === 7 && x.user_id === 'u1').map(x => x.sat_out),
+    text: document.querySelector('#app .wh') && document.querySelector('#app .wh').innerText }));
+  check('  and the result replaces sitting out', after.sat.length === 1 && after.sat[0] === false
+    && !/Sitting this one out/.test(after.text || ''), JSON.stringify(after));
 });
 
 // A result already seen cannot be walked away from: the app does not offer it, and the

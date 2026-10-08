@@ -1513,7 +1513,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v129';
+const BUILD = 'quota-v130';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2530,7 +2530,8 @@ function wheelCard(g, w) {
   const yours = soon ? '' : !mine
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin</button></div>`
     : satOut(mine)
-    ? `<div class="got out">Sitting this one out</div><div class="who">Back on ${dayLabel(cycleStart(w, c + 1))}.</div>`
+    ? `<div class="got out">Sitting this one out</div><div class="who">Back on ${dayLabel(cycleStart(w, c + 1))}. Changed your mind? You can still spin it.</div>
+       <div class="row" style="margin-top:10px"><button class="grow" onclick="spinDlg(${g.id},${w.id})">Spin</button></div>`
     : mustBorrow(mine) && !mine.challenge_override
     ? `<div class="got">${esc(BORROW)}</div><div class="who">Pick whose you are doing before it can count.</div>
        <div class="row" style="margin-top:10px"><button class="primary grow" onclick="borrowDlg(${mine.id})">Choose whose</button></div>`
@@ -6694,17 +6695,21 @@ function wheelBox(segs, id) {
 // The result is decided and stored by the database before any of this runs. Everything
 // here is the reveal: the wheel is turned to an answer that already exists, so closing
 // the app mid-spin loses nothing and changes nothing.
-async function spinDlg(gid) {
-  const g = S.groups.find(x => x.id === gid), due = dueIn(g);
-  if (!due.length) return;
-  const w = due[0];
+// Given a wheel, it is that one: a cycle you sat out can still be spun from the group
+// screen, and the database lets a spin replace a sit-out (never a result).
+async function spinDlg(gid, wid) {
+  const g = S.groups.find(x => x.id === gid);
+  const sat = wid != null && S.wheels.find(x => x.id === wid);
+  const w = sat || dueIn(g)[0];
+  if (!w) return;
   dlg(`<h2>${esc(w.name)}</h2><p class="muted">Everyone in ${esc(g.name)} spins this. Your result is up for the group to see.</p>
     <div id="spinstage"></div>`);
   const stage = $('#spinstage');
   stage.innerHTML = `<div class="wheelbox"><div class="pointer"></div><div class="wheel-spin">${wheelSvg(w.stages[0] ? w.stages[0].segments : ['…', '…'])}</div></div>
     <div class="row" style="margin-top:18px"><button class="primary grow" onclick="goSpin(${w.id},${gid})">Spin</button></div>
-    <div class="row" style="margin-top:6px"><button class="ghost grow" onclick="sitOut(${w.id},${gid})">Sit out</button></div>
-    <p class="muted" style="text-align:center;margin-top:2px;font-size:12px">You can post without it this time. It comes back ${dayLabel(cycleStart(w, cycleOf(w) + 1))}.</p>`;
+    ${sat ? `<p class="muted" style="text-align:center;margin-top:8px;font-size:12px">You sat this one out. Spinning takes it on for this cycle, and the result stands.</p>`
+    : `<div class="row" style="margin-top:6px"><button class="ghost grow" onclick="sitOut(${w.id},${gid})">Sit out</button></div>
+    <p class="muted" style="text-align:center;margin-top:2px;font-size:12px">You can post without it this time. It comes back ${dayLabel(cycleStart(w, cycleOf(w) + 1))}.</p>`}`;
 }
 
 async function goSpin(wid, gid) {
