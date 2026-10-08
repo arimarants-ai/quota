@@ -31,6 +31,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
 let base = '';
 let uploadReply = { status: 200, body: '{}', hold: null };
 let lastUpload = null;                  // the file bytes as they actually went over the wire
+let lastPoster = null;                  // and the still that went up beside it
 // The body is multipart; the file is the part between the blank line after its own
 // headers and the boundary that follows. Anchored on the filename rather than on a
 // content type, since proof is a clip or a picture and both come through here.
@@ -55,7 +56,11 @@ const server = createServer(async (req, res) => {
     const parts = [];
     req.on('data', c => parts.push(c));
     req.on('end', async () => {
-      lastUpload = filePart(Buffer.concat(parts), req.headers['content-type']);
+      // A clip's still goes up right after it, to the clip's own path with .jpg on the end.
+      // Kept apart, so lastUpload stays the clip that the checks below are about.
+      const got = filePart(Buffer.concat(parts), req.headers['content-type']);
+      if (/\.(mp4|webm|mov)\.jpg$/i.test(p)) { lastPoster = {path: p, bytes: got}; res.writeHead(200, { 'content-type': 'application/json' }); return res.end('{}'); }
+      lastUpload = got;
       // A dropped connection, not an answer. Destroying the socket is what makes the
       // browser fire xhr.onerror, which is the only failure the outbox keeps a clip for.
       if (uploadReply.drop) return res.destroy();
@@ -521,6 +526,31 @@ await withPage(NO_WHEEL, async page => {
   check('  the upload carried the re-encoded file, not the original', lastUpload && lastUpload.length < clip.length / 2,
     `sent ${lastUpload ? (lastUpload.length / 1048576).toFixed(2) : 'nothing'} MB of ${(clip.length / 1048576).toFixed(1)} MB`);
   if (lastUpload) console.log(`        ${(clip.length / 1048576).toFixed(1)} MB in, ${(lastUpload.length / 1048576).toFixed(2)} MB out (${(clip.length / lastUpload.length).toFixed(1)}x smaller)`);
+  // And a still of it beside it, so the clip is never a black box before it is played.
+  check('  a still of the clip goes up beside it, as a real JPEG',
+    lastPoster && /\.mp4\.jpg$/.test(lastPoster.path) && lastPoster.bytes && lastPoster.bytes.length > 500
+    && lastPoster.bytes[0] === 0xff && lastPoster.bytes[1] === 0xd8,
+    lastPoster ? `${lastPoster.path} ${lastPoster.bytes && lastPoster.bytes.length} bytes` : 'none');
+});
+
+// A clip that is not loaded shows its still, not a black box: there is a limit on how many
+// a phone keeps loaded, and every clip past it used to be black until it was played.
+await withPage({ ...SIGNED_IN, posters: true }, async page => {
+  await settle(page);
+  const shown = await page.evaluate(() => {
+    const v = document.querySelector('#app .post video.proof');
+    if (!v) return null;
+    const had = v.getAttribute('poster');
+    releaseClip(v);
+    return {had, after: v.getAttribute('poster'), src: v.getAttribute('src')};
+  });
+  check('a clip carries its still, and keeps it once its source is let go',
+    shown && /^data:image/.test(shown.had || '') && shown.after === shown.had && !shown.src, JSON.stringify(shown));
+});
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('  and a clip posted before stills existed has no poster on it at all, rather than a broken one',
+    await page.locator('#app .post video.proof').count() > 0 && await page.locator('#app .post video.proof[poster]').count() === 0);
 });
 
 // Re-encoding costs about the length of the clip before a byte moves. On a connection

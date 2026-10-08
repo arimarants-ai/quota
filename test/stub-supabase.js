@@ -401,7 +401,11 @@
         list: async folder => ({ data: bucket === 'avatars' ? [{ name: 'me.jpg' }] : [], error: null }),
         // One signed URL per post, in order, the way the page consumes them. A real
         // bucket refuses a path whose file is gone, and hands back a row with no URL on it.
-        createSignedUrls: async paths => ({ data: paths.map(() => M().noSign ? { signedUrl: null, error: 'not found' } : { signedUrl: 'data:video/mp4;base64,' }), error: null }),
+        // A clip's still (its path with .jpg on the end) is only there when a case says so,
+        // the way a clip posted before stills existed has none.
+        createSignedUrls: async paths => ({ data: paths.map(x => M().noSign || (/\.(mp4|webm|mov)\.jpg$/i.test(x) && !M().posters)
+          ? { signedUrl: null, error: 'not found' }
+          : { signedUrl: /\.jpg$/i.test(x) && /\.(mp4|webm|mov)\.jpg$/i.test(x) ? 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' : 'data:video/mp4;base64,' }), error: null }),
         // The one-at-a-time version, used to replace a URL that has expired or failed.
         createSignedUrl: async () => { self.__resigned = (self.__resigned || 0) + 1;
           return M().resignFails ? { data: null, error: new Error('nope') }
