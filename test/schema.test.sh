@@ -44,6 +44,9 @@ do $r$ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
 end $r$;
 create schema if not exists auth;
+-- Supabase hands every table made in public to all three roles, and RLS plus whatever is
+-- revoked is what narrows it. Without this a revoke here would be revoking nothing.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 -- Only the columns schema.sql touches. The view in v25 reads four of them, so a shim with
 -- nothing but an id would make that statement uncheckable rather than checked.
 create table auth.users (
