@@ -571,6 +571,9 @@ if (chrome && phone) {
     await page.locator('.bar .add').click();
     await page.locator('#dlg input[name=amount]').fill('20');
     await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: phone });
+    // The take is checked (its length read) before it is accepted, which for a big clip takes
+    // longer than giveTake waits. Post before then and the form says to record one first.
+    await page.waitForFunction(() => typeof recorded !== 'undefined' && recorded && recorded.size > 0, null, { timeout: 15000 }).catch(() => {});
     await page.locator('#dlg button.primary').click();
     await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
     const seen = await labels(page);
@@ -602,6 +605,7 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
   await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
+  await page.waitForFunction(() => typeof recorded !== 'undefined' && recorded && recorded.size > 0, null, { timeout: 15000 }).catch(() => {});
   await page.locator('#dlg button.primary').click();
   await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
   const can = await page.evaluate(async () => !!(self.VideoEncoder && (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 1280, height: 720 })).supported));
