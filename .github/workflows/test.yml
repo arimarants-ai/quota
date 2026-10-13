@@ -54,6 +54,9 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
+      # ffmpeg makes the phone-like clip the boot test posts, and reads back what was sent.
+      # Google Chrome, which the runner already has, is what converts it to H.264.
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg
       - run: node test/boot.test.mjs
 
       - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
@@ -67,7 +70,6 @@ jobs:
 
       # The copy of the old proof to R2 runs once, against the real thing, so it is run here
       # first against a stand-in for both sides, with real clips made by ffmpeg.
-      - run: sudo apt-get install -y --no-install-recommends ffmpeg
       - run: npm ci --no-audit --no-fund --prefix scripts/r2
       - run: node scripts/r2/migrate.test.mjs
 
