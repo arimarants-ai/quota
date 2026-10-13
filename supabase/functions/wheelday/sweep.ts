@@ -12,13 +12,16 @@
 // Kept apart from index.ts, like message.ts and push.ts, so it can be run and checked
 // without a Deno runtime or any of the secrets.
 
-export type StoryRow = { id: number; media_path: string | null };
+// media_store says which place holds the file: 'r2', or the stories bucket otherwise.
+export type StoryRow = { id: number; media_path: string | null; media_store?: string | null };
 
 export type SweepDeps = {
   // Expired rows, oldest first, at most `limit` of them.
   list: (cutoff: string, limit: number) => Promise<StoryRow[]>;
   // Remove these files from the stories bucket. Resolves false if the bucket said no.
   removeFiles: (paths: string[]) => Promise<boolean>;
+  // The same for files on R2 (schema v50).
+  removeR2: (paths: string[]) => Promise<boolean>;
   // Drop these rows.
   removeRows: (ids: number[]) => Promise<void>;
   now?: () => number;
@@ -45,7 +48,9 @@ export async function sweepStories(d: SweepDeps) {
   if (!old.length) return { rows: 0, files: 0, held: false };
 
   const paths = old.map(s => s.media_path).filter((p): p is string => !!p);
-  if (paths.length && !(await d.removeFiles(paths))) {
+  const onR2 = new Set(old.filter(s => s.media_store === 'r2' && s.media_path).map(s => s.media_path));
+  const r2 = paths.filter(p => onR2.has(p)), bucket = paths.filter(p => !onR2.has(p));
+  if ((bucket.length && !(await d.removeFiles(bucket))) || (r2.length && !(await d.removeR2(r2)))) {
     // Held rather than half-done: the rows stay, so next hour finds the same files again.
     return { rows: 0, files: 0, held: true };
   }

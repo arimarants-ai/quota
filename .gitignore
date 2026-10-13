@@ -5,3 +5,8 @@
 supabase/.temp/
 node_modules/
 test/*.local.*
+.env
+scripts/r2/logs/
+scripts/r2/work/
+scripts/r2/state.json
+scripts/r2/node_modules/

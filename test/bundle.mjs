@@ -20,8 +20,12 @@ export const BUNDLES = {
     drop: /^import .*from '\.\/(push|message)\.ts';$/,
   },
   wheelday: {
-    files: ['../notify/push.ts', 'message.ts', 'sweep.ts', 'health.ts', 'index.ts'],
-    drop: /^import .*from '(\.\.\/notify\/push|\.\/message|\.\/sweep|\.\/health)\.ts';$/,
+    files: ['../notify/push.ts', '../media/r2.ts', 'message.ts', 'sweep.ts', 'health.ts', 'index.ts'],
+    drop: /^import .*from '(\.\.\/notify\/push|\.\.\/media\/r2|\.\/message|\.\/sweep|\.\/health)\.ts';$/,
+  },
+  media: {
+    files: ['rules.ts', 'r2.ts', 'index.ts'],
+    drop: /^import .*from '\.\/(rules|r2)\.ts';$/,
   },
 };
 

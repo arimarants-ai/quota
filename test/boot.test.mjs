@@ -9,6 +9,9 @@
 //
 // The page runs for real, against test/stub-supabase.js in place of the library.
 import { createServer } from 'node:http';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync as readSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { readFile } from 'node:fs/promises';
 import { extname, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,13 +28,14 @@ const LIB = '**/vendor/**/supabase.js';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
 // Playwright's request interception suppresses xhr.upload.onprogress, so an upload
-// answered by route.fulfill() reports nothing and would prove nothing. Instead the page
-// is served with its SUPABASE_URL pointed back here, and this server answers the storage
-// endpoint for real, so the upload runs the whole way through a real XHR.
+// answered by route.fulfill() reports nothing and would prove nothing. Instead the stub's
+// media function signs uploads to /r2put/ on this server, which answers them the way R2
+// answers a presigned PUT, so the upload runs the whole way through a real XHR.
 let base = '';
 let uploadReply = { status: 200, body: '{}', hold: null };
 let lastUpload = null;                  // the file bytes as they actually went over the wire
 let lastPoster = null;                  // and the still that went up beside it
+let lastPut = null;                     // the headers the clip's PUT carried
 // The body is multipart; the file is the part between the blank line after its own
 // headers and the boundary that follows. Anchored on the filename rather than on a
 // content type, since proof is a clip or a picture and both come through here.
@@ -51,6 +55,22 @@ const server = createServer(async (req, res) => {
   if (p === '/last-upload.mp4') {       // served back so the bytes can be decoded and checked
     res.writeHead(lastUpload ? 200 : 404, { 'content-type': 'video/mp4' });
     return res.end(lastUpload || '');
+  }
+  // A presigned PUT to R2: the body is the file itself, and the headers the URL was signed
+  // for have to arrive with it.
+  if (req.method === 'PUT' && p.startsWith('/r2put/')) {
+    const parts = [];
+    req.on('data', c => parts.push(c));
+    req.on('end', async () => {
+      const got = Buffer.concat(parts);
+      if (/\.(mp4|webm|mov)\.jpg$/i.test(p)) { lastPoster = {path: p, bytes: got, headers: req.headers}; res.writeHead(200); return res.end(); }
+      lastUpload = got; lastPut = {path: p, headers: req.headers};
+      if (uploadReply.drop) return res.destroy();
+      if (uploadReply.hold) await uploadReply.hold;
+      res.writeHead(uploadReply.status, { 'content-type': 'application/xml' });
+      res.end(uploadReply.status < 300 ? '' : `<?xml version="1.0"?><Error><Code>Refused</Code><Message>${uploadReply.message || 'refused'}</Message></Error>`);
+    });
+    return;
   }
   if (req.method === 'POST' && p.startsWith('/storage/v1/object/')) {
     const parts = [];
@@ -86,6 +106,36 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 });
 
+// Playwright's own Chromium is the open-source build, and has no H.264 encoder or decoder
+// at all. Google Chrome has both, and GitHub's runners come with it, so the cases about
+// what a clip is turned into run there; anywhere without it they say they were skipped.
+let chrome = null;
+try { chrome = await chromium.launch({ channel: 'chrome' }); } catch { chrome = null; }
+const FFMPEG = spawnSync('ffmpeg', ['-version']).status === 0 && spawnSync('ffprobe', ['-version']).status === 0;
+// What the bytes that reached the wire actually are, read by ffprobe rather than by a
+// browser that may not be able to decode them.
+function probeBytes(buf) {
+  const dir = mkdtempSync(join(tmpdir(), 'quota-probe-')), f = join(dir, 'clip.mp4');
+  try {
+    writeFileSync(f, buf);
+    const r = spawnSync('ffprobe', ['-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', f], { encoding: 'utf8' });
+    const j = JSON.parse(r.stdout || '{}');
+    const v = (j.streams || []).find(x => x.codec_type === 'video'), a = (j.streams || []).find(x => x.codec_type === 'audio');
+    const moov = buf.indexOf('moov'), mdat = buf.indexOf('mdat');
+    return { v: v && `${v.codec_name} ${v.width}x${v.height} ${v.pix_fmt}`, w: v && v.width, h: v && v.height, codec: v && v.codec_name,
+      audio: a && a.codec_name, secs: +(j.format && j.format.duration || 0), faststart: moov > 0 && moov < mdat };
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+// A 1080p clip the way a phone hands one over: H.264 at camera bitrate with a tone on it.
+function phoneClip() {
+  const dir = mkdtempSync(join(tmpdir(), 'quota-clip-')), f = join(dir, 'clip.mp4');
+  try {
+    const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30:duration=7,noise=alls=30:allf=t',
+      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=7', '-c:v', 'libx264', '-b:v', '10M', '-c:a', 'aac', '-shortest', f]);
+    return r.status === 0 ? readSync(f) : null;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 let failed = 0;
 const check = (name, ok, detail = '') => {
   console.log(`${ok ? '  ok  ' : '  FAIL'} ${name}${ok || !detail ? '' : `\n        ${detail}`}`);
@@ -95,8 +145,8 @@ const check = (name, ok, detail = '') => {
 // Every case gets a clean context: the app keeps its session in localStorage.
 // With a mode, the stub is installed and the page is loaded ready to inspect. With null,
 // the real library is used and the case navigates itself, so it can add routes first.
-async function withPage(mode, body) {
-  const ctx = await browser.newContext({ permissions: ['camera', 'microphone'] });
+async function withPage(mode, body, using = browser) {
+  const ctx = await using.newContext({ permissions: ['camera', 'microphone'] });
   const page = await ctx.newPage();
   const alerts = [];
   page.on('dialog', d => { alerts.push(d.message()); d.dismiss(); });
@@ -441,13 +491,13 @@ await withPage({ ...NO_WHEEL, samToday: true }, async page => {
   check('    with the clip signed at last', await signed(), 'unlocked but never signed');
 });
 
-// A rejected upload has to say why, in plain words, not fail silently.
-await withPage(NO_WHEEL, async (page, alerts) => {
+// A rejected upload has to say why, in plain words, not fail silently. R2 never sees a file
+// over the limit: the media function will not sign one, and says so in its own words.
+await withPage({ ...NO_WHEEL, signTooBig: true }, async (page, alerts) => {
   await settle(page);
-  uploadReply = { status: 413, body: JSON.stringify({ message: 'The object exceeded the maximum allowed size' }), hold: null };
   await submitProof(page);
-  await page.waitForTimeout(900);
-  check('a rejected upload says why in plain words', alerts.some(a => /too big to upload/.test(a)) && !alerts.some(a => /maximum allowed size/.test(a)), alerts.join(' | '));
+  await page.waitForFunction(() => document.querySelector('#dlg button.primary') && !document.querySelector('#dlg button.primary').disabled, null, { timeout: 15000 }).catch(() => {});
+  check('a rejected upload says why in plain words', alerts.some(a => /too big to upload/.test(a)) && !alerts.some(a => /^too big$/.test(a)), alerts.join(' | '));
   check('  and the form can be used again', await page.locator('#dlg button.primary').isEnabled());
   check('  and the progress bar is cleared away', await page.locator('#uprog').isHidden());
 });
@@ -507,30 +557,50 @@ async function record1080p(page) {
   });
 }
 
+// A clip goes up as what every phone plays: H.264 and AAC in an MP4, 720 on its short side,
+// index at the front. Checked on the bytes that reached the wire, not on a return value.
+const phone = FFMPEG ? phoneClip() : null;
+if (chrome && phone) {
+  await withPage(NO_WHEEL, async page => {
+    await settle(page);
+    lastUpload = null; lastPoster = null;
+    uploadReply = { status: 200, body: '{}', hold: null };
+    await page.locator('.bar .add').click();
+    await page.locator('#dlg input[name=amount]').fill('20');
+    await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: phone });
+    await page.locator('#dlg button.primary').click();
+    await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
+    const seen = await labels(page);
+    check('a clip is converted before it goes, and says so with a percentage', seen.some(t => /Compressing… \d+%/.test(t)), seen.join(' -> '));
+    check('  the upload carried the converted file, far smaller', lastUpload && lastUpload.length < phone.length / 2,
+      `sent ${lastUpload ? (lastUpload.length / 1048576).toFixed(2) : 'nothing'} MB of ${(phone.length / 1048576).toFixed(1)} MB`);
+    if (lastUpload) console.log(`        ${(phone.length / 1048576).toFixed(1)} MB in, ${(lastUpload.length / 1048576).toFixed(2)} MB out (${(phone.length / lastUpload.length).toFixed(1)}x smaller)`);
+    const got = lastUpload ? probeBytes(lastUpload) : {};
+    check('  as H.264 at 720p', got.codec === 'h264' && got.w === 1280 && got.h === 720, JSON.stringify(got));
+    check('  with its sound, as AAC', got.audio === 'aac', JSON.stringify(got));
+    check('  the full length', Math.abs(got.secs - 7) < 0.5, JSON.stringify(got));
+    check('  and the index at the front, so it starts when tapped', got.faststart === true, JSON.stringify(got));
+    check('  a still of it goes up beside it, as a real JPEG',
+      lastPoster && /\.mp4\.jpg$/.test(lastPoster.path) && lastPoster.bytes && lastPoster.bytes.length > 500
+      && lastPoster.bytes[0] === 0xff && lastPoster.bytes[1] === 0xd8,
+      lastPoster ? `${lastPoster.path} ${lastPoster.bytes && lastPoster.bytes.length} bytes` : 'none');
+  }, chrome);
+} else console.log(`  skip  converting a clip to H.264 (needs Google Chrome${FFMPEG ? '' : ' and ffmpeg'}; CI has both)`);
+
+// A browser that cannot encode H.264 — Playwright's own Chromium is one — sends the clip as
+// it was rather than holding the post up.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  const clip = Buffer.from(await record1080p(page));
-  check('the fixture is a real 1080p clip over the compression threshold',
-    clip.length > 6 * 1048576 && clip.subarray(4, 8).toString() === 'ftyp', `${(clip.length / 1048576).toFixed(1)} MB`);
-
+  const clip = phone || Buffer.from(await record1080p(page));
   lastUpload = null;
-  uploadReply = { status: 200, body: '{}', hold: null };
   await page.locator('.bar .add').click();
   await page.locator('#dlg input[name=amount]').fill('20');
   await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
   await page.locator('#dlg button.primary').click();
-  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
-
-  const seen = await labels(page);
-  check('  it says it is compressing, with a percentage', seen.some(t => /Compressing… \d+%/.test(t)), seen.join(' -> '));
-  check('  the upload carried the re-encoded file, not the original', lastUpload && lastUpload.length < clip.length / 2,
-    `sent ${lastUpload ? (lastUpload.length / 1048576).toFixed(2) : 'nothing'} MB of ${(clip.length / 1048576).toFixed(1)} MB`);
-  if (lastUpload) console.log(`        ${(clip.length / 1048576).toFixed(1)} MB in, ${(lastUpload.length / 1048576).toFixed(2)} MB out (${(clip.length / lastUpload.length).toFixed(1)}x smaller)`);
-  // And a still of it beside it, so the clip is never a black box before it is played.
-  check('  a still of the clip goes up beside it, as a real JPEG',
-    lastPoster && /\.mp4\.jpg$/.test(lastPoster.path) && lastPoster.bytes && lastPoster.bytes.length > 500
-    && lastPoster.bytes[0] === 0xff && lastPoster.bytes[1] === 0xd8,
-    lastPoster ? `${lastPoster.path} ${lastPoster.bytes && lastPoster.bytes.length} bytes` : 'none');
+  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
+  const can = await page.evaluate(async () => !!(self.VideoEncoder && (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 1280, height: 720 })).supported));
+  check(can ? 'a browser that can encode H.264 converts (checked in the case above)' : 'a browser with no H.264 encoder sends the original, untouched',
+    can || (lastUpload && lastUpload.equals(clip)), `sent ${lastUpload && lastUpload.length} of ${clip.length}`);
 });
 
 // A clip that is not loaded shows its still, not a black box: there is a limit on how many
@@ -551,6 +621,68 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   check('  and a clip posted before stills existed has no poster on it at all, rather than a broken one',
     await page.locator('#app .post video.proof').count() > 0 && await page.locator('#app .post video.proof[poster]').count() === 0);
+});
+
+// ---- proof on R2
+// A page of proof is signed in one call to the media function, stills and all, and not one
+// byte of a clip is fetched until somebody taps it: the still is what the feed shows.
+await withPage({ ...SIGNED_IN, r2: true, posters: true }, async page => {
+  await settle(page);
+  const r2signs = await page.evaluate(() => self.__r2signs || 0);
+  check('proof on R2 is signed by the media function, one call for the page', r2signs === 1, `${r2signs} calls`);
+  check('  and not by the Supabase bucket', await page.evaluate(() => !(self.__resigned)));
+  const v = page.locator('#app .post video.proof').first();
+  check('  a clip shows its still', /^data:image/.test(await v.getAttribute('poster') || ''), await v.getAttribute('poster'));
+  check('  and holds no source until it is tapped',
+    await page.locator('#app .post video.proof[src]').count() === 0 && await v.getAttribute('preload') === 'none');
+  await v.click();
+  await page.waitForTimeout(300);
+  check('  tapping it gives it its source', (await v.getAttribute('src') || '').startsWith('data:video'), await v.getAttribute('src'));
+  // Deleting your own post takes its file and its still off R2, through the function.
+  const path = await page.evaluate(() => S.posts.find(p => p.userId === 'u1' && !isPhoto(p)).path);
+  await page.evaluate(id => { window.confirm = () => true; return delPost(id); }, await page.evaluate(() => S.posts.find(p => p.userId === 'u1' && !isPhoto(p)).id));
+  const gone = await page.evaluate(() => self.__r2removed || []);
+  check('deleting a post on R2 removes the clip and its still there', gone.includes(path) && gone.includes(`${path}.jpg`), gone.join(', '));
+  check('  and asks the Supabase bucket for nothing', !(await page.evaluate(() => self.__removed || [])).includes(path));
+});
+
+// Posting puts the file on R2 with exactly the headers it was signed for, its still beside
+// it, and a row that says where it went.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  lastPut = null; lastPoster = null;
+  uploadReply = { status: 200, body: '{}', hold: null };
+  await submitProof(page);
+  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 20000 }).catch(() => {});
+  const signed = await page.evaluate(() => (self.__signedUploads || []).at(-1));
+  const row = await page.evaluate(() => self.__posts.at(-1));
+  check('a post is uploaded to a URL the media function signed for this group',
+    signed && signed.group_id === 1 && lastPut && lastPut.path === `/r2put/${signed.key}`, JSON.stringify({ signed, put: lastPut && lastPut.path }));
+  check('  carrying the long cache header and the type it was signed with',
+    lastPut && lastPut.headers['cache-control'] === 'private, max-age=31536000, immutable' && lastPut.headers['content-type'] === signed.contentType,
+    JSON.stringify(lastPut && lastPut.headers));
+  check('  at exactly the size that was signed', lastPut && +lastPut.headers['content-length'] === signed.size && lastUpload.length === signed.size);
+  check('  and the row points at it, on R2', row && row.video_path === signed.key && row.video_store === 'r2', JSON.stringify(row));
+  check('  and nothing went to the Supabase bucket', !(await page.evaluate(() => (self.__uploads || []).some(u => u.bucket === 'proof'))));
+});
+
+// The feed opens on a page, not the whole history, and fetches the next as it is reached.
+await withPage({ ...SIGNED_IN, manyPosts: 60 }, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const first = await page.evaluate(() => S.posts.length);
+  const total = 60 + 4;
+  check('the feed opens on the newest page, not every post there is', first < total && first <= 40, `${first} of ${total} loaded`);
+  check('  with a way to go further back', await page.locator('#app .older button').count() === 1);
+  // Reaching the end of what is shown fetches the next page on its own.
+  for (let i = 0; i < 6; i++) {
+    await page.locator('#app .older button').scrollIntoViewIfNeeded().catch(() => {});
+    await page.waitForTimeout(500);
+  }
+  const later = await page.evaluate(() => S.posts.length);
+  check('  scrolling to the end of it fetches older posts', later > first, `${first} -> ${later}`);
+  const ids = await page.locator('#app .post[data-post]').evaluateAll(els => els.map(e => e.dataset.post));
+  check('  without showing any post twice', new Set(ids).size === ids.length, `${ids.length} drawn, ${new Set(ids).size} distinct`);
 });
 
 // Typing past the end of the line takes another line, rather than scrolling sideways out
@@ -578,81 +710,6 @@ await withPage(SIGNED_IN, async page => {
     await page.evaluate(() => S.comments.length) === before + 1 && await page.evaluate(() => S.comments.at(-1).body) === 'short',
     await page.evaluate(() => JSON.stringify(S.comments.at(-1))));
   check('  and the box is back to one line after', Math.abs((await box.boundingBox()).height - h0) < 2);
-});
-
-// Re-encoding costs about the length of the clip before a byte moves. On a connection
-// fast enough to have sent the original in less time than that, the whole wait is the
-// app's own doing, so it does not happen. The rate is what this phone's uploads managed.
-await withPage(NO_WHEEL, async page => {
-  await settle(page);
-  const clip = Buffer.from(await record1080p(page));
-  await page.evaluate(() => localStorage.setItem('quota.uprate', String(40 * 1048576)));  // 40 MB/s
-  lastUpload = null;
-  uploadReply = { status: 200, body: '{}', hold: null };
-  await page.locator('.bar .add').click();
-  await page.locator('#dlg input[name=amount]').fill('20');
-  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
-  await page.locator('#dlg button.primary').click();
-  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
-  const seen = await labels(page);
-  check('a connection quick enough makes re-encoding a waste, so it is skipped',
-    !seen.some(t => /Compressing/.test(t)), seen.join(' -> '));
-  check('  and the original goes up untouched', lastUpload && lastUpload.length === clip.length,
-    `sent ${lastUpload && lastUpload.length} of ${clip.length}`);
-
-  // The same clip on a connection that would take minutes is worth the wait.
-  await page.evaluate(() => localStorage.setItem('quota.uprate', String(0.05 * 1048576)));  // 50 KB/s
-  lastUpload = null;
-  await page.locator('.bar .add').click();
-  await page.locator('#dlg input[name=amount]').fill('20');
-  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
-  await page.locator('#dlg button.primary').click();
-  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
-  check('  a slow one still gets the smaller file', lastUpload && lastUpload.length < clip.length / 2,
-    `sent ${lastUpload && lastUpload.length} of ${clip.length}`);
-});
-
-// An upload that worked is the only honest measure of the connection, so that is where
-// the rate comes from.
-await withPage(NO_WHEEL, async page => {
-  await settle(page);
-  const before = await page.evaluate(() => localStorage.getItem('quota.uprate'));
-  await page.evaluate(() => noteRate(20 * 1048576, 4));       // 20 MB in 4s
-  await page.evaluate(() => noteRate(1000, 4));               // too small to learn from
-  await page.evaluate(() => noteRate(20 * 1048576, 0.2));     // too quick to learn from
-  const after = await page.evaluate(() => upRate());
-  check('the upload rate is remembered from uploads that finished', before === null && Math.round(after / 1048576) === 5,
-    `${before} -> ${after}`);
-});
-
-// What was sent has to be a video people can actually watch, at the size we intended.
-await withPage(SIGNED_IN, async page => {
-  const meta = await page.evaluate(async src => {
-    const v = document.createElement('video');
-    v.preload = 'metadata'; v.src = src;
-    return await new Promise(res => {
-      v.onloadedmetadata = () => res({ w: v.videoWidth, h: v.videoHeight, d: v.duration });
-      v.onerror = () => res(null);
-      setTimeout(() => res(null), 10000);
-    });
-  }, `${base}/last-upload.mp4`);
-  check('the uploaded file decodes', !!meta, 'it did not load at all');
-  check('  at 720p', meta && meta.h === 720 && meta.w === 1280, JSON.stringify(meta));
-  check('  and keeps the full length', meta && Math.abs(meta.d - 7) < 2.5, JSON.stringify(meta));
-
-  // Re-encoding routes the audio through WebAudio so nothing plays aloud. That is exactly
-  // the sort of plumbing that silently drops the sound, so check for actual signal.
-  const audio = await page.evaluate(async src => {
-    try {
-      const buf = await (await fetch(src)).arrayBuffer();
-      const decoded = await new AudioContext().decodeAudioData(buf);
-      const d = decoded.getChannelData(0);
-      let peak = 0;
-      for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
-      return { channels: decoded.numberOfChannels, seconds: decoded.duration, peak };
-    } catch (e) { return { error: String(e) }; }
-  }, `${base}/last-upload.mp4`);
-  check('  with the audio still on it', audio.peak > 0.01, JSON.stringify(audio));
 });
 
 // A file the browser cannot decode must not become a failed post: it goes up untouched.
@@ -1300,16 +1357,24 @@ await withPage({ ...SIGNED_IN, manyPosts: 12 }, async page => {
   const n = await page.locator('.reel video').count();
   const loaded = () => page.locator('.reel video[src]').count();
   check('the feed has more clips than fit on a screen', n >= 12, `${n} clips`);
-  check('  but only the ones near it are given a source', await loaded() < n, `${await loaded()} of ${n} loaded`);
-  check('  and the first one is', await page.locator('.reel video').first().getAttribute('src') !== null);
+  check('  and none of them is given a source until somebody taps it', await loaded() === 0, `${await loaded()} of ${n} loaded`);
+  await page.locator('.reel video').first().click();
+  await page.waitForTimeout(300);
+  check('  tapping one gives that one its source', await page.locator('.reel video').first().getAttribute('src') !== null);
+  check('    and only that one', await loaded() === 1, `${await loaded()} loaded`);
+  await page.evaluate(() => document.querySelector('.reel video').pause());
 
   await page.locator('.reel').last().scrollIntoViewIfNeeded();
   await page.waitForTimeout(600);
-  check('  scrolling down loads the one you reach',
-    await page.locator('.reel video').last().getAttribute('src') !== null);
+  check('  scrolling down past the rest loads none of them',
+    await page.locator('.reel video').last().getAttribute('src') === null);
   check('  and lets go of the one you left',
     await page.locator('.reel video').first().getAttribute('src') === null,
     `${await loaded()} of ${n} still loaded`);
+  // Every one of them watched: the ones near the screen hold on to their source, so going
+  // back to one is instant — but never more of them than a phone can keep decoded.
+  await page.evaluate(() => { document.querySelectorAll('.reel video').forEach(v => { v.dataset.go = '1'; }); watchClips(); });
+  await page.waitForTimeout(600);
   // Near enough was the only rule, and it is not enough on its own: a phone keeps a handful
   // of videos decoded at once, and past that they come up black, freeze with the sound
   // still running, and in the end the page is killed for memory. 150% of a screen either
@@ -1330,6 +1395,8 @@ await withPage({ ...NO_WHEEL, manyPosts: 12 }, async page => {
   // no source to give back, and a test that never had one proves nothing about handing them
   // back — it just agrees that nothing is nothing.
   await page.locator('#app .reel').nth(1).scrollIntoViewIfNeeded();
+  // Watched, so each has asked for its source: a clip nobody tapped holds nothing to give back.
+  await page.evaluate(() => { document.querySelectorAll('#app .reel video').forEach(v => { v.dataset.go = '1'; }); watchClips(); });
   await page.waitForTimeout(700);
   const loaded = () => page.locator('#app .reel video[src]').count();
   check('the feed holds clips while it is the thing on screen', await loaded() > 0, `${await loaded()} loaded`);
@@ -1564,10 +1631,10 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   check('    and so does its comment count', /^0 comments$/.test((await bubble.innerText()).trim()),
     await bubble.innerText());
 
-  // The stub's clips cannot decode, so this post is showing its failure card — which is
-  // the case worth checking: a clip that would not load is still a post worth replying to.
-  check('  and reachable even on a post whose clip would not load',
-    await page.locator('.post .reel.bust').count() > 0);
+  // Nothing of the clip has loaded — nobody has tapped it — and the post is as reachable as
+  // one that is playing.
+  check('  and reachable on a post whose clip has not loaded',
+    await page.locator('.post .reel').count() > 0 && await page.locator('.post .reel video[src]').count() === 0);
   await heart.click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(200);
   check('  tapping it counts at once', (await heart.innerText()).trim() === '1');
@@ -4696,22 +4763,19 @@ await withPage(SIGNED_IN, async page => {
     /Settings/.test(denied) && !/Turn off/.test(denied));
 });
 
-// ---- the first frame of a clip
-// preload="metadata" reads the header and stops, and an element that has never decoded a
-// frame paints nothing: a black rectangle where the clip should be.
-await withPage(SIGNED_IN, async page => {
+// ---- a clip before it is played
+// It shows its still and nothing else: no source, nothing fetched, until somebody taps it.
+// Every clip on the way past used to load its opening and decode a frame of it, which is
+// most of what a feed downloaded.
+await withPage({ ...SIGNED_IN, posters: true }, async page => {
   await page.setViewportSize({ width: 390, height: 844 });
   await settle(page);
-  const clip = await realClip(page);
-  const shown = await page.evaluate(async u => {
+  const shown = await page.evaluate(() => {
     const v = document.querySelector('.reel video.proof');
-    v.removeAttribute('src'); v.dataset.src = u;
-    document.querySelectorAll('.reel').forEach(r => r.classList.remove('bust'));
-    attachClip(v);
-    await new Promise(r => setTimeout(r, 1500));
-    return {t: v.currentTime, ready: v.readyState};
-  }, clip);
-  check('a clip shows a frame rather than a black box', shown.t > 0 && shown.ready >= 2, JSON.stringify(shown));
+    return {poster: (v.getAttribute('poster') || '').slice(0, 10), src: v.getAttribute('src'), ready: v.readyState, preload: v.preload};
+  });
+  check('a clip waiting to be played shows its still and fetches nothing',
+    shown.poster === 'data:image' && shown.src === null && shown.ready === 0 && shown.preload === 'none', JSON.stringify(shown));
 });
 
 // ---- proof can be a picture
@@ -5675,6 +5739,7 @@ await withPage(null, async page => {
 });
 
 await browser.close();
+if (chrome) await chrome.close();
 server.close();
 if (failed) { console.log(`\nFAIL: ${failed} check(s)`); process.exit(1); }
 console.log('\nPASS: the app always shows something');

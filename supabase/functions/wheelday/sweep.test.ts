@@ -10,12 +10,13 @@ const ok = (cond: boolean, what: string, detail?: unknown) => {
 
 // A sweep with everything recorded, so the order and the arguments can both be checked.
 function harness(rows: StoryRow[], filesOk = true) {
-  const seen: { cutoff?: string; paths?: string[]; ids?: number[]; order: string[] } = { order: [] };
+  const seen: { cutoff?: string; paths?: string[]; r2?: string[]; ids?: number[]; order: string[] } = { order: [] };
   return {
     seen,
     deps: {
       list: async (cutoff: string, limit: number) => { seen.cutoff = cutoff; seen.order.push('list'); return rows.slice(0, limit); },
       removeFiles: async (paths: string[]) => { seen.paths = paths; seen.order.push('files'); return filesOk; },
+      removeR2: async (paths: string[]) => { seen.r2 = paths; seen.order.push('r2'); return filesOk; },
       removeRows: async (ids: number[]) => { seen.ids = ids; seen.order.push('rows'); },
       now: () => Date.parse('2026-09-22T12:00:00Z'),
     },
@@ -54,6 +55,20 @@ function harness(rows: StoryRow[], filesOk = true) {
   await sweepStories(h.deps);
   ok(JSON.stringify(h.seen.paths) === '["u2/b.jpg"]', 'a mixed batch sends only the paths that exist', h.seen.paths);
   ok(JSON.stringify(h.seen.ids) === '[1,2]', '  and clears every row in it', h.seen.ids);
+}
+
+{
+  const h = harness([{ id: 1, media_path: 'u1/a.mp4' }, { id: 2, media_path: 'stories/u2/b.mp4', media_store: 'r2' }]);
+  const out = await sweepStories(h.deps);
+  ok(JSON.stringify(h.seen.paths) === '["u1/a.mp4"]' && JSON.stringify(h.seen.r2) === '["stories/u2/b.mp4"]',
+    'a file on R2 is removed from R2, and only the others go to the bucket', h.seen);
+  ok(out.rows === 2 && out.files === 2, '  and both rows go', out);
+}
+
+{
+  const h = harness([{ id: 2, media_path: 'stories/u2/b.mp4', media_store: 'r2' }]);
+  await sweepStories(h.deps);
+  ok(!h.seen.order.includes('files'), 'a batch that is all R2 never calls the storage API', h.seen.order);
 }
 
 {

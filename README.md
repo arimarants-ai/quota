@@ -2,7 +2,7 @@
 
 Pick a daily goal with your crew. Post proof before midnight, or owe them the forfeit.
 
-One static page talking straight to Supabase (accounts, database, video storage). Hosted on Vercel.
+One static page talking straight to Supabase (accounts, database) and Cloudflare R2 (proof clips and pictures). Hosted on Vercel.
 
 ## What lives where
 
@@ -114,9 +114,11 @@ node test/screenshots.mjs
 That renders them from the real page against the test stub. A screenshot taken on a
 phone, of a real run, is better — this is the floor, not the ceiling.
 
-The service worker caches only static assets. Everything from Supabase (sign-in,
-database, video upload, signed video URLs) always goes to the network, so the
-worker can never serve a stale feed or a stale video.
+The service worker caches static assets, and clips somebody has actually played from R2,
+kept by their path rather than their signed URL so a rewatch is not another download
+(`MEDIA` in `sw.js`, the 40 most recent). Everything from Supabase (sign-in, database,
+signed URLs for anything still in its bucket) always goes to the network, so the worker
+can never serve a stale feed.
 
 The Supabase library is vendored under `vendor/` and precached rather than pulled
 from a CDN. An installed app is often opened before the phone has a connection, and
@@ -837,6 +839,11 @@ dialog, then checks the bytes that actually reached the wire: that they are
 smaller, that they decode at 720p with the full duration, and that the audio is
 still on them. That recording is why the file takes a minute or so to run.
 
+`supabase/functions/media/rules.test.ts` checks the rules R2 is guarded by against the
+storage policies they copy, and `scripts/r2/migrate.test.mjs` (needs ffmpeg and `npm ci`
+in `scripts/r2`) runs the copy to R2 and its report against a stand-in for both Supabase
+and R2, with real clips.
+
 CI runs all of it on every push and pull request.
 
 ## Wheels
@@ -922,52 +929,85 @@ To set it up: run the v7 block (replacing `<HOOK_SECRET>` as in v4) and deploy t
 function — `supabase functions deploy wheelday`. It needs no new secrets; it uses the
 same VAPID pair and `HOOK_SECRET` as `notify`.
 
-## Limits worth knowing (free tiers)
+## Proof lives on Cloudflare R2
 
-**Video size: 50 MB per file.** This is Supabase's hard cap on the free plan, verified by
-testing (50 MB uploads, 51 MB is rejected). It is set in three places that must agree:
-`MAX_MB` in `index.html`, `file_size_limit` on the `proof` bucket in `schema.sql`, and the
-project's own global limit. Raising it means upgrading the Supabase project to Pro, which
-allows far larger files and 100 GB of storage.
+Clips, their stills and pictures are in the private R2 bucket `quota-proof` (schema v50),
+because watching a file on R2 costs nothing and watching one in Supabase Storage was most
+of what the project paid for. Avatars and group pictures stay in Supabase.
 
-**Total storage: 1 GB.** This is the limit that will actually bite. Rough budget:
+- **The `media` edge function** (`supabase/functions/media`, JWT required) is the only
+  thing holding R2 keys. `sign-upload` builds the key itself
+  (`{group_id}/{uid}/{timestamp}.{ext}`, or `stories/{uid}/…`) and hands back presigned
+  PUTs for the file and its still, valid ten minutes, with the type, the exact size and
+  `Cache-Control: private, max-age=31536000, immutable` signed in. `sign-view` signs GETs
+  for a batch of paths. `delete` removes your own. Who may do what is the storage
+  policies the Supabase buckets had, copied from `pg_policies` into `rules.ts` — see the
+  comment at its top, including why "the group's maker removes proof" is not there.
+- **A row says where its file is**: `posts.video_store = 'r2'` (or null for the Supabase
+  bucket, which the app still signs the old way), and `legacy_video_path` where it was
+  before it was copied. Stories have `media_store` / `legacy_media_path`.
+- **Copying the old ones across** is `scripts/r2` — see its README. It never deletes
+  anything in Supabase.
+- **Secrets** on the functions: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+  `R2_BUCKET`. `wheelday` uses them too, to clear expired stories off R2.
 
-| Average clip | Posts before full |
-|---|---|
-| 50 MB | ~20 |
-| 25 MB | ~40 |
-| 10 MB | ~100 |
-| 3 MB | ~340 |
+The bucket's CORS policy has to name every origin the app runs on, and allow the headers
+an upload sends. Without `Cache-Control` in `AllowedHeaders` every upload's preflight is
+refused; without an origin, uploads from it fail and land in the outbox:
 
-Compression (below) is what keeps this off the bottom row: clips arrive at a few MB
-rather than tens, so the same 1 GB holds hundreds of posts instead of dozens. When it
-does get close, either upgrade or delete old proof videos (the posts table keeps the
-numbers either way).
+```json
+[{
+  "AllowedOrigins": ["https://app.hitquota.app", "https://hitquota.app", "https://www.hitquota.app",
+                     "capacitor://localhost", "quota://localhost", "https://localhost"],
+  "AllowedMethods": ["GET", "PUT", "HEAD"],
+  "AllowedHeaders": ["Content-Type", "Cache-Control", "Range"],
+  "ExposeHeaders": ["Content-Length", "Content-Range", "ETag"],
+  "MaxAgeSeconds": 3600
+}]
+```
+
+The last three are the store apps: iOS serves the page from `quota://localhost` (the
+`scheme` in `native/capacitor.config.json`), Android from `https://localhost`. Testing
+from a Vercel preview or `localhost:<port>` needs that origin added too.
+
+### Downloading less
+
+- **The feed shows stills.** A clip is `<video preload="none">` with its still as the
+  poster, and is given a source only when it is tapped. Stills themselves are only put on
+  as a post comes near the screen.
+- **The feed is paged.** It opens on everything posted today and the newest
+  `FIRST_PAGE` before that, and fetches `PAGE` more as the end of what is shown comes up
+  (or "Show more" is tapped). A day opened from the month fetches that day. The recaps
+  read the whole history as names (`S.hist`) and sign their clips when they are opened.
+- **One `sign-view` call per page.** URLs are kept in memory until five minutes before
+  they run out, and a signed URL is the same for half an hour (`viewWindow()`), so the
+  browser's own cache gets to answer too.
+- **A clip you watched is kept** by the service worker, by its path.
+
+## Limits worth knowing
+
+**File size: 50 MB per file** (`MAX_MB` in `index.html`, `PROOF_MAX` in the media
+function's `rules.ts`, which signs the size into the upload URL). R2's free tier is 10 GB
+of storage with nothing charged for downloads; a ten-second clip is about 2.5 MB.
 
 ## Video is re-encoded before it is uploaded
 
-The camera writes far more than a 4:5 card on a phone screen needs. By Apple's own figures
-a minute of 1080p is about 65 MB and a minute of 4K about 170 MB, and all of it used to go
-up untouched — which is why posting took so long, and why 1 GB only held about twenty
-posts.
+The camera writes far more than a 4:5 card on a phone screen needs: an iPhone clip is
+1080p or 4K HEVC in a `.mov`, about 12 MB for ten seconds, and a `.mov` in HEVC does not
+play at all in Chrome on Android or Windows.
 
-Anything over 6 MB is now re-encoded to 720p at about 2.5 Mbps (`TARGET_H`, `VIDEO_BPS`,
-`COMPRESS_OVER` in `index.html`) before it is sent, using `MediaRecorder` against a canvas.
-Against a 1080p test clip that is a bit over 9x smaller. It costs a "Compressing…" step
-that runs at roughly the length of the clip, which is a clear win on a phone connection
-and roughly a wash on fast wifi.
+So every clip is converted on the phone before it goes (`convertClip()` in `index.html`):
+H.264 and AAC in an MP4, no more than 720 on its short side, about 1.8 Mbps, AAC at 96k,
+at most 30 frames a second, the index at the front so it starts the moment it is tapped.
+It uses [Mediabunny](app/vendor/mediabunny-1.61.4/README.md) over WebCodecs, so it runs on
+the phone's own encoder several times faster than the clip plays; it is fetched only when
+something is posted, and a browser whose WebCodecs cannot encode AAC also gets ffmpeg's
+AAC encoder in WASM.
 
-Two things it deliberately will not do:
-
-- **It only ever emits H.264 in MP4.** If the browser cannot record that, no compression
-  happens at all. A WebM recorded on an Android phone will not play on an iPhone, and
-  proof nobody can watch is worse than a slow upload.
-- **Every failure returns the original file** — unreadable input, an encoder that throws,
-  output that does not decode or is not meaningfully smaller, or a clip longer than
-  `LONGEST` seconds. The post still goes through, just bigger.
-
-Because it is the re-encoded file that has to fit under the cap, a clip the camera made
-too big for the bucket now usually gets through anyway rather than being turned away.
+Every failure sends the original file instead — no WebCodecs, no H.264 encoder, a file it
+cannot read, a sound track it would have to drop, output that does not decode or comes out
+the wrong length. The post still goes through, just bigger. A still is taken from what is
+actually sent and goes up beside it.
 
 - "Today" is whatever the poster's phone says.
 
