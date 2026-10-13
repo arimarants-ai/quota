@@ -561,7 +561,10 @@ async function record1080p(page) {
 // index at the front. Checked on the bytes that reached the wire, not on a return value.
 const phone = FFMPEG ? phoneClip() : null;
 if (chrome && phone) {
-  await withPage(NO_WHEEL, async page => {
+  await withPage(NO_WHEEL, async (page, alerts) => {
+    const errs = [];
+    page.on('pageerror', e => errs.push(e.message));
+    page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.text().slice(0, 300)); });
     await settle(page);
     lastUpload = null; lastPoster = null;
     uploadReply = { status: 200, body: '{}', hold: null };
@@ -571,7 +574,10 @@ if (chrome && phone) {
     await page.locator('#dlg button.primary').click();
     await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
     const seen = await labels(page);
-    check('a clip is converted before it goes, and says so with a percentage', seen.some(t => /Compressing… \d+%/.test(t)), seen.join(' -> '));
+    // What the page was holding and saying, so a failure here says why rather than only that.
+    const why = JSON.stringify({ alerts, errs: errs.slice(0, 8), took: await page.evaluate(() => typeof recorded !== 'undefined' && recorded ? { size: recorded.size, type: recorded.type } : null),
+      webcodecs: await page.evaluate(async () => !!(self.VideoEncoder && (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 1280, height: 720 })).supported)) });
+    check('a clip is converted before it goes, and says so with a percentage', seen.some(t => /Compressing… \d+%/.test(t)), `${seen.join(' -> ')} ${why}`);
     check('  the upload carried the converted file, far smaller', lastUpload && lastUpload.length < phone.length / 2,
       `sent ${lastUpload ? (lastUpload.length / 1048576).toFixed(2) : 'nothing'} MB of ${(phone.length / 1048576).toFixed(1)} MB`);
     if (lastUpload) console.log(`        ${(phone.length / 1048576).toFixed(1)} MB in, ${(lastUpload.length / 1048576).toFixed(2)} MB out (${(phone.length / lastUpload.length).toFixed(1)}x smaller)`);
