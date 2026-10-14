@@ -6,6 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { AwsClient } from 'aws4fetch';
 
+// Run from GitHub, where this repository's logs are public, nobody's user id goes in what
+// is printed. The log files on disk keep them; they never leave the machine.
+if (process.env.R2_QUIET) {
+  const hide = a => typeof a === 'string' ? a.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '…') : a;
+  for (const k of ['log', 'error']) { const say = console[k].bind(console); console[k] = (...a) => say(...a.map(hide)); }
+}
+
 export const HERE = dirname(fileURLToPath(import.meta.url));
 // Where the logs, the scratch files and state.json go: here, unless the test says otherwise.
 const DATA = process.env.R2_MIGRATE_DIR || HERE;

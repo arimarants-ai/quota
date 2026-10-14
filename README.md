@@ -958,6 +958,7 @@ refused; without an origin, uploads from it fail and land in the outbox:
 ```json
 [{
   "AllowedOrigins": ["https://app.hitquota.app", "https://hitquota.app", "https://www.hitquota.app",
+                     "https://quota-ari-d851.vercel.app", "https://quota-jet.vercel.app",
                      "capacitor://localhost", "quota://localhost", "https://localhost"],
   "AllowedMethods": ["GET", "PUT", "HEAD"],
   "AllowedHeaders": ["Content-Type", "Cache-Control", "Range"],
@@ -966,9 +967,11 @@ refused; without an origin, uploads from it fail and land in the outbox:
 }]
 ```
 
-The last three are the store apps: iOS serves the page from `quota://localhost` (the
-`scheme` in `native/capacitor.config.json`), Android from `https://localhost`. Testing
-from a Vercel preview or `localhost:<port>` needs that origin added too.
+The two `vercel.app` names are ones people actually open the app from (the request logs
+say so), and the first post after the switch sat in the outbox until they were added. The
+last three are the store apps: iOS serves the page from `quota://localhost` (the `scheme`
+in `native/capacitor.config.json`), Android from `https://localhost`. Testing from a
+Vercel preview or `localhost:<port>` needs that origin added too.
 
 ### Downloading less
 
