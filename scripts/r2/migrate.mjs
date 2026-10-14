@@ -14,10 +14,11 @@
 // logs/migrate-<time>.log, and what has been done to state.json.
 //
 // Each clip becomes H.264 + AAC in an MP4 under the same name with .mp4 on the end: 720 on
-// its short side at most, about 1.8 Mbps, AAC at 96k, at most 30 frames a second, index at
+// its short side at most, at most 2 Mbps, AAC at 96k, at most 30 frames a second, index at
 // the front, and no metadata carried over (an iPhone clip carries where it was filmed). If
-// ffmpeg fails, or the result is no smaller, the original bytes go up instead. A clip with
-// no still gets one made from the copy, the way the app makes them.
+// ffmpeg fails the original bytes go up instead; if the result is no smaller and the
+// original is already H.264, the original goes up as it is (an MP4) or moved into an MP4
+// (a .mov). A clip with no still gets one made from the copy, the way the app makes them.
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { config, supabase, r2, haveFfmpeg, run, probe, logger, retry, mb, WORK, STATE, VIDEO, IMAGE, STORY_PREFIX, ENCODE } from './lib.mjs';
@@ -60,8 +61,10 @@ function filterFor(p, plain) {
 }
 async function reencode(src, out, p, plain = false) {
   const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1',
+    // Quality-led with a ceiling rather than a fixed rate: a clip the old recorder already
+    // squeezed to under a megabit stays about that size instead of being padded up to 1.8.
     '-vf', filterFor(p, plain), '-c:v', 'libx264', '-preset', 'medium', '-profile:v', 'high',
-    '-b:v', `${ENCODE.videoKbps}k`, '-maxrate', `${ENCODE.maxKbps}k`, '-bufsize', `${ENCODE.maxKbps * 2}k`,
+    '-crf', '23', '-maxrate', `${ENCODE.maxKbps}k`, '-bufsize', `${ENCODE.maxKbps * 2}k`,
     ...(ff.fpsmax ? ['-fpsmax', String(ENCODE.fps)] : []),
     '-c:a', 'aac', '-b:a', `${ENCODE.audioKbps}k`, '-movflags', '+faststart', out];
   const r = await run('ffmpeg', args);
@@ -70,6 +73,15 @@ async function reencode(src, out, p, plain = false) {
   if (!q || !q.video) throw new Error('ffmpeg wrote something ffprobe cannot read');
   if (p?.duration && Math.abs(q.duration - p.duration) > Math.max(0.5, p.duration * 0.1)) throw new Error(`length changed ${p.duration}s -> ${q.duration}s`);
   if (p?.audio && !q.audio) throw new Error('the sound was lost');
+  return readFileSync(out);
+}
+// The streams exactly as they are, moved into an MP4 with its index at the front and none of
+// the camera's metadata: what an H.264 original in a .mov becomes when re-encoding it would
+// only make it bigger.
+async function remux(src, out) {
+  const r = await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map', '0:v:0', '-map', '0:a:0?',
+    '-map_metadata', '-1', '-c', 'copy', '-movflags', '+faststart', out]);
+  if (r.code !== 0) throw new Error(`ffmpeg: ${r.err.trim().split('\n').slice(-2).join(' ')}`);
   return readFileSync(out);
 }
 // A still the way the app makes one: a few frames in, at most 720 on its long side.
@@ -114,11 +126,18 @@ async function migrate(job, objects) {
             log('tonemap-skipped', { table, id: row.id, error: e.message });
             return reencode(inFile, join(dir, 'out.mp4'), p, true);
           });
-          // Smaller wins. Bigger only loses to an original every phone already plays (H.264 in
-          // an MP4); an HEVC .mov has to become H.264 to play on Android whatever it weighs.
-          const fine = /\.mp4$/i.test(path) && p?.video?.codec_name === 'h264' && (!p.audio || p.audio.codec_name === 'aac');
-          if (out.length < orig.length || !fine) { bytes = out; type = 'video/mp4'; kept = 'reencoded'; }
-          else why = `re-encoded was no smaller (${mb(out.length)} vs ${mb(orig.length)})`;
+          // Smaller wins. Bigger only loses to an original every phone already plays (H.264 and
+          // AAC): as it is if it is already an MP4, moved into one if it is a .mov. An HEVC .mov
+          // has to become H.264 to play on Android whatever it weighs.
+          const plays = p?.video?.codec_name === 'h264' && (!p.audio || p.audio.codec_name === 'aac');
+          if (out.length < orig.length || !plays) { bytes = out; type = 'video/mp4'; kept = 'reencoded'; }
+          else {
+            why = `re-encoded was no smaller (${mb(out.length)} vs ${mb(orig.length)})`;
+            if (!/\.mp4$/i.test(path)) {
+              const moved = await remux(inFile, join(dir, 'moved.mp4')).catch(() => null);
+              if (moved) { bytes = moved; type = 'video/mp4'; kept = 'remuxed'; } else { bytes = out; type = 'video/mp4'; kept = 'reencoded'; }
+            }
+          }
         } catch (e) { why = e.message; }
       }
       // The still: the one already beside it if there is one, otherwise made now.
