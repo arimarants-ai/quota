@@ -2951,3 +2951,81 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.my_profile() from public, anon, authenticated;
 grant execute on function public.my_profile() to authenticated;
+
+-- ============================================================
+-- v50 (proof on Cloudflare R2): safe to run on an existing project. Deploy the `media`
+-- function and redeploy `wheelday` before the app that uses them goes out; the order
+-- against this block does not matter, since every column here is new and nullable.
+--
+-- Clips and pictures move off Supabase Storage to R2, where serving them costs nothing.
+-- Both places are live while that happens: a row says which one holds its file, and a
+-- row that says nothing is where every file always was. Nothing is deleted from Supabase
+-- here or by the copy; that waits until everything is seen playing from R2.
+--
+--   video_store        'r2', or null / 'supabase' for the bucket called proof
+--   legacy_video_path  where the file was in that bucket before it was copied across
+--
+-- Stories get the same pair for media_path.
+-- ============================================================
+alter table public.posts add column if not exists video_store text;
+alter table public.posts add column if not exists legacy_video_path text;
+alter table public.posts drop constraint if exists posts_video_store;
+alter table public.posts add constraint posts_video_store
+  check (video_store is null or video_store in ('supabase', 'r2'));
+alter table public.stories add column if not exists media_store text;
+alter table public.stories add column if not exists legacy_media_path text;
+alter table public.stories drop constraint if exists stories_media_store;
+alter table public.stories add constraint stories_media_store
+  check (media_store is null or media_store in ('supabase', 'r2'));
+
+-- Who is asking, as the API says. The edge functions and the copy script run as the
+-- service role; everybody using the app is `authenticated`.
+create or replace function public.via_service_role() returns boolean
+language sql stable set search_path = public as $$
+  select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''),
+                  nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'service_role';
+$$;
+
+-- Moving a file is not editing a post. The copy to R2 has to point the row at the new
+-- file and say where the old one was; anybody else still cannot move a file at all, so
+-- what the group saw stays what it saw.
+create or replace function public.post_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.id := old.id; new.user_id := old.user_id; new.group_id := old.group_id;
+  new.metric := old.metric; new.amount := old.amount; new.day := old.day;
+  new.created_at := old.created_at;
+  new.challenge := old.challenge; new.spin_id := old.spin_id;
+  if not public.via_service_role() then
+    new.video_path := old.video_path; new.video_store := old.video_store;
+    new.legacy_video_path := old.legacy_video_path;
+  end if;
+  return new;
+end $$;
+
+create or replace function public.story_edit_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.user_id    := old.user_id;
+  new.kind       := old.kind;
+  new.created_at := old.created_at;
+  if not public.via_service_role() then
+    new.media_path := old.media_path; new.media_store := old.media_store;
+    new.legacy_media_path := old.legacy_media_path;
+  end if;
+  return new;
+end $$;
+
+-- Deleting your account lists your files so the app can remove them first. One on R2 is
+-- removed through the media function rather than Storage, so it says which it is.
+create or replace function public.my_files()
+returns table (bucket text, path text)
+language sql security definer stable set search_path = public as $$
+  select case when video_store = 'r2' then 'r2' else 'proof' end, video_path
+    from public.posts where user_id = auth.uid()
+  union all
+  select case when media_store = 'r2' then 'r2' else 'stories' end, media_path
+    from public.stories where user_id = auth.uid() and media_path is not null;
+$$;
+revoke all on function public.my_files() from public, anon, authenticated;
+grant execute on function public.my_files() to authenticated;

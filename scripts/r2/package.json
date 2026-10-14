@@ -1,0 +1,13 @@
+{
+  "name": "quota-r2",
+  "private": true,
+  "type": "module",
+  "description": "Copies proof from the Supabase bucket to Cloudflare R2, and checks the copy. Run by hand, on a computer with ffmpeg. Not deployed, and not installed by CI.",
+  "scripts": {
+    "migrate": "node migrate.mjs",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "aws4fetch": "1.0.20"
+  }
+}

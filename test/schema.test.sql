@@ -936,3 +936,44 @@ exception when raise_exception then
   if sqlerrm <> 'too late to edit' then raise; end if;
 end $$;
 reset role;
+
+-- v50: a file moves to R2 only when the copy script moves it. Somebody editing their own
+-- post cannot point it at a different file, or say it is somewhere it is not.
+set role app;
+do $$
+declare pid bigint; p public.posts; n int;
+begin
+  perform set_config('test.uid', '11111111-1111-1111-1111-111111111111', true);
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (1, auth.uid(), 'pushups', 10, '1/11111111-1111-1111-1111-111111111111/r2.mov', current_date) returning id into pid;
+  update public.posts set video_path = 'elsewhere.mp4', video_store = 'r2', legacy_video_path = 'x', caption = 'moved?' where id = pid;
+  select * into p from public.posts where id = pid;
+  if p.video_path <> '1/11111111-1111-1111-1111-111111111111/r2.mov' or p.video_store is not null or p.legacy_video_path is not null then
+    raise exception 'an author moved their own post''s file: %', row_to_json(p);
+  end if;
+  if p.caption is distinct from 'moved?' then raise exception 'the caption edit beside it was lost'; end if;
+  -- The service role is the copy script, and it is let through. Only the file moves.
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  update public.posts set video_path = '1/11111111-1111-1111-1111-111111111111/r2.mp4', video_store = 'r2',
+    legacy_video_path = p.video_path, amount = 999 where id = pid;
+  select * into p from public.posts where id = pid;
+  if p.video_path <> '1/11111111-1111-1111-1111-111111111111/r2.mp4' or p.video_store <> 'r2'
+     or p.legacy_video_path <> '1/11111111-1111-1111-1111-111111111111/r2.mov' then
+    raise exception 'the copy script could not point a post at its new file: %', row_to_json(p);
+  end if;
+  if p.amount <> 10 then raise exception 'the service role changed what the group saw'; end if;
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    update public.posts set video_store = 'somewhere' where id = pid;
+    perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    update public.posts set video_store = 'somewhere' where id = pid;
+    raise exception 'a post was put in a store that does not exist';
+  exception when check_violation then null;
+  end;
+  perform set_config('request.jwt.claims', '', true);
+  -- Deleting the account removes it from R2, so it is listed as being there.
+  select count(*) into n from public.my_files() f where f.bucket = 'r2' and f.path = '1/11111111-1111-1111-1111-111111111111/r2.mp4';
+  if n <> 1 then raise exception 'my_files() does not say the clip is on R2'; end if;
+  delete from public.posts where id = pid;
+end $$;
+reset role;

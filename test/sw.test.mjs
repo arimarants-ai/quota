@@ -128,5 +128,65 @@ function browser({ refuse = [] } = {}) {
     !(await b.caches.keys()).includes('quota-old'), (await b.caches.keys()).join(', '));
 }
 
+// 5. A clip somebody watched is kept by its path on R2, whatever signature its URL had, and
+// is served back in the pieces a player asks for. Safari opens every clip by asking for
+// its first two bytes, and plays nothing at all unless exactly those come back as a 206.
+{
+  const store = new Map(), order = [];
+  const media = {
+    async match(k) { const r = store.get(String(k)); return r ? r.clone() : undefined; },
+    async put(k, res) { store.set(String(k), res); order.push(String(k)); },
+    async keys() { return order.filter(k => store.has(k)); },
+    async delete(k) { return store.delete(String(k)); },
+  };
+  let downloads = 0;
+  const bytes = new Uint8Array(1000).map((_, i) => i % 251);
+  const fetchFake = async (url, init) => {
+    downloads++;
+    if (!init || init.mode !== 'cors') throw new Error('the clip should be fetched whole, with CORS');
+    return new Response(bytes, { status: 200, headers: { 'content-type': 'video/mp4', 'content-length': '1000' } });
+  };
+  const handlers = {};
+  const self = { addEventListener: (t, fn) => { (handlers[t] ||= []).push(fn); }, skipWaiting() {},
+    clients: { async claim() {} }, location: { origin: 'https://app.example.test' }, registration: {} };
+  const caches = { async open() { return media; }, async keys() { return ['quota-media', 'quota-v1']; }, async delete() {} };
+  const ctx = vm.createContext({ self, caches, fetch: fetchFake, console, URL, Response, Blob, navigator: { userAgent: '' } });
+  vm.runInContext(SRC, ctx);
+  const req = range => ({ method: 'GET', url: '', mode: 'no-cors', headers: new Headers(range ? { range } : {}) });
+  const at = sig => new URL(`https://acct.r2.cloudflarestorage.com/quota-proof/7/u/1.mp4?X-Amz-Signature=${sig}`);
+
+  const first = await ctx.watched(req('bytes=0-1'), at('aaa'));
+  const two = new Uint8Array(await first.arrayBuffer());
+  check('the first two bytes come back as a 206 of exactly two bytes',
+    first.status === 206 && two.length === 2 && first.headers.get('content-range') === 'bytes 0-1/1000',
+    `${first.status} ${first.headers.get('content-range')} ${two.length}`);
+  const rest = await ctx.watched(req('bytes=500-'), at('bbb'));
+  const tail = new Uint8Array(await rest.arrayBuffer());
+  check('  a later range is the right bytes', rest.status === 206 && tail.length === 500 && tail[0] === bytes[500]);
+  check('  and a second URL for the same clip did not download it again', downloads === 1, `${downloads} downloads`);
+  const whole = await ctx.watched(req(null), at('ccc'));
+  check('  asked for whole, it is the whole clip', whole.status === 200 && (await whole.arrayBuffer()).byteLength === 1000);
+  const past = await ctx.watched(req('bytes=5000-'), at('ddd'));
+  check('  and a range past the end is refused, not invented', past.status === 416);
+  check('rangeOf reads the three shapes a player sends',
+    JSON.stringify([ctx.rangeOf('bytes=0-1', 10), ctx.rangeOf('bytes=4-', 10), ctx.rangeOf('bytes=-3', 10), ctx.rangeOf('', 10)]) === '[[0,1],[4,9],[7,9],null]');
+
+  // Updating the app clears the old version's files, not the clips.
+  const gone = [];
+  caches.delete = async k => { gone.push(k); return true; };
+  caches.open = async () => ({ match: async () => ({}), add: async () => {}, put: async () => {} });
+  const waits = [];
+  for (const fn of handlers.activate || []) fn({ waitUntil: p => waits.push(p) });
+  await Promise.all(waits);
+  check('an update leaves the watched clips where they are', !gone.includes('quota-media') && gone.includes('quota-v1'), gone.join(', '));
+
+  // Anything that is not an R2 clip is none of this code's business.
+  let routed = 0;
+  for (const fn of handlers.fetch) fn({ request: { method: 'GET', url: 'https://acct.r2.cloudflarestorage.com/quota-proof/7/u/1.mp4.jpg', mode: 'no-cors' }, respondWith() { routed++; } });
+  check('a still is left to the browser', routed === 0);
+  for (const fn of handlers.fetch) fn({ request: { method: 'GET', url: 'https://txvjakpeyfnzigtsvmja.supabase.co/storage/v1/object/sign/proof/1.mov', mode: 'no-cors' }, respondWith() { routed++; } });
+  check('a clip still on Supabase is left to the network', routed === 0);
+}
+
 console.log(failed ? `\nFAIL: ${failed} check(s)` : '\nPASS: the worker never leaves an app with nothing to start from');
 process.exit(failed ? 1 : 0);

@@ -54,12 +54,24 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
+      # ffmpeg makes the phone-like clip the boot test posts, and reads back what was sent.
+      # Google Chrome, which the runner already has, is what converts it to H.264.
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg
       - run: node test/boot.test.mjs
 
       - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
       - run: node --experimental-strip-types supabase/functions/wheelday/message.test.ts
       - run: node --experimental-strip-types supabase/functions/welcome/message.test.ts
+      - run: node --experimental-strip-types supabase/functions/wheelday/sweep.test.ts
+
+      # Who may sign what on R2: the storage policies, moved into the media function.
+      - run: node --experimental-strip-types supabase/functions/media/rules.test.ts
+
+      # The copy of the old proof to R2 runs once, against the real thing, so it is run here
+      # first against a stand-in for both sides, with real clips made by ffmpeg.
+      - run: npm ci --no-audit --no-fund --prefix scripts/r2
+      - run: node scripts/r2/migrate.test.mjs
 
   # The Android app's own code (the widget, the countdown notification, the plugin the page
   # talks to) is Java, which nothing above compiles. Only runs when native/ changes.

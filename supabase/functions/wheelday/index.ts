@@ -30,6 +30,7 @@ const rest = async (path: string, init: RequestInit = {}) => {
 import { NOTICE_META, noticeBody, remindersFor, type Due, type Notice } from './message.ts';
 import { SWEEP_MAX, sweepStories, type StoryRow } from './sweep.ts';
 import { cronAlertBody, cronAlertDue, type CronFail } from './health.ts';
+import { removeObject } from '../media/r2.ts';
 
 // One place that sends, because there are two reasons to now and they prune dead
 // subscriptions and count what went out identically.
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
   // to do it — see sweep.ts.
   const swept = await sweepStories({
     list: (cutoff, limit) =>
-      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=id,media_path&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
+      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=*&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
     removeFiles: async (paths) => {
       const res = await fetch(`${SUPABASE_URL}/storage/v1/object/stories`, {
         method: 'DELETE',
@@ -117,6 +118,8 @@ Deno.serve(async (req) => {
       });
       return res.ok;
     },
+    // A story on R2 (schema v50) has no bucket to ask; it is removed there, one at a time.
+    removeR2: async (paths) => (await Promise.all(paths.map(removeObject))).every(Boolean),
     removeRows: async (ids) => { await rest(`stories?id=in.(${ids.join(',')})`, { method: 'DELETE' }); },
   }).catch(e => ({ rows: 0, files: 0, held: true, error: String(e) }));
 
