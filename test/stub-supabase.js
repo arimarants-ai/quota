@@ -310,6 +310,8 @@
       if (args.code === SAM_CODE) self.__friended = 'u2';
       return { data: 1, error: null };
     }
+    // The connection dropping on the first try, the way a weak one does.
+    if (fn === 'spin' && M().spinDrop && !self.__spinDropped) { self.__spinDropped = true; return { data: null, error: { message: 'TypeError: Load failed' } }; }
     if (fn === 'spin') {
       const cycle = Math.floor((Math.round(Date.parse(args.p_day) / 864e5) - Math.round(Date.parse(WHEEL.starts_on) / 864e5)) / WHEEL.every_days);
       const had = self.__spins.find(sp => sp.wheel_id === args.p_wheel && sp.user_id === 'u1' && sp.cycle === cycle);
