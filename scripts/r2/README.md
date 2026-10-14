@@ -23,9 +23,11 @@ under Supabase → Project Settings → API; the R2 key needs Object Read & Writ
     node verify.mjs                # the report
 
 Each clip is re-encoded to what the app now sends (H.264 + AAC in an MP4, 720 on its short
-side at most, about 1.8 Mbps, AAC 96k, at most 30 fps, index at the front, no metadata), and
-goes up under its own name with `.mp4` on the end. A clip ffmpeg cannot handle, or one that
-would come out bigger, goes up as the original bytes instead. A clip with no still gets one.
+side at most, at most 2 Mbps, AAC 96k, at most 30 fps, index at the front, no metadata), and
+goes up under its own name with `.mp4` on the end. A clip ffmpeg cannot handle goes up as the
+original bytes. One that would come out bigger, and is already H.264, goes up as it was: as
+is if it is an MP4, moved into an MP4 (same picture and sound, no metadata) if it is a .mov.
+A clip with no still gets one.
 A row is re-pointed (`video_path` to the copy, `video_store = 'r2'`, the old path in
 `legacy_video_path`) only once the copy reads back from R2 at the right size.
 
