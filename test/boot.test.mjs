@@ -875,15 +875,11 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   check('a day wheel longer than the cycle is refused', alerts.some(a => /cannot ask for more than 3/.test(a)), alerts.join(' | '));
 });
 
-// breaks_streak: a cycle that closed with the challenge unfinished ends the streak on the
-// day it closed. Sam has hit the quota three days running, so the streak is only about the
-// challenge here.
+// A wheel never ends a streak: the streak is the days the goal was hit, whatever the old
+// breaks_streak setting on a wheel says. Sam has hit the quota three days running.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   const before = await page.evaluate(() => streak(S.groups[0], 'u2'));
-  check('a wheel that does not break the streak leaves it alone', before === 3, `streak ${before}`);
-
-  // Turn it on, with a cycle that closed yesterday and no spin against it.
   const after = await page.evaluate(() => {
     const w = S.wheels[0];
     w.breaks_streak = true;
@@ -891,23 +887,11 @@ await withPage(SIGNED_IN, async page => {
     w.starts_on = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
     return streak(S.groups[0], 'u2');
   });
-  check('  and one that does breaks it', after === 0, `streak ${after}`);
-
-  // Finishing it keeps the streak. A day is finished by posting the day's quota with the
-  // challenge, so that is what this puts there.
-  const kept = await page.evaluate(() => {
-    const w = S.wheels[0], y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-    const c = cycleOf(w, y);
-    S.spins = [...S.spins, {id: 99, wheel_id: w.id, user_id: 'u2', cycle: c, days_required: 1,
-      results: [{seq: 0, kind: 'challenge', value: 'decline', i: 0, segs: ['decline']}]}];
-    S.totals.push({g: 1, u: 'u2', d: y, m: 'pushups', n: 50, sp: 99, ch: 'decline'});
-    return streak(S.groups[0], 'u2');
-  });
-  check('  and finishing the challenge keeps it', kept >= 1, `streak ${kept}`);
-
-  // The quota chips and the completion rate stay about the quota alone.
-  const rate = await page.evaluate(() => window.rate(S.groups[0], 'u2').n);
-  check('  while the completion rate still counts quota days only', rate === 3, `${rate} days`);
+  check('an unfinished wheel challenge never takes a streak away, even on an old breaks-your-streak wheel',
+    before === 3 && after === 3, `streak ${before} -> ${after}`);
+  await page.evaluate(() => { openGroup(1); });
+  await page.waitForTimeout(300);
+  check('  and nothing says it does', !/breaks your streak/i.test(await page.innerText('#app')));
 });
 
 // A wheel belongs to whoever made it. Everyone else has to spin it, so everyone else can
@@ -982,8 +966,20 @@ await withPage(SIGNED_IN, async page => {
     S.spins = row({sat_out: true});
     return {unfinished, sat: brokeStreak(S.groups[0], 'u1', y)};
   });
-  check('  an unfinished challenge still breaks the streak', res.unfinished === true, JSON.stringify(res));
-  check('  and a cycle sat out does not', res.sat === false, JSON.stringify(res));
+  check('  and neither an unfinished challenge nor a cycle sat out breaks the streak', res.unfinished === false && res.sat === false, JSON.stringify(res));
+});
+
+// A spin whose first try is lost to the connection is tried again on its own, quietly: a
+// spin is one per person per cycle, so asking twice cannot roll twice.
+await withPage({ ...SIGNED_IN, spinDrop: true }, async (page, alerts) => {
+  await settle(page);
+  await page.locator('#app button:has-text("Spin")').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Spin")').click();
+  await page.locator('#dlg button:has-text("OK")').waitFor({ timeout: 20000 }).catch(() => {});
+  check('a spin that loses its first try to the connection goes through on the second, with no error shown',
+    await page.locator('#dlg button:has-text("OK")').count() === 1 && alerts.length === 0
+    && await page.evaluate(() => self.__spinDropped === true), alerts.join(' | '));
 });
 
 // Changing your mind after sitting out: the group screen's wheel offers the spin, the
