@@ -167,6 +167,31 @@ async function migrate(job, objects) {
   return up;
 }
 
+// A clip already on R2 with no still beside it: one the app put up when the phone could not
+// take a frame, which sits black in the feed until it is tapped. Its still is made from the
+// copy on R2, the same way as for a clip being copied.
+async function stillsMissing(posts) {
+  const out = [];
+  for (const r of posts.filter(r => r.video_store === 'r2' && VIDEO.test(r.video_path || ''))) {
+    if (!(await retry(() => store.head(`${r.video_path}.jpg`), 'head still'))) out.push(r);
+  }
+  return out;
+}
+async function makeStill(row) {
+  const dir = join(WORK, `still-${row.id}`);
+  mkdirSync(dir, { recursive: true });
+  try {
+    writeFileSync(join(dir, 'clip.mp4'), await retry(() => store.get(row.video_path), 'get'));
+    const jpg = await still(join(dir, 'clip.mp4'), join(dir, 'still.jpg'), 1);
+    if (!jpg) throw new Error('ffmpeg could not take a frame');
+    await retry(() => store.put(`${row.video_path}.jpg`, jpg, 'image/jpeg'), 'put still');
+    const h = await retry(() => store.head(`${row.video_path}.jpg`), 'head still');
+    if (!h || h.size !== jpg.length) throw new Error('the still did not land');
+    log('still-made', { id: row.id, key: `${row.video_path}.jpg`, size: jpg.length });
+    return jpg.length;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 async function main() {
   console.log(`${DRY ? 'Dry run' : 'Migrating'} · ${ff.version}${ff.tonemap ? '' : ' (no zscale: HDR clips are not tone-mapped)'} · log: ${LOG}`);
   const [posts, stories, proofObjs, storyObjs] = await Promise.all([
@@ -212,6 +237,8 @@ async function main() {
     console.log(`\nWould copy ${jobs.length - missing} files: ${mb(before)} now, about ${mb(after)} after (${before ? Math.round((1 - after / before) * 100) : 0}% smaller).`);
     if (unknown) console.log(`${unknown} clips could not be probed and are counted at their full size.`);
     if (missing) console.log(`${missing} rows point at a file that is not there and would be reported as failures.`);
+    const bare = await stillsMissing(posts);
+    if (bare.length) console.log(`${bare.length} clips already on R2 have no still; each would get one: ${bare.map(r => `posts ${r.id}`).join(', ')}`);
     console.log('Nothing was changed.');
     return;
   }
@@ -233,6 +260,12 @@ async function main() {
     }
   };
   await Promise.all(Array.from({ length: Math.min(CONC, jobs.length) }, next));
+  // Then the clips that were on R2 already and have no still. Only those on R2 before this
+  // run: anything just copied got its still on the way.
+  for (const r of await stillsMissing(posts)) {
+    try { console.log(`  posts ${r.id}: on R2 with no still, made one (${mb(await makeStill(r))})`); }
+    catch (e) { bad++; log('failed', { table: 'posts', id: r.id, still: true, error: e.message }); console.log(`  posts ${r.id}: on R2 with no still, and making one FAILED — ${e.message}`); }
+  }
   log('end', { ok, failed: bad, before, after });
   console.log(`\n${ok} copied, ${bad} failed. ${mb(before)} -> ${mb(after)}${before ? ` (${Math.round((1 - after / before) * 100)}% smaller)` : ''}.`);
   console.log(bad ? 'Run it again to retry the failures; anything already done is skipped.' : 'Next: node verify.mjs');

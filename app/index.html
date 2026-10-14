@@ -1518,7 +1518,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v133';
+const BUILD = 'quota-v134';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8667,7 +8667,11 @@ async function flushOutbox() {
           const blob = new Blob([bytes], {type: row.file.type || 'video/mp4'});
           // Where it goes is decided when it goes: R2 names the file at the moment it is
           // signed for. One queued by an older version of the app goes the same way.
-          const poster = isPic(blob) ? null : await grabPoster(blob);
+          // The still taken when it was recorded comes with it, read out fresh like the clip:
+          // a page just reopened on iOS often cannot decode a frame, and a clip posted from
+          // here used to go up with no still and sit black in the feed until it was tapped.
+          const kept = isPic(blob) ? null : await clipBytes(row.poster);
+          const poster = isPic(blob) ? null : kept ? new Blob([kept], {type: 'image/jpeg'}) : await grabPoster(blob);
           row.upPath = await putFile({group_id: row.post.group_id}, blob, () => {}, poster);
           row.store = 'r2';
           await outPut(row);
@@ -8702,13 +8706,16 @@ async function flushOutbox() {
 // Put one by. The day it was recorded for is kept with it: a clip that finally goes up on
 // Tuesday was still Monday's proof, and posting it as Tuesday's would be a lie about both
 // days.
-async function queuePost(post, file, upPath = null) {
+async function queuePost(post, file, upPath = null, poster = null) {
   // The bytes, not the camera's file. On iOS what the camera hands back points at a file
   // the system is free to delete once the app is closed: the pointer survives in
   // IndexedDB, the clip behind it does not, and the outbox is left holding a name.
   let keep = file;
   try { keep = new Blob([await file.arrayBuffer()], {type: file.type || 'video/mp4'}); } catch (e) {}
-  await outAdd({post, file: keep, at: Date.now(), ...(upPath ? {upPath, store: 'r2'} : {})});
+  // Its still too, for the same reason, so it goes up beside the clip when the clip does.
+  let still = null;
+  try { if (poster) still = new Blob([await poster.arrayBuffer()], {type: 'image/jpeg'}); } catch (e) {}
+  await outAdd({post, file: keep, at: Date.now(), ...(still ? {poster: still} : {}), ...(upPath ? {upPath, store: 'r2'} : {})});
   await readOutbox();
   render();
 }
@@ -8883,6 +8890,7 @@ async function sendPost(f, gid) {
   let row = null;
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
   let key = null;                          // once the file is up, where it went
+  let poster = null;                       // its still, kept for the outbox if the upload fails
 
   // Shrink first, then check the size. A clip the camera recorded too big for the bucket
   // usually fits comfortably once it is 720p, so this is checked against what will
@@ -8913,7 +8921,7 @@ async function sendPost(f, gid) {
   try {
     // The still is read off what is actually being sent, before it goes, so both are
     // signed for together.
-    const poster = isPic(video) ? null : await grabPoster(video);
+    poster = isPic(video) ? null : await grabPoster(video);
     key = await putFile({group_id: gid}, video, (sent, total, rate) => {
       const pct = Math.round(sent / total * 100);
       working(f, `Uploading… ${pct}%`);
@@ -8931,7 +8939,7 @@ async function sendPost(f, gid) {
     if (e.offline || navigator.onLine === false) {
       // Already uploaded if it got that far: the outbox posts that file, rather than sending
       // it again under a new name and then not recognising the post it already made.
-      await queuePost(row, video, key);
+      await queuePost(row, video, key, poster);
       dlg();
       return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
     }
