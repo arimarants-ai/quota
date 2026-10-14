@@ -4949,6 +4949,27 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 });
 uploadReply = { status: 200, body: '{}', hold: null, drop: false };
 
+// The still taken when a clip was recorded waits with it. A page just reopened on iOS often
+// cannot decode a frame, so taking it again when the clip finally goes left it with none,
+// and it sat black in the feed until somebody tapped it.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => indexedDB.deleteDatabase('quota-outbox'));
+  lastPoster = null;
+  await page.evaluate(async () => {
+    const g = S.groups[0];
+    const jpeg = new Uint8Array(604).fill(7); jpeg.set([0xff, 0xd8, 0xff, 0xe0]);
+    await queuePost({ group_id: g.id, user_id: me().id, metric: 'pushups', amount: 20, caption: '', day: today(), on_profile: false, challenge: null, spin_id: null },
+      new Blob([new Uint8Array(4096).fill(7)], { type: 'video/mp4' }), null, new Blob([jpeg], { type: 'image/jpeg' }));
+  });
+  check('a clip put by for later keeps its still with it', await page.evaluate(async () => !!(await outAll())[0]?.poster));
+  await page.evaluate(() => flushOutbox());
+  await page.waitForFunction(() => outbox.length === 0, null, { timeout: 20000 }).catch(() => {});
+  check('  and the still goes up beside the clip when it does',
+    lastPoster && /\.mp4\.jpg$/.test(lastPoster.path) && lastPoster.bytes && lastPoster.bytes.length === 604 && lastPoster.bytes[0] === 0xff,
+    lastPoster ? `${lastPoster.path} ${lastPoster.bytes && lastPoster.bytes.length} bytes` : 'no still went up');
+});
+
 // A refusal is not a dropped connection: a 413 will be a 413 again in an hour, so that one
 // is reported rather than queued.
 await withPage(NO_WHEEL, async (page, alerts) => {

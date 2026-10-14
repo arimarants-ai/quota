@@ -124,6 +124,11 @@ export function r2(cfg) {
         headers: { 'Content-Type': type, 'Cache-Control': CACHE_CONTROL, 'Content-Length': String(body.length) } });
       if (!res.ok) throw new Error(`put ${key} -> ${res.status} ${(await res.text()).slice(0, 200)}`);
     },
+    async get(key) {
+      const res = await aws.fetch(`${root}/${enc(key)}`);
+      if (!res.ok) throw new Error(`get ${key} -> ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    },
     async head(key) {
       const res = await aws.fetch(`${root}/${enc(key)}`, { method: 'HEAD' });
       if (res.status === 404) return null;

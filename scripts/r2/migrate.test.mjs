@@ -4,7 +4,8 @@
 // run here first against a stand-in for both sides — Supabase's REST and storage APIs, and
 // R2's S3 API — with real clips made by ffmpeg: an iPhone-style HEVC .mov filmed sideways,
 // a big H.264 one, a small clip that re-encoding would only make bigger, the same kind of
-// clip in a .mov, a picture, and a post whose file is gone.
+// clip in a .mov, a picture, a post whose file is gone, and one the app already put on R2
+// with no still beside it.
 import { createServer } from 'node:http';
 import { spawnSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -42,8 +43,10 @@ const posts = [
   { id: 1, video_path: `${G}/${U}/1.mov`, created_at: at(1) }, { id: 2, video_path: `${G}/${U}/2.mp4`, created_at: at(2) },
   { id: 3, video_path: `${G}/${U}/3.mp4`, created_at: at(3) }, { id: 4, video_path: `${G}/${U}/4.jpg`, created_at: at(4) },
   { id: 5, video_path: `${G}/${U}/gone.mov`, created_at: at(5) }, { id: 6, video_path: `${G}/${U}/6.mov`, created_at: at(6) },
+  { id: 7, video_path: `${G}/${U}/7.mp4`, video_store: 'r2', created_at: at(7) },
 ].map(p => ({ video_store: null, legacy_video_path: null, ...p }));
-const r2 = new Map();
+// Already on R2, as the app uploads now, but without its still.
+const r2 = new Map([[`${G}/${U}/7.mp4`, { body: Buffer.from(tiny), type: 'video/mp4', cache: 'private, max-age=31536000, immutable' }]]);
 const supabaseWrites = [];
 
 const body = req => new Promise(r => { const c = []; req.on('data', d => c.push(d)); req.on('end', () => r(Buffer.concat(c))); });
@@ -112,9 +115,9 @@ const secretless = out => !/service-key-for-the-test|secret-for-the-test/.test(o
 try {
   // 1. The dry run says what it would do and does none of it.
   const dry = await node('migrate.mjs', ['--dry-run']);
-  check('a dry run plans every row', dry.code === 0 && /6 to do/.test(dry.out) && /FILE MISSING/.test(dry.out), dry.out);
+  check('a dry run plans every row', dry.code === 0 && /6 to do/.test(dry.out) && /FILE MISSING/.test(dry.out) && /1 clips already on R2 have no still; each would get one: posts 7/.test(dry.out), dry.out);
   check('  estimates what it would save', /about [\d.]+ [KM]B after \(\d+% smaller\)/.test(dry.out), dry.out.split('\n').slice(-6).join(' | '));
-  check('  and changes nothing anywhere', r2.size === 0 && posts.every(p => !p.video_store), `${r2.size} objects on R2`);
+  check('  and changes nothing anywhere', r2.size === 1 && posts.filter(p => p.id !== 7).every(p => !p.video_store), `${r2.size} objects on R2`);
 
   // 2. --limit takes the oldest first, and only that many.
   const one = await node('migrate.mjs', ['--limit', '1']);
@@ -145,6 +148,10 @@ try {
     six ? `${six.format.format_name} ${sixv.codec_name} ${sixv.width} ${lean.length} -> ${r2.get(k6).body.length}` : 'not on R2');
   const sixHead = r2.get(k6).body, sixMoov = sixHead.indexOf('moov'), sixMdat = sixHead.indexOf('mdat');
   check('    with the index at the front', sixMoov > 0 && sixMoov < sixMdat, `moov ${sixMoov} mdat ${sixMdat}`);
+  const seven = r2.get(`${G}/${U}/7.mp4.jpg`);
+  check('  a clip already on R2 with no still gets one, as a JPEG',
+    seven && seven.body[0] === 0xff && seven.body[1] === 0xd8 && seven.type === 'image/jpeg' && seven.cache === 'private, max-age=31536000, immutable'
+    && posts[6].video_path === `${G}/${U}/7.mp4` && r2.get(`${G}/${U}/7.mp4`).body.equals(tiny), seven ? seven.type : 'no still');
   check('  a picture goes up as it was', r2.get(k4).body.equals(pic) && r2.get(k4).type === 'image/jpeg');
   check('  a still already beside a clip is copied', r2.get(`${k2}.jpg`) && r2.get(`${k2}.jpg`).body.equals(still));
   const made = r2.get(`${k1}.jpg`);
@@ -160,8 +167,8 @@ try {
 
   // 5. The report.
   const rep = await node('verify.mjs', []);
-  check('the report counts both sides', /Supabase `proof`: 6 objects/.test(rep.out) && /R2 `quota-proof`: 9 objects/.test(rep.out), rep.out);
-  check('  says every R2 row has its file and still', /every R2 row has its files and still in R2 \(HEAD\): yes \(5 rows checked\)/.test(rep.out), rep.out);
+  check('the report counts both sides', /Supabase `proof`: 6 objects/.test(rep.out) && /R2 `quota-proof`: 11 objects/.test(rep.out), rep.out);
+  check('  says every R2 row has its file and still', /every R2 row has its files and still in R2 \(HEAD\): yes \(6 rows checked\)/.test(rep.out), rep.out);
   check('  says what got smaller', /copied by the script: 5 files/.test(rep.out), rep.out);
   check('  and names the failure', /posts 5: .*gone\.mov not copied — the file is not in the bucket at all/.test(rep.out), rep.out);
   r2.delete(`${k1}.jpg`);
