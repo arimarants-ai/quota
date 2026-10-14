@@ -159,6 +159,15 @@ try {
   const broken = await node('verify.mjs', []);
   check('  and a still that has gone is caught', broken.code === 1 && /missing: posts 1: .*1\.mp4\.jpg/.test(broken.out), broken.out);
   check('no key or secret is ever printed', [dry, one, all, again, rep, broken].every(r => secretless(r.out)) && secretless(readFileSync(join(tmp, 'state.json'), 'utf8')));
+  // As the GitHub workflow runs it, whose logs anyone can read.
+  const quiet = (script, args) => new Promise(r => {
+    const c = spawn(process.execPath, [join(HERE, script), ...args], { env: { ...env, R2_QUIET: '1' } });
+    let out = ''; c.stdout.on('data', d => { out += d; }); c.stderr.on('data', d => { out += d; });
+    c.on('close', () => r(out));
+  });
+  const quietOuts = [await quiet('migrate.mjs', ['--dry-run']), await quiet('migrate.mjs', []), await quiet('verify.mjs', [])];
+  check('  and with R2_QUIET, nobody\'s user id either', quietOuts.every(o => !o.includes(U)) && quietOuts.some(o => o.includes(`${G}/…/`)),
+    quietOuts.join('\n---\n').slice(0, 2000));
 } finally {
   server.close();
   rmSync(tmp, { recursive: true, force: true });

@@ -1,0 +1,72 @@
+# Copies the old proof from the Supabase bucket to R2 (scripts/r2) on GitHub's machines, so
+# nobody needs Node or ffmpeg on their own computer to do it. Only ever run by hand:
+# Actions → "copy proof to R2" → Run workflow, and pick a step. Nothing in Supabase Storage
+# is deleted or overwritten, whichever step it is.
+#
+# Needs four repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_SERVICE_ROLE_KEY, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+# This repository is public, and so are these logs. GitHub masks the secrets, the scripts
+# never print a key, and R2_QUIET keeps people's user ids out of what they print. Delete
+# the secrets once the copy is done; nothing else uses them.
+name: copy proof to R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'dry-run changes nothing; first-5 copies five; everything copies the rest; report-only checks'
+        type: choice
+        default: dry-run
+        options: [dry-run, first-5, everything, report-only]
+
+# One at a time: two copies at once would only race each other to the same rows.
+concurrency:
+  group: copy-proof
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      SUPABASE_URL: https://txvjakpeyfnzigtsvmja.supabase.co
+      R2_BUCKET: quota-proof
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_QUIET: '1'
+    defaults:
+      run:
+        shell: bash
+        working-directory: scripts/r2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: npm ci --no-audit --no-fund
+
+      - name: dry run (changes nothing)
+        if: inputs.step == 'dry-run'
+        run: |
+          { echo '```'; node migrate.mjs --dry-run; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: copy the oldest five
+        if: inputs.step == 'first-5'
+        run: |
+          { echo '```'; node migrate.mjs --limit 5; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: copy everything left
+        if: inputs.step == 'everything'
+        run: |
+          { echo '```'; node migrate.mjs --concurrency 3; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # After any copy, even one that had failures, so what failed is in the report.
+      - name: report
+        if: always() && inputs.step != 'dry-run'
+        run: node verify.mjs | tee -a "$GITHUB_STEP_SUMMARY"

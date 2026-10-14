@@ -33,6 +33,16 @@ It can be stopped and run again at any time: rows already on R2 are skipped, and
 is already up is only re-pointed. `state.json` and `logs/` hold what it did. `node
 migrate.test.mjs` runs both scripts against a stand-in for Supabase and R2.
 
+## Or on GitHub
+
+`.github/workflows/copy-proof.yml` runs the same scripts on GitHub's machines, so nothing
+has to be installed anywhere. Add the four secrets it names under Settings → Secrets and
+variables → Actions, then Actions → **copy proof to R2** → Run workflow, once per step:
+`dry-run`, `first-5`, `everything`. Every step but the dry run ends with the report, which
+lands on the run's summary page. The repository is public and so are its logs: they never
+carry a key, and with `R2_QUIET` set they carry nobody's user id either. Delete the
+secrets when it is done.
+
 ## After
 
 Read the report. When every row is on R2 and clips play from it on an iPhone and an Android
