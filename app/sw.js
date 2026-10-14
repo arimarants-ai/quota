@@ -1,8 +1,9 @@
 // Quota service worker.
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
-// signed video URLs) is deliberately left alone so it always hits the network.
+// signed video URLs) is deliberately left alone so it always hits the network. A clip from
+// R2 that somebody actually played is kept, by its path, so watching it again is free.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v133';
+const VERSION = 'quota-v135';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
@@ -10,6 +11,67 @@ const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/app
   '/vendor/supabase-js-2.49.4/supabase.js', '/vendor/supabase-js-2.49.4/591.supabase.js'];
 const STATIC_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const NAV_WAIT = 3000;                   // ms the network gets to answer for the page before the kept copy is used
+
+// ---- clips you have watched
+// A signed URL is different every half hour, so the browser's own cache never sees the
+// same clip twice and a rewatch downloaded the whole thing again. Kept here instead, under
+// the object's path on R2 — which is the same whatever the signature on the URL — in a
+// cache of its own that outlives app versions, holding the most recent MEDIA_MAX.
+//
+// Only clips, only from R2, and only once somebody pressed play: a <video> asks for
+// nothing before then. Anything that goes wrong here falls straight through to the network
+// exactly as if this did not exist, because a clip that will not play is the one failure
+// this must never cause.
+const MEDIA = 'quota-media';
+const MEDIA_MAX = 40;
+const MEDIA_BIG = 30 * 1048576;            // anything bigger is streamed, not kept
+const R2_CLIP = url => /\.r2\.cloudflarestorage\.com$/.test(url.hostname) && /\.(mp4|mov|m4v|webm)$/i.test(url.pathname);
+const mediaKey = url => `${self.location.origin}/__media${url.pathname}`;   // a name in the cache, never an address
+
+// "bytes=a-b", "bytes=a-" or "bytes=-n" as [first, last] inside a file of `size` bytes.
+// null is no range at all (the whole file); 'bad' is one that cannot be satisfied.
+function rangeOf(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((header || '').trim());
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  let a, b;
+  if (m[1] === '') { a = Math.max(0, size - +m[2]); b = size - 1; }
+  else { a = +m[1]; b = m[2] === '' ? size - 1 : Math.min(+m[2], size - 1); }
+  return a > b || a >= size ? 'bad' : [a, b];
+}
+// Safari will not play a clip served whole when it asked for a part: it opens every clip by
+// asking for its first two bytes and wants exactly those, as a 206, back.
+async function served(res, range) {
+  const blob = await res.blob(), size = blob.size;
+  const type = res.headers.get('content-type') || 'video/mp4';
+  const r = rangeOf(range, size);
+  if (r === 'bad') return new Response(null, {status: 416, headers: {'Content-Range': `bytes */${size}`}});
+  if (!r) return new Response(blob, {status: 200, headers: {'Content-Type': type, 'Content-Length': String(size), 'Accept-Ranges': 'bytes'}});
+  return new Response(blob.slice(r[0], r[1] + 1), {status: 206, headers: {'Content-Type': type, 'Accept-Ranges': 'bytes',
+    'Content-Range': `bytes ${r[0]}-${r[1]}/${size}`, 'Content-Length': String(r[1] - r[0] + 1)}});
+}
+const fetching = new Map();
+async function watched(req, url) {
+  const cache = await caches.open(MEDIA), key = mediaKey(url);
+  let hit = await cache.match(key);
+  if (!hit) {
+    // A player asks for several ranges of the same clip at once. One download serves them.
+    if (!fetching.has(key)) fetching.set(key, (async () => {
+      const res = await fetch(url.href, {mode: 'cors', credentials: 'omit'});
+      if (!res.ok || res.status !== 200 || +(res.headers.get('content-length') || MEDIA_BIG + 1) > MEDIA_BIG) {
+        try { await res.body?.cancel(); } catch (e) {}   // or it carries on downloading beside the fallback
+        throw new Error('not kept');
+      }
+      // Room first, so a full cache still takes the new clip rather than refusing it forever.
+      const keys = await cache.keys();       // oldest first
+      for (const k of keys.slice(0, Math.max(0, keys.length - MEDIA_MAX + 1))) await cache.delete(k);
+      await cache.put(key, res);
+    })().finally(() => fetching.delete(key)));
+    await fetching.get(key);
+    hit = await cache.match(key);
+    if (!hit) throw new Error('not kept');
+  }
+  return served(hit, req.headers.get('range'));
+}
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -36,7 +98,7 @@ self.addEventListener('activate', e => {
     // it cannot start without is not there, and all anyone sees is "Load failed".
     if (await stocked(cache)) {
       const keys = await caches.keys();
-      await Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)));
+      await Promise.all(keys.filter(k => k !== VERSION && k !== MEDIA).map(k => caches.delete(k)));
     }
     await self.clients.claim();
   })());
@@ -49,6 +111,7 @@ self.addEventListener('fetch', e => {
   try { url = new URL(req.url); } catch (err) { return; }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
   if (url.hostname.endsWith('supabase.co')) return;      // API, auth and signed video URLs: never cached
+  if (R2_CLIP(url)) { e.respondWith(watched(req, url).catch(() => fetch(req))); return; }
   if (url.origin === self.location.origin && url.pathname === '/sw.js') return; // let the browser manage its own updates
 
   // The page itself: network first, so a deploy shows up straight away — but only for a

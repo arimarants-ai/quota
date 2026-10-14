@@ -1,4 +1,4 @@
-// GENERATED — do not edit. Built from ../notify/push.ts, message.ts, sweep.ts, health.ts, index.ts by test/bundle.mjs.
+// GENERATED — do not edit. Built from ../notify/push.ts, ../media/r2.ts, message.ts, sweep.ts, health.ts, index.ts by test/bundle.mjs.
 // This is the same function in one file, for pasting into the Supabase dashboard when
 // the CLI is not to hand. Deploying either one gives the same behaviour.
 
@@ -208,6 +208,46 @@ export async function send(sub: Subscription, payload: string, opts: {
   return res.status;
 }
 
+// Talking to Cloudflare R2 through its S3 API. aws4fetch rather than the AWS SDK: it is a
+// few kilobytes of SigV4 and nothing else, which is all a signed URL needs.
+//
+// Needs R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET as function
+// secrets. Nothing here ever prints them.
+import { AwsClient } from 'npm:aws4fetch@1.0.20';
+
+const r2env = (k: string) => (typeof Deno !== 'undefined' ? Deno.env.get(k) : undefined) ?? '';
+
+let client: AwsClient | null = null;
+const r2 = () => client ??= new AwsClient({
+  accessKeyId: r2env('R2_ACCESS_KEY_ID'), secretAccessKey: r2env('R2_SECRET_ACCESS_KEY'),
+  service: 's3', region: 'auto',
+});
+// Path-style, so every object is under /<bucket>/ on one host — which is also what lets
+// the app's service worker know an R2 file by its path whatever the signature on it.
+export const objectUrl = (key: string) =>
+  `https://${r2env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com/${r2env('R2_BUCKET')}/${key.split('/').map(encodeURIComponent).join('/')}`;
+
+const stamp = (d: Date) => d.toISOString().replace(/[:-]|\.\d{3}/g, '');
+
+// A URL that does one thing to one object until it runs out. Every header given here is
+// signed, so whoever uses the URL has to send exactly these values.
+export async function presign(method: 'GET' | 'PUT', key: string, seconds: number,
+  headers: Record<string, string> = {}, signedAt?: Date): Promise<string> {
+  const url = `${objectUrl(key)}?X-Amz-Expires=${seconds}`;
+  const signed = await r2().sign(url, {
+    method, headers,
+    aws: { signQuery: true, allHeaders: true, ...(signedAt ? { datetime: stamp(signedAt) } : {}) },
+  });
+  return signed.url;
+}
+
+// Deleting something already gone is a success in S3, which is what a retry wants.
+export async function removeObject(key: string): Promise<boolean> {
+  const res = await r2().fetch(objectUrl(key), { method: 'DELETE' });
+  await res.body?.cancel();
+  return res.ok || res.status === 404;
+}
+
 // What a spin-day reminder says. Kept apart from index.ts so it can be run and checked
 // without a Deno runtime or any of the secrets.
 export type Due = { user_id: string; wheel_name: string; group_name: string };
@@ -352,13 +392,16 @@ export function noticeBody(n: Notice): string {
 // Kept apart from index.ts, like message.ts and push.ts, so it can be run and checked
 // without a Deno runtime or any of the secrets.
 
-export type StoryRow = { id: number; media_path: string | null };
+// media_store says which place holds the file: 'r2', or the stories bucket otherwise.
+export type StoryRow = { id: number; media_path: string | null; media_store?: string | null };
 
 export type SweepDeps = {
   // Expired rows, oldest first, at most `limit` of them.
   list: (cutoff: string, limit: number) => Promise<StoryRow[]>;
   // Remove these files from the stories bucket. Resolves false if the bucket said no.
   removeFiles: (paths: string[]) => Promise<boolean>;
+  // The same for files on R2 (schema v50).
+  removeR2: (paths: string[]) => Promise<boolean>;
   // Drop these rows.
   removeRows: (ids: number[]) => Promise<void>;
   now?: () => number;
@@ -385,7 +428,9 @@ export async function sweepStories(d: SweepDeps) {
   if (!old.length) return { rows: 0, files: 0, held: false };
 
   const paths = old.map(s => s.media_path).filter((p): p is string => !!p);
-  if (paths.length && !(await d.removeFiles(paths))) {
+  const onR2 = new Set(old.filter(s => s.media_store === 'r2' && s.media_path).map(s => s.media_path));
+  const r2 = paths.filter(p => onR2.has(p)), bucket = paths.filter(p => !onR2.has(p));
+  if ((bucket.length && !(await d.removeFiles(bucket))) || (r2.length && !(await d.removeR2(r2)))) {
     // Held rather than half-done: the rows stay, so next hour finds the same files again.
     return { rows: 0, files: 0, held: true };
   }
@@ -533,7 +578,7 @@ Deno.serve(async (req) => {
   // to do it — see sweep.ts.
   const swept = await sweepStories({
     list: (cutoff, limit) =>
-      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=id,media_path&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
+      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=*&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
     removeFiles: async (paths) => {
       const res = await fetch(`${SUPABASE_URL}/storage/v1/object/stories`, {
         method: 'DELETE',
@@ -542,6 +587,8 @@ Deno.serve(async (req) => {
       });
       return res.ok;
     },
+    // A story on R2 (schema v50) has no bucket to ask; it is removed there, one at a time.
+    removeR2: async (paths) => (await Promise.all(paths.map(removeObject))).every(Boolean),
     removeRows: async (ids) => { await rest(`stories?id=in.(${ids.join(',')})`, { method: 'DELETE' }); },
   }).catch(e => ({ rows: 0, files: 0, held: true, error: String(e) }));
 

@@ -92,7 +92,9 @@
     // on_profile is the one thing about a post that can change after it is posted, so it
     // is read back through whatever the page last set rather than off the fixture.
     posts: [...(M().samToday ? [] : [M().noCaption ? { ...POST, caption: '' } : POST]), ...SAM_TODAY, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
-      .map(p => ({ on_profile: false, ...p, ...(p.id in self.__onprofile ? { on_profile: self.__onprofile[p.id] } : {}) })),
+      .map(p => ({ on_profile: false, ...p, ...(p.id in self.__onprofile ? { on_profile: self.__onprofile[p.id] } : {}) }))
+      // Proof already on R2 (schema v50), for the cases about where a file is signed.
+      .map(p => (M().r2 && !p.video_store ? { ...p, video_store: 'r2' } : p)),
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,
@@ -207,13 +209,24 @@
       if (out.data && Object.keys(st.filters).length) {
         out.data = out.data.filter(r => Object.entries(st.filters).every(([k, v]) => r[k] === v));
       }
+      // The feed asks for today and then for pages before a date, so those two are real too.
+      if (out.data && st.range) out.data = out.data.filter(r => st.range.every(([op, k, v]) => op === 'gte' ? r[k] >= v : r[k] < v));
+      // And a page is a page: ordered and cut where the query says, or a feed that opens on
+      // its newest few would be handed everything and the paging would never be exercised.
+      if (out.data && st.sort) {
+        const [col, asc] = st.sort;
+        out.data = [...out.data].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (asc ? 1 : -1));
+      }
+      if (out.data && st.limit != null) out.data = out.data.slice(0, st.limit);
       return out;
     };
     // A test can hold a write open (self.__stall) to see what the page shows while it is
     // still in flight, rather than only after the round trip has landed.
     const p = { then: (res, rej) => Promise.resolve(
       self.__stall && st.op === 'insert' ? self.__stall.then(run) : run()).then(res, rej) };
-    for (const k of ['select', 'order', 'limit', 'in']) p[k] = () => chain(t, st);
+    for (const k of ['select', 'in']) p[k] = () => chain(t, st);
+    p.order = (col, opts) => chain(t, { ...st, sort: [col, !(opts && opts.ascending === false)] });
+    p.limit = n => chain(t, { ...st, limit: n });
     // upsert is a write, and a read mark is the one thing the page upserts: treated as a
     // passthrough it silently kept every chat unread however many times one was opened.
     p.upsert = (row, opts = {}) => {
@@ -235,6 +248,8 @@
     p.single = one;
 
     p.or = expr => chain(t, { ...st, or: expr });
+    p.gte = (col, val) => chain(t, { ...st, range: [...(st.range || []), ['gte', col, val]] });
+    p.lt = (col, val) => chain(t, { ...st, range: [...(st.range || []), ['lt', col, val]] });
     p.eq = (col, val) => chain(t, { ...st, filters: { ...st.filters, [col]: val } });
     p.update = row => {
       self.__edits.push({ table: t, ...row });
@@ -411,7 +426,36 @@
           return M().resignFails ? { data: null, error: new Error('nope') }
                                  : { data: { signedUrl: 'data:video/mp4;base64,' }, error: null }; },
       }) },
-      functions: { invoke: async (name, opts) => { (self.__invokes = self.__invokes || []).push({ name, ...(opts || {}) }); return { data: null, error: null }; } },
+      // The media function, which signs everything on R2. Answers the way the real one does,
+      // with URLs a test can see: a clip or a picture is the same data URL the bucket gives,
+      // a still is there only when a case says so, and an upload goes to /r2put/ on the test
+      // server, which takes it the way R2 takes a presigned PUT.
+      functions: { invoke: async (name, opts) => {
+        (self.__invokes = self.__invokes || []).push({ name, ...(opts || {}) });
+        const b = (opts && opts.body) || {};
+        if (name !== 'media') return { data: null, error: null };
+        if (M().mediaDown) return { data: null, error: Object.assign(new Error('Failed to send a request to the Edge Function'), { name: 'FunctionsFetchError' }) };
+        if (b.action === 'sign-view') {
+          const one = x => M().noSign || (/\.(mp4|webm|mov)\.jpg$/i.test(x) && !M().posters) ? null
+            : /\.(mp4|webm|mov)\.jpg$/i.test(x) ? 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' : 'data:video/mp4;base64,';
+          self.__r2signs = (self.__r2signs || 0) + 1;
+          return { data: { urls: Object.fromEntries((b.paths || []).map(x => [x, one(x)])), until: Date.now() + 5400e3 }, error: null };
+        }
+        if (b.action === 'sign-upload') {
+          if (M().signTooBig) return { data: null, error: Object.assign(new Error('Edge Function returned a non-2xx status code'),
+            { name: 'FunctionsHttpError', context: { status: 400, json: async () => ({ error: 'too big' }) } }) };
+          if (M().signRefused) return { data: null, error: Object.assign(new Error('Edge Function returned a non-2xx status code'),
+            { name: 'FunctionsHttpError', context: { status: 403, json: async () => ({ error: 'not a member of that group' }) } }) };
+          const key = b.story ? `stories/u1/${Date.now()}.${b.ext}` : `${b.group_id}/u1/${Date.now()}.${b.ext}`;
+          const hdr = (type, n) => ({ 'Content-Type': type, 'Cache-Control': 'private, max-age=31536000, immutable', 'Content-Length': String(n) });
+          (self.__signedUploads = self.__signedUploads || []).push({ ...b, key });
+          return { data: { key, url: `${location.origin}/r2put/${key}?X-Amz-Signature=stub`, headers: hdr(b.contentType, b.size),
+            thumb: b.thumbSize ? { key: `${key}.jpg`, url: `${location.origin}/r2put/${key}.jpg?X-Amz-Signature=stub`, headers: hdr('image/jpeg', b.thumbSize) } : null,
+            expiresIn: 600 }, error: null };
+        }
+        if (b.action === 'delete') { self.__r2removed = [...(self.__r2removed || []), ...(b.paths || [])]; return { data: { deleted: b.paths || [], refused: [] }, error: null }; }
+        return { data: null, error: null };
+      } },
       // Enough of a realtime channel to drive the app with: a test pushes a row through
       // self.__live(table, payload) and everything downstream of it runs for real. With
       // noRealtime the whole thing is missing, which is what a project that has not turned

@@ -1518,7 +1518,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v133';
+const BUILD = 'quota-v135';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1571,10 +1571,10 @@ function friendlyError(err, fallback) {
   if (/weak_password/.test(code) || /password should be/i.test(m)) return 'Pick a longer password: at least 6 characters.';
   if (/invite link is not valid/i.test(m)) return 'That invite link has expired or was replaced. Ask whoever sent it for a new one.';
   if (code === '23505' || /duplicate key|violates unique/i.test(m)) return /username/i.test(m) ? 'That username is taken. Try another.' : 'That was already done.';
-  if (status === 413 || /maximum allowed size|payload too large|entity too large/i.test(m)) return "That's too big to upload. Record a shorter clip and try again.";
+  if (status === 413 || /maximum allowed size|payload too large|entity too large|^too big$/i.test(m)) return "That's too big to upload. Record a shorter clip and try again.";
   if (/no content provided|upload (failed|interrupted)|aborted|interrupted/i.test(m)) return "The upload didn't finish. Try again.";
   if (['42703', '42P01', '42883', 'PGRST202', 'PGRST204', 'PGRST205'].includes(code) || /does not exist|schema cache|could not find the/i.test(m)) return "This isn't available yet.";
-  if (code === '42501' || /row-level security|permission denied/i.test(m)) return "You can't do that here.";
+  if (code === '42501' || /row-level security|permission denied|not a member of that group/i.test(m)) return "You can't do that here.";
   if (status === 401 || /jwt expired|not authenticated/i.test(m)) return 'You were signed out. Log in again.';
   return fallback || "Something's off on our side. Try again, and if it keeps happening, reopen the app.";
 }
@@ -1614,7 +1614,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {blocked: new Set(), settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, flags: [], fvotes: [], flag: null,
+let S = {blocked: new Set(), settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -1681,15 +1681,84 @@ const isPhoto = p => IMAGE.test(p.path || '');
 // once, so without this every clip past those few was a black box until it was played.
 const POSTER = path => `${path}.jpg`;
 const posterAttr = p => p && p.poster ? ` poster="${esc(p.poster)}"` : '';
-// Signs a batch of posts' files and their stills in one request. A clip posted before
-// stills existed has none, and storage says so for that one path without failing the rest.
+// In a list that scrolls, the still waits until the clip is near the screen as well:
+// attachClip() puts it on. A page of twenty-four is twenty-four pictures otherwise, most
+// of them for posts nobody scrolls down to.
+const lazyPoster = p => p && p.poster ? ` data-poster="${esc(p.poster)}"` : '';
+
+// ---- where proof lives
+// Clips and pictures are on Cloudflare R2 now, where watching them costs nothing. Older
+// ones stay in the Supabase bucket until they are copied across, and a row says which:
+// video_store 'r2', or nothing for where every file always was (schema v50). Signing
+// asks the right one, and nothing else in the app needs to know.
+const storeOf = row => row && (row.video_store || row.media_store) === 'r2' ? 'r2' : 'sb';
+const onR2 = x => x && x.store === 'r2';
+// One shape for a post, from whichever query it came out of.
+const asPost = p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount,
+  caption: p.caption, path: p.video_path, store: storeOf(p), day: p.day, ts: Date.parse(p.created_at), at: p.created_at,
+  challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile});
+// R2 has no policies of its own, so the `media` function holds the bucket's rules and
+// hands out URLs. An error comes back the way a database one does, so q() and
+// friendlyError() say the same things about it.
+async function media(action, body) {
+  const {data, error} = await sb.functions.invoke('media', {body: {action, ...body}});
+  if (error && error.name === 'FunctionsFetchError') throw Object.assign(new Error('Failed to fetch'), {offline: true});
+  if (error) {
+    let m = error.message || 'media';
+    try { const j = await error.context.json(); m = j.error || m; } catch (e) {}
+    throw Object.assign(new Error(m), {status: error.context && error.context.status});
+  }
+  return data;
+}
+// Every URL handed out, by where and what, with when it stops working. A URL is used until
+// five minutes before that, so a page that goes back and forth between screens signs each
+// file once an hour rather than once a screen.
+const SIGNED = new Map(), SIGN_SLACK = 5 * 60e3, SIGN_BATCH = 200;
+const signKey = (store, path) => `${store}|${path}`;
+const signedFor = (store, path) => {
+  const s = SIGNED.get(signKey(store, path));
+  return s && s.until - Date.now() > SIGN_SLACK ? s : null;
+};
+// One round trip per place for a whole page, however many files are on it. A file that
+// cannot be signed — gone, or not this person's to see — is remembered as nothing for as
+// long as a good one would have been, rather than asked about again on every screen.
+async function signFiles(items) {
+  const want = new Map();
+  for (const it of items) if (it.path && !signedFor(it.store, it.path)) want.set(signKey(it.store, it.path), it);
+  const r2 = [...want.values()].filter(onR2).map(it => it.path);
+  const sbp = [...want.values()].filter(it => !onR2(it)).map(it => it.path);
+  const jobs = [];
+  // The media function not answering costs those files their URLs, not the whole load: they
+  // draw as clips that could not be loaded, and the next screen asks again.
+  for (let i = 0; i < r2.length; i += SIGN_BATCH) jobs.push(media('sign-view', {paths: r2.slice(i, i + SIGN_BATCH)}).then(d => {
+    const until = +d.until || Date.now() + 3600e3;
+    for (const [k, u] of Object.entries(d.urls || {})) SIGNED.set(signKey('r2', k), {url: u || '', until});
+  }, e => console.warn('Quota: could not sign', e)));
+  for (let i = 0; i < sbp.length; i += SIGN_BATCH) {
+    const part = sbp.slice(i, i + SIGN_BATCH), until = Date.now() + 3600e3;
+    jobs.push(q(sb.storage.from('proof').createSignedUrls(part, 3600)).then(urls => part.forEach((path, j) => {
+      const u = urls[j];
+      SIGNED.set(signKey('sb', path), {url: u && !u.error ? u.signedUrl || '' : '', until});
+    })));
+  }
+  await Promise.all(jobs);
+}
+// Signs a batch of posts' files and their stills in one request per place. A clip posted
+// before stills existed has none, and that one comes back empty without failing the rest.
+//
+// Signing a clip is not fetching it: nothing is downloaded until somebody taps play. The
+// clip's own URL is asked for here, with its still, because a tap that has to wait on the
+// network first is a tap iOS no longer counts as one, and the clip then will not start
+// with its sound on.
 async function signProof(list) {
   const clips = list.filter(x => x.path && !isPhoto(x));
-  const paths = [...list.map(x => x.path), ...clips.map(x => POSTER(x.path))];
-  const urls = await q(sb.storage.from('proof').createSignedUrls(paths, 3600));
-  list.forEach((x, i) => { x.url = (urls[i] || {}).signedUrl; });
-  clips.forEach((x, i) => { const u = urls[list.length + i]; x.poster = u && !u.error ? u.signedUrl || '' : ''; });
+  await signFiles([...list.filter(x => x.path).map(x => ({store: x.store, path: x.path})),
+    ...clips.map(x => ({store: x.store, path: POSTER(x.path)}))]);
+  list.forEach(x => { const s = x.path && signedFor(x.store, x.path); x.url = s ? s.url : ''; x.until = s ? s.until : 0; });
+  clips.forEach(x => { const s = signedFor(x.store, POSTER(x.path)); if (s || !(x.poster || '').startsWith('blob:')) x.poster = s ? s.url : ''; });
 }
+// Whether a post's URL is still good to hand to a player.
+const urlFresh = p => !!(p && p.url && (p.until || 0) - Date.now() > SIGN_SLACK);
 const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
 // Which days of the week the quota is actually expected on. Nothing set, or all seven,
 // means every day — which is what every group had before this existed.
@@ -2010,7 +2079,7 @@ const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(use
 const SNAPDB = 'quota-snap', SNAPSTORE = 'snap';
 const SNAP_KEYS = ['friends', 'invites', 'groups', 'posts', 'totals', 'wheels', 'spins', 'ticks', 'likes', 'reacts',
   'stories', 'views', 'slikes', 'sreacts', 'badges', 'clikes', 'seen', 'flags', 'fvotes', 'msgs', 'mreacts', 'reads',
-  'settle', 'joined', 'comments', 'profiles', 'spost', 'noFlags', 'noForfeits', 'noChat', 'noComments', 'needEmail', 'email', 'meta'];
+  'settle', 'joined', 'comments', 'profiles', 'spost', 'feedEnd', 'cursor', 'days', 'allFrom', 'noFlags', 'noForfeits', 'noChat', 'noComments', 'needEmail', 'email', 'meta'];
 const snapTx = (mode, run) => new Promise((res, rej) => {
   const r = indexedDB.open(SNAPDB, 1);
   r.onupgradeneeded = () => r.result.createObjectStore(SNAPSTORE);
@@ -2074,10 +2143,15 @@ async function fetchAll() {
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
     q(sb.from('groups').select('*')),
-    q(sb.from('posts').select('*').order('created_at', {ascending: false}).limit(200)),
+    // Today's, all of them, and the newest page before that. Older ones are asked for a
+    // page at a time as the feed is scrolled back (olderPosts()), so opening the app is
+    // never a reason to fetch the whole history of anybody's proof.
+    q(firstPage()),
     // id, because a post the group decided did not count has to be left out of the day it
-    // was posted on, and the flag names the post rather than the total.
-    q(sb.from('posts').select('id,group_id,user_id,day,metric,amount,spin_id,challenge')), // ponytail: whole history, aggregated client-side. Indexed on arrival by totalsIndex(), which is what makes that affordable; a SQL view would be a lot more work for the same answer.
+    // was posted on, and the flag names the post rather than the total. The file and the
+    // time are for the recaps, which look back months; they are names, not files, and
+    // nothing is signed or fetched for them until a recap is opened.
+    q(historyRows()), // ponytail: whole history, aggregated client-side. Indexed on arrival by totalsIndex(), which is what makes that affordable; a SQL view would be a lot more work for the same answer.
     q(sb.from('wheels').select('*')),
     q(sb.from('wheel_stages').select('*').order('seq')),
     q(sb.from('spins').select('*')),
@@ -2129,7 +2203,7 @@ async function fetchAll() {
   S.ticks = ticks;
   S.likes = (likes || []).map(l => ({p: l.post_id, u: l.user_id}));
   S.reacts = (reacts || []).map(r => ({p: r.post_id, u: r.user_id, e: r.emoji}));
-  S.stories = (stories || []).map(x => ({id: x.id, u: x.user_id, kind: x.kind, path: x.media_path,
+  S.stories = (stories || []).map(x => ({id: x.id, u: x.user_id, kind: x.kind, path: x.media_path, store: storeOf(x),
     body: x.body, style: (x.style && typeof x.style === 'object') ? x.style : {}, ts: Date.parse(x.created_at)}));
   // Yours say what you have watched; the rest are who watched yours, which is all the
   // policy lets through.
@@ -2144,11 +2218,15 @@ async function fetchAll() {
   // Started, not waited on: everything after the big batch that needs the network goes out
   // at once and is collected further down. One after another, each was another full round
   // trip, and on a slow connection the round trips are what the wait is made of.
+  // A story on R2 (v50) is signed by the media function like proof is.
   const userP = sb.auth.getUser().then(r => r, () => ({data: null}));
-  const withFiles = S.stories.filter(x => x.path);
-  const storySigned = withFiles.length ? q(sb.storage.from('stories').createSignedUrls(withFiles.map(x => x.path), 3600))
-    .then(urls => urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; })) : null;
-  if (storySigned) storySigned.catch(() => {});   // collected below; this only stops it counting as unhandled meanwhile
+  const withFiles = S.stories.filter(x => x.path && !onR2(x)), onR2s = S.stories.filter(x => x.path && onR2(x));
+  const storySigned = Promise.all([
+    withFiles.length ? q(sb.storage.from('stories').createSignedUrls(withFiles.map(x => x.path), 3600))
+      .then(urls => urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; })) : null,
+    onR2s.length ? signFiles(onR2s).then(() => onR2s.forEach(x => { const u = signedFor('r2', x.path); x.url = u ? u.url : ''; })) : null,
+  ]);
+  storySigned.catch(() => {});   // collected below; this only stops it counting as unhandled meanwhile
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   // An account from before there were real addresses has a made-up one. Worth asking
   // about, because the reset email is the way back and it cannot reach that.
@@ -2179,7 +2257,31 @@ async function fetchAll() {
   // flags exist at all.
   const gone = voidedPosts();
   S.totals = totals.filter(t => !gone.has(t.id)).map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
-  S.posts = posts.map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at), challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
+  // Every post as a name and a date, for looking back over months. Kept apart from S.posts,
+  // which is what the feed has fetched in full, so paging the feed never skips anything.
+  // Whatever the recaps already signed is kept, so a reload does not empty their cards.
+  const was = new Map(S.hist.map(h => [h.id, h]));
+  S.hist = totals.map(t => ({id: t.id, groupId: t.group_id, userId: t.user_id, day: t.day, ts: Date.parse(t.created_at),
+    metric: t.metric, amount: t.amount, path: t.video_path, store: storeOf(t)}))
+    .map(h => { const o = was.get(h.id); return o && o.path === h.path ? {...h, url: o.url, until: o.until, poster: o.poster} : h; });
+  // How far back the whole feed runs without a gap: the newest FIRST_PAGE by time, which
+  // are the first FIRST_PAGE of these. Yesterday's posts can reach further back than that
+  // (somebody a time zone behind, a clip that waited in an outbox) without everything in
+  // between being here, so they do not count. A first page that is not full is the whole
+  // history, and there is nothing older to ask for.
+  const fresh = posts.map(asPost), from = fresh.length >= FIRST_PAGE ? fresh[FIRST_PAGE - 1].ts : 0;
+  if (S.me && S.me.id === uid && S.posts.length) {
+    // A reload (a like coming in, a post going up) is not a reason to throw away the pages
+    // somebody has scrolled back through. Whatever is older than the fresh page stays, with
+    // where each feed had got to.
+    const keep = S.posts.filter(p => p.ts < (fresh.length ? Math.min(...fresh.map(x => x.ts)) : Infinity) && !fresh.some(x => x.id === p.id));
+    S.posts = [...fresh, ...keep];
+    S.allFrom = Math.min(S.allFrom, from);
+  } else {
+    S.posts = fresh;
+    S.feedEnd = fresh.length < FIRST_PAGE ? {all: true} : {}; S.cursor = {}; S.days = {};
+    S.allFrom = from;
+  }
   // A path that could not be signed — the file is gone, or storage said no — comes back
   // with no URL. Left as null it becomes src="null" and a player that silently does
   // nothing; empty, the post renders as a clip that could not be loaded, and says so.
@@ -2197,7 +2299,7 @@ async function fetchAll() {
     storySigned,
     S.posts.length ? sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []},
   ]);
-  S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at}));
+  S.noComments = !!ce; S.comments = (cm || []).map(asComment);
   hideBlocked();
   const ids = [...new Set([uid, ...S.blocked, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   // Everybody's public side, and your own row in full. A birthday, a time zone and the like
@@ -2209,14 +2311,104 @@ async function fetchAll() {
   if (own.data && own.data.id) S.profiles[uid] = {...S.profiles[uid], ...own.data};
   S.me = S.profiles[uid];
   if (!S.me) { console.error('Quota: no profile row for', uid); alert("Something went wrong setting up your account. Try again, and if it keeps happening, reopen the app."); await sb.auth.signOut(); }
-  else { keepTz(); setTimeout(backfillPosters, 5000); }
+  else keepTz();
+}
+
+// The feed's first page: everything posted today (and yesterday, for whoever is a time
+// zone behind), and the newest FIRST_PAGE before it. Today's are all here whatever else is,
+// because whether you have posted today decides
+// what is locked, and a post of yours that fell off a page would unlock nothing.
+const FIRST_PAGE = 30;
+// Answered the way one query is, {data, error}, and only once both have come back: a load
+// that has already given up must not hear about the second one failing afterwards.
+async function firstPage() {
+  const [day, page] = await Promise.all([
+    sb.from('posts').select('*').gte('day', daysAgo(1)).order('created_at', {ascending: false}).limit(500),
+    sb.from('posts').select('*').order('created_at', {ascending: false}).limit(FIRST_PAGE),
+  ]);
+  if (day.error || page.error) return {data: null, error: day.error || page.error};
+  const by = new Map([...page.data, ...day.data].map(p => [p.id, p]));
+  return {data: [...by.values()].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)), error: null};
+}
+// The whole history, a few columns of it. video_store is asked for when the column is there
+// (v50), and the same query without it is the answer when it is not: a block not yet run
+// costs the app a feature, never the whole load.
+const HIST_COLS = 'id,group_id,user_id,day,metric,amount,spin_id,challenge,video_path,created_at';
+async function historyRows() {
+  const r = await sb.from('posts').select(HIST_COLS + ',video_store');
+  return r.error && (r.error.code === '42703' || /video_store/.test(r.error.message || '')) ? sb.from('posts').select(HIST_COLS) : r;
+}
+
+const asComment = c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at});
+
+// Posts fetched after the first load — an older page, or a day opened from the month —
+// arrive with what the feed draws beside them: their comments and the names of whoever
+// made either. Signed, unless today's lock says they are not to be looked at yet.
+async function bringIn(list) {
+  list = list.filter(p => !S.blocked.has(p.userId));
+  if (!list.length) return list;
+  const open = list.filter(p => !locked(p));
+  if (open.length) await signProof(open);
+  const {data: cm} = await sb.from('comments').select('*').in('post_id', list.map(p => p.id)).order('created_at');
+  const have = new Set(S.comments.map(c => c.id));
+  S.comments.push(...(cm || []).map(asComment).filter(c => !have.has(c.id) && !S.blocked.has(c.userId)));
+  const need = [...new Set([...list.map(p => p.userId), ...(cm || []).map(c => c.user_id)])].filter(id => !S.profiles[id]);
+  if (need.length) for (const u of await q(sb.from('profiles').select(PROFILE_COLS).in('id', need))) S.profiles[u.id] = u;
+  return list;
+}
+const allFeed = () => S.posts.filter(p => p.ts >= S.allFrom);
+// The next page back, for the whole feed ('all') or for one group. Asked for when the
+// last page already loaded has been shown, and not again once the server has run out.
+let paging = false;
+async function olderPosts(scope) {
+  if (paging || S.feedEnd[scope]) return;
+  paging = true;
+  try {
+    // Where this feed got to: the oldest row the last page brought back — blocked people's
+    // included, or a page of nothing but theirs would be asked for again forever — or, the
+    // first time, the oldest post of the gapless window.
+    const mine = allFeed().filter(p => scope === 'all' || p.groupId === scope);
+    const last = mine.reduce((a, p) => (!a || p.ts < a.ts ? p : a), null);
+    const before = S.cursor[scope] || (last && last.at);
+    let sel = sb.from('posts').select('*');
+    if (scope !== 'all') sel = sel.eq('group_id', scope);
+    if (before) sel = sel.lt('created_at', before);
+    const rows = await q(sel.order('created_at', {ascending: false}).limit(PAGE));
+    if (rows.length < PAGE) S.feedEnd[scope] = true;
+    if (rows.length) S.cursor[scope] = rows.at(-1).created_at;
+    const got = await bringIn(rows.map(asPost).filter(p => !S.posts.some(x => x.id === p.id)));
+    S.posts = [...S.posts, ...got].sort((a, b) => b.ts - a.ts);
+    if (scope === 'all') S.allFrom = S.feedEnd.all ? 0 : Math.min(S.allFrom, ...rows.map(r => Date.parse(r.created_at)));
+  } finally { paging = false; }
+}
+// One day of one group, opened from the month. Most days are further back than any page
+// the feed has, so the day is fetched as itself, kept apart from the feed's pages.
+async function loadDay(gid, day) {
+  const k = `${gid}|${day}`;
+  if (S.days[k] && !S.days[k].err) return;
+  S.days[k] = {loading: true, posts: []};
+  try {
+    const rows = await q(sb.from('posts').select('*').eq('group_id', gid).eq('day', day).order('created_at', {ascending: false}));
+    S.days[k] = {posts: await bringIn((rows || []).map(asPost))};
+  } catch (e) { S.days[k] = {posts: [], err: true}; }
+  if (S.sub && S.sub.kind === 'day') render();
+}
+// A recap reaches back months, so its clips are signed when the recaps are opened rather
+// than with everything else. Still only signatures: a clip is fetched when it plays.
+async function signRecaps(gid) {
+  const g = S.groups.find(x => x.id === gid);
+  if (!g) return;
+  const clips = [...new Set([...recapsOf(g), openPeriod(g)].flatMap(r => r.posts))].filter(p => !urlFresh(p) && !locked(p));
+  if (!clips.length) return;
+  try { await signProof(clips); } catch (e) { return; }
+  if (S.sub && S.sub.kind === 'recaps') render();
 }
 
 // What anybody signed in may read of somebody else's profile. Everything else on the row is
 // the owner's alone, and the database enforces that with a column grant (v49).
 const PROFILE_COLS = 'id,username,display_name,avatar_path,bio,shown_groups,created_at';
 
-// Proof somebody put on a story, fetched as itself. The feed carries the last two hundred
+// Proof somebody put on a story, fetched as itself. The feed carries the newest page of
 // posts in groups this account is in, and a story can point at neither — somebody's own
 // older post, or one in a group shared with them but not with you. Asked for only when a
 // story on screen actually points at one, so the ordinary load is unchanged.
@@ -2225,15 +2417,15 @@ const PROFILE_COLS = 'id,username,display_name,avatar_path,bio,shown_groups,crea
 // can see the story, so in practice all of them. One that is missing draws as a card
 // saying the post has gone rather than as a hole.
 async function storyPosts() {
-  const want = [...new Set(S.stories.map(x => (x.style || {}).post)
+  // A flag can be about a post further back than the first page, and its row has to be
+  // drawable, so those are fetched the same way.
+  const want = [...new Set([...S.stories.map(x => (x.style || {}).post), ...S.flags.map(f => f.post)]
     .filter(id => Number.isFinite(+id) && +id > 0).map(Number))]
     .filter(id => !S.posts.some(p => p.id === id));
   if (!want.length) { S.spost = {}; return; }
   try {
     const rows = await q(sb.from('posts').select('*').in('id', want));
-    const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
-      amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
-      challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile}));
+    const list = (rows || []).map(asPost);
     if (list.length) await signProof(list);
     S.spost = Object.fromEntries(list.map(p => [p.id, p]));
   } catch (e) { S.spost = {}; }            // a card that says the post has gone beats no stories at all
@@ -2405,11 +2597,11 @@ const morphKey = n => n.nodeType !== 1 ? null
   : n.id ? '#' + n.id : null;
 // Set on a clip or a picture while it is on the page, never written in the markup: the
 // markup says where the file is (data-src), and these say what the element is doing with it.
-const LIVE_ATTRS = new Set(['src', 'data-idle', 'data-retried', 'style']);
+const LIVE_ATTRS = new Set(['src', 'poster', 'data-go', 'data-idle', 'data-retried', 'style']);
 function morph(a, b) {
   if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
   if (a.classList.contains('reel')) return morphReel(a, b);
-  const lazy = b.hasAttribute('data-src');
+  const lazy = b.hasAttribute('data-src') || b.hasAttribute('data-poster');
   for (const {name} of [...a.attributes]) if (!b.hasAttribute(name) && !(lazy && LIVE_ATTRS.has(name))) a.removeAttribute(name);
   for (const {name, value} of [...b.attributes]) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
   morphKids(a, b);
@@ -2792,7 +2984,7 @@ function feedView() {
     + spinPrompt()
     + activityBox()
     + outboxCard()
-    + (gs.length ? feed(S.posts, true) : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
+    + (gs.length ? feed(allFeed(), true, false, 'all') : `<div class="card empty"><b>No groups yet</b><p class="muted">Make one under Groups, or accept an invite. Proof from your groups shows up here.</p></div>`);
 }
 // The way to everything being questioned right now. It is in the feed rather than behind a
 // tab because it is a thing with a clock on it: something you have hours to answer, not a
@@ -3667,7 +3859,7 @@ async function delStory(id) {
   S.stories = S.stories.filter(x => x.id !== id); render();
   try {
     await q(sb.from('stories').delete().eq('id', id));
-    if (st && st.path) await sb.storage.from('stories').remove([st.path]);
+    if (st && st.path) await dropFiles(st.store, 'stories', [st.path]);
   } catch (e) {}
   load();
 }
@@ -3929,14 +4121,11 @@ async function postStory() {
       await load();
       return;
     }
+    // A story's file goes to R2 like proof does, under stories/ in your own folder.
     let path = null;
-    if (d.file) {
-      path = `${m.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${(d.file.name || '').split('.').pop() || (d.kind === 'photo' ? 'jpg' : 'mp4')}`;
-      const {error} = await sb.storage.from('stories').upload(path, d.file, {contentType: d.file.type || undefined});
-      if (error) throw error;
-    }
+    if (d.file) path = await putFile({story: true}, d.file, () => {});
     await q(sb.from('stories').insert({user_id: m.id, kind: d.kind, media_path: path,
-      body: d.body || null, style: styleOf(d)}));
+      ...(path ? {media_store: 'r2'} : {}), body: d.body || null, style: styleOf(d)}));
   } catch (e) {
     if (go) { go.disabled = false; go.textContent = d.editing ? 'Save' : 'Share'; }
     return showErr(d.editing ? 'That change did not save.' : 'That story did not go up.', String(e && e.message || e));
@@ -4242,7 +4431,11 @@ async function shareInvite(gid) {
 // ---- looking back: the month, your own numbers, and the recaps
 // A screen pushed over the group or the profile. One key rather than a flag each, so
 // render() and go() have one thing to clear.
-function openSub(kind, gid, day) { S.sub = {kind, gid, day}; stackOn(); }
+function openSub(kind, gid, day) {
+  S.sub = {kind, gid, day}; stackOn();
+  if (kind === 'day') loadDay(gid, day);
+  if (kind === 'recaps') signRecaps(gid);
+}
 function closeSub() { S.sub = null; stackOff(); }
 function subScreen(v) {
   const g = S.groups.find(x => x.id === v.gid);
@@ -4301,9 +4494,12 @@ function monthView(g) {
 }
 // One day of one group, which is the feed already knows how to draw.
 function dayView(g, day) {
-  const ps = S.posts.filter(p => p.groupId === g.id && p.day === day);
+  if (!S.days[`${g.id}|${day}`]) loadDay(g.id, day);   // asked for when it was opened; again if that was forgotten
+  const got = S.days[`${g.id}|${day}`] || {loading: true, posts: []};
+  const ps = [...new Map([...got.posts, ...S.posts.filter(p => p.groupId === g.id && p.day === day)]
+    .filter(p => !S.blocked.has(p.userId)).map(p => [p.id, p])).values()].sort((a, b) => b.ts - a.ts);
   return smallHdr(esc(dayLabel(day))) + backTo(g.name, `openSub('month',${g.id})`)
-    + `<p class="muted pad">${esc(g.name)}</p>` + feed(ps);
+    + `<p class="muted pad">${esc(g.name)}</p>` + (!ps.length && got.loading ? `<p class="muted pad">Loading…</p>` : feed(ps));
 }
 
 // ---- your own numbers
@@ -4314,7 +4510,8 @@ function statsView() {
   const m = me(), gs = myGroups();
   const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
   const mon = today().slice(0, 7);
-  const mine = new Set(S.posts.filter(p => p.userId === m.id && p.day.startsWith(mon)).map(p => p.day));
+  // From the whole history rather than the feed's pages, which stop well short of a month.
+  const mine = new Set(S.hist.filter(p => p.userId === m.id && p.day.startsWith(mon)).map(p => p.day));
   const dots = [];
   for (let i = 29; i >= 0; i--) { const d = daysAgo(i); dots.push(`<i class="${gs.some(g => hit(g, m.id, d)) ? 'on' : ''}"></i>`); }
   const on = dots.filter(x => x.includes('on')).length;
@@ -4371,8 +4568,8 @@ function recapsOf(g) {
 }
 // A montage is clips. A photo has no duration and would either flash past or need a rule
 // about how long to hold it, so the recap is the moving ones.
-const clipsBetween = (g, from, to) => S.posts
-  .filter(p => p.groupId === g.id && p.day >= from && p.day <= to && !isPhoto(p) && p.url)
+const clipsBetween = (g, from, to) => S.hist
+  .filter(p => p.groupId === g.id && p.day >= from && p.day <= to && !isPhoto(p) && p.path && !S.blocked.has(p.userId))
   .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.ts - b.ts));
 // The one still filling up, so the screen can say what is coming rather than only what has
 // been. Not a recap yet: it has no closing date behind it.
@@ -4391,7 +4588,7 @@ function recapsView(g) {
   const rs = recapsOf(g), open = openPeriod(g), seen = watched();
   const card = r => `<div class="rwrap"><button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
     <span class="sheet">${r.posts.slice(0, 8).map((p, i) => `<i style="--n:${i}"></i>`).join('')}
-      <video class="proof" muted playsinline preload="metadata"${posterAttr(r.posts[0])} data-src="${esc(r.posts[0].url)}"></video></span>
+      <video class="proof" muted playsinline preload="none"${lazyPoster(r.posts[0])}></video></span>
     <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
     <span class="meta"><b>${esc(r.name)}</b><em>${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
     ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>
@@ -4560,6 +4757,7 @@ async function shareRecap(gid, key) {
   box.insertAdjacentHTML('beforeend', `<div class="rendering"><b>Putting it together…</b>
     <span class="muted">This runs at about the speed of the clips.</span></div>`);
   try {
+    if (r.posts.some(p => !urlFresh(p))) await signProof(r.posts);   // left open long enough to run out
     const blob = await renderMontage(r.posts, p => say(`Putting it together… ${Math.round(p * 100)}%`));
     const file = new File([blob], `${g.name.replace(/[^\w]+/g, '-').toLowerCase()}-recap.mp4`, {type: blob.type});
     if (await shareFile(file, `${r.name} — ${g.name} on Quota`)) await unlockedBy(gid);
@@ -4612,11 +4810,13 @@ async function pickMark(gid, k) {
 // not reused: it is a queue of people with seen marks and swipes between them, and forcing
 // a week of one group's clips into that shape would be more work than this whole player.
 let R = null;                              // {clips, i, key}
-function openRecap(gid, key) {
+async function openRecap(gid, key) {
   const g = S.groups.find(x => x.id === gid);
   if (!g) return;
   const r = recapsOf(g).find(x => x.key === key);
   if (!r || !r.posts.length) return;
+  // Signed when the recaps were opened; only asked for again if that has run out since.
+  if (r.posts.some(p => !urlFresh(p))) { try { await signProof(r.posts); } catch (e) {} }
   R = {clips: r.posts, i: 0, key, name: r.name};
   markWatched(key);
   $('#recap').hidden = false;
@@ -4685,7 +4885,7 @@ function groupView(g) {
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
   ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
   ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
-  <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id))}`;
+  <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id), false, false, g.id)}`;
 }
 // Who owes the crew, kindly: a name, the forfeit in the crew's own words, and which day.
 // Anybody else in the group can mark it paid; nobody marks their own.
@@ -4729,7 +4929,7 @@ const lockedReel = p => `<div class="reel lockedreel">
 // ponytail: a slice and a button. Attaching sources to only what is on screen would keep
 // the whole history scrollable, but the elements are the cost here, not the sources.
 const PAGE = 24;
-function feed(ps, showGroup, bare) {
+function feed(ps, showGroup, bare, scope) {
   if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
   // A single post opened on its own is already one post; there is nothing to page.
   const shown = bare ? ps : ps.slice(0, PAGE * (1 + (S.more || 0)));
@@ -4746,7 +4946,7 @@ function feed(ps, showGroup, bare) {
       ${locked(p) ? lockedReel(p) : `<div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="likeTap(this,${p.id})" onerror="clipBust(this,${p.id})">`
-        : `<video class="proof" playsinline preload="metadata"${posterAttr(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
+        : `<video class="proof" playsinline preload="none"${lazyPoster(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
       <div class="badge">+${effort(p)}</div>
       ${isPhoto(p) ? '' : `<div class="play"><i></i></div>
       <button type="button" class="sound" onclick="clipSound(this)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6"/><path class="m" d="M4 4l16 16"/></svg></button>
@@ -4758,11 +4958,30 @@ function feed(ps, showGroup, bare) {
       ${locked(p) ? '' : bare ? '' : acts(p, cs.length)}
       ${locked(p) || !p.caption ? '' : `<div class="cap"><b>${esc(u.username || name(u))}</b>${esc(p.caption)}</div>`}
       ${locked(p) || bare ? '' : commentsFor(p, cs)}</div>`;
-  }).join('') + (older ? `<div class="row" style="margin:14px 18px"><button class="small grow" onclick="showOlder()">Show more</button></div>` : '');
+  }).join('') + (older || (scope != null && !S.feedEnd[scope])
+    ? `<div class="row older" style="margin:14px 18px"><button class="small grow" data-scope="${scope === 'all' ? '&quot;all&quot;' : +scope || 'null'}" onclick="showOlder(${scope === 'all' ? "'all'" : +scope || 'null'},true)">Show more</button></div>` : '');
 }
 // Another page of them. Reset whenever the screen changes, so opening a group does not
-// inherit however far somebody had scrolled back through a different one.
-function showOlder() { S.more = (S.more || 0) + 1; render(); }
+// inherit however far somebody had scrolled back through a different one. When the page
+// asked for is further back than anything fetched yet, it is fetched first.
+async function showOlder(scope, tapped) {
+  if (showOlder.busy) return;
+  if (tapped) S.olderFailed = false;       // a tap is somebody asking: try again
+  showOlder.busy = true;
+  try {
+    const want = PAGE * (2 + (S.more || 0));
+    const have = scope === 'all' ? allFeed().length : scope ? S.posts.filter(p => p.groupId === scope).length : Infinity;
+    if (scope && have < want) await olderPosts(scope);
+    S.more = (S.more || 0) + 1;
+  } catch (e) {
+    // Not again on its own: the button stays for a tap, and scrolling past it does nothing,
+    // or a dropped connection would fetch, fail and fetch again for as long as it is there.
+    S.olderFailed = true;
+    if (!e.shown) showErr("Couldn't load older posts.", String(e && e.message || e));
+  }
+  finally { showOlder.busy = false; }
+  render();
+}
 // A signed URL lasts an hour and every post gets one at load, so a feed left open long
 // enough, or a post whose file could not be signed at all, ends up pointing at nothing.
 // Either way the player shows a black rectangle and a play button that does nothing,
@@ -4773,16 +4992,17 @@ function showOlder() { S.more = (S.more || 0) + 1; render(); }
 // that "sometimes don't work". So a clip is only given its source while it is near the
 // screen, and gives it back once it is well past and not playing.
 let clipObs = null;
+// Near the screen, a clip gets its still and a picture gets its file. A clip itself is
+// only given a source once somebody taps it (data-go): until then the still is the whole
+// of it, and nothing of the clip is downloaded. Every clip in the feed used to load its
+// opening on the way past, and nudge itself off zero to paint a frame — which on a group
+// of six was a couple of hundred downloads a day of clips nobody had asked to watch.
 const attachClip = v => {
   delete v.dataset.idle;
+  if (v.dataset.poster && v.getAttribute('poster') !== v.dataset.poster) v.setAttribute('poster', v.dataset.poster);
+  if (v.tagName === 'VIDEO' && !v.dataset.go) return;
   if (v.getAttribute('src') || !v.dataset.src) return;
   v.src = v.dataset.src; v._srcAt = Date.now();
-  // preload="metadata" fetches the header and stops, and a video element that has never
-  // decoded a frame paints nothing — which is the black rectangle where the first frame
-  // of somebody's clip should be. Nudging off zero makes it decode one and show it.
-  if (v.tagName === 'VIDEO') v.addEventListener('loadedmetadata', () => {
-    try { if (v.currentTime < 0.05) v.currentTime = 0.05; } catch (e) {}
-  }, {once: true});
 };
 function releaseClip(v) {
   if (!v.getAttribute('src') || (v.tagName === 'VIDEO' && !v.paused)) return;
@@ -4850,6 +5070,18 @@ function watchClips() {
   }, {rootMargin: '150% 0px'});
   vs.forEach(v => clipObs.observe(v));
   sweepClips();
+  watchOlder();
+}
+// The feed fetches its next page as the end of this one comes up, rather than waiting to
+// be asked: a button is still there for anyone who gets to it first, or has no observer.
+let olderObs = null;
+function watchOlder() {
+  if (olderObs) olderObs.disconnect();
+  const b = document.querySelector('#app .older button');
+  if (!b || !self.IntersectionObserver || S.olderFailed) return;
+  olderObs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { olderObs.disconnect(); showOlder(...JSON.parse(`[${b.dataset.scope}]`)); } },
+    {rootMargin: '600px 0px'});
+  olderObs.observe(b);
 }
 
 // Observing a clip does not tell you anything about it until it *crosses* the margin, and
@@ -4912,7 +5144,8 @@ function putEmoji(btn, e) {
 // is what left a clip on somebody's profile with a play button that did nothing.
 const postById = id => S.posts.find(x => x.id === id)
   || Object.values(S.pro).flatMap(x => x.posts || []).find(x => x.id === id)
-  || S.spost[id];
+  || S.spost[id]
+  || Object.values(S.days || {}).flatMap(x => x.posts || []).find(x => x.id === id);
 
 const reelOf = v => v.closest('.reel');
 function bustMsg(v, msg) {
@@ -4925,9 +5158,17 @@ function bustMsg(v, msg) {
 async function freshUrl(postId) {
   const p = postById(postId);
   if (!p || !p.path || locked(p)) return '';   // a retry is not a way around the lock
-  const {data, error} = await sb.storage.from('proof').createSignedUrl(p.path, 3600);
-  if (error || !data || !data.signedUrl) return '';
-  p.url = data.signedUrl;
+  SIGNED.delete(signKey(p.store, p.path));
+  if (!onR2(p)) {                          // still in the Supabase bucket: one URL, the way it always was
+    const {data, error} = await sb.storage.from('proof').createSignedUrl(p.path, 3600);
+    if (error || !data || !data.signedUrl) return '';
+    SIGNED.set(signKey('sb', p.path), {url: data.signedUrl, until: Date.now() + 3600e3});
+  } else {
+    try { await signFiles([{store: p.store, path: p.path}]); } catch (e) { return ''; }
+  }
+  const s = signedFor(p.store, p.path);
+  if (!s || !s.url) return '';
+  p.url = s.url; p.until = s.until;
   return p.url;                            // the element's data-src is refreshed by whoever asked
 }
 async function clipBust(v, postId, play) {
@@ -4969,7 +5210,12 @@ function playClip(v, postId) {
   // A hold on the edge was a speed-up, not a tap: letting go must not also pause it.
   if (Date.now() - (v._heldAt || 0) < 450) return;
   likeTap(v, postId);
-  attachClip(v);                           // tapped before it came into view: give it back its source
+  v.dataset.go = '1';                      // asked for: from now on it may hold a source
+  // A post drawn before its URL arrived has none on the element: the page may hold one by now.
+  // One that has run out is clipBust()'s to replace, which it does when the player says so.
+  const p = postById(postId);
+  if (!v.getAttribute('src') && !v.dataset.src && p && urlFresh(p)) v.dataset.src = p.url;
+  attachClip(v);
   if (!v.getAttribute('src')) return clipBust(v, postId, true);
   if (!v.paused) return v.pause();
   // play() rejects when the source never arrived, and an unhandled rejection here is the
@@ -5764,7 +6010,7 @@ function flagsView() {
       const yes = v.filter(x => x.yes).length;
       return `<button type="button" class="frow" onclick="openFlag(${f.id})">
         <span class="th">${isPhoto(p) ? `<img alt=""${p.url ? ` src="${esc(p.url)}"` : ''}>`
-          : `<video muted playsinline preload="metadata"${posterAttr(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}</span>
+          : `<video muted playsinline preload="none"${lazyPoster(p)}></video>`}</span>
         <span class="gr"><b>${esc(name(u))} · ${esc(effort(p))}</b>
           <em>${f.outcome === 'upheld' ? 'Needs redoing' : f.outcome ? 'Stands' : `${yes} of ${v.length} say redo`}</em></span>
         ${f.outcome ? `<span class="tag ${f.outcome === 'upheld' ? 'bad' : 'good'}">${f.outcome === 'upheld' ? 'Redo' : 'Stands'}</span>`
@@ -6146,14 +6392,14 @@ async function deleteAccount(f) {
     // Files first. Storage keeps what a database delete cannot reach, and will not let an
     // account that still owns files be deleted at all. my_files() has every clip, including
     // ones in groups you have left; the folders have your pictures.
-    const paths = {proof: new Set(), stories: new Set(), avatars: new Set()};
+    const paths = {proof: new Set(), stories: new Set(), avatars: new Set(), r2: new Set()};
     // Straight to the library rather than through q(), so a failure here gets the sentence
     // below, which says nothing was deleted, rather than a general one.
     const mine = await sb.rpc('my_files');
     if (mine.error) throw mine.error;
     for (const x of mine.data || []) {
       paths[x.bucket]?.add(x.path);
-      if (x.bucket === 'proof' && !IMAGE.test(x.path)) paths.proof.add(POSTER(x.path));   // and its still
+      if ((x.bucket === 'proof' || x.bucket === 'r2') && !IMAGE.test(x.path)) paths[x.bucket].add(POSTER(x.path));   // and its still
     }
     for (const b of ['avatars', 'stories']) {
       const {data} = await sb.storage.from(b).list(uid, {limit: 1000});
@@ -6164,6 +6410,7 @@ async function deleteAccount(f) {
     for (const [b, set] of Object.entries(paths)) {
       const all = [...set];
       for (let i = 0; i < all.length; i += 100) {
+        if (b === 'r2') { await media('delete', {paths: all.slice(i, i + 100)}); continue; }
         const {error} = await sb.storage.from(b).remove(all.slice(i, i + 100));
         if (error) throw error;
       }
@@ -6289,7 +6536,7 @@ function tile(p, own) {
   const pub = own && p.onProfile;
   return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}${own ? (p.onProfile ? ', on show' : ', only you can see this') : ''}">
     ${pic ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''}>`
-      : `<video class="proof" playsinline preload="metadata" muted${posterAttr(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''}></video>`}
+      : `<video class="proof" playsinline preload="none" muted${lazyPoster(p)}></video>`}
     ${pic ? '' : `<svg class="pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`}
     ${pub ? `<i class="seen" aria-hidden="true">${MARKED}</i>` : ''}
     <b>+${num(p.amount)}</b></button>`;
@@ -6305,6 +6552,9 @@ function openPost(id) {
       <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button></div>
     <div class="onewrap" id="onewrap">${feed([p], true)}</div>`;
   box.hidden = false;
+  // Opening one post is asking to watch it: its clip gets its source straight away, so the
+  // tap on it plays at once. preload="none" still means nothing is fetched until it does.
+  box.querySelectorAll('video.proof').forEach(v => { v.dataset.go = '1'; });
   watchClips();
 }
 function closePost() { S.one = null; $('#one').hidden = true; $('#one').innerHTML = ''; watchClips(); }
@@ -7198,12 +7448,12 @@ function sizeLine(f) {
   // big can be re-encoded to 720p first, and it is the result that has to fit. Whether it
   // is worth doing depends on how long the clip runs, which is not known until it is read.
   const pic = isPic(f);
-  const shrinks = pic ? f.size >= PHOTO_OVER : (!!mp4Type() && f.size >= COMPRESS_OVER);
+  const shrinks = pic ? f.size >= PHOTO_OVER : typeof VideoEncoder !== 'undefined';
   const over = f.size > MAX_MB * 1048576;
   el.className = over && !shrinks ? 'warn' : 'muted';
   el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`
     : pic ? `${mb(f.size)} MB${shrinks ? ' · scaled down before it uploads' : ''}`
-    : shrinks ? `${mb(f.size)} MB · shrunk to 720p first if that is quicker than sending it` : `${mb(f.size)} MB`;
+    : shrinks ? `${mb(f.size)} MB · shrunk to 720p before it uploads` : `${mb(f.size)} MB`;
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
@@ -7506,9 +7756,7 @@ async function loadProfile(uid) {
     let sel = sb.from('posts').select('*').eq('user_id', uid);
     if (!own) sel = sel.eq('on_profile', true);
     const rows = await q(sel.order('created_at', {ascending: false}).limit(60));
-    const list = (rows || []).map(p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric,
-      amount: p.amount, caption: p.caption, path: p.video_path, day: p.day, ts: Date.parse(p.created_at),
-      challenge: p.challenge, spinId: p.spin_id, onProfile: own ? !!p.on_profile : true}));
+    const list = (rows || []).map(p => ({...asPost(p), onProfile: own ? !!p.on_profile : true}));
     if (list.length) await signProof(list);
     S.pro[uid] = {loading: false, posts: list};
   } catch (e) { S.pro[uid] = {loading: false, posts: [], err: true}; }
@@ -7723,7 +7971,7 @@ async function confirmEmail(f) {
 }
 // Where you were goes with you. Settings was left open behind the welcome screen, so the
 // next account to sign in on this phone opened on it, before it even had a group.
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} dropSnap(); S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -8307,18 +8555,24 @@ function pickAvatar(input) {
 }
 
 // ---- shrinking a clip before it goes over the wire
-// The camera writes far more than a 4:5 card on a phone screen needs: by Apple's own
-// figures a minute of 1080p is about 65 MB and a minute of 4K about 170 MB, and all of
-// it used to go up untouched. Re-encoding to 720p first turns a 20-second clip from tens
-// of megabytes into two or three, which is both a much shorter upload and about ten times
-// more videos inside the 1 GB the free plan gives us.
-// Every failure path here returns the original file. A slow post beats a broken one.
-const TARGET_H = 720, VIDEO_BPS = 2500000;
-const COMPRESS_OVER = 6 * 1048576;   // below this the upload is quick anyway
-const LONGEST = 150;                 // seconds: re-encoding runs at about real time
+// The camera writes far more than a 4:5 card on a phone screen needs: an iPhone clip is
+// 1080p or 4K HEVC in a .mov, about 12 MB for ten seconds, and a .mov in HEVC will not play
+// at all in Chrome on Android or Windows. So every clip is turned into the one thing every
+// phone plays — H.264 and AAC in an MP4, no more than 720 on its short side, about 1.8
+// Mbps, with the index at the front so it starts the moment it is tapped — before it goes.
+// Ten seconds of that is about 2.5 MB.
+//
+// Mediabunny does it through WebCodecs, on the phone's own hardware encoder, several times
+// faster than the clip runs. It is loaded only when something is being posted, and every
+// failure — no WebCodecs, no H.264 encoder, a file it cannot read, anything thrown — sends
+// the original instead. A slow post beats a broken one, and no post waits on this.
+const MEDIABUNNY = '/vendor/mediabunny-1.61.4/mediabunny.min.js';
+const MEDIABUNNY_AAC = '/vendor/mediabunny-1.61.4/mediabunny-aac-encoder.min.js';
+const SHORT_SIDE = 720, CLIP_BPS = 1800000, CLIP_AUDIO_BPS = 96000, CLIP_FPS = 30;
 
 // H.264 in MP4 only. A WebM recorded on an Android phone will not play on the iPhones
 // most of this group is using, and proof nobody can watch is worse than a slow upload.
+// Only the recap montage records through MediaRecorder now; clips go through convertClip().
 const mp4Type = () => (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) ? ''
   : ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4']
       .find(t => MediaRecorder.isTypeSupported(t)) || '';
@@ -8371,99 +8625,62 @@ async function shrinkPhoto(file) {
 
 async function shrink(file, onProgress) {
   if (/^image\//.test(file.type) || IMAGE.test(file.name || '')) return shrinkPhoto(file);
-  const type = mp4Type();
-  if (!type || file.size < COMPRESS_OVER) return file;
-  // Recorded in the app, so it is already 720p at the bitrate we asked for. Re-encoding it
-  // would cost the length of the clip and give back almost nothing.
-  if (file.fromCamera) return file;
-  const url = URL.createObjectURL(file), v = document.createElement('video');
-  let ac, stop = false, handle;
+  try { return (await convertClip(file, onProgress)) || file; }
+  catch (e) { console.warn('Quota: sending the clip as it was:', e); return file; }
+}
+
+// The size a clip comes out at: its short side brought down to SHORT_SIDE, never up, both
+// sides even because encoders want them even. Worked out on the picture as it is shown, so
+// a portrait clip stored sideways with a rotation flag comes out 720 wide, not 720 tall.
+function clipBox(w, h) {
+  const k = Math.min(1, SHORT_SIDE / Math.min(w, h));
+  return {width: Math.max(2, Math.round(w * k / 2) * 2), height: Math.max(2, Math.round(h * k / 2) * 2)};
+}
+
+// null means "send the original": the browser cannot do it, or doing it would lose
+// something (a sound track it cannot read), or it came out wrong.
+async function convertClip(file, onProgress) {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') return null;
+  const M = await import(MEDIABUNNY);
+  // Safari has encoded H.264 through WebCodecs for longer than it has AAC. The extension is
+  // ffmpeg's AAC encoder in WASM, fetched only for a browser that needs it.
+  if (!(await M.canEncodeAudio('aac'))) (await import(MEDIABUNNY_AAC)).registerAacEncoder();
+  const input = new M.Input({source: new M.BlobSource(file), formats: M.ALL_FORMATS});
   try {
-    v.playsInline = true; v.preload = 'auto'; v.src = url;
-    await new Promise((res, rej) => {
-      v.onloadedmetadata = res;
-      v.onerror = () => rej(new Error('unreadable'));
-      setTimeout(() => rej(new Error('timed out')), 20000);
+    const vt = await input.getPrimaryVideoTrack();
+    if (!vt) return null;
+    const at = await input.getPrimaryAudioTrack();
+    const [w, h, secs, vcodec] = [await vt.getDisplayWidth(), await vt.getDisplayHeight(), await input.computeDuration(), await vt.getCodec()];
+    if (!w || !h || !(secs > 0)) return null;
+    const box = clipBox(w, h);
+    if (!(await M.canEncodeVideo('avc', {width: box.width, height: box.height, bitrate: CLIP_BPS}))) return null;
+    // Sixty frames a second is twice the bits for nothing anybody checking a rep needs.
+    const fps = (await vt.computePacketStats(90).catch(() => null))?.averagePacketRate || 0;
+    const output = new M.Output({format: new M.Mp4OutputFormat({fastStart: 'in-memory'}), target: new M.BufferTarget()});
+    const conv = await M.Conversion.init({
+      input, output, tracks: 'primary', showWarnings: false,
+      video: {...box, fit: 'contain', codec: 'avc', bitrate: CLIP_BPS, ...(fps > CLIP_FPS + 2 ? {frameRate: CLIP_FPS} : {})},
+      audio: {codec: 'aac', bitrate: CLIP_AUDIO_BPS},
     });
-    const secs = v.duration;
-    if (!v.videoWidth || !isFinite(secs) || secs <= 0 || secs > LONGEST) return file;
-    // Already at or under the size we would re-encode to, and not enormous: whatever is
-    // left to save is not worth making somebody wait the length of their own clip for.
-    if (v.videoHeight <= TARGET_H && file.size <= secs * VIDEO_BPS / 8 * 1.6) return file;
-    // Re-encoding runs at about real time, so a 40-second clip costs 40 seconds before a
-    // byte moves. That only pays for itself if the bytes it saves would have taken longer
-    // than that to send. On a fast connection they would not, and the whole wait is the
-    // app's own doing. Judged on what this phone's uploads have actually managed, and
-    // only when the original is small enough to send at all.
-    const rate = upRate();
-    if (rate && file.size <= MAX_MB * 1048576 && (file.size - secs * VIDEO_BPS / 8) / rate < secs) return file;
-
-    const scale = Math.min(1, TARGET_H / v.videoHeight);
-    const c = document.createElement('canvas');
-    c.width = Math.round(v.videoWidth * scale / 2) * 2;      // encoders want even dimensions
-    c.height = Math.round(v.videoHeight * scale / 2) * 2;
-    const g = c.getContext('2d'), stream = c.captureStream();
-
-    // Pull the audio through WebAudio instead of the speakers, so re-encoding is silent.
-    try {
-      ac = new (self.AudioContext || self.webkitAudioContext)();
-      await ac.resume();
-      const dest = ac.createMediaStreamDestination();
-      ac.createMediaElementSource(v).connect(dest);
-      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-    } catch (e) { /* no audio route: the picture still gets through */ }
-
-    const rec = new MediaRecorder(stream, {mimeType: type, videoBitsPerSecond: VIDEO_BPS});
-    const chunks = [], stopped = new Promise(res => { rec.onstop = res; });
-    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
-    rec.start();
-
-    const pump = () => {
-      if (stop) return;
-      g.drawImage(v, 0, 0, c.width, c.height);
-      onProgress(Math.min(1, v.currentTime / secs));
-      handle = v.requestVideoFrameCallback ? v.requestVideoFrameCallback(pump) : requestAnimationFrame(pump);
-    };
-    await v.play();
-    pump();
-    await Promise.race([
-      new Promise(res => { v.onended = res; }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('stalled')), (secs + 20) * 2500)),
-    ]);
-    stop = true;
-    rec.stop();
-    await stopped;
-
-    const out = new Blob(chunks, {type: type.split(';')[0]});
-    if (out.size < 1024 || out.size > file.size * 0.9) return file;   // no real gain: not worth the risk
-    if (!await playable(out, secs)) return file;
-    return new File([out], file.name.replace(/\.[^.]*$/, '') + '.mp4', {type: out.type});
-  } catch (e) {
-    return file;
+    // A clip with its sound dropped is not the clip that was filmed.
+    if (!conv.isValid || conv.discardedTracks.some(d => d.track === vt || (at && d.track === at))) return null;
+    conv.onProgress = p => onProgress(Math.min(1, p));
+    let stalled;
+    await Promise.race([conv.execute(), new Promise((_, no) => { stalled = setTimeout(() => { conv.cancel().catch(() => {}); no(new Error('stalled')); }, Math.max(60, secs * 8) * 1000); })])
+      .finally(() => clearTimeout(stalled));
+    const buf = output.target.buffer;
+    if (!buf || buf.byteLength < 1024) return null;
+    const out = new File([buf], (file.name || 'clip').replace(/\.[^.]*$/, '') + '.mp4', {type: 'video/mp4'});
+    if (!(await playable(out, secs))) return null;
+    // Bigger than what came in is only worth it when what came in is not already an MP4
+    // every phone plays — a small HEVC .mov still has to become H.264 to play on Android.
+    const fine = /mp4/.test(file.type) && vcodec === 'avc' && (!at || (await at.getCodec()) === 'aac');
+    return out.size >= file.size && fine ? null : out;
   } finally {
-    stop = true;
-    if (handle && !v.requestVideoFrameCallback) cancelAnimationFrame(handle);
-    try { v.pause(); } catch (e) {}
-    v.src = ''; URL.revokeObjectURL(url);
-    if (ac) ac.close().catch(() => {});
+    try { input.dispose(); } catch (e) {}
   }
 }
 
-// How fast this phone actually gets a video out, in bytes a second, blended over the
-// uploads it has done. Whether re-encoding is worth the wait depends entirely on this,
-// and nothing else in the browser will tell us: navigator.connection is Chrome-only and
-// describes the link, not what Supabase gives us on it.
-const upRate = () => { const n = +localStorage.getItem('quota.uprate'); return n > 0 ? n : 0; };
-function noteRate(bytes, secs) {
-  if (!(secs > 1) || !(bytes > 1048576)) return;         // too small or too quick to learn from
-  const cur = bytes / secs, was = upRate();
-  try { localStorage.setItem('quota.uprate', String(was ? was * 0.5 + cur * 0.5 : cur)); } catch (e) {}
-}
-
-// supabase-js sends the file through fetch, which cannot report upload progress, so a
-// phone video sat on a motionless "Uploading…" for the whole transfer with no way to
-// tell a slow connection from a stuck one. This is the same request its storage client
-// builds — a multipart POST to the object endpoint — sent with XHR so it can be watched.
 // ---- the outbox
 // A clip that could not go up is not a clip to throw away. It was recorded live, in the
 // moment, and there is no filming it again later — so it is kept on the device, the app
@@ -8529,16 +8746,23 @@ async function flushOutbox() {
           const bytes = await clipBytes(row.file);
           if (!bytes) throw Object.assign(new Error('gone'), {dead: true});
           const blob = new Blob([bytes], {type: row.file.type || 'video/mp4'});
-          await upload('proof', row.path, blob, () => {});
-          if (!isPhoto({path: row.path})) await putPoster(row.path, blob);
-          row.upPath = row.path;
+          // Where it goes is decided when it goes: R2 names the file at the moment it is
+          // signed for. One queued by an older version of the app goes the same way.
+          // The still taken when it was recorded comes with it, read out fresh like the clip:
+          // a page just reopened on iOS often cannot decode a frame, and a clip posted from
+          // here used to go up with no still and sit black in the feed until it was tapped.
+          const kept = isPic(blob) ? null : await clipBytes(row.poster);
+          const poster = isPic(blob) ? null : kept ? new Blob([kept], {type: 'image/jpeg'}) : await grabPoster(blob);
+          row.upPath = await putFile({group_id: row.post.group_id}, blob, () => {}, poster);
+          row.store = 'r2';
           await outPut(row);
         }
         // An insert can land while its answer is lost on the way back, and the next try
         // would post it twice. The file's path is unique to this clip, so ask first.
         const {data: already} = await sb.from('posts').select('id').eq('video_path', row.upPath).limit(1);
         if (!already || !already.length) {
-          const {error} = await sb.from('posts').insert({...row.post, video_path: row.upPath});
+          const {error} = await sb.from('posts').insert({...row.post, video_path: row.upPath,
+            ...(row.store === 'r2' ? {video_store: 'r2'} : {})});
           if (error) throw error;
         }
         await outDel(row.id);
@@ -8563,13 +8787,16 @@ async function flushOutbox() {
 // Put one by. The day it was recorded for is kept with it: a clip that finally goes up on
 // Tuesday was still Monday's proof, and posting it as Tuesday's would be a lie about both
 // days.
-async function queuePost(post, path, file) {
+async function queuePost(post, file, upPath = null, poster = null) {
   // The bytes, not the camera's file. On iOS what the camera hands back points at a file
   // the system is free to delete once the app is closed: the pointer survives in
   // IndexedDB, the clip behind it does not, and the outbox is left holding a name.
   let keep = file;
   try { keep = new Blob([await file.arrayBuffer()], {type: file.type || 'video/mp4'}); } catch (e) {}
-  await outAdd({post, path, file: keep, at: Date.now()});
+  // Its still too, for the same reason, so it goes up beside the clip when the clip does.
+  let still = null;
+  try { if (poster) still = new Blob([await poster.arrayBuffer()], {type: 'image/jpeg'}); } catch (e) {}
+  await outAdd({post, file: keep, at: Date.now(), ...(still ? {poster: still} : {}), ...(upPath ? {upPath, store: 'r2'} : {})});
   await readOutbox();
   render();
 }
@@ -8591,16 +8818,39 @@ async function dropQueued(id) {
   await readOutbox(); render();
 }
 
+// ---- sending a file to R2
+// The media function signs a PUT for a key it builds itself — your folder, in a group you
+// are in, named for this moment — and the file goes straight from the phone to R2. Its
+// still goes beside it on a URL signed in the same breath. Both URLs pin the type, the
+// exact size and the caching header, so what lands is what was asked for and nothing else.
+//
 // A dropped request is not the same as having no connection, and treating them the same is
 // how "check your connection" ends up in front of somebody who has tried two of them. A
 // long upload on a slow link gets cut off for all sorts of reasons that go away on the next
-// try, so it gets three before anyone is told anything.
-async function upload(bucket, path, file, onProgress, tries = 3) {
+// try, so it gets three before anyone is told anything. Each try is signed afresh: a URL
+// lasts ten minutes, and a phone that was asleep in the middle can easily outlast that.
+const TYPE_EXT = {'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'image/jpeg': 'jpg',
+  'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif', 'image/gif': 'gif', 'image/avif': 'avif'};
+async function putFile(where, file, onProgress, poster, tries = 3) {
+  // A file with no type of its own would be stored as octet-stream, which iOS then refuses
+  // to play. The camera always sets one; a file picked from somewhere else might not.
+  // Without parameters (video/webm;codecs=vp9 is still video/webm), which are not part of a
+  // type anything is signed for.
+  const type = (file.type || (isPic(file) ? 'image/jpeg' : 'video/mp4')).split(';')[0].trim().toLowerCase();
+  const named = /\.([a-z0-9]{2,5})$/i.exec(file.name || ''), known = new Set(Object.values(TYPE_EXT));
+  const ext = TYPE_EXT[type] || (named && known.has(named[1].toLowerCase()) ? named[1].toLowerCase() : isPic(file) ? 'jpg' : 'mp4');
   for (let go = 1; ; go++) {
-    try { return await uploadOnce(bucket, path, file, onProgress); }
-    catch (e) {
-      // Only a cut-off is worth repeating. A 413 or a 403 will say the same thing in a
-      // second's time, and being genuinely offline is what the outbox is for.
+    try {
+      const d = await media('sign-upload', {...where, ext, contentType: type, size: file.size,
+        ...(poster ? {thumbSize: poster.size} : {})});
+      await putOnce(d.url, d.headers, file, onProgress);
+      // The still is never a reason for a post to fail: a clip without one shows black
+      // until it plays, which is how every clip was before.
+      if (poster && d.thumb) { try { await putOnce(d.thumb.url, d.thumb.headers, poster, () => {}); } catch (e) {} }
+      return d.key;
+    } catch (e) {
+      // Only a cut-off is worth repeating. A 403 will say the same thing in a second's
+      // time, and being genuinely offline is what the outbox is for.
       if (!e.offline || go >= tries || navigator.onLine === false) throw e;
       // Suspended is not failed. A page iOS froze mid-upload wakes with its request dead
       // and its radio still coming back, so a retry fired the instant it wakes is a retry
@@ -8612,6 +8862,37 @@ async function upload(bucket, path, file, onProgress, tries = 3) {
       await new Promise(r => setTimeout(r, go === 1 ? 2000 : 5000));
     }
   }
+}
+// fetch cannot report upload progress, so a phone video sat on a motionless "Uploading…"
+// for the whole transfer with no way to tell a slow connection from a stuck one. XHR can.
+// Content-Length is the browser's to send, and it sends the file's own size, which is the
+// one that was signed.
+function putOnce(url, headers, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest(), t0 = Date.now();
+    xhr.open('PUT', url);
+    for (const [k, v] of Object.entries(headers || {})) if (k.toLowerCase() !== 'content-length') xhr.setRequestHeader(k, v);
+    xhr.upload.onprogress = e => {
+      if (!e.lengthComputable) return;
+      const secs = (Date.now() - t0) / 1000;
+      onProgress(e.loaded, e.total, secs > 1 ? e.loaded / 1048576 / secs : 0);   // a rate before a second has passed is noise
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      // R2 answers in S3's XML, and the one useful part of it is the message.
+      const m = /<Message>([^<]*)<\/Message>/.exec(xhr.responseText || '');
+      reject(Object.assign(new Error(m ? m[1] : `The upload failed (${xhr.status}).`), {status: xhr.status}));
+    };
+    xhr.onerror = () => {
+      // The one failure worth keeping the clip for. A 403 will fail again in an hour just
+      // the same; a dropped connection will not.
+      const e = new Error('The upload was interrupted. Check your connection and try again.');
+      e.offline = true;
+      reject(e);
+    };
+    xhr.onabort = () => reject(new Error('The upload was cancelled.'));
+    xhr.send(file);
+  });
 }
 // One frame of a clip, as a small JPEG. Read from the file itself, on this phone, so there
 // is no question of whether the browser lets the page look at it. A few frames in rather
@@ -8641,76 +8922,6 @@ async function grabPoster(file) {
   } catch (e) { return null; }
   finally { v.removeAttribute('src'); try { v.load(); } catch (e) {} v.remove(); URL.revokeObjectURL(url); }
 }
-// The still goes up beside the clip. Never a reason for a post to fail: a clip without one
-// shows black until it plays, which is how every clip was before.
-async function putPoster(path, file) {
-  try {
-    const jpg = await grabPoster(file);
-    if (jpg) await upload('proof', POSTER(path), new File([jpg], 'poster.jpg', {type: 'image/jpeg'}), () => {}, 1);
-    return jpg;
-  } catch (e) { return null; }
-}
-// Your own clips from before stills existed get theirs from your phone, a few at a time and
-// one after another, in the background: it has to fetch the clip to read a frame from it,
-// so it is never more than a handful a launch, and never on a connection asking for less.
-const backfilled = new Set();
-async function backfillPosters() {
-  if (backfillPosters.busy || (navigator.connection && navigator.connection.saveData)) return;
-  backfillPosters.busy = true;
-  try {
-    const mine = [...S.posts, ...((S.pro[me().id] || {}).posts || [])]
-      .filter(p => p.userId === me().id && p.url && !p.poster && !isPhoto(p) && !backfilled.has(p.path));
-    for (const p of mine.slice(0, 4)) {
-      backfilled.add(p.path);
-      const res = await fetch(p.url);
-      if (!res.ok) continue;
-      const jpg = await putPoster(p.path, await res.blob());
-      if (jpg) for (const x of [...S.posts, ...((S.pro[me().id] || {}).posts || [])]) if (x.path === p.path) x.poster = URL.createObjectURL(jpg);
-    }
-  } catch (e) {}
-  backfillPosters.busy = false;
-}
-async function uploadOnce(bucket, path, file, onProgress) {
-  const {data: {session}} = await sb.auth.getSession();
-  // A file with no type of its own is stored as octet-stream, which iOS then refuses to
-  // play. The camera always sets one; a file picked from somewhere else might not.
-  const part = file.type ? file : new File([file], file.name || 'video.mp4', {type: 'video/mp4'});
-  const body = new FormData();
-  body.append('cacheControl', '3600');
-  body.append('', part);
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest(), t0 = Date.now();
-    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`);
-    xhr.setRequestHeader('apikey', SUPABASE_KEY);
-    if (session) xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-    xhr.setRequestHeader('x-upsert', 'false');
-    xhr.upload.onprogress = e => {
-      if (!e.lengthComputable) return;
-      const secs = (Date.now() - t0) / 1000;
-      onProgress(e.loaded, e.total, secs > 1 ? e.loaded / 1048576 / secs : 0);   // a rate before a second has passed is noise
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) { noteRate(part.size, (Date.now() - t0) / 1000); return resolve(); }
-      // The bytes are already there. That happens when a try was cut off after the file
-      // landed but before the answer came back, and the next try is told it is a duplicate
-      // — which for our purposes is the upload having worked.
-      if (xhr.status === 409) return resolve();
-      let m = `The upload failed (${xhr.status}).`;
-      try { const j = JSON.parse(xhr.responseText); m = j.message || j.error || m; } catch (err) {}
-      reject(Object.assign(new Error(m), {status: xhr.status}));   // the status, so the words shown can be about it
-    };
-    xhr.onerror = () => {
-      // The one failure worth keeping the clip for. A 413 or a 403 will fail again in an
-      // hour just the same; a dropped connection will not.
-      const e = new Error('The upload was interrupted. Check your connection and try again.');
-      e.offline = true;
-      reject(e);
-    };
-    xhr.onabort = () => reject(new Error('The upload was cancelled.'));
-    xhr.send(body);
-  });
-}
-
 const mb = n => (n / 1048576).toFixed(1);
 
 const tooBig = n => `That file is ${(n / 1048576).toFixed(0)} MB and the limit is ${MAX_MB} MB.\n\nTrim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`;
@@ -8759,6 +8970,8 @@ async function sendPost(f, gid) {
   const bar = $('#uprog'), size = $('#vsize');
   let row = null;
   if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
+  let key = null;                          // once the file is up, where it went
+  let poster = null;                       // its still, kept for the outbox if the upload fails
 
   // Shrink first, then check the size. A clip the camera recorded too big for the bucket
   // usually fits comfortably once it is 720p, so this is checked against what will
@@ -8776,7 +8989,6 @@ async function sendPost(f, gid) {
 
   working(f, 'Uploading…');
   if (bar) bar.style.setProperty('--w', '0%');
-  const path = `${gid}/${me().id}/${Date.now()}.${(video.name.split('.').pop() || 'mp4').toLowerCase()}`;
   // The whole post is put together before anything is sent, so a clip that ends up in the
   // outbox is the post that was asked for. It used to be built only after the upload
   // worked, and the fallback for a failed one was written out again without the challenge
@@ -8784,27 +8996,31 @@ async function sendPost(f, gid) {
   // quota and not for the wheel, and a streak that depends on the wheel broke over it.
   const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
   row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
-    caption: fd.get('caption').trim(), video_path: path, day,
+    caption: fd.get('caption').trim(), day,
     on_profile: !!fd.get('onprofile'),
     challenge: chalText || null, spin_id: spinId ? +spinId : null};
   try {
-    await upload('proof', path, video, (sent, total, rate) => {
+    // The still is read off what is actually being sent, before it goes, so both are
+    // signed for together.
+    poster = isPic(video) ? null : await grabPoster(video);
+    key = await putFile({group_id: gid}, video, (sent, total, rate) => {
       const pct = Math.round(sent / total * 100);
       working(f, `Uploading… ${pct}%`);
       if (bar) bar.style.setProperty('--w', `${pct}%`);
       if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
-    });
-    if (!isPhoto({path})) { working(f, 'Posting…'); await putPoster(path, video); }
+    }, poster);
     working(f, 'Posting…');
     wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
     chalWas = doneChallengeIds();
-    await q(sb.from('posts').insert(row));
+    await q(sb.from('posts').insert({...row, video_path: key, video_store: 'r2'}));
   } catch (e) {
     if (bar) bar.hidden = true;
     // A dropped connection is not a reason to lose the take. It goes in the outbox with
     // the day it was for, and the feed says it is waiting.
     if (e.offline || navigator.onLine === false) {
-      await queuePost(row, path, video);
+      // Already uploaded if it got that far: the outbox posts that file, rather than sending
+      // it again under a new name and then not recognising the post it already made.
+      await queuePost(row, video, key, poster);
       dlg();
       return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
     }
@@ -8996,12 +9212,21 @@ function removePost(id) {
   const p = postById(id), g = p && S.groups.find(x => x.id === p.groupId);
   if (g) delPost(id, `Take ${name(user(p.userId))}'s post out of ${g.name}? It is deleted for everyone.`);
 }
+// A file goes from wherever it is: R2 through the media function, which holds the same rule
+// the bucket did (only your own), or the Supabase bucket it was always in. Neither is a
+// reason for the delete to fail — the row is what everybody sees, and it has gone.
+async function dropFiles(store, bucket, paths) {
+  try {
+    if (store === 'r2') await media('delete', {paths});
+    else await sb.storage.from(bucket).remove(paths);
+  } catch (e) {}
+}
 async function delPost(id, ask = 'Delete this post?') {
   if (!confirm(ask)) return;
   const p = postById(id);
   if (!p) return;
   await q(sb.from('posts').delete().eq('id', id));
-  await sb.storage.from('proof').remove(isPhoto(p) ? [p.path] : [p.path, POSTER(p.path)]);
+  await dropFiles(p.store, 'proof', isPhoto(p) ? [p.path] : [p.path, POSTER(p.path)]);
   load();
 }
 // A comment can be liked, the same gesture as liking the post it sits under, and whoever
@@ -9707,10 +9932,10 @@ if (location.hash === '#test') {
   // A recap is the clips between two dates, so it is a filter and nothing else: no photos,
   // in order, and only from its own group.
   const g7 = {id: 7, quotas: [{metric: 'pushups', target: 50}], members: ['a']};
-  S.posts.push({id: 'r1', groupId: 7, userId: 'a', day: '2026-09-15', ts: 2, path: 'a.mp4', url: 'u'});
-  S.posts.push({id: 'r2', groupId: 7, userId: 'a', day: '2026-09-14', ts: 1, path: 'b.mp4', url: 'u'});
-  S.posts.push({id: 'r3', groupId: 7, userId: 'a', day: '2026-09-15', ts: 3, path: 'c.jpg', url: 'u'});
-  S.posts.push({id: 'r4', groupId: 7, userId: 'a', day: '2026-09-22', ts: 4, path: 'd.mp4', url: 'u'});
+  S.hist.push({id: 'r1', groupId: 7, userId: 'a', day: '2026-09-15', ts: 2, path: 'a.mp4'});
+  S.hist.push({id: 'r2', groupId: 7, userId: 'a', day: '2026-09-14', ts: 1, path: 'b.mp4'});
+  S.hist.push({id: 'r3', groupId: 7, userId: 'a', day: '2026-09-15', ts: 3, path: 'c.jpg'});
+  S.hist.push({id: 'r4', groupId: 7, userId: 'a', day: '2026-09-22', ts: 4, path: 'd.mp4'});
   const cl = clipsBetween(g7, '2026-09-14', '2026-09-20');
   console.assert(cl.length === 2 && cl[0].id === 'r2' && cl[1].id === 'r1',
     'a recap is its own week, in order, clips only');
