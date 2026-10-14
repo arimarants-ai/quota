@@ -580,6 +580,36 @@ await withPage(SIGNED_IN, async page => {
   check('  and the box is back to one line after', Math.abs((await box.boundingBox()).height - h0) < 2);
 });
 
+// On a bad connection the app opens to what it showed last time, not to a spinner that waits
+// on every request. The last good load is kept on the phone, per account, and drawn first.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const snap = () => page.evaluate(() => new Promise(res => {
+    const r = indexedDB.open('quota-snap', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('snap');
+    r.onsuccess = () => { const q = r.result.transaction('snap').objectStore('snap').get('last'); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); };
+    r.onerror = () => res(null);
+  }));
+  const kept = await snap();
+  check('a load that works is kept on the phone, for this account',
+    kept && kept.uid === 'u1' && Array.isArray(kept.data.posts) && kept.data.posts.length > 0, JSON.stringify(kept && {uid: kept.uid, posts: kept.data.posts.length}));
+  const posts = await page.locator('#app .post').count();
+  // The saved session is what says who this phone belongs to, without asking the network.
+  // The worker would answer the reload from its own cache, around the stand-ins this test
+  // routes in, so it goes first.
+  await page.evaluate(async () => { localStorage['sb-test-auth-token'] = JSON.stringify({user: {id: 'u1'}});
+    for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); });
+  await page.addInitScript(() => { self.__MODE = {...self.__MODE, hang: true}; });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(700);
+  const shown = await page.evaluate(() => ({splash: !!document.querySelector('#app .splash'), posts: document.querySelectorAll('#app .post').length, fromSnap: S.fromSnap}));
+  check('  and with a connection that never answers, the app opens to it instead of the spinner',
+    !shown.splash && shown.posts === posts && shown.fromSnap === true, JSON.stringify({...shown, before: posts}));
+  await page.evaluate(() => logout());
+  await page.waitForTimeout(300);
+  check('  and signing out throws it away', await snap() === null);
+});
+
 // Re-encoding costs about the length of the clip before a byte moves. On a connection
 // fast enough to have sent the original in less time than that, the whole wait is the
 // app's own doing, so it does not happen. The rate is what this phone's uploads managed.

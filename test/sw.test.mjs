@@ -22,7 +22,7 @@ const check = (name, ok, detail = '') => {
 };
 
 // A cache that remembers what was put in it, and a network that can be told to refuse.
-function browser({ refuse = [] } = {}) {
+function browser({ refuse = [], net = async () => ({ ok: true }) } = {}) {
   const stores = new Map();
   const cache = name => {
     if (!stores.has(name)) stores.set(name, new Map());
@@ -52,7 +52,8 @@ function browser({ refuse = [] } = {}) {
     location: { origin: 'https://example.test' },
     caches, registration: { showNotification() {} },
   };
-  const ctx = vm.createContext({ self, caches, fetch: async () => ({ ok: true }), console, URL, Response: class {}, navigator: { userAgent: '' } });
+  const ctx = vm.createContext({ self, caches, fetch: (...a) => net(...a), console, URL, Response: class { constructor(body) { this.body = body; this.ok = false; } },
+    navigator: { userAgent: '' }, setTimeout, clearTimeout });
   ctx.globalThis = ctx;
   vm.runInContext(SRC, ctx);
   const fire = async (type) => {
@@ -60,7 +61,14 @@ function browser({ refuse = [] } = {}) {
     for (const fn of handlers[type] || []) fn({ waitUntil: p => waits.push(p) });
     await Promise.all(waits);
   };
-  return { stores, caches, fire, version: /const VERSION = '([^']+)'/.exec(SRC)[1],
+  // A page load, the way the browser asks for one: what the worker answered with.
+  const navigate = async () => {
+    let answer;
+    for (const fn of handlers.fetch || []) fn({ request: { method: 'GET', url: 'https://example.test/', mode: 'navigate' },
+      respondWith: p => { answer = p; }, waitUntil() {} });
+    return answer;
+  };
+  return { stores, caches, fire, navigate, version: /const VERSION = '([^']+)'/.exec(SRC)[1],
     precache: JSON.parse(`[${/const PRECACHE = \[([\s\S]*?)\];/.exec(SRC)[1].replace(/'/g, '"').replace(/,\s*$/, '')}]`) };
 }
 
@@ -126,6 +134,27 @@ function browser({ refuse = [] } = {}) {
   await b.fire('activate');
   check('  and once this version is complete, the old one is gone',
     !(await b.caches.keys()).includes('quota-old'), (await b.caches.keys()).join(', '));
+}
+
+// A slow connection is not an offline one: it never fails, it crawls. The page has to come
+// from the copy already here after a few seconds, not whenever the network gets round to it.
+{
+  const fresh = { ok: true, which: 'network', clone: () => ({ ok: true, which: 'network' }) };
+  const kept = { ok: true, which: 'kept' };
+  const b = browser({ net: () => new Promise(r => setTimeout(() => r(fresh), 6000)) });
+  (await b.caches.open(b.version)).put('/', kept);
+  const t0 = Date.now(), res = await b.navigate(), took = Date.now() - t0;
+  check('on a crawling connection the page comes from the kept copy within a few seconds',
+    res && res.which === 'kept' && took < 4500, `${res && res.which} after ${took}ms`);
+
+  const quick = browser({ net: async () => fresh });
+  (await quick.caches.open(quick.version)).put('/', kept);
+  const r2 = await quick.navigate();
+  check('  while a connection that answers still gets the newest page', r2 && r2.which === 'network', r2 && r2.which);
+
+  const none = browser({ net: () => new Promise(r => setTimeout(() => r(fresh), 200)) });
+  const r3 = await none.navigate();
+  check('  and with nothing kept yet it waits for the network rather than giving up', r3 && r3.which === 'network', r3 && r3.which);
 }
 
 console.log(failed ? `\nFAIL: ${failed} check(s)` : '\nPASS: the worker never leaves an app with nothing to start from');

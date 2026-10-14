@@ -1518,7 +1518,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v132';
+const BUILD = 'quota-v133';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1527,7 +1527,20 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const MAX_MB = 50;
 // Accounts sign up with a real email. Ones made before that have a made-up address
 // (FAKEMAIL) and are asked for a real one; see emailView().
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Every request has a time limit. On a bad connection a request can hang without ever
+// failing, and the first load waits on all of them: one that never answers kept the splash
+// up forever. Past the limit it fails like any dropped connection, which the app already
+// knows how to say and retry. An upload is the exception — a clip on slow data can take
+// minutes and is still working — and so is anything the caller already put a limit on.
+const NET_MS = 20000;
+const timedFetch = (input, init = {}) => {
+  const url = String(typeof input === 'string' ? input : input && input.url || '');
+  const method = (init.method || (input && input.method) || 'GET').toUpperCase();
+  if (init.signal || (method !== 'GET' && /\/storage\/v1\/object\/(?!sign)/.test(url))) return fetch(input, init);
+  const c = new AbortController(), t = setTimeout(() => c.abort(), NET_MS);
+  return fetch(input, {...init, signal: c.signal}).finally(() => clearTimeout(t));
+};
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {global: {fetch: timedFetch}});
 // The App Store and Play Store app is this same page inside Capacitor, which puts its
 // bridge on window before anything here runs. Nothing below needs a bundler: each plugin
 // is reached through Capacitor.Plugins, and in a browser NATIVE is false and plug() is
@@ -1987,6 +2000,58 @@ function num(n) {
 }
 const names = ids => { const n = ids.map(id => id === me().id ? 'you' : name(user(id))); return n.length <= 2 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n.at(-1); };
 
+// ---- the last load, kept on the phone
+// Quota used to draw nothing until every request of a fresh load had answered, which on a
+// weak connection could be most of a minute, or never. The last load that worked is kept
+// here and drawn the moment the app opens; the fresh one replaces it when it lands, the
+// way any app you open on bad signal shows you what it had while it catches up. Kept per
+// account and thrown away on signing out. Signed links in it may have run out, and a clip
+// that finds its link dead already asks for a new one.
+const SNAPDB = 'quota-snap', SNAPSTORE = 'snap';
+const SNAP_KEYS = ['friends', 'invites', 'groups', 'posts', 'totals', 'wheels', 'spins', 'ticks', 'likes', 'reacts',
+  'stories', 'views', 'slikes', 'sreacts', 'badges', 'clikes', 'seen', 'flags', 'fvotes', 'msgs', 'mreacts', 'reads',
+  'settle', 'joined', 'comments', 'profiles', 'spost', 'noFlags', 'noForfeits', 'noChat', 'noComments', 'needEmail', 'email', 'meta'];
+const snapTx = (mode, run) => new Promise((res, rej) => {
+  const r = indexedDB.open(SNAPDB, 1);
+  r.onupgradeneeded = () => r.result.createObjectStore(SNAPSTORE);
+  r.onerror = () => rej(r.error);
+  r.onsuccess = () => {
+    const tx = r.result.transaction(SNAPSTORE, mode), rq = run(tx.objectStore(SNAPSTORE));
+    rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+  };
+});
+// Who this phone is signed in as, read off the saved session without asking the network.
+function localSession() {
+  try {
+    const k = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k));
+    const v = k && JSON.parse(localStorage[k]);
+    return (v && (v.user || (v.currentSession || {}).user) || {}).id || null;
+  } catch (e) { return null; }
+}
+function saveSnap() {
+  const m = me();
+  if (!m) return;
+  const data = {};
+  for (const k of SNAP_KEYS) data[k] = S[k];
+  data.blocked = [...(S.blocked || [])];
+  try { snapTx('readwrite', st => st.put({uid: m.id, at: Date.now(), data}, 'last')).catch(() => {}); } catch (e) {}
+}
+function dropSnap() { try { snapTx('readwrite', st => st.delete('last')).catch(() => {}); } catch (e) {} }
+// Drawn only if nothing fresher has arrived first, and only for whoever is signed in here.
+async function restoreSnap() {
+  const uid = localSession();
+  if (!uid || !self.indexedDB) return false;
+  let snap;
+  try { snap = await snapTx('readonly', st => st.get('last')); } catch (e) { return false; }
+  if (!snap || snap.uid !== uid || !snap.data || me() || S.fresh) return false;
+  for (const k of SNAP_KEYS) if (snap.data[k] !== undefined) S[k] = snap.data[k];
+  S.blocked = new Set(snap.data.blocked || []);
+  S.me = (S.profiles || {})[uid] || null;
+  if (!S.me) return false;
+  S.fromSnap = true; S.booting = false; S.loadFailed = false;
+  return true;
+}
+
 // A query whose table may not be there yet. null means the feature is not switched on, and
 // the app draws itself without it rather than refusing to draw at all.
 const soft = async p => { const {data, error} = await p; return error ? null : data; };
@@ -2076,15 +2141,18 @@ async function fetchAll() {
   S.seen = S.views.filter(v => v.u === uid).map(v => v.s);
   // Signed one round trip for the lot, the way proof is. A story with no file is a card of
   // text and needs nothing.
+  // Started, not waited on: everything after the big batch that needs the network goes out
+  // at once and is collected further down. One after another, each was another full round
+  // trip, and on a slow connection the round trips are what the wait is made of.
+  const userP = sb.auth.getUser().then(r => r, () => ({data: null}));
   const withFiles = S.stories.filter(x => x.path);
-  if (withFiles.length) {
-    const urls = await q(sb.storage.from('stories').createSignedUrls(withFiles.map(x => x.path), 3600));
-    urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; });
-  }
+  const storySigned = withFiles.length ? q(sb.storage.from('stories').createSignedUrls(withFiles.map(x => x.path), 3600))
+    .then(urls => urls.forEach((u, i) => { withFiles[i].url = u.signedUrl; })) : null;
+  if (storySigned) storySigned.catch(() => {});   // collected below; this only stops it counting as unhandled meanwhile
   S.friends = fr.map(f => f.a === uid ? f.b : f.a);
   // An account from before there were real addresses has a made-up one. Worth asking
   // about, because the reset email is the way back and it cannot reach that.
-  try { const {data} = await sb.auth.getUser(); const e = data?.user?.email || '';
+  try { const {data} = await userP; const e = data?.user?.email || '';
     S.needEmail = !e || FAKEMAIL.test(e); S.email = S.needEmail ? '' : e; S.meta = data?.user?.user_metadata || {}; }
   catch (e) {}
   claimBadges();                           // anything the history says was earned but never written down
@@ -2119,19 +2187,24 @@ async function fetchAll() {
   // a curtain, not a lock, so the URL is simply never asked for — posting calls load()
   // again, and that is where the day's clips get theirs.
   const open = S.posts.filter(p => !locked(p, uid));
-  if (open.length) await signProof(open);
   // After S.posts, because a story pointing at a post the feed already carries needs no
   // second fetch, and before the profiles below, because whoever made that post has to be
-  // one of the names asked for or the card on the story has nobody on it.
-  await storyPosts();
-  const {data: cm, error: ce} = S.posts.length ? await sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []};
+  // one of the names asked for or the card on the story has nobody on it. The four of
+  // these need nothing from each other, so they go together.
+  const [, , , {data: cm, error: ce}] = await Promise.all([
+    open.length ? signProof(open) : null,
+    storyPosts(),
+    storySigned,
+    S.posts.length ? sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []},
+  ]);
   S.noComments = !!ce; S.comments = (cm || []).map(c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at}));
   hideBlocked();
   const ids = [...new Set([uid, ...S.blocked, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   // Everybody's public side, and your own row in full. A birthday, a time zone and the like
   // are only ever readable as your own (v49); before that SQL is run, the old read still works.
-  S.profiles = Object.fromEntries((await q(sb.from('profiles').select(PROFILE_COLS).in('id', ids))).map(p => [p.id, p]));
-  let own = await sb.rpc('my_profile');
+  const [pub, mine] = await Promise.all([q(sb.from('profiles').select(PROFILE_COLS).in('id', ids)), sb.rpc('my_profile')]);
+  S.profiles = Object.fromEntries(pub.map(p => [p.id, p]));
+  let own = mine;
   if (own.error) own = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
   if (own.data && own.data.id) S.profiles[uid] = {...S.profiles[uid], ...own.data};
   S.me = S.profiles[uid];
@@ -2244,11 +2317,17 @@ async function runLoad() {
     catch (e) {
       if (!authErr(e)) throw e;
       const {data, error} = await sb.auth.refreshSession();
-      if (error || !data.session) { S.me = null; S.open = null; S.auth = 'welcome'; hideErr(); return; } // signed out for real, not just stale
+      if (error || !data.session) { S.me = null; S.open = null; S.auth = 'welcome'; dropSnap(); hideErr(); return; } // signed out for real, not just stale
       await fetchAll();
     }
+    S.loadFailed = false; S.fromSnap = false; S.fresh = true;
     hideErr();
+    saveSnap();
   } catch (e) {
+    // Signed in on this phone, with nothing to show and no answer: that is a bad connection,
+    // not a signed-out person, so it is not the sign-in screen. It waits, says so, and
+    // offers to try again; coming back online tries again on its own.
+    if (!me() && localSession()) S.loadFailed = true;
     showErr(navigator.onLine ? friendlyError(e, "Couldn't load the latest. Try again in a moment.") : "You're offline. Showing what was already here.", e && (e.stack || e.message));
   } finally {
     quiet--; S.booting = false; render();
@@ -2270,7 +2349,7 @@ function screenHTML() {
   if (S.legal) return legalView(S.legal);
   // Until the first load lands we do not know whether there is a session, and guessing
   // means flashing the sign-in screen at someone who is already signed in.
-  if (!m) return S.booting ? splashView()
+  if (!m) return S.booting || S.loadFailed ? splashView()
     : S.auth === 'welcome' ? welcomeView()
     : S.auth === 'verify' ? verifyView()
     : S.auth === 'forgot' ? forgotView()
@@ -2583,7 +2662,10 @@ document.addEventListener('submit', e => {
 }, true);
 
 // ---- views
-const splashView = () => `<div class="splash">${LOGO(true)}<i></i></div>`;
+const splashView = () => S.loadFailed
+  ? `<div class="splash">${LOGO(true)}<p class="muted" style="text-align:center;max-width:260px">${navigator.onLine === false ? "You're offline." : 'Your connection is slow right now.'} Quota will load as soon as it can.</p>
+     <button type="button" class="primary" onclick="S.loadFailed=false;render();load()">Try again</button></div>`
+  : `<div class="splash">${LOGO(true)}<i></i></div>`;
 // One wheel inside a group: what you owe or what you got, then what everyone else got.
 // Seeing each other's result is the whole point, so it is not tucked away anywhere.
 function wheelCard(g, w) {
@@ -7641,7 +7723,7 @@ async function confirmEmail(f) {
 }
 // Where you were goes with you. Settings was left open behind the welcome screen, so the
 // next account to sign in on this phone opened on it, before it even had a group.
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} dropSnap(); S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -9387,7 +9469,7 @@ function takeDrop(go) {
 // in another tab. Without this the screen kept showing a signed-in app that no longer was.
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'INITIAL_SESSION') return;              // the first load() below covers this
-  if (!session) { S.me = null; S.auth = 'welcome'; S.booting = false; hideErr(); dropLive(); clearTo('feed'); }
+  if (!session) { S.me = null; S.auth = 'welcome'; S.booting = false; dropSnap(); hideErr(); dropLive(); clearTo('feed'); }
   else if (!me()) load();                               // signed in, or a refresh recovered while we sat on the welcome screen
 });
 
@@ -9563,13 +9645,17 @@ addEventListener('hashchange', goToHash);
 catchInvite();
 readOutbox().then(render);                 // whatever was waiting when the app was last shut
 render();
+restoreSnap().then(ok => { if (ok) render(); });   // what was here last time, while the fresh load is on its way
 load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
 peekProviders();
 // The browser saying it is back is the one moment worth trying without being asked.
-addEventListener('online', () => { render(); flushOutbox(); });
+addEventListener('online', () => { render(); flushOutbox(); if (S.loadFailed || S.fromSnap || !me()) load(); });
 // Tried again every so often while the app is open, rather than only at the few moments
 // that happen to come along. Not for clips already known to be gone: there is nothing to try.
 setInterval(() => { if (!document.hidden && outbox.some(r => !r.dead)) flushOutbox(); }, 45000);
+// And the load itself, while what is on screen is last time's or nothing at all: a slow
+// connection that recovers says nothing about it, so it is asked every so often.
+setInterval(() => { if (!document.hidden && navigator.onLine !== false && (S.loadFailed || S.fromSnap)) load(); }, 30000);
 addEventListener('offline', render);
 
 // ---- self-check: open index.html#test and look at the console

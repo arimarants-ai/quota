@@ -2,13 +2,14 @@
 // Static assets are cached. Everything from Supabase (auth, database, video upload,
 // signed video URLs) is deliberately left alone so it always hits the network.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v132';
+const VERSION = 'quota-v133';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
   '/icon-maskable-192.png', '/icon-maskable-512.png',
   '/vendor/supabase-js-2.49.4/supabase.js', '/vendor/supabase-js-2.49.4/591.supabase.js'];
 const STATIC_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+const NAV_WAIT = 3000;                   // ms the network gets to answer for the page before the kept copy is used
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -50,14 +51,23 @@ self.addEventListener('fetch', e => {
   if (url.hostname.endsWith('supabase.co')) return;      // API, auth and signed video URLs: never cached
   if (url.origin === self.location.origin && url.pathname === '/sw.js') return; // let the browser manage its own updates
 
-  // The page itself: network first, so a deploy shows up straight away.
-  // The cached copy is only a fallback for when there is no connection.
+  // The page itself: network first, so a deploy shows up straight away — but only for a
+  // few seconds. A slow connection does not fail, it crawls, and waiting on it was a blank
+  // screen for as long as it took. Past NAV_WAIT the copy already here is used, and the
+  // network answer, whenever it comes, is kept for next time.
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then(res => { if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put('/', copy)); } return res; })
-        .catch(() => caches.match('/').then(hit => hit || new Response('Offline', {status: 503, headers: {'content-type': 'text/plain'}})))
-    );
+    e.respondWith((async () => {
+      const net = fetch(req).then(res => {
+        if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put('/', copy)); }
+        return res;
+      });
+      const kept = await caches.match('/');
+      if (!kept) return net.catch(() => new Response('Offline', {status: 503, headers: {'content-type': 'text/plain'}}));
+      const first = await Promise.race([net.catch(() => null), new Promise(r => setTimeout(() => r(null), NAV_WAIT))]);
+      if (first && first.ok) return first;
+      e.waitUntil(net.catch(() => {}));
+      return kept;
+    })());
     return;
   }
 
