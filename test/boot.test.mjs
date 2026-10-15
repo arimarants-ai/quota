@@ -154,7 +154,9 @@ async function withPage(mode, body, using = browser) {
     self.__btn = [];
     addEventListener('DOMContentLoaded', () => {
       new MutationObserver(() => {
-        const b = document.querySelector('#dlg button.primary');
+        // What a post says it is doing: on the sheet's button, or, once Post is tapped and the
+        // sheet has gone, on the bar the clip goes up behind.
+        const b = document.querySelector('#sendbar:not([hidden]) b') || document.querySelector('#dlg button.primary');
         if (b && self.__btn.at(-1) !== b.textContent) self.__btn.push(b.textContent);
       }).observe(document.body, { subtree: true, childList: true, characterData: true });
     });
@@ -458,16 +460,17 @@ await withPage(NO_WHEEL, async page => {
   await submitProof(page);
   await page.waitForFunction(() => self.__btn.some(t => /Uploading… \d+%/.test(t)), null, { timeout: 5000 }).catch(() => {});
   const seen = await labels(page);
-  check('the upload button reports a percentage', seen.some(t => /Uploading… \d+%/.test(t)), seen.join(' -> '));
-  check('  and the progress bar fills', await page.locator('#uprog').evaluate(el => el.style.getPropertyValue('--w')) !== '');
-  check('  and the size line counts MB sent', /of 4\.0 MB/.test(await page.locator('#vsize').textContent()),
-    await page.locator('#vsize').textContent());
+  // dlg() closes the dialog but leaves its markup in place, so ask whether it is open.
+  check('tapping Post puts the sheet away at once, and the clip goes up behind it',
+    !(await page.locator('#dlg').evaluate(d => d.open)) && await page.locator('#sendbar:not([hidden])').count() === 1);
+  check('  with a bar that reports a percentage', seen.some(t => /Uploading… \d+%/.test(t)), seen.join(' -> '));
+  check('  and fills', await page.locator('#sendbar i').evaluate(el => parseFloat(el.style.getPropertyValue('--w'))) > 2);
+  check('  and counts MB sent', /of 4\.0 MB/.test(await page.locator('#sendbar b').textContent()),
+    await page.locator('#sendbar b').textContent());
   release();
   await page.waitForTimeout(700);
-  // dlg() closes the dialog but leaves its markup in place, so ask whether it is open.
-  const open = await page.locator('#dlg').evaluate(d => d.open);
-  check('  then posts and closes the dialog', (await labels(page)).includes('Posting…') && !open,
-    `${(await labels(page)).join(' -> ')} | dialog open: ${open}`);
+  check('  then posts and the bar goes', (await labels(page)).includes('Posting…') && await page.locator('#sendbar:not([hidden])').count() === 0,
+    (await labels(page)).join(' -> '));
 });
 
 // The day's lock. Nothing of today's is readable until something of your own is in, and
@@ -496,10 +499,12 @@ await withPage({ ...NO_WHEEL, samToday: true }, async page => {
 await withPage({ ...NO_WHEEL, signTooBig: true }, async (page, alerts) => {
   await settle(page);
   await submitProof(page);
-  await page.waitForFunction(() => document.querySelector('#dlg button.primary') && !document.querySelector('#dlg button.primary').disabled, null, { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('#sendbar').hidden, null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(300);
   check('a rejected upload says why in plain words', alerts.some(a => /too big to upload/.test(a)) && !alerts.some(a => /^too big$/.test(a)), alerts.join(' | '));
-  check('  and the form can be used again', await page.locator('#dlg button.primary').isEnabled());
-  check('  and the progress bar is cleared away', await page.locator('#uprog').isHidden());
+  check('  and the progress bar is cleared away', await page.locator('#sendbar').isHidden());
+  // A file that will never be accepted is not kept waiting to try again.
+  check('  and is not left waiting to send', await page.evaluate(() => outbox.length) === 0);
 });
 uploadReply = { status: 200, body: '{}', hold: null };
 
@@ -575,7 +580,7 @@ if (chrome && phone) {
     // longer than giveTake waits. Post before then and the form says to record one first.
     await page.waitForFunction(() => typeof recorded !== 'undefined' && recorded && recorded.size > 0, null, { timeout: 15000 }).catch(() => {});
     await page.locator('#dlg button.primary').click();
-    await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 90000 }).catch(() => {});
+    await page.waitForFunction(() => !document.querySelector('#dlg').open && document.querySelector('#sendbar').hidden, null, { timeout: 90000 }).catch(() => {});
     const seen = await labels(page);
     // What the page was holding and saying, so a failure here says why rather than only that.
     const why = JSON.stringify({ alerts, errs: errs.slice(0, 8), took: await page.evaluate(() => typeof recorded !== 'undefined' && recorded ? { size: recorded.size, type: recorded.type } : null),
@@ -607,7 +612,7 @@ await withPage(NO_WHEEL, async page => {
   await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
   await page.waitForFunction(() => typeof recorded !== 'undefined' && recorded && recorded.size > 0, null, { timeout: 15000 }).catch(() => {});
   await page.locator('#dlg button.primary').click();
-  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('#dlg').open && document.querySelector('#sendbar').hidden, null, { timeout: 60000 }).catch(() => {});
   const can = await page.evaluate(async () => !!(self.VideoEncoder && (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 1280, height: 720 })).supported));
   check(can ? 'a browser that can encode H.264 converts (checked in the case above)' : 'a browser with no H.264 encoder sends the original, untouched',
     can || (lastUpload && lastUpload.equals(clip)), `sent ${lastUpload && lastUpload.length} of ${clip.length}`);
@@ -626,6 +631,18 @@ await withPage({ ...SIGNED_IN, posters: true }, async page => {
   });
   check('a clip carries its still, and keeps it once its source is let go',
     shown && /^data:image/.test(shown.had || '') && shown.after === shown.had && !shown.src, JSON.stringify(shown));
+  // A clip already on screen keeps its element across a redraw, and its still has to move
+  // to the new link with it: a still first drawn from the copy kept on the phone has a link
+  // that ran out, and the fresh load's link is the only one that works.
+  const moved = await page.evaluate(() => {
+    const v = document.querySelector('#app .post video.proof'), id = +v.closest('.post').dataset.post;
+    const fresh = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=#fresh';
+    S.posts.find(p => p.id === id).poster = fresh;
+    render(); watchClips();
+    const w = document.querySelector(`#app .post[data-post="${id}"] video.proof`);
+    return {same: w === v, data: w.dataset.poster === fresh, attr: w.getAttribute('poster') === fresh};
+  });
+  check('  and a redraw with a newly signed still moves the clip on screen to it', moved.same && moved.data && moved.attr, JSON.stringify(moved));
 });
 await withPage(SIGNED_IN, async page => {
   await settle(page);
@@ -663,7 +680,7 @@ await withPage(NO_WHEEL, async page => {
   lastPut = null; lastPoster = null;
   uploadReply = { status: 200, body: '{}', hold: null };
   await submitProof(page);
-  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 20000 }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('#dlg').open && document.querySelector('#sendbar').hidden, null, { timeout: 20000 }).catch(() => {});
   const signed = await page.evaluate(() => (self.__signedUploads || []).at(-1));
   const row = await page.evaluate(() => self.__posts.at(-1));
   check('a post is uploaded to a URL the media function signed for this group',
@@ -761,7 +778,7 @@ await withPage(NO_WHEEL, async page => {
   await page.locator('#dlg input[name=amount]').fill('20');
   await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: junk });
   await page.locator('#dlg button.primary').click();
-  await page.waitForFunction(() => !document.querySelector('#dlg').open, null, { timeout: 60000 }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('#dlg').open && document.querySelector('#sendbar').hidden, null, { timeout: 60000 }).catch(() => {});
   check('an undecodable file falls back to the original', lastUpload && lastUpload.length === junk.length,
     `sent ${lastUpload ? lastUpload.length : 'nothing'} of ${junk.length} bytes`);
 });
@@ -875,11 +892,15 @@ await withPage(SIGNED_IN, async (page, alerts) => {
   check('a day wheel longer than the cycle is refused', alerts.some(a => /cannot ask for more than 3/.test(a)), alerts.join(' | '));
 });
 
-// A wheel never ends a streak: the streak is the days the goal was hit, whatever the old
-// breaks_streak setting on a wheel says. Sam has hit the quota three days running.
+// breaks_streak: a cycle that closed with the challenge unfinished ends the streak on the
+// day it closed. Sam has hit the quota three days running, so the streak is only about the
+// challenge here.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   const before = await page.evaluate(() => streak(S.groups[0], 'u2'));
+  check('a wheel that does not break the streak leaves it alone', before === 3, `streak ${before}`);
+
+  // Turn it on, with a cycle that closed yesterday and no spin against it.
   const after = await page.evaluate(() => {
     const w = S.wheels[0];
     w.breaks_streak = true;
@@ -887,11 +908,23 @@ await withPage(SIGNED_IN, async page => {
     w.starts_on = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
     return streak(S.groups[0], 'u2');
   });
-  check('an unfinished wheel challenge never takes a streak away, even on an old breaks-your-streak wheel',
-    before === 3 && after === 3, `streak ${before} -> ${after}`);
-  await page.evaluate(() => { openGroup(1); });
-  await page.waitForTimeout(300);
-  check('  and nothing says it does', !/breaks your streak/i.test(await page.innerText('#app')));
+  check('  and one that does breaks it', after === 0, `streak ${after}`);
+
+  // Finishing it keeps the streak. A day is finished by posting the day's quota with the
+  // challenge, so that is what this puts there.
+  const kept = await page.evaluate(() => {
+    const w = S.wheels[0], y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    const c = cycleOf(w, y);
+    S.spins = [...S.spins, {id: 99, wheel_id: w.id, user_id: 'u2', cycle: c, days_required: 1,
+      results: [{seq: 0, kind: 'challenge', value: 'decline', i: 0, segs: ['decline']}]}];
+    S.totals.push({g: 1, u: 'u2', d: y, m: 'pushups', n: 50, sp: 99, ch: 'decline'});
+    return streak(S.groups[0], 'u2');
+  });
+  check('  and finishing the challenge keeps it', kept >= 1, `streak ${kept}`);
+
+  // The quota chips and the completion rate stay about the quota alone.
+  const rate = await page.evaluate(() => window.rate(S.groups[0], 'u2').n);
+  check('  while the completion rate still counts quota days only', rate === 3, `${rate} days`);
 });
 
 // A wheel belongs to whoever made it. Everyone else has to spin it, so everyone else can
@@ -966,7 +999,8 @@ await withPage(SIGNED_IN, async page => {
     S.spins = row({sat_out: true});
     return {unfinished, sat: brokeStreak(S.groups[0], 'u1', y)};
   });
-  check('  and neither an unfinished challenge nor a cycle sat out breaks the streak', res.unfinished === false && res.sat === false, JSON.stringify(res));
+  check('  an unfinished challenge still breaks the streak', res.unfinished === true, JSON.stringify(res));
+  check('  and a cycle sat out does not', res.sat === false, JSON.stringify(res));
 });
 
 // A spin whose first try is lost to the connection is tried again on its own, quietly: a
