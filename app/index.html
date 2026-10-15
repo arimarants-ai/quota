@@ -1429,6 +1429,26 @@ dialog h2{font-size:20px;margin-bottom:2px}
 #sendbar[hidden]{display:none}
 #sendbar b{font-size:14px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #sendbar i{position:absolute;left:0;bottom:0;height:3px;width:var(--w);background:var(--mk);transition:width .25s ease-out}
+.adm .big{margin:0 0 12px;font-size:15px}
+.adm .big b{font-size:22px}
+.adm .search{margin-bottom:10px}
+.adm .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.adm .chip.on{background:var(--mk);border-color:var(--mk);color:#fff}
+.alist{margin:0 12px 24px;border:1px solid var(--line);background:var(--card)}
+.arow + .arow{border-top:1px solid var(--line)}
+.arow .top{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;background:none;text-align:left;font-weight:400;white-space:normal}
+.arow .who{flex:1;min-width:0;display:flex;flex-direction:column}
+.arow .who b{font-size:14.5px;font-weight:800}
+.arow .who em,.arow .st em{font-style:normal;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.arow .st{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;max-width:45%}
+.pill{display:inline-block;padding:3px 8px;font-size:11.5px;font-weight:800;background:var(--soft);color:var(--muted)}
+.pill.ok{background:var(--mktint);color:var(--mkt)}
+.pill.warn{background:#fff3d6;color:#8a5a00}
+.pill.bad{background:#ffe1e1;color:#a01818}
+.arow .hist{padding:0 14px 12px}
+.arow .h{padding:8px 0;border-top:1px dashed var(--line);font-size:13px;display:flex;flex-direction:column;gap:2px}
+.arow .h em{font-style:normal;color:var(--muted);font-size:12px}
+.arow .h .ua{word-break:break-all;font-size:11px}
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
 .splash svg{width:64px;height:64px;border-radius:16px}
 .splash i{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--mk);border-radius:50%;animation:spin .8s linear infinite}
@@ -1525,7 +1545,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v139';
+const BUILD = 'quota-v140';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2535,6 +2555,9 @@ async function runLoad() {
     // Whether notifications are on is only known by asking the browser, and until it has
     // been asked the feed cannot tell whether to offer them. Once per launch is enough.
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
+    // Whether this account moderates, which is what shows the agreements screen. Asked once;
+    // the database refuses that screen's data to anybody else whatever the app thinks.
+    if (me() && S.isMod === undefined) { S.isMod = false; Promise.resolve(sb.rpc('am_moderator')).then(({data}) => { S.isMod = data === true; if (S.isMod && S.settings) render(); }, () => {}); }
     if (me()) { goLive(); noteForfeits(); } else dropLive();
     syncPhone();
     if (recordWanted) recordFromPhone();
@@ -2570,6 +2593,7 @@ function screenHTML() {
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
     : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
+    : S.admin ? adminView()
     : S.settings ? settingsView()
     : S.sub ? subScreen(S.sub)
     : S.who ? personView(S.who)
@@ -6360,6 +6384,7 @@ function settingsView() {
     <div class="list">
       ${srow('help', 'Support', 'Help and FAQ', '<span class="go">\u203a</span>', 'supportDlg()')}
       ${srow('mail', 'Contact us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
+      ${S.isMod ? srow('doc', 'Users & agreements', 'Who has agreed to the terms, and when', '<span class="go">\u203a</span>', 'openAdmin()') : ''}
       ${srow('block', 'Blocked', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
     </div>
     <p class="sec">Legal</p>
@@ -7596,6 +7621,80 @@ function stackOff() {
   ]);
 }
 
+// ---- users & agreements (moderators)
+// Every account, and whether it has agreed to the documents as they stand now: the proof
+// behind the terms, readable without writing a query. Tap a person for every agreement on
+// record. Accounts that were deleted are still here, because their agreements are.
+function openAdmin() {
+  S.admin = {rows: null, err: '', q: '', filter: 'all', open: null};
+  stackOn();
+  loadAdmin();
+}
+async function loadAdmin() {
+  const {data, error} = await sb.rpc('admin_agreements');
+  if (!S.admin) return;
+  if (error) S.admin.err = /moderator|42501|permission/i.test(`${error.code} ${error.message}`) ? 'Only a moderator can see this.' : friendlyError(error);
+  else S.admin.rows = data || [];
+  render();
+}
+const agreedNow = r => r.account_exists && r.last_version === TERMS_VERSION;
+const stamp = t => t ? new Date(t).toLocaleString(undefined, {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'}) : '';
+const deviceOf = ua => { const u = String(ua || ''); return /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android'
+  : /Macintosh/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : u ? 'Other' : ''; };
+const HOW = {signup: 'Signing up', reaccept: 'Agreed again', backfill: 'Carried over'};
+function adminView() {
+  const a = S.admin;
+  const head = `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div><h1>Users &amp; agreements</h1></div>
+    <button class="ghost back" onclick="closeAdmin()">\u2039 Settings</button>`;
+  if (a.err) return head + `<div class="card empty"><b>Couldn't load this</b><p class="muted">${esc(a.err)}</p></div>`;
+  if (!a.rows) return head + `<div class="card empty"><span class="spin" aria-hidden="true"></span><p class="muted">Loading…</p></div>`;
+  const live = a.rows.filter(r => r.account_exists), ok = live.filter(agreedNow).length;
+  const chip = (k, l) => `<button type="button" class="chip${a.filter === k ? ' on' : ''}" onclick="S.admin.filter='${k}';S.admin.open=null;render()">${l}</button>`;
+  return head + `<div class="card adm">
+      <p class="big"><b>${ok}</b> of ${live.length} on the current terms <span class="muted">(${esc(TERMS_VERSION)})</span></p>
+      <input class="search" placeholder="Search name, username or email" value="${esc(a.q)}" oninput="S.admin.q=this.value;S.admin.open=null;redraw('#adml', adminList())">
+      <div class="chips">${chip('all', 'Everyone')}${chip('not', 'Not on current terms')}${chip('gone', 'Deleted accounts')}</div>
+      <button type="button" class="small" onclick="adminCsv()">Download CSV</button>
+    </div><div id="adml">${adminList()}</div>`;
+}
+function closeAdmin() { S.admin = null; stackOff(); }
+// The list on its own, so typing in the search box redraws it without taking the box away.
+function adminList() {
+  const a = S.admin, q = a.q.trim().toLowerCase();
+  const shown = (a.rows || []).filter(r => (a.filter === 'all' ? r.account_exists : a.filter === 'not' ? r.account_exists && !agreedNow(r) : !r.account_exists)
+    && (!q || `${r.username || ''} ${r.display_name || ''} ${r.email || ''}`.toLowerCase().includes(q)));
+  const row = r => {
+    const open = a.open === r.user_id;
+    const status = !r.records ? `<span class="pill bad">Never agreed</span>`
+      : agreedNow(r) ? `<span class="pill ok">Agreed</span>` : r.account_exists ? `<span class="pill warn">Older terms</span>` : `<span class="pill">Deleted</span>`;
+    const hist = open ? `<div class="hist">${(r.history || []).map(h => `<div class="h">
+        <b>${esc(stamp(h.at))}</b><span>Terms ${esc(h.version)} · ${esc(HOW[h.method] || h.method)}</span>
+        <em>${h.ip ? `${esc(h.ip)} · ` : ''}${esc(deviceOf(h.device) || 'No device recorded')}${h.build ? ` · ${esc(h.build)}` : ''}</em>
+        ${h.device ? `<em class="ua">${esc(h.device)}</em>` : ''}</div>`).join('') || '<p class="muted">Nothing on record.</p>'}</div>` : '';
+    return `<div class="arow${open ? ' open' : ''}" data-uid="${esc(r.user_id)}"><button type="button" class="top" onclick="adminOpen(this)">
+        <span class="who"><b>${esc(r.display_name || r.username || 'No username yet')}</b><em>${r.username ? '@' + esc(r.username) + ' · ' : ''}${esc(r.email || '')}</em></span>
+        <span class="st">${status}<em>${r.last_at ? `${esc(r.last_version)} · ${esc(stamp(r.last_at))}` : ''}</em></span></button>${hist}</div>`;
+  };
+  return shown.length ? `<div class="alist">${shown.map(row).join('')}</div>` : `<div class="card empty"><p class="muted">Nobody matches.</p></div>`;
+}
+function adminOpen(btn) {
+  const uid = btn.closest('.arow').dataset.uid;
+  S.admin.open = S.admin.open === uid ? null : uid;
+  redraw('#adml', adminList());
+}
+// Everything on record as a spreadsheet, one row per agreement: what to hand over if it is
+// ever asked for.
+function adminCsv() {
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['agreed_at', 'username', 'email', 'terms_version', 'how', 'ip', 'device', 'app_build', 'wording_sha256', 'account_exists', 'user_id'].join(',')];
+  for (const r of S.admin.rows || []) for (const h of r.history || [])
+    lines.push([h.at, h.username || r.username, h.email || r.email, h.version, h.method, h.ip, h.device, h.build, h.sha256, r.account_exists, r.user_id].map(cell).join(','));
+  const url = URL.createObjectURL(new Blob([lines.join('\n')], {type: 'text/csv'}));
+  const link = Object.assign(document.createElement('a'), {href: url, download: `quota-agreements-${today()}.csv`});
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 // ---- dragging back
 // What a swipe means is whatever is on top, in the order render() draws them, so the two
 // cannot disagree about which screen the gesture takes off.
@@ -7606,6 +7705,7 @@ function backAction() {
   // A flag opened from the list goes back to the list; one opened from a post goes back to
   // the post. Where it came from is remembered when it is opened.
   if (S.flag) return () => { S.flag = S.flag !== 'all' ? S.flagFrom : null; S.flagFrom = null; };
+  if (S.admin) return () => { S.admin = null; };
   if (S.settings) return () => { S.settings = false; };
   if (S.who) return () => { S.who = null; };
   if (S.open) return () => { S.open = null; };
@@ -7615,7 +7715,7 @@ function backAction() {
 // this is a look ahead, and until you let go it may come to nothing.
 function peekBack(act) {
   const was = {legal: S.legal, chat: S.chat, flag: S.flag, flagFrom: S.flagFrom,
-    settings: S.settings, who: S.who, open: S.open};
+    admin: S.admin, settings: S.settings, who: S.who, open: S.open};
   act();
   try { return screenHTML(); } finally { Object.assign(S, was); }
 }
@@ -8016,7 +8116,7 @@ async function confirmEmail(f) {
 }
 // Where you were goes with you. Settings was left open behind the welcome screen, so the
 // next account to sign in on this phone opened on it, before it even had a group.
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.isMod = undefined; S.admin = null; S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -9835,7 +9935,7 @@ function goToHash() {
 }
 // Out of whatever is open first, then in, so the way back out lands where it should.
 function clearTo(tab = 'feed') {
-  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = null; S.settings = false;
+  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = S.admin = null; S.settings = false;
   backY.length = 0;
   closePost(); closeStory();
   render();

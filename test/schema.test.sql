@@ -1028,3 +1028,36 @@ begin
   end;
 end $$;
 \echo PASS: agreements are kept
+
+
+-- ---- the agreements screen (v52): moderators see everybody, nobody else sees anything
+set role app;
+do $$
+declare n int;
+begin
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  if public.am_moderator() then raise exception 'somebody who is not a moderator is told they are'; end if;
+  begin
+    perform * from public.admin_agreements();
+    raise exception 'a non-moderator read everybody''s agreements';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+insert into public.moderators values ('22222222-2222-2222-2222-222222222222') on conflict do nothing;
+set role app;
+do $$
+declare n int; h jsonb;
+begin
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  if not public.am_moderator() then raise exception 'a moderator is not told so'; end if;
+  select count(*) into n from public.admin_agreements();
+  if n < 1 then raise exception 'a moderator sees nobody'; end if;
+  select history into h from public.admin_agreements() where user_id = '22222222-2222-2222-2222-222222222222';
+  if jsonb_array_length(h) < 1 or h->0->>'ip' is distinct from '203.0.113.7' then
+    raise exception 'the history does not carry the record: %', h;
+  end if;
+end $$;
+reset role;
+delete from public.moderators where user_id = '22222222-2222-2222-2222-222222222222';
+\echo PASS: the agreements screen

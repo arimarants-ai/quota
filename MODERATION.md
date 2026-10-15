@@ -124,7 +124,12 @@ Each row has:
 - the network address and browser it came from
 - the app build
 
-To pull up everything on record for somebody, in the Supabase SQL editor:
+In the app: Settings → **Users & agreements** (moderators only, v52). Every account with
+whether it is on the current terms, a search, a filter for anyone who isn't and for deleted
+accounts, every agreement on record when you tap a person, and **Download CSV** for a
+spreadsheet of all of it.
+
+Or, in the Supabase SQL editor:
 
 ```sql
 select * from private.agreements where email = 'someone@example.com';
