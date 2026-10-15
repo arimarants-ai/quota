@@ -2085,6 +2085,24 @@ await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page
     JSON.stringify(wrote));
   check('    along with the terms ticked at signup', !!wrote[0].terms_accepted_at && wrote[0].terms_version === await page.evaluate(() => TERMS_VERSION),
     JSON.stringify(wrote));
+  // And the proof of it: a record the database writes, with the version and a fingerprint
+  // of the exact wording that was on the screen.
+  const rec = await page.evaluate(() => self.__consents || []);
+  check('    and a record of agreeing is written, with the version and the wording\'s fingerprint',
+    rec.length === 1 && rec[0].p_method === 'signup' && rec[0].p_version === await page.evaluate(() => TERMS_VERSION)
+    && /^[0-9a-f]{64}$/.test(rec[0].p_sha256 || '') && rec[0].p_build === await page.evaluate(() => BUILD), JSON.stringify(rec));
+});
+
+// Agreeing again after the documents change writes a record of its own.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.me.terms_accepted_at = null; render(); });
+  await page.waitForTimeout(200);
+  await page.locator('#app button:has-text("I agree")').click();
+  await page.waitForTimeout(600);
+  const rec = await page.evaluate(() => self.__consents || []);
+  check('agreeing again after a change writes its own record',
+    rec.length === 1 && rec[0].p_method === 'reaccept' && /^[0-9a-f]{64}$/.test(rec[0].p_sha256 || ''), JSON.stringify(rec));
 });
 
 // Logging out forgets where you were, or the next account in opens on somebody else's

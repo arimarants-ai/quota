@@ -977,3 +977,54 @@ begin
   delete from public.posts where id = pid;
 end $$;
 reset role;
+
+
+-- ---- the record of agreeing (v51)
+-- Written by the database from the request, kept whatever happens to the account, and not
+-- open to change by anybody: it is only proof if nobody could have edited it.
+set role app;
+do $$
+declare n int; at timestamptz;
+begin
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  perform set_config('request.headers', '{"x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "TestPhone/1"}', true);
+  at := public.record_consent('2026-10-15', 'reaccept', repeat('a', 64), 'quota-test');
+  select count(*) into n from public.consents where user_id = auth.uid() and method = 'reaccept'
+     and ip = '203.0.113.7' and user_agent = 'TestPhone/1' and terms_version = '2026-10-15' and accepted_at = at;
+  if n <> 1 then raise exception 'agreeing did not write its record, with where it came from'; end if;
+  if (select terms_version from public.profiles where id = auth.uid()) is distinct from '2026-10-15' then
+    raise exception 'the profile does not say what was agreed';
+  end if;
+  -- Refused, or let through to no rows at all: either way it is all still there as it was.
+  begin update public.consents set accepted_at = now() - interval '1 year' where user_id = auth.uid();
+  exception when insufficient_privilege or raise_exception then null; end;
+  begin delete from public.consents where user_id = auth.uid();
+  exception when insufficient_privilege or raise_exception then null; end;
+  if (select count(*) from public.consents where user_id = auth.uid() and accepted_at = at) <> 1 then
+    raise exception 'an agreement was changed or deleted by the account it is about';
+  end if;
+  -- The test role here has every table privilege, which the real one does not; what stands
+  -- between a real account and writing its own record is checked below with has_table_privilege.
+end $$;
+reset role;
+do $$
+begin
+  if has_table_privilege('authenticated', 'public.consents', 'INSERT') or has_table_privilege('authenticated', 'public.consents', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.consents', 'DELETE') or has_table_privilege('anon', 'public.consents', 'SELECT') then
+    raise exception 'an account could write, change or remove an agreement directly, or anyone could read them';
+  end if;
+  if has_function_privilege('anon', 'public.record_consent(text, text, text, text)', 'EXECUTE') then
+    raise exception 'record_consent is open to the anon key';
+  end if;
+end $$;
+reset role;
+do $$
+begin
+  begin
+    delete from public.consents;
+    raise exception 'even the owner deleted an agreement';
+  exception when raise_exception then
+    if sqlerrm = 'even the owner deleted an agreement' then raise; end if;
+  end;
+end $$;
+\echo PASS: agreements are kept

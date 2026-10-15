@@ -105,3 +105,31 @@ record if Apple or Google ever ask how a report was handled. To look back:
 ```sql
 select * from public.reports where resolved_at is not null order by resolved_at desc;
 ```
+
+## Proof that somebody agreed to the terms
+
+Every time somebody agrees to the terms, the community guidelines and the privacy policy
+(signing up, or agreeing again after the documents change), the database writes a row in
+`public.consents` (v51). Nobody can change or delete these rows, including the account they
+are about, the app, and the service key. They are kept after an account is deleted, which the
+privacy policy says.
+
+Each row has:
+- when, by the database's clock
+- the username and email at the time
+- the version of the documents (`TERMS_VERSION` in `app/index.html`)
+- a SHA-256 fingerprint of the exact wording the app showed
+- how it happened: `signup`, `reaccept`, or `backfill` (carried over from the old profile
+  column when v51 was run)
+- the network address and browser it came from
+- the app build
+
+To pull up everything on record for somebody, in the Supabase SQL editor:
+
+```sql
+select * from private.agreements where email = 'someone@example.com';
+select * from private.agreements where username = 'someone';
+```
+
+The wording behind any version is in this repository's history: check out the commit where
+`TERMS_VERSION` was that date, and `site/terms.html` and `site/privacy.html` are the text.

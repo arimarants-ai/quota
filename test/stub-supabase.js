@@ -344,6 +344,8 @@
     }
     if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }
     self.__rpcs.push(fn);
+    // The record of agreeing: what the app sent, kept so a case can see it.
+    if (fn === 'record_consent') { self.__consents = [...(self.__consents || []), args]; return { data: new Date().toISOString(), error: null }; }
     if (fn === 'my_files') return { data: [{ bucket: 'proof', path: '1/u1/p.mp4' }, { bucket: 'proof', path: '9/u1/left.mp4' }], error: null };
     if (fn === 'delete_account') return M().deleteFails ? { data: null, error: err('network is down') } : { data: null, error: null };
     return { data: null, error: null };
