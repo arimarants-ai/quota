@@ -345,6 +345,20 @@
     if (fn === 'save_wheel') { self.__saved = args; return { data: 1, error: null }; }
     self.__rpcs.push(fn);
     // The record of agreeing: what the app sent, kept so a case can see it.
+    if (fn === 'am_moderator') return { data: !!M().mod, error: null };
+    if (fn === 'admin_agreements') {
+      if (!M().mod) return { data: null, error: { code: '42501', message: 'only a moderator can see this' } };
+      const rec = (v, at, how, extra = {}) => ({ at, version: v, method: how, ip: '203.0.113.7', device: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', build: 'quota-v140', sha256: 'a'.repeat(64), ...extra });
+      return { data: [
+        { user_id: 'u1', username: 'ari', display_name: 'Ari', email: 'ari@example.com', joined: '2026-09-01T00:00:00Z', account_exists: true,
+          last_version: '2026-10-15', last_at: '2026-10-15T21:00:00Z', last_method: 'reaccept', records: 2,
+          history: [rec('2026-10-15', '2026-10-15T21:00:00Z', 'reaccept'), rec('2026-09-30', '2026-09-30T10:00:00Z', 'backfill', { ip: null, device: null })] },
+        { user_id: 'u2', username: 'sam', display_name: 'Sam', email: 'sam@example.com', joined: '2026-09-02T00:00:00Z', account_exists: true,
+          last_version: '2026-09-30', last_at: '2026-09-30T10:00:00Z', last_method: 'backfill', records: 1, history: [rec('2026-09-30', '2026-09-30T10:00:00Z', 'backfill')] },
+        { user_id: 'u9', username: 'gone', display_name: null, email: 'gone@example.com', joined: null, account_exists: false,
+          last_version: '2026-09-30', last_at: '2026-09-29T10:00:00Z', last_method: 'signup', records: 1, history: [rec('2026-09-30', '2026-09-29T10:00:00Z', 'signup')] },
+      ], error: null };
+    }
     if (fn === 'record_consent') { self.__consents = [...(self.__consents || []), args]; return { data: new Date().toISOString(), error: null }; }
     if (fn === 'my_files') return { data: [{ bucket: 'proof', path: '1/u1/p.mp4' }, { bucket: 'proof', path: '9/u1/left.mp4' }], error: null };
     if (fn === 'delete_account') return M().deleteFails ? { data: null, error: err('network is down') } : { data: null, error: null };

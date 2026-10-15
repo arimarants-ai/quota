@@ -3129,3 +3129,59 @@ create view private.agreements as
          exists (select 1 from auth.users u where u.id = c.user_id) as account_exists, c.id
     from public.consents c
    order by c.accepted_at desc;
+
+-- ============================================================
+-- v52 (the agreements screen): every account and what it has agreed to, for moderators
+-- only, so pulling up proof is a screen in the app rather than a query. Safe to run on an
+-- existing project. No redeploy.
+-- ============================================================
+
+-- Whether the signed-in account is a moderator. The app asks this to decide whether to
+-- show the screen at all; the screen's data is refused to anybody else regardless.
+create or replace function public.am_moderator() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.moderators where user_id = auth.uid());
+$$;
+revoke all on function public.am_moderator() from public, anon, authenticated;
+grant execute on function public.am_moderator() to authenticated;
+
+-- One row per person: every account there is, and every account that is gone but agreed
+-- to something while it existed. With their latest agreement and the whole history of
+-- them, newest first. Email is in here, which is why nobody but a moderator gets it.
+create or replace function public.admin_agreements()
+returns table (user_id uuid, username text, display_name text, email text, joined timestamptz,
+               account_exists boolean, last_version text, last_at timestamptz, last_method text,
+               records int, history jsonb)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.moderators m where m.user_id = auth.uid()) then
+    raise exception 'only a moderator can see this' using errcode = '42501';
+  end if;
+  return query
+  with people as (
+    select u.id from auth.users u
+    union
+    select c.user_id from public.consents c
+  ), recs as (
+    select c.user_id,
+           count(*)::int as n,
+           jsonb_agg(jsonb_build_object('at', c.accepted_at, 'version', c.terms_version, 'method', c.method,
+             'ip', c.ip, 'device', c.user_agent, 'build', c.app_build, 'sha256', c.wording_sha256,
+             'username', c.username, 'email', c.email) order by c.accepted_at desc) as h,
+           (array_agg(c.terms_version order by c.accepted_at desc))[1] as v,
+           max(c.accepted_at) as at,
+           (array_agg(c.method order by c.accepted_at desc))[1] as how,
+           (array_agg(c.username order by c.accepted_at desc))[1] as was_username,
+           (array_agg(c.email order by c.accepted_at desc))[1] as was_email
+      from public.consents c group by c.user_id
+  )
+  select p.id, coalesce(pr.username, r.was_username), pr.display_name, coalesce(u.email, r.was_email)::text,
+         u.created_at, u.id is not null, r.v, r.at, r.how, coalesce(r.n, 0), coalesce(r.h, '[]'::jsonb)
+    from people p
+    left join auth.users u on u.id = p.id
+    left join public.profiles pr on pr.id = p.id
+    left join recs r on r.user_id = p.id
+   order by u.created_at desc nulls last;
+end $$;
+revoke all on function public.admin_agreements() from public, anon, authenticated;
+grant execute on function public.admin_agreements() to authenticated;

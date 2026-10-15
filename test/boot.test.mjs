@@ -2093,6 +2093,39 @@ await withPage({ session: { user: { id: 'u1' } }, noUsername: true }, async page
     && /^[0-9a-f]{64}$/.test(rec[0].p_sha256 || '') && rec[0].p_build === await page.evaluate(() => BUILD), JSON.stringify(rec));
 });
 
+// The agreements screen: moderators only, every account with whether it has agreed to the
+// terms as they stand, the history behind each, and a CSV of it all.
+await withPage({ ...SIGNED_IN, mod: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => openSettings()); await page.waitForTimeout(500);
+  check('a moderator has the agreements screen in Settings', await page.locator('#app button:has-text("Users & agreements")').count() === 1);
+  await page.locator('#app button:has-text("Users & agreements")').click(); await page.waitForTimeout(600);
+  const txt = await page.innerText('#app');
+  check('  which says how many are on the current terms', /1\s*of 2 on the current terms/.test(txt), txt.slice(0, 300));
+  check('  and lists each account with where it stands', await page.locator('#adml .arow').count() === 2
+    && await page.locator('#adml .pill.ok').count() === 1 && await page.locator('#adml .pill.warn').count() === 1);
+  await page.locator('#adml .arow[data-uid="u1"] .top').click(); await page.waitForTimeout(200);
+  const hist = await page.innerText('#adml .arow[data-uid="u1"] .hist');
+  check('  tapping one shows every agreement on record, with where it came from', /203\.0\.113\.7/.test(hist) && /iPhone/.test(hist) && /Carried over/.test(hist), hist);
+  await page.locator('.adm .search').fill('sam'); await page.waitForTimeout(200);
+  check('  searching narrows it', await page.locator('#adml .arow').count() === 1);
+  await page.locator('.adm .search').fill(''); await page.locator('.adm .chip:has-text("Deleted")').click(); await page.waitForTimeout(200);
+  check('  and deleted accounts are kept, with their agreements', await page.locator('#adml .arow[data-uid="u9"]').count() === 1);
+  const dl = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+  await page.locator('.adm button:has-text("Download CSV")').click();
+  const file = await dl;
+  const csv = file ? (await (await import('node:fs/promises')).readFile(await file.path(), 'utf8')) : '';
+  check('  and it all downloads as a spreadsheet, one row per agreement', csv.split('\n').length === 5 && /^agreed_at,username,email/.test(csv), csv.slice(0, 200));
+  await page.locator('#app .back:has-text("Settings")').click(); await page.waitForTimeout(500);
+  check('  and back goes to Settings', /preferences/i.test(await page.innerText('#app')) && await page.evaluate(() => S.admin === null),
+    (await page.innerText('#app')).slice(0, 200));
+});
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openSettings()); await page.waitForTimeout(500);
+  check('  nobody else has it', await page.locator('#app button:has-text("Users & agreements")').count() === 0);
+});
+
 // Agreeing again after the documents change writes a record of its own.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
