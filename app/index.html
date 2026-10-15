@@ -1525,7 +1525,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v138';
+const BUILD = 'quota-v139';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6746,7 +6746,7 @@ function setupView() {
 //
 // Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
 // against each account, so it is always possible to say which wording somebody agreed to.
-const TERMS_VERSION = '2026-09-30';
+const TERMS_VERSION = '2026-10-15';
 // Where every contact line in the documents points. hello@ reaches both co-founders.
 const CONTACT = 'hello@hitquota.app';
 // The website, where the same documents are published for anyone without the app, and
@@ -6805,6 +6805,7 @@ const LEGAL = {
 <li><b>Your time zone</b>, so that a spin-day reminder arrives in your morning and not somebody else's.</li>
 <li><b>A push subscription</b>, only if you turn notifications on. Turning them off deletes it.</li>
 <li><b>Reports and blocks.</b> If you report something, what you reported and why. If you block somebody, who.</li>
+<li><b>A record of agreeing.</b> Each time you agree to these terms, the guidelines and this policy: when, which version, your username and email at the time, and the network address and browser it came from. It is proof that you agreed, and nothing else.</li>
 </ul>
 <h3>What Quota does not do</h3>
 <p>There are no adverts, no analytics, no tracking pixels and no third-party trackers of any kind. Nothing here is sold, and nothing is handed to anyone for marketing. No profile of you is built for any purpose other than showing you the app.</p>
@@ -6825,7 +6826,7 @@ const LEGAL = {
 </ul>
 <p>If you turn notifications on, the message is delivered by your phone's own push service — Apple's or Google's, depending on the phone. They see that a message is going to your device.</p>
 <h3>How long it is kept</h3>
-<p>Posts, comments and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete account) deletes everything in it straight away, files included. A report is kept after the account it is about is gone, for as long as it takes to deal with it. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
+<p>Posts, comments and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete account) deletes everything in it straight away, files included. A report is kept after the account it is about is gone, for as long as it takes to deal with it. The record of you agreeing to the terms and this policy is kept after the account is deleted too, because it is the proof of what was agreed if that is ever in question; it holds nothing but what is listed above, and nobody can change it. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
 <h3>What you can ask for</h3>
 <p>You can delete your account and everything in it yourself, from Settings. You can also ask for a copy of everything held about you, or for it to be corrected: email <a href="mailto:${CONTACT}">${CONTACT}</a> and it will be done within 30 days.</p>
 <h3>Age</h3>
@@ -6911,9 +6912,26 @@ function acceptView() {
     <button class="primary" style="width:100%;margin-top:20px;padding:14px" onclick="acceptTerms(this)">I agree</button>
     <button class="ghost" style="width:100%;margin-top:8px" onclick="logout()">Log out</button></div>`;
 }
+// The proof of agreeing is a row the database writes itself (v51): its clock, the request it
+// came in on, and a fingerprint of the exact wording on this screen, so it can be shown
+// later which text somebody agreed to. Before that SQL is run the profile is written the
+// old way, so agreeing never stops working.
+async function wordingSha() {
+  try {
+    const text = TERMS_VERSION + '\n' + Object.entries(LEGAL).map(([k, d]) => `${k}\n${d.title}\n${d.body}`).join('\n');
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) { return null; }
+}
+async function recordConsent(method) {
+  const {error} = await sb.rpc('record_consent', {p_version: TERMS_VERSION, p_method: method, p_sha256: await wordingSha(), p_build: BUILD});
+  return error;
+}
 async function acceptTerms(btn) {
   btn.disabled = true; btn.textContent = '…';
-  const {error} = await sb.from('profiles').update({terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION}).eq('id', me().id);
+  let error = await recordConsent('reaccept');
+  if (error && /record_consent|schema cache|does not exist|PGRST202/i.test(`${error.code} ${error.message}`))
+    ({error} = await sb.from('profiles').update({terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION}).eq('id', me().id));
   if (error) { btn.disabled = false; btn.textContent = 'I agree'; return showErr('That did not save.', error.message); }
   await load();
 }
@@ -7941,6 +7959,10 @@ async function saveSetup(f) {
     terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION};
   const {error} = await sb.from('profiles').update(patch).eq('id', me().id);
   if (error) { done(); return alert(/duplicate|unique/i.test(error.message) ? 'That username was taken a moment ago. Try another.' : friendlyError(error, "Couldn't save that. Try again in a moment.")); }
+  // And the record of it, now there is a username to write on it. The profile above already
+  // says they agreed, so a record that could not be written does not stop them getting in.
+  const rec = await recordConsent('signup');
+  if (rec) console.error('Quota: the record of agreeing was not written', rec);
   $('#bar').hidden = false;
   // The welcome email. The function sends it once per account however often this is
   // called, and it is not worth holding anybody up for, so nothing waits on it.

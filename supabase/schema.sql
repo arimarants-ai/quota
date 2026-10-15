@@ -3029,3 +3029,103 @@ language sql security definer stable set search_path = public as $$
 $$;
 revoke all on function public.my_files() from public, anon, authenticated;
 grant execute on function public.my_files() to authenticated;
+
+-- ============================================================
+-- v51 (a record of agreeing): every time somebody agrees to the terms, guidelines and
+-- privacy policy, a row that nobody can change or delete. Safe to run on an existing
+-- project. No redeploy.
+-- ============================================================
+
+-- The profile's terms_accepted_at was the only record, and it was the wrong kind: written
+-- with the phone's clock, overwritten by the next agreement, editable by the account it
+-- was about, and gone with the account. None of that is proof of anything. This is.
+--
+-- One row per agreement, written by the database itself: its own clock, who it was by
+-- (with their username and email as they were then, so the row still says who after the
+-- account is gone), which version of the documents, a fingerprint of the exact wording the
+-- app showed, how it came about (signing up, agreeing again after a change, or carried
+-- over from before this existed), and the network address and browser it came from.
+-- No foreign key to the account, on purpose: deleting an account leaves its agreements,
+-- which the privacy policy says.
+create table if not exists public.consents (
+  id bigint generated always as identity primary key,
+  user_id uuid not null,
+  username text,
+  email text,
+  terms_version text not null,
+  documents text[] not null default array['terms', 'guidelines', 'privacy'],
+  wording_sha256 text,
+  method text not null check (method in ('signup', 'reaccept', 'backfill')),
+  app_build text,
+  ip text,
+  user_agent text,
+  accepted_at timestamptz not null default now()
+);
+create index if not exists consents_user on public.consents (user_id, accepted_at);
+alter table public.consents enable row level security;
+
+-- You can see your own; nobody can write one except through record_consent below, and
+-- nothing — not the account, not the app, not a service key — can change or remove one.
+drop policy if exists "see own agreements" on public.consents;
+create policy "see own agreements" on public.consents for select to authenticated using (user_id = auth.uid());
+revoke insert, update, delete, truncate on public.consents from anon, authenticated, service_role;
+revoke select on public.consents from anon;
+
+create or replace function public.consents_append_only() returns trigger
+language plpgsql as $$
+begin
+  raise exception 'agreements are kept as they were written' using errcode = 'P0001';
+end $$;
+drop trigger if exists consents_append_only on public.consents;
+create trigger consents_append_only before update or delete on public.consents
+  for each row execute function public.consents_append_only();
+drop trigger if exists consents_no_truncate on public.consents;
+create trigger consents_no_truncate before truncate on public.consents
+  for each statement execute function public.consents_append_only();
+
+-- Agreeing. Who, when and where come from the request, not from the app, so a phone with
+-- its clock wrong or an app that was tampered with cannot write somebody else's agreement
+-- or a date it chose. The profile's columns follow it, so the app knows what was agreed.
+create or replace function public.record_consent(p_version text, p_method text, p_sha256 text default null, p_build text default null)
+returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  h json := nullif(current_setting('request.headers', true), '')::json;
+  at timestamptz := now();
+begin
+  if uid is null then raise exception 'not signed in'; end if;
+  if p_method not in ('signup', 'reaccept') then raise exception 'not a way of agreeing'; end if;
+  insert into public.consents (user_id, username, email, terms_version, wording_sha256, method, app_build, ip, user_agent, accepted_at)
+  select uid, p.username, u.email, left(p_version, 40), left(p_sha256, 64), p_method, left(p_build, 40),
+         left(split_part(coalesce(h->>'x-forwarded-for', h->>'x-real-ip', ''), ',', 1), 64),
+         left(h->>'user-agent', 400), at
+    from (select 1) one
+    left join public.profiles p on p.id = uid
+    left join auth.users u on u.id = uid;
+  update public.profiles set terms_accepted_at = at, terms_version = left(p_version, 40) where id = uid;
+  return at;
+end $$;
+revoke all on function public.record_consent(text, text, text, text) from public, anon, authenticated;
+grant execute on function public.record_consent(text, text, text, text) to authenticated;
+
+-- Everybody who agreed before this existed, from what the profile says, marked as carried
+-- over so it is never mistaken for a record made at the time. Only once per account.
+insert into public.consents (user_id, username, email, terms_version, method, accepted_at)
+select p.id, p.username, u.email, coalesce(p.terms_version, 'unknown'), 'backfill', p.terms_accepted_at
+  from public.profiles p left join auth.users u on u.id = p.id
+ where p.terms_accepted_at is not null
+   and not exists (select 1 from public.consents c where c.user_id = p.id);
+
+-- Pulling it up: everything on record for somebody, newest first, by email or username,
+-- whether or not the account still exists. In `private`, like the moderation views, so the
+-- API never serves it. From the SQL editor:
+--   select * from private.agreements where email = 'someone@example.com';
+--   select * from private.agreements where username = 'someone';
+drop view if exists private.agreements;
+create view private.agreements as
+  select c.accepted_at, c.username, c.email, c.terms_version, c.documents, c.method,
+         c.ip, c.user_agent, c.app_build, c.wording_sha256, c.user_id,
+         exists (select 1 from auth.users u where u.id = c.user_id) as account_exists, c.id
+    from public.consents c
+   order by c.accepted_at desc;
