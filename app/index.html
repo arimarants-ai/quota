@@ -1423,6 +1423,12 @@ dialog h2{font-size:20px;margin-bottom:2px}
 #party button.share{margin-top:9px;background:none;color:var(--mkt);border:1px solid var(--line)}
 
 /* the splash while the first load runs, and the banner when it fails */
+#sendbar{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:65;display:flex;align-items:center;gap:10px;
+  padding:11px 14px;background:var(--card);color:var(--text);border:1px solid var(--line);box-shadow:0 10px 30px -12px rgba(0,0,0,.35);overflow:hidden;
+  animation:rise .2s ease-out}
+#sendbar[hidden]{display:none}
+#sendbar b{font-size:14px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sendbar i{position:absolute;left:0;bottom:0;height:3px;width:var(--w);background:var(--mk);transition:width .25s ease-out}
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
 .splash svg{width:64px;height:64px;border-radius:16px}
 .splash i{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--mk);border-radius:50%;animation:spin .8s linear infinite}
@@ -1483,6 +1489,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <div id="make" hidden role="dialog" aria-label="New story"></div>
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
 <div id="drop" hidden aria-live="polite"></div>
+<div id="sendbar" hidden role="status"></div>
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" class="rty" onclick="load()">Retry</button><button type="button" class="dis" onclick="hideErr()" aria-label="Dismiss">✕</button></div>
 <!-- Recording is the phone's own camera app, asked for with capture= on a file input. -->
 <input id="camin" type="file" hidden onchange="camPicked(this)">
@@ -1518,7 +1525,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v136';
+const BUILD = 'quota-v138';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1791,13 +1798,8 @@ const hitDays = (g, uid) => new Set([...(totalsIndex().days.get(`${g.id}|${uid}`
 // A wheel set to break the streak does it on the day its cycle closes, not on the day it
 // was spun: you had the whole cycle to finish, so the day it runs out is the day it counts
 // against you. A cycle still running is never judged, and neither is one that ends today.
-// A wheel never ends a streak any more. A streak is the days you hit your goal, and a day
-// you did that and then lost to a challenge you did not finish read as a streak of 0 to
-// somebody who had done their push-ups — which is a broken promise, not a rule. A wheel's
-// challenge is its own thing, with its own ticks. The old setting is left on the rows and
-// ignored, so no group has to be edited for this to hold.
 function brokeStreak(g, uid, day) {
-  return false && wheelsOf(g).some(w => {
+  return wheelsOf(g).some(w => {
     if (!w.breaks_streak || day >= today()) return false;
     const c = cycleOf(w, day);
     if (c < 0 || cycleEnd(w, c) !== day) return false;
@@ -2634,6 +2636,13 @@ function morphReel(a, b) {
   const np = b.querySelector('.proof'), op = a.querySelector('.proof');
   if (!np || !op || np.tagName !== op.tagName) return a.replaceWith(b);   // a different thing now
   if (np.dataset.src) op.dataset.src = np.dataset.src;
+  // And the still. A clip first drawn from the copy kept on the phone carries a still link
+  // that ran out hours ago; kept as it was, the fresh load's new link never reached it and
+  // the preview stayed black for good.
+  if (np.dataset.poster && np.dataset.poster !== op.dataset.poster) {
+    op.dataset.poster = np.dataset.poster;
+    if (op.hasAttribute('poster')) op.setAttribute('poster', np.dataset.poster);
+  }
   const nr = b.querySelector('.reacts'), or = a.querySelector('.reacts');
   if (or) or.remove(); if (nr) a.appendChild(nr);
   // A kept clip keeps the link it was first given, and links last an hour — an installed
@@ -2874,7 +2883,7 @@ function wheelCard(g, w) {
       <b>${esc(w.name)}</b><span class="when">${soon ? `starts ${dayLabel(w.starts_on)}`
     : `<i>every ${plural(w.every_days, 'day')} ·</i> <i>next ${dayLabel(cycleStart(w, c + 1))}</i>`}</span>
       <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`
-    ;
+    + (w.breaks_streak ? `<div class="who">Not finishing this breaks your streak.</div>` : '');
   const yours = soon ? '' : !mine
     ? `<div class="row" style="margin-top:10px"><button class="primary grow" onclick="spinDlg(${g.id})">Spin</button></div>`
     : satOut(mine)
@@ -7255,6 +7264,7 @@ function wheelInfoDlg(id) {
   dlg(`<h2>${esc(w.name)}</h2>
     <p class="muted">${running(w) ? `Everyone spins it every ${plural(w.every_days, 'day')} · next ${dayLabel(cycleStart(w, cycleOf(w) + 1))}`
       : `Starts ${dayLabel(w.starts_on)}, then every ${plural(w.every_days, 'day')}`}${maker ? ` · made by ${esc(name(maker))}` : ''}</p>
+    ${w.breaks_streak ? `<p class="warn" style="margin-top:8px">Not finishing the challenge breaks your streak.</p>` : ''}
     ${stages}
     <div class="row" style="margin-top:20px"><button type="button" onclick="dlg()" class="grow">Close</button>
     ${myWheel(w) ? `<button class="primary grow" onclick="wheelDlg(${w.group_id},S.wheels.find(x=>x.id===${w.id}))">Edit</button>`
@@ -7300,6 +7310,8 @@ function wheelDlg(gid, w) {
       <input name="days" placeholder="1, 2, 3" value="${esc(dw ? dw.segments.join(', ') : '1, 2, 3')}">
     </div>
 
+    <label class="check"><input type="checkbox" name="breaks" ${w && w.breaks_streak ? 'checked' : ''}>
+      <span>Not finishing the challenge breaks your streak</span></label>
 
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button>
       ${w && myWheel(w) ? `<button type="button" class="ghost" onclick="delWheel(${w.id})">Delete</button>` : ''}
@@ -7326,7 +7338,7 @@ async function saveWheel(f, gid, id) {
   working(f, 'Saving…');
   try {
     await q(sb.rpc('save_wheel', {p_id: id || null, p_group: gid, p_name: fd.get('name').trim(),
-      p_every: every, p_starts: starts, p_hour: +fd.get('hour'), p_breaks: false, p_stages: stages}));
+      p_every: every, p_starts: starts, p_hour: +fd.get('hour'), p_breaks: !!fd.get('breaks'), p_stages: stages}));
   } catch (e) { return working(f, 'Save'), f.querySelectorAll('button').forEach(b => b.disabled = false); }
   dlg(); await load(); openGroup(gid);
 }
@@ -8968,6 +8980,16 @@ async function addPost(f, gid) {
   try { return await sendPost(f, gid); }
   finally { dropWake(); if (note) note.hidden = true; }
 }
+// Whether a post is going up behind the screen, and the bar that says how far it has got.
+// A fixed element of its own rather than part of a screen, so it stays put whichever tab
+// you go to while it finishes.
+let posting = false;
+function sendStatus(text, pct) {
+  const el = $('#sendbar');
+  if (text == null) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `<span class="spin" aria-hidden="true"></span><b>${esc(text)}</b><i style="--w:${Math.max(2, Math.min(100, pct || 0))}%"></i>`;
+}
 async function sendPost(f, gid) {
   // Taken the moment Post is tapped. Compressing and uploading can run past midnight, and
   // a clip that finally lands at 00:04 was still done yesterday — reading the date after
@@ -8978,9 +9000,16 @@ async function sendPost(f, gid) {
   // the camera last handed back and nothing else.
   if (!picked || !picked.size) return alert('Record your proof first \u2014 tap Record.');
   if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
-  const bar = $('#uprog'), size = $('#vsize');
+  if (posting) return alert('A post is still going up. It will be done in a moment.');
+  // The sheet goes the moment Post is tapped, and the clip goes up behind it with a bar at
+  // the bottom of the screen saying how far it has got. Compressing and uploading on a phone
+  // can take most of a minute, and watching a sheet do it was the slowest part of the app.
+  // Anything that goes wrong after this keeps the take: it waits in the outbox instead.
   let row = null;
-  if (bar) { bar.hidden = false; bar.style.setProperty('--w', '0%'); }
+  const what = `${+fd.get('amount') || ''} ${fd.get('metric') || ''}`.trim();
+  posting = true;
+  dlg();
+  sendStatus(`Posting ${what}`, 0);
   let key = null;                          // once the file is up, where it went
   let poster = null;                       // its still, kept for the outbox if the upload fails
 
@@ -8989,17 +9018,13 @@ async function sendPost(f, gid) {
   // actually be sent rather than what came off the camera.
   // Only shrink() knows whether there is anything to re-encode, and it says so by
   // reporting progress. Until it does, this is just reading the file.
-  working(f, 'Preparing…');
-  const video = await shrink(picked, p => {
-    const pct = Math.round(p * 100);
-    working(f, `Compressing… ${pct}%`);
-    if (bar) bar.style.setProperty('--w', `${pct}%`);
-  });
-  if (video.size > MAX_MB * 1048576) { if (bar) bar.hidden = true; return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false), alert(tooBig(video.size)); }
-  if (size) { size.className = 'muted'; size.textContent = video === picked ? `${mb(video.size)} MB` : `${mb(picked.size)} MB → ${mb(video.size)} MB`; }
+  sendStatus(`Preparing ${what}…`, 0);
+  let video;
+  try { video = await shrink(picked, p => sendStatus(`Compressing… ${Math.round(p * 100)}%`, p * 50)); }
+  catch (e) { video = picked; }            // the original goes as it is rather than not at all
+  if (video.size > MAX_MB * 1048576) { posting = false; sendStatus(null); return alert(tooBig(video.size)); }
 
-  working(f, 'Uploading…');
-  if (bar) bar.style.setProperty('--w', '0%');
+  sendStatus('Uploading…', 50);
   // The whole post is put together before anything is sent, so a clip that ends up in the
   // outbox is the post that was asked for. It used to be built only after the upload
   // worked, and the fallback for a failed one was written out again without the challenge
@@ -9016,30 +9041,28 @@ async function sendPost(f, gid) {
     poster = isPic(video) ? null : await grabPoster(video);
     key = await putFile({group_id: gid}, video, (sent, total, rate) => {
       const pct = Math.round(sent / total * 100);
-      working(f, `Uploading… ${pct}%`);
-      if (bar) bar.style.setProperty('--w', `${pct}%`);
-      if (size) { size.className = 'muted'; size.textContent = `${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`; }
+      sendStatus(`Uploading… ${pct}% · ${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`, 50 + pct * 0.45);
     }, poster);
-    working(f, 'Posting…');
+    sendStatus('Posting…', 97);
     wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
     chalWas = doneChallengeIds();
     await q(sb.from('posts').insert({...row, video_path: key, video_store: 'r2'}));
   } catch (e) {
-    if (bar) bar.hidden = true;
-    // A dropped connection is not a reason to lose the take. It goes in the outbox with
-    // the day it was for, and the feed says it is waiting.
-    if (e.offline || navigator.onLine === false) {
-      // Already uploaded if it got that far: the outbox posts that file, rather than sending
-      // it again under a new name and then not recognising the post it already made.
-      await queuePost(row, video, key, poster);
-      dlg();
-      return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
-    }
-    if (!e.shown) alert(friendlyError(e));                 // q() already showed its own
-    return working(f, 'Post'), f.querySelectorAll('button').forEach(b => b.disabled = false);
+    posting = false; sendStatus(null);
+    // Nothing that goes wrong now loses the take. It goes in the outbox with the day it was
+    // for, and the feed says it is waiting; already uploaded if it got that far, so the
+    // outbox posts that file rather than sending it again under a new name.
+    // A file too big for the bucket will never go, and waiting would only hide that.
+    if (e.status === 413 || /maximum allowed size|too big/i.test(String(e.message || ''))) return alert(friendlyError(e));
+    await queuePost(row, video, key, poster);
+    render();
+    if (e.offline || navigator.onLine === false) return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
+    if (!e.shown) alert(`${friendlyError(e)} It is saved on your phone, under Waiting to send.`);
+    return;
   }
+  posting = false; sendStatus(null);
   buzz('success');
-  dlg(); await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
+  await load(); if (S.open) openGroup(gid); else scrollTo(0, 0);
   flushOutbox();                           // the network is plainly up; take anything waiting with it
   // The post that finished the day is worth offering to say something about. The one after
   // it is not, which is what wasDone is for — unless it is the one that finished a
