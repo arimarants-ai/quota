@@ -5262,7 +5262,8 @@ function playClip(v, postId) {
   // play() rejects when the source never arrived, and an unhandled rejection here is the
   // whole bug: the tap does nothing and nothing says why.
   const go = v.play();
-  if (go && go.catch) go.catch(() => clipBust(v, postId, true));
+  // An AbortError is this app starting the clip again (rescueClip), not the clip failing.
+  if (go && go.catch) go.catch(e => { if (!e || e.name !== 'AbortError') clipBust(v, postId, true); });
 }
 // The reel wears the player's state. Playing hides the glyph after showing the pause bars
 // for a moment; paused brings the play triangle straight back; ended rewinds the line.
@@ -5321,7 +5322,7 @@ async function rescueClip(v) {
   v.dataset.src = url; delete v.dataset.retried;
   v.removeAttribute('src'); try { v.load(); } catch (e) {}
   v.src = url; v._srcAt = Date.now();
-  try { v.load(); await v.play(); } catch (e) { return clipBust(v, postId, true); }
+  try { v.load(); await v.play(); } catch (e) { if (!e || e.name !== 'AbortError') return clipBust(v, postId, true); }
 }
 function retryClip(btn, postId) {
   const reel = btn.closest('.reel'), v = reel.querySelector('.proof');
