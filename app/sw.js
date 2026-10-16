@@ -3,7 +3,7 @@
 // signed video URLs) is deliberately left alone so it always hits the network, and so is
 // every clip and still on R2.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v141';
+const VERSION = 'quota-v142';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
