@@ -1545,7 +1545,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v141';
+const BUILD = 'quota-v142';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2557,6 +2557,7 @@ async function runLoad() {
     if (!pushKnown && me()) { pushKnown = true; refreshPush().then(render).catch(() => {}); }
     // Whether this account moderates, which is what shows the agreements screen. Asked once;
     // the database refuses that screen's data to anybody else whatever the app thinks.
+    if (me() && S.fresh && !takeOffered) { takeOffered = true; offerTake(); }
     if (me() && S.isMod === undefined) { S.isMod = false; Promise.resolve(sb.rpc('am_moderator')).then(({data}) => { S.isMod = data === true; if (S.isMod && S.settings) render(); }, () => {}); }
     if (me()) { goLive(); noteForfeits(); } else dropLive();
     syncPhone();
@@ -7258,7 +7259,7 @@ const outsideDlg = e => { const r = $('#dlg').getBoundingClientRect();
 let dlgDownOut = false;
 $('#dlg').addEventListener('pointerdown', e => { dlgDownOut = e.target === $('#dlg') && outsideDlg(e); });
 $('#dlg').addEventListener('click', e => {
-  if (e.target === $('#dlg') && dlgDownOut && outsideDlg(e) && !dlgBusy()) dlg();
+  if (e.target === $('#dlg') && dlgDownOut && outsideDlg(e) && !dlgBusy() && letGo()) dlg();
   dlgDownOut = false;
 });
 // Dragging the handle: the sheet follows the finger down (never up past where it sits), and
@@ -7280,12 +7281,14 @@ $('#dlg').addEventListener('pointerdown', e => {
   const up = () => {
     grab.removeEventListener('pointermove', move); grab.removeEventListener('pointerup', up); grab.removeEventListener('pointercancel', up);
     d.style.transition = '';
-    if (dy > Math.min(120, d.offsetHeight * .3) || (dy > 24 && v > .5)) return dlg();
+    if ((dy > Math.min(120, d.offsetHeight * .3) || (dy > 24 && v > .5)) && letGo()) return dlg();
     d.style.transition = 'transform .28s cubic-bezier(.32,.72,0,1)'; d.style.transform = '';
     setTimeout(() => { d.style.transition = ''; }, 300);
   };
   grab.addEventListener('pointermove', move); grab.addEventListener('pointerup', up); grab.addEventListener('pointercancel', up);
 });
+// Escape, or anything else the browser counts as "close this", asks the same as Cancel.
+$('#dlg').addEventListener('cancel', e => { e.preventDefault(); if (!dlgBusy() && letGo()) dlg(); });
 let dlgT = null;
 function dlg(html) {
   const d = $('#dlg'); clearTimeout(dlgT); d.classList.remove('out');
@@ -7400,20 +7403,24 @@ const myChallenges = g => wheelsOf(g).filter(running)
   .filter(sp => sp && !satOut(sp) && effChallenge(sp)
     && requiredDays(S.wheels.find(x => x.id === sp.wheel_id), sp));
 
-function submitDlg(gid) {
+function submitDlg(gid, keep) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
-  recorded = null; camAt = 0;              // a new form needs a new take, not the last one
+  // A new form needs a new take, not the last one — except when all that changed is which
+  // group it is for: picking another group used to throw away a clip already recorded.
+  if (!keep) { recorded = null; camAt = 0; }
   dropTake();
   // The wheel comes first. The database enforces this too, so going around the page only
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
-  const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
-  dlg(`<h2>Post proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})">${pick}
+  const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value,1)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
+  postFor = g.id;
+  dlg(`<h2>Post proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})" oninput="keepForm(this)" onchange="keepForm(this)">${pick}
     <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
     <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
     <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button><button type="button" class="grow" onclick="openCam('post',true)">Photo</button></div>
     <div id="takeprev" hidden></div>
+    <p class="muted small" id="kept" hidden style="margin-top:6px">Your clip from before was kept. Post it, or record again.</p>
     <p class="muted" id="vsize" style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     <p class="muted small" id="keepopen" hidden style="margin-top:6px">Keep Quota open until this is done. Leaving the app stops the upload.</p>
@@ -7421,7 +7428,8 @@ function submitDlg(gid) {
     <label class="check chk" style="margin-top:16px"><input type="checkbox" name="onprofile">
       <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label>
     <label>Caption (optional)</label><textarea class="autogrow" rows="1" name="caption" placeholder="20 more in the bag" maxlength="200"></textarea>
-    <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
+    <div class="row" style="margin-top:18px"><button type="button" onclick="letGo()&&dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
+  if (keep && recorded) takeBack(recorded); else if (!keep) restoreTake();
 }
 const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
 // Everything you do to a group rather than in it. These were all on the group screen at
@@ -8332,6 +8340,87 @@ const STORY_SECS = 10;                     // a story is a moment, not a clip
 let recorded = null;                       // what came back, used in place of a picked file
 let camFor = 'post';
 
+// ---- a take is kept until it is posted
+// A clip exists only on this form until Post is tapped, and a form is easy to lose: the
+// phone turns sideways, iOS reloads an app that came back from the camera short of memory,
+// a thumb catches the backdrop. Every one of those threw the take away and it had to be
+// filmed again. So the moment the camera hands one back it is written to the phone, and
+// it is only let go of when it is posted (or handed to the outbox), when another take
+// replaces it, or when you say to discard it. Opening the form, or the app, brings it back.
+//
+// Proof is for today, so a kept take is too: past midnight, or a few hours on, it is gone.
+const TAKEDB = 'quota-take', TAKESTORE = 'take', TAKE_HOURS = 3;
+let postFor = 0, takeOffered = false, formT = null;
+const takeTx = (mode, run) => new Promise((res, rej) => {
+  const r = indexedDB.open(TAKEDB, 1);
+  r.onupgradeneeded = () => r.result.createObjectStore(TAKESTORE);
+  r.onerror = () => rej(r.error);
+  r.onsuccess = () => {
+    const rq = run(r.result.transaction(TAKESTORE, mode).objectStore(TAKESTORE));
+    rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+  };
+});
+function keepTake(f) {
+  const m = me(); if (!m || !self.indexedDB) return;
+  try { takeTx('readwrite', st => st.put({uid: m.id, gid: postFor, day: today(), at: Date.now(), file: f, form: {}}, 'last')).catch(() => {}); } catch (e) {}
+}
+function forgetTake() { try { if (self.indexedDB) takeTx('readwrite', st => st.delete('last')).catch(() => {}); } catch (e) {} }
+async function keptTake() {
+  const m = me(); if (!m || !self.indexedDB) return null;
+  let t; try { t = await takeTx('readonly', st => st.get('last')); } catch (e) { return null; }
+  if (!t || !t.file || t.uid !== m.id) return null;
+  if (t.day !== today() || Date.now() - t.at > TAKE_HOURS * 3600e3) { forgetTake(); return null; }
+  return t;
+}
+// What was typed beside the take goes with it, so coming back is the whole form.
+function keepForm(f) {
+  clearTimeout(formT);
+  formT = setTimeout(async () => {
+    if (!recorded) return;
+    const t = await keptTake(); if (!t) return;
+    const fd = new FormData(f);
+    t.gid = postFor;
+    t.form = {amount: fd.get('amount') || '', metric: fd.get('metric') || '', caption: fd.get('caption') || '', onprofile: !!fd.get('onprofile')};
+    try { takeTx('readwrite', st => st.put(t, 'last')).catch(() => {}); } catch (e) {}
+  }, 300);
+}
+// A take back on the form, the way camPicked() puts a new one there.
+function takeBack(f) {
+  recorded = f;
+  showTake(f);
+  const btn = $('#recbtn'); if (btn) btn.textContent = 'Record again';
+  sizeLine(f);
+}
+async function restoreTake() {
+  const t = await keptTake();
+  const f = $('#dlg').open && $('#dlg form');
+  if (!t || !f || !$('#takeprev') || recorded) return;   // the form moved on while this was read
+  const file = t.file instanceof File ? t.file : new File([t.file], isPic(t.file) ? 'take.jpg' : 'take.mp4', {type: t.file.type || 'video/mp4'});
+  const v = t.form || {};
+  if (v.amount && f.amount && !f.amount.value) f.amount.value = v.amount;
+  if (v.metric && f.metric && [...f.metric.options].some(o => o.value === v.metric)) f.metric.value = v.metric;
+  if (v.caption && f.caption && !f.caption.value) f.caption.value = v.caption;
+  if (v.onprofile && f.onprofile) f.onprofile.checked = true;
+  takeBack(file);
+  const kept = $('#kept'); if (kept) kept.hidden = false;
+}
+// After a reload, the form comes back by itself with the take on it, as long as nothing
+// else is in front.
+async function offerTake() {
+  const t = await keptTake();
+  if (!t || posting || $('#dlg').open || S.story || S.draft) return;
+  const g = myGroups().find(x => x.id === t.gid) || myGroups()[0];
+  if (g) submitDlg(g.id);
+}
+// Putting the form away with an unposted take on it asks first. Saying yes is the only way
+// a take is thrown away without being posted.
+function letGo() {
+  if (!recorded || posting || !$('#dlg').open || !$('#takeprev')) return true;
+  if (!confirm('Discard this clip? You would have to record it again.')) return false;
+  recorded = null; forgetTake();
+  return true;
+}
+
 // The phone dims about thirty seconds into a recording and then locks, and a take that was
 // going fine ends because nobody touched the glass. The camera app never does this to you;
 // an app *hosting* the camera is the one that has to say "not while this is running", and
@@ -8511,6 +8600,8 @@ async function camPicked(input) {
     if (secs > REC_MAX + 0.6) return alert(`That clip runs ${Math.round(secs)} seconds. Proof can be ${REC_MAX}.`);
   }
   recorded = f;
+  keepTake(f);
+  const kept = $('#kept'); if (kept) kept.hidden = true;
   // Watch it back before it goes anywhere. The phone's review screen is gone by the time
   // you are here, and posting is the one thing on this form you cannot take back.
   showTake(f);
@@ -9131,6 +9222,7 @@ async function sendPost(f, gid) {
   const what = `${+fd.get('amount') || ''} ${fd.get('metric') || ''}`.trim();
   posting = true;
   dlg();
+  forgetTake();                            // from here it is the post's, or the outbox's
   sendStatus(`Posting ${what}`, 0);
   let key = null;                          // once the file is up, where it went
   let poster = null;                       // its still, kept for the outbox if the upload fails

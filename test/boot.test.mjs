@@ -1277,6 +1277,49 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => !recorded.fromCamera));
 });
 
+// A take exists only on the form until Post, and the form is easy to lose: the phone turns
+// sideways, iOS reloads an app back from the camera, a thumb catches the backdrop. The take
+// is kept on the phone, comes back with the app, and is only thrown away when asked.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.evaluate(async () => {
+    camAt = Date.now();
+    await camPicked({files: [new File([new Uint8Array(4096)], 'keep.mp4', {type: 'video/mp4'})], value: ''});
+    const a = $('#dlg form').amount; a.value = '25'; a.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await page.waitForTimeout(700);
+  await page.evaluate(async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settle(page);
+  await page.waitForTimeout(800);
+  const back = await page.evaluate(() => ({open: $('#dlg').open, size: recorded && recorded.size,
+    amount: $('#dlg form') && $('#dlg form').amount.value, kept: !!$('#kept') && !$('#kept').hidden,
+    shown: !!document.querySelector('#takeprev video')}));
+  check('a take nobody posted comes back with the app, on the form',
+    back.open && back.size === 4096 && back.shown, JSON.stringify(back));
+  check('  with what was typed beside it, and a word that it was kept', back.amount === '25' && back.kept, JSON.stringify(back));
+
+  // Changing the group is not a new form, and must not cost the take.
+  const kept = await page.evaluate(() => { submitDlg(postFor, 1); return {size: recorded && recorded.size, shown: !!document.querySelector('#takeprev video')}; });
+  check('  picking another group keeps it', kept.size === 4096 && kept.shown, JSON.stringify(kept));
+
+  // Cancel asks; the test's dialogs say no, so it stays.
+  const said = [];
+  page.on('dialog', d => said.push(d.message()));
+  await page.locator('#dlg button:has-text("Cancel")').click();
+  await page.waitForTimeout(400);
+  check('  putting the form away asks before the take goes',
+    said.some(m => /Discard this clip/.test(m)) && await page.evaluate(() => $('#dlg').open && !!recorded), JSON.stringify(said));
+  // And saying yes is what lets it go, from the phone as well as the form.
+  await page.evaluate(() => { self.confirm = () => true; });
+  await page.locator('#dlg button:has-text("Cancel")').click();
+  await page.waitForTimeout(500);
+  check('  and saying yes throws it away for good',
+    await page.evaluate(async () => !$('#dlg').open && recorded === null && !(await keptTake())));
+});
+
 // The phone dims thirty seconds into a recording and then locks, taking the take with it.
 // Whether a wake lock survives the camera sheet is the phone's business and cannot be
 // settled here — what can is that one is asked for on the way in and let go of on the way
