@@ -1545,7 +1545,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v142';
+const BUILD = 'quota-v143';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5267,6 +5267,7 @@ function playClip(v, postId) {
 // The reel wears the player's state. Playing hides the glyph after showing the pause bars
 // for a moment; paused brings the play triangle straight back; ended rewinds the line.
 function clipState(v, st) {
+  if (st === 'play') watchPlay(v);
   const reel = reelOf(v); if (!reel) return;
   reel.classList.toggle('playing', st === 'play');
   clearTimeout(reel._flash);
@@ -5282,10 +5283,50 @@ function clipSound(btn) {
   const v = reelOf(btn).querySelector('video'); if (!v) return;
   v.muted = !v.muted; btn.classList.toggle('off', v.muted);
 }
+// ---- a clip that was asked to play, plays
+// play() succeeding only means the player agreed to try. On a phone that has just posted
+// — a 4K take decoded, re-encoded and uploaded, a still pulled off it — or one that has
+// been scrolling a while, it can agree and then sit there black: no picture, no error,
+// nothing to retry on. So a clip that has been asked to play has a few seconds to show it
+// is moving. If it has not, and nothing is even arriving over the network, every other
+// clip gives back what it is holding, the link is signed afresh, and it starts again.
+// Twice; after that it says so, with Retry. A slow connection that is still delivering is
+// left alone, because starting a download again is the one way to make that one worse.
+const PLAY_WAIT = 6000;
+document.addEventListener('progress', e => { if (e.target.tagName === 'VIDEO') e.target._netAt = Date.now(); }, true);
+function watchPlay(v) {
+  if (!v || v.tagName !== 'VIDEO' || !v.classList.contains('proof')) return;
+  clearTimeout(v._watch);
+  const from = v.currentTime, t0 = Date.now();
+  v._watch = setTimeout(() => {
+    if (v.paused || v.ended || !v.isConnected) return;
+    // Moving, with a picture: fine. Moving with no picture is the black-with-sound case.
+    if (v.currentTime > from + 0.2 && v.videoWidth) { delete v.dataset.rescued; return; }
+    if ((v._netAt || 0) > t0 && v.readyState < 3) return watchPlay(v);   // still arriving: wait on
+    rescueClip(v);
+  }, PLAY_WAIT);
+}
+async function rescueClip(v) {
+  const post = v.closest('[data-post]'), postId = post ? +post.dataset.post : null;
+  const tries = +(v.dataset.rescued || 0);
+  if (tries >= 2) { try { v.pause(); } catch (e) {} return bustMsg(v, "This clip isn't playing. Tap Retry."); }
+  v.dataset.rescued = String(tries + 1);
+  document.querySelectorAll(CLIPS).forEach(o => {
+    if (o === v || o.tagName !== 'VIDEO' || !o.getAttribute('src')) return;
+    try { o.pause(); } catch (e) {}
+    releaseClip(o);
+  });
+  const url = (postId != null && await freshUrl(postId)) || v.dataset.src || v.getAttribute('src');
+  if (!url) return bustMsg(v, 'This clip could not be loaded.');
+  v.dataset.src = url; delete v.dataset.retried;
+  v.removeAttribute('src'); try { v.load(); } catch (e) {}
+  v.src = url; v._srcAt = Date.now();
+  try { v.load(); await v.play(); } catch (e) { return clipBust(v, postId, true); }
+}
 function retryClip(btn, postId) {
   const reel = btn.closest('.reel'), v = reel.querySelector('.proof');
   reel.classList.remove('bust');
-  delete v.dataset.retried;
+  delete v.dataset.retried; delete v.dataset.rescued;
   clipBust(v, postId, true);
 }
 
@@ -8304,7 +8345,12 @@ async function saveProfile(f) {
 // back or the clip sits in memory for as long as the page does, so taking another take
 // releases the one before it, and so does closing the form.
 let takeUrl = null;
+// A player let go of properly: on iOS one that is only dropped holds its decoder until the
+// page gets round to collecting it, and a phone has only a few. Every clip in the feed
+// shares them, so the ones this app made for its own use were turning the feed black.
+function unloadVideo(v) { if (!v) return; try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} }
 function dropTake() {
+  document.querySelectorAll('#takeprev video').forEach(unloadVideo);
   if (takeUrl) { try { URL.revokeObjectURL(takeUrl); } catch (e) {} takeUrl = null; }
   const box = $('#takeprev');
   if (box) { box.innerHTML = ''; box.hidden = true; box.classList.remove('playing'); }
@@ -8395,7 +8441,12 @@ async function restoreTake() {
   const t = await keptTake();
   const f = $('#dlg').open && $('#dlg form');
   if (!t || !f || !$('#takeprev') || recorded) return;   // the form moved on while this was read
-  const file = t.file instanceof File ? t.file : new File([t.file], isPic(t.file) ? 'take.jpg' : 'take.mp4', {type: t.file.type || 'video/mp4'});
+  // A fresh copy rather than the File that came out of the store: on iOS one of those can
+  // be read and still go out empty when it is handed to an upload (see the outbox).
+  const bytes = await clipBytes(t.file);
+  if (!bytes) return forgetTake();
+  const file = new File([bytes], t.file.name || (isPic(t.file) ? 'take.jpg' : 'take.mp4'), {type: t.file.type || 'video/mp4'});
+  if (recorded || !$('#takeprev')) return;
   const v = t.form || {};
   if (v.amount && f.amount && !f.amount.value) f.amount.value = v.amount;
   if (v.metric && f.metric && [...f.metric.options].some(o => o.value === v.metric)) f.metric.value = v.metric;
@@ -8568,7 +8619,7 @@ function avatarCam() { openCam('avatar'); }
 function clipSecs(f) {
   return new Promise(res => {
     const v = document.createElement('video'), u = URL.createObjectURL(f);
-    const done = secs => { URL.revokeObjectURL(u); res(secs); };
+    const done = secs => { unloadVideo(v); URL.revokeObjectURL(u); res(secs); };
     v.onloadedmetadata = () => done(v.duration || 0);
     v.onerror = () => done(0);
     v.src = u;
@@ -8818,7 +8869,7 @@ const mp4Type = () => (typeof MediaRecorder === 'undefined' || !HTMLCanvasElemen
 function playable(blob, seconds) {
   return new Promise(res => {
     const v = document.createElement('video'), url = URL.createObjectURL(blob);
-    const done = ok => { v.src = ''; URL.revokeObjectURL(url); res(ok); };
+    const done = ok => { unloadVideo(v); URL.revokeObjectURL(url); res(ok); };
     v.preload = 'metadata';
     v.onloadedmetadata = () => done(v.videoWidth > 0 && (!isFinite(v.duration) || Math.abs(v.duration - seconds) < Math.max(1, seconds * 0.25)));
     v.onerror = () => done(false);

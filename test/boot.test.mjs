@@ -1452,6 +1452,40 @@ await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
   }));
 });
 
+// A clip that agreed to play and then sat there black — no picture, no error — used to stay
+// that way. Now it gets a few seconds to show it is moving; if it is not, and nothing is
+// arriving, the other clips let go, it gets a fresh link and starts again, twice, and then
+// it says so with Retry rather than staying a black box.
+await withPage({ ...SIGNED_IN, manyPosts: 3 }, async page => {
+  await settle(page);
+  await page.route('https://stall.test/**', () => {});      // asked for, never answered
+  const before = await page.evaluate(() => {
+    self.__fresh = 0;
+    self.freshUrl = async () => { self.__fresh++; return 'https://stall.test/clip.mp4?' + self.__fresh; };
+    const vs = [...document.querySelectorAll('#app .reel video.proof')], v = vs[0];
+    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://stall.test/other.mp4'; });
+    v.removeAttribute('src'); v.dataset.src = 'https://stall.test/clip.mp4';
+    v.closest('.reel').classList.remove('bust');
+    playClip(v, +v.closest('[data-post]').dataset.post);
+    return vs.length;
+  });
+  await page.waitForTimeout(6800);
+  const one = await page.evaluate(() => {
+    const vs = [...document.querySelectorAll('#app .reel video.proof')];
+    return {fresh: self.__fresh, src: vs[0].getAttribute('src'), others: vs.slice(1).filter(o => o.getAttribute('src')).length};
+  });
+  check('a clip that is asked to play and never moves is started again on a fresh link',
+    one.fresh === 1 && /\?1$/.test(one.src || ''), JSON.stringify(one));
+  check('  and every other clip lets go of what it was holding', before > 1 && one.others === 0, JSON.stringify(one));
+  await page.waitForTimeout(13000);
+  const end = await page.evaluate(() => {
+    const r = document.querySelector('#app .reel video.proof').closest('.reel');
+    return {fresh: self.__fresh, bust: r.classList.contains('bust'), msg: r.querySelector('.bust p').textContent};
+  });
+  check('  twice, and then it says so with Retry instead of staying black',
+    end.fresh === 2 && end.bust && /Retry/.test(end.msg), JSON.stringify(end));
+});
+
 // A phone keeps only a handful of <video> elements loaded at once. A feed that hands a
 // source to every post at once spends that budget on clips nobody is looking at, and the
 // ones further down come up black — "sometimes someone else's video doesn't work".
