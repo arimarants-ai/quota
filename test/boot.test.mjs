@@ -3295,6 +3295,20 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
     await page.locator('#app .m .mrx button').count() === 1
     && await page.evaluate(() => self.__mreacts.length) === 1,
     JSON.stringify(await page.evaluate(() => self.__mreacts)));
+  // Tapping the reaction under the line does not take it back: it opens the menu, with the
+  // one that is yours marked, and tapping it there is what removes it.
+  await page.locator('#app .m .mrx button').first().click();
+  await page.waitForTimeout(400);
+  const marked = await page.locator('#app .m .reactpick:not(.opts) button.on').allInnerTexts();
+  check('    tapping it under the line keeps it, and opens the menu instead',
+    await page.evaluate(() => self.__mreacts.length) === 1 && await page.locator('#app .m .reactpick.opts').count() === 1,
+    JSON.stringify(await page.evaluate(() => self.__mreacts)));
+  check('      with the one you picked marked as yours', marked.length === 1 && marked[0] === '❤️', JSON.stringify(marked));
+  await page.locator('#app .m .reactpick:not(.opts) button.on').click();
+  await page.waitForTimeout(700);
+  check('      and tapping it there takes it back',
+    await page.locator('#app .m .mrx button').count() === 0 && await page.evaluate(() => self.__mreacts.length) === 0,
+    JSON.stringify(await page.evaluate(() => self.__mreacts)));
 
   // Answering a line: from the menu, then from a swipe.
   await page.locator('#app .m .say').last().click();

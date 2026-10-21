@@ -966,6 +966,8 @@ button.rg{border:0;font:inherit}
 /* flex:none or there is nothing to scroll: sixty emoji in a flex row shrink to fit the
    tray instead of running off the end of it, and a strip that fits never overflows. */
 .m .reactpick button{background:none;padding:3px 4px;font-size:21px;line-height:1;flex:none}
+/* Yours already: a soft grey disc behind it, the way the phone's own Messages marks it. */
+.m .reactpick button.on{background:var(--line);border-radius:50%;padding:4px;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 /* The composer sits over the screen rather than at the end of it, so it is where your
    thumb already is however far up the conversation you have read. */
 /* Follows the viewport the way the tab bar does, and rides the keyboard up on --kb. One
@@ -1545,7 +1547,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v144';
+const BUILD = 'quota-v145';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5648,7 +5650,7 @@ function chatBody(key) {
     return head + nameLine + quote + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
       <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}${msg.edited ? '<em class="ed">Edited</em>' : ''}</button>
       ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
-        onclick="toggleMsgReact(${msg.id},'${r.e}')">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
+        onclick="pickMsgReact(event,${msg.id})">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
 </div>`;
   }).join('');
 }
@@ -5879,7 +5881,11 @@ document.addEventListener('pointercancel', unswipe, true);
 // that click is the hold, not a tap. Some phones send none, so the flag is also reset on
 // the next press rather than trusted to be used up.
 document.addEventListener('click', e => { if (pressDone) { pressDone = false; e.stopPropagation(); e.preventDefault(); } }, true);
-const msgReactBtn = (id, e) => `<button type="button" onclick="toggleMsgReact(${id},'${e}');closeTrays()">${e}</button>`;
+// A tap on a reaction under a line opens this menu rather than taking the reaction back:
+// it is too easy to hit by accident, scrolling or reaching for the line. Taking one back is
+// done here, by tapping it again, and the ones that are yours are marked so you can tell.
+const myMsgReact = (id, e) => S.mreacts.some(r => r.m === id && r.u === me().id && r.e === e);
+const msgReactBtn = (id, e) => `<button type="button"${myMsgReact(id, e) ? ' class="on" aria-pressed="true"' : ''} onclick="toggleMsgReact(${id},'${e}');closeTrays()">${e}</button>`;
 const msgReactRow = id => CHAT_REACTS.map(e => msgReactBtn(id, e)).join('')
   + `<button type="button" class="more" onclick="moreMsgReact(event,this,${id})" aria-label="Any other emoji">+</button>`;
 // Everything else, in the same tray rather than in a sheet over the conversation: the
