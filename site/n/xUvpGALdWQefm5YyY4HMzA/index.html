@@ -5,55 +5,71 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Quota's numbers: posts and people, live. No sign-in: it is counts and nothing else
      (quota_numbers() in schema v53 returns only totals), and the address being unguessable
-     is what keeps it out of the way. Not linked from anywhere, and kept out of search
-     engines. The key below is the same public one the app ships with. -->
+     is what keeps it out of the way. Not linked from anywhere, links to nowhere, and kept
+     out of search engines. The key below is the same public one the app ships with. -->
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="referrer" content="no-referrer">
-<meta name="theme-color" content="#0b0c0e">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Quota numbers">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Quota numbers</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <style>
-:root{--bg:#f6f7f7;--card:#fff;--line:#e3e5e6;--text:#0b0c0e;--muted:#7b8085;--g:#2fd36f;--gt:#0e7044;--bad:#c0392b}
-@media (prefers-color-scheme:dark){:root{--bg:#0a0b0c;--card:#131416;--line:#25282a;--text:#f2f3f4;--muted:#949a9f;--gt:#55e58e;--bad:#ff7b6b}}
+/* The website's look: white, Geist, the same ink and greys, Quota green for what is live. */
+:root{--bg:#fff;--alt:#f5f5f7;--ink:#1d1d1f;--mute:#6e6e73;--line:#d2d2d7;--g0:#0b5a34;--g1:#12934f;--g2:#2fd36f;color-scheme:light}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:500 15px/1.45 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
-main{max-width:720px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
-header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-header h1{font:600 22px/1 Oswald,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;margin:0;flex:1}
-header h1 small{display:block;font:700 12px/1.4 'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:4px}
-.live{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:var(--muted);margin:0 2px 12px}
-.live i{width:9px;height:9px;border-radius:50%;background:var(--g);box-shadow:0 0 0 4px rgba(47,211,111,.18);animation:pulse 1.6s ease-in-out infinite}
-.live.off i{background:var(--muted);box-shadow:none;animation:none}
+html,body{margin:0;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%}
+body{font:17px/1.5 Geist,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.011em}
+main{max-width:980px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px;border-bottom:1px solid rgba(0,0,0,.08)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.03em;font-size:21px;user-select:none}
+.logo .mark{width:26px;height:26px;border-radius:6px}
+.logo small{font-weight:500;color:var(--mute);font-size:15px;letter-spacing:-.005em;margin-left:2px}
+.live{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--mute);white-space:nowrap}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--g2);box-shadow:0 0 0 4px rgba(47,211,111,.18);animation:pulse 1.6s ease-in-out infinite}
+.live.off i{background:var(--line);box-shadow:none;animation:none}
 @keyframes pulse{50%{box-shadow:0 0 0 7px rgba(47,211,111,0)}}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.n{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 16px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.n b{font:600 clamp(40px,11vw,64px)/1.05 Oswald,system-ui,sans-serif;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.n span{font-weight:800;font-size:14px}
-.n em{font-style:normal;color:var(--muted);font-size:13px;min-height:1.3em}
-.n.bump b{animation:bump 1.2s ease-out}
-@keyframes bump{0%{color:var(--g);transform:scale(1.07);transform-origin:left center}100%{transform:none}}
-.note{color:var(--muted);font-size:13px;margin:16px 2px 0}
-[hidden]{display:none!important}
+/* Today or all time, for both at once. */
+.seg{display:inline-flex;background:var(--alt);border-radius:999px;padding:4px;margin:26px 0 18px}
+.seg button{font:inherit;font-size:15px;font-weight:600;border:0;background:none;color:var(--mute);padding:8px 18px;border-radius:999px;cursor:pointer;letter-spacing:-.01em}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.grid{grid-template-columns:1fr}}
+/* Each number is a button: tap it and that one turns over to the other period. */
+.n{font:inherit;text-align:left;color:inherit;background:var(--alt);border:0;border-radius:22px;padding:24px 24px 22px;cursor:pointer;
+  display:flex;flex-direction:column;gap:2px;min-width:0;-webkit-tap-highlight-color:transparent;transition:transform .15s ease}
+.n:active{transform:scale(.985)}
+.n .k{font-size:15px;font-weight:600;color:var(--mute);display:flex;align-items:center;gap:8px}
+.n .k em{font-style:normal;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff;color:var(--g0)}
+.n b{font-weight:600;font-size:clamp(72px,17vw,124px);line-height:1;letter-spacing:-.045em;font-variant-numeric:tabular-nums;margin:10px 0 8px;overflow-wrap:anywhere}
+.n .sub{font-size:15px;color:var(--mute);min-height:1.5em}
+.n .flip{font-size:13px;font-weight:500;color:var(--g1);margin-top:10px}
+.n.bump b{animation:bump 1.1s ease-out}
+@keyframes bump{0%{color:var(--g1);transform:scale(1.04);transform-origin:left center}100%{transform:none}}
+.n.turn{animation:turn .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes turn{from{opacity:.4;transform:translateY(6px)}}
+.note{color:var(--mute);font-size:13px;margin:20px 2px 0}
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Quota numbers</h1>
-  </header>
-
-  <section id="board">
+    <div class="logo"><svg class="mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" >  <defs><linearGradient id="a0" gradientUnits="userSpaceOnUse" x1="66" y1="20" x2="81.19" y2="22.58"><stop offset="0" stop-color="#0b5a34"/><stop offset="1" stop-color="#0e6338"/></linearGradient><linearGradient id="a1" gradientUnits="userSpaceOnUse" x1="80.66" y1="22.4" x2="95.12" y2="30.39"><stop offset="0" stop-color="#0e6338"/><stop offset="1" stop-color="#106b3c"/></linearGradient><linearGradient id="a2" gradientUnits="userSpaceOnUse" x1="94.24" y1="29.69" x2="105.25" y2="42"><stop offset="0" stop-color="#106b3c"/><stop offset="1" stop-color="#137441"/></linearGradient><linearGradient id="a3" gradientUnits="userSpaceOnUse" x1="104.65" y1="41.05" x2="110.97" y2="56.31"><stop offset="0" stop-color="#137441"/><stop offset="1" stop-color="#157d45"/></linearGradient><linearGradient id="a4" gradientUnits="userSpaceOnUse" x1="110.72" y1="55.22" x2="111.64" y2="71.71"><stop offset="0" stop-color="#157d45"/><stop offset="1" stop-color="#188549"/></linearGradient><linearGradient id="a5" gradientUnits="userSpaceOnUse" x1="111.77" y1="70.59" x2="107.2" y2="86.46"><stop offset="0" stop-color="#188549"/><stop offset="1" stop-color="#1a8e4d"/></linearGradient><linearGradient id="a6" gradientUnits="userSpaceOnUse" x1="107.69" y1="85.45" x2="98.13" y2="98.92"><stop offset="0" stop-color="#1a8e4d"/><stop offset="1" stop-color="#1d9752"/></linearGradient><linearGradient id="a7" gradientUnits="userSpaceOnUse" x1="98.92" y1="98.13" x2="85.45" y2="107.69"><stop offset="0" stop-color="#1d9752"/><stop offset="1" stop-color="#209f56"/></linearGradient><linearGradient id="a8" gradientUnits="userSpaceOnUse" x1="86.46" y1="107.2" x2="70.59" y2="111.77"><stop offset="0" stop-color="#209f56"/><stop offset="1" stop-color="#22a85a"/></linearGradient><linearGradient id="a9" gradientUnits="userSpaceOnUse" x1="71.71" y1="111.64" x2="55.22" y2="110.72"><stop offset="0" stop-color="#22a85a"/><stop offset="1" stop-color="#25b05e"/></linearGradient><linearGradient id="a10" gradientUnits="userSpaceOnUse" x1="56.31" y1="110.97" x2="41.05" y2="104.65"><stop offset="0" stop-color="#25b05e"/><stop offset="1" stop-color="#27b962"/></linearGradient><linearGradient id="a11" gradientUnits="userSpaceOnUse" x1="42" y1="105.25" x2="29.69" y2="94.24"><stop offset="0" stop-color="#27b962"/><stop offset="1" stop-color="#2ac267"/></linearGradient><linearGradient id="a12" gradientUnits="userSpaceOnUse" x1="30.39" y1="95.12" x2="22.4" y2="80.66"><stop offset="0" stop-color="#2ac267"/><stop offset="1" stop-color="#2cca6b"/></linearGradient><linearGradient id="a13" gradientUnits="userSpaceOnUse" x1="22.58" y1="81.19" x2="20" y2="66"><stop offset="0" stop-color="#2cca6b"/><stop offset="1" stop-color="#2fd36f"/></linearGradient></defs>  <rect width="132" height="132" fill="#FFFFFF"/>  <rect x="0.5" y="0.5" width="131" height="131" fill="none" stroke="#E4E9E6" stroke-width="1"/>  <g><circle cx="66" cy="66" r="46" fill="none" stroke="#E9EFEB" stroke-width="18"/><path d="M 66 20 A 46 46 0 0 1 81.19 22.58" fill="none" stroke="url(#a0)" stroke-width="18" stroke-linecap="round"/><path d="M 80.66 22.4 A 46 46 0 0 1 95.12 30.39" fill="none" stroke="url(#a1)" stroke-width="18" stroke-linecap="butt"/><path d="M 94.24 29.69 A 46 46 0 0 1 105.25 42" fill="none" stroke="url(#a2)" stroke-width="18" stroke-linecap="butt"/><path d="M 104.65 41.05 A 46 46 0 0 1 110.97 56.31" fill="none" stroke="url(#a3)" stroke-width="18" stroke-linecap="butt"/><path d="M 110.72 55.22 A 46 46 0 0 1 111.64 71.71" fill="none" stroke="url(#a4)" stroke-width="18" stroke-linecap="butt"/><path d="M 111.77 70.59 A 46 46 0 0 1 107.2 86.46" fill="none" stroke="url(#a5)" stroke-width="18" stroke-linecap="butt"/><path d="M 107.69 85.45 A 46 46 0 0 1 98.13 98.92" fill="none" stroke="url(#a6)" stroke-width="18" stroke-linecap="butt"/><path d="M 98.92 98.13 A 46 46 0 0 1 85.45 107.69" fill="none" stroke="url(#a7)" stroke-width="18" stroke-linecap="butt"/><path d="M 86.46 107.2 A 46 46 0 0 1 70.59 111.77" fill="none" stroke="url(#a8)" stroke-width="18" stroke-linecap="butt"/><path d="M 71.71 111.64 A 46 46 0 0 1 55.22 110.72" fill="none" stroke="url(#a9)" stroke-width="18" stroke-linecap="butt"/><path d="M 56.31 110.97 A 46 46 0 0 1 41.05 104.65" fill="none" stroke="url(#a10)" stroke-width="18" stroke-linecap="butt"/><path d="M 42 105.25 A 46 46 0 0 1 29.69 94.24" fill="none" stroke="url(#a11)" stroke-width="18" stroke-linecap="butt"/><path d="M 30.39 95.12 A 46 46 0 0 1 22.4 80.66" fill="none" stroke="url(#a12)" stroke-width="18" stroke-linecap="butt"/><path d="M 22.58 81.19 A 46 46 0 0 1 20 66" fill="none" stroke="url(#a13)" stroke-width="18" stroke-linecap="round"/><rect x="86" y="86" width="22" height="34" rx="11" fill="#21a559" transform="rotate(-45 97 103)"/></g></svg><span>Quota</span><small>Numbers</small></div>
     <p class="live" id="live"><i></i><span id="livetxt">Loading…</span></p>
-    <div class="grid" id="grid"></div>
-    <p class="note">Today starts at midnight where you are. Active means the app was opened (counted from when this page was switched on). Updates every few seconds while this page is open.</p>
-  </section>
-
+  </header>
+  <div class="seg" role="group" aria-label="Period">
+    <button type="button" data-p="today" aria-pressed="true" onclick="setAll('today')">Today</button>
+    <button type="button" data-p="all" aria-pressed="false" onclick="setAll('all')">All time</button>
+  </div>
+  <div class="grid">
+    <button type="button" class="n" data-k="posts" onclick="flip('posts')"><span class="k"><span class="t"></span><em></em></span><b>–</b><span class="sub"></span><span class="flip"></span></button>
+    <button type="button" class="n" data-k="users" onclick="flip('users')"><span class="k"><span class="t"></span><em></em></span><b>–</b><span class="sub"></span><span class="flip"></span></button>
+  </div>
+  <p class="note">Today starts at midnight where you are. Users today means people who opened the app today. Updates every few seconds while this page is open.</p>
 </main>
 <script>
 // Asks the database for the counts every few seconds while the page is in front, at once
@@ -64,9 +80,24 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const EVERY = 4000;
 const $ = s => document.querySelector(s);
 let timer = null, last = null, busy = false, stopped = false;
+// It always opens on today; each number can be turned over to all time on its own.
+const period = {posts: 'today', users: 'today'};
 
 const midnight = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); };
 const fmt = n => (+n || 0).toLocaleString();
+const people = n => `${fmt(n)} ${+n === 1 ? 'person' : 'people'}`;
+// What each number says in each period: the figure, its name, and the line under it.
+const VIEW = {
+  posts: {
+    today: d => [d.posts_today, 'Posts', `by ${people(d.posters_today)}`],
+    all: d => [d.posts_total, 'Posts', `${fmt(d.posts_today)} of them today`],
+  },
+  users: {
+    today: d => [d.active_today, 'Users', `${fmt(d.active_now)} in the app right now`],
+    all: d => [d.users_total, 'Users', `${fmt(d.users_new_today)} joined today`],
+  },
+};
+
 async function tick() {
   clearTimeout(timer);
   if (stopped) return;
@@ -77,45 +108,48 @@ async function tick() {
         headers: {'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}`},
         body: JSON.stringify({p_since: midnight()})});
       let d = null; try { d = await res.json(); } catch (e) {}
-      if (res.ok && d) draw(d);
+      if (res.ok && d) { const was = last; last = d; live(true); draw(was); }
       else if (/PGRST202|could not find/i.test(`${d && d.code} ${d && d.message}`)) {
-        stopped = true;
-        $('#live').classList.add('off');
-        $('#livetxt').textContent = 'Not switched on yet: the database part (schema v53) has not been run.';
-      } else offline();
-    } catch (e) { offline(); }
+        stopped = true; live(false, 'Not switched on yet: the database part (schema v53) has not been run.');
+      } else live(false);
+    } catch (e) { live(false); }
     finally { busy = false; }
   }
   if (!stopped) timer = setTimeout(tick, EVERY);
 }
-function offline() {
-  $('#live').classList.add('off');
-  $('#livetxt').textContent = last ? 'Reconnecting… showing the last numbers' : 'Reconnecting…';
+function live(ok, msg) {
+  $('#live').classList.toggle('off', !ok);
+  $('#livetxt').textContent = ok ? `Live · ${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'})}`
+    : msg || (last ? 'Reconnecting…' : 'Connecting…');
 }
-function draw(d) {
-  const was = last; last = d;
-  $('#live').classList.remove('off');
-  $('#livetxt').textContent = `Live · updated ${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'})}`;
-  const people = n => `${fmt(n)} ${+n === 1 ? 'person' : 'people'}`;
-  const tiles = [
-    ['posts_today', 'Posts today', `by ${people(d.posters_today)}`],
-    ['posts_total', 'Posts all time', ''],
-    ['active_today', 'Active users today', `${fmt(d.active_now)} in the app right now`],
-    ['users_total', 'Users all time', `${fmt(d.users_new_today)} joined today`],
-  ];
-  const grid = $('#grid');
-  if (!grid.children.length) grid.innerHTML = tiles.map(([k]) => `<div class="n" data-k="${k}"><b></b><span></span><em></em></div>`).join('');
-  for (const [k, label, sub] of tiles) {
-    const el = grid.querySelector(`[data-k="${k}"]`);
-    el.querySelector('b').textContent = fmt(d[k]);
-    el.querySelector('span').textContent = label;
-    el.querySelector('em').textContent = sub;
-    // A number that moved lights up, every time it moves.
-    if (was && was[k] !== d[k]) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+// was: the previous answer, so a number that moved can light up; turned: the number that
+// was just tapped over, so it moves into its other period rather than snapping.
+function draw(was, turned) {
+  for (const k of ['posts', 'users']) {
+    const el = document.querySelector(`.n[data-k="${k}"]`), p = period[k];
+    el.querySelector('.k em').textContent = p === 'today' ? 'Today' : 'All time';
+    el.querySelector('.flip').textContent = p === 'today' ? 'Tap for all time' : 'Tap for today';
+    el.setAttribute('aria-label', `${k === 'posts' ? 'Posts' : 'Users'}, ${p === 'today' ? 'today' : 'all time'}. Tap to switch.`);
+    if (!last) continue;
+    const [n, title, sub] = VIEW[k][p](last);
+    el.querySelector('.t').textContent = title;
+    el.querySelector('b').textContent = fmt(n);
+    el.querySelector('.sub').textContent = sub;
+    if (turned === k) { el.classList.remove('turn', 'bump'); void el.offsetWidth; el.classList.add('turn'); }
+    else if (was && VIEW[k][p](was)[0] !== n) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
+  for (const b of document.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', String(period.posts === b.dataset.p && period.users === b.dataset.p));
+}
+function flip(k) { period[k] = period[k] === 'today' ? 'all' : 'today'; draw(null, k); }
+function setAll(p) {
+  const moved = ['posts', 'users'].filter(k => period[k] !== p);
+  moved.forEach(k => { period[k] = p; });
+  draw(null);
+  moved.forEach(k => { const el = document.querySelector(`.n[data-k="${k}"]`); el.classList.remove('turn'); void el.offsetWidth; el.classList.add('turn'); });
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 addEventListener('online', tick);
+draw(null);
 tick();
 </script>
 </body>

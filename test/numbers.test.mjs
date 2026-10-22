@@ -51,21 +51,39 @@ const nums = page => page.evaluate(() => Object.fromEntries([...document.querySe
   const page = await ctx.newPage();
   const st = backend(page);
   await page.goto(PAGE);
-  await page.waitForSelector('.n');
-  const n = await nums(page);
-  check('the page shows the four numbers straight away, no sign-in',
-    n.posts_today === '14' && n.posts_total === '1,200' && n.active_today === '31' && n.users_total === '87', JSON.stringify(n));
-  const txt = await page.innerText('main');
-  check('  with who posted, who is on now and who joined today', /by 9 people/.test(txt) && /4 in the app right now/.test(txt) && /2 joined today/.test(txt), txt);
-  check('  and that it is live', /Live · updated/.test(txt));
+  await page.waitForFunction(() => document.querySelector('.n[data-k="posts"] b').textContent !== '–');
+  const card = k => page.evaluate(k => { const el = document.querySelector(`.n[data-k="${k}"]`);
+    return {n: el.querySelector('b').textContent, when: el.querySelector('.k em').textContent, sub: el.querySelector('.sub').textContent}; }, k);
+  let p = await card('posts'), u = await card('users');
+  check('it opens on today: posts today and users today, no sign-in',
+    p.n === '14' && p.when === 'Today' && u.n === '31' && u.when === 'Today', JSON.stringify({p, u}));
+  check('  with who posted today, and who is in the app right now', /by 9 people/.test(p.sub) && /4 in the app right now/.test(u.sub), JSON.stringify({p, u}));
+  check('  and that it is live', /Live ·/.test(await page.innerText('#live')));
   check('  counted from midnight where the viewer is', st.since === await page.evaluate(() => midnight()), st.since);
+  check('  on white, and leading nowhere on the website', await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === 'rgb(255, 255, 255)'
+    && await page.locator('a').count() === 0);
   check('  and tells search engines to keep away', /noindex/.test(await page.getAttribute('meta[name=robots]', 'content')));
+
+  // Tapping a number turns that one over to all time, and back.
+  await page.click('.n[data-k="posts"]');
+  p = await card('posts'); u = await card('users');
+  check('tapping posts shows posts all time, leaving users on today', p.n === '1,200' && p.when === 'All time' && u.when === 'Today', JSON.stringify({p, u}));
+  await page.click('.n[data-k="users"]');
+  u = await card('users');
+  check('  and tapping users shows users all time, with who joined today', u.n === '87' && u.when === 'All time' && /2 joined today/.test(u.sub), JSON.stringify(u));
+  check('  the switch at the top says all time once both are', await page.getAttribute('.seg [data-p="all"]', 'aria-pressed') === 'true');
+  await page.click('.seg [data-p="today"]');
+  p = await card('posts'); u = await card('users');
+  check('  and Today turns both back', p.when === 'Today' && u.when === 'Today' && p.n === '14', JSON.stringify({p, u}));
+  await page.click('.seg [data-p="all"]');
+  p = await card('posts');
+  check('  All time turns both over', p.when === 'All time' && (await card('users')).when === 'All time');
 
   st.stats = {...st.stats, posts_today: 15, posts_total: 1201, active_now: 5};
   await page.waitForTimeout(4600);
-  const m = await nums(page);
-  check('a post that lands while it is open shows up by itself', m.posts_today === '15' && m.posts_total === '1,201', JSON.stringify(m));
-  check('  and the numbers that moved light up', await page.locator('.n.bump').count() === 2);
+  p = await card('posts');
+  check('a post that lands while it is open shows up by itself', p.n === '1,201' && /15 of them today/.test(p.sub), JSON.stringify(p));
+  check('  and the number that moved lights up', await page.locator('.n.bump').count() === 1);
 
   // Out of sight, it asks nothing; back in front, it asks at once.
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}); });
@@ -81,10 +99,10 @@ const nums = page => page.evaluate(() => Object.fromEntries([...document.querySe
   st.down = true;
   await page.waitForTimeout(4600);
   check('a dropped connection keeps the last numbers and says it is reconnecting',
-    (await nums(page)).posts_today === '15' && /Reconnecting/.test(await page.innerText('#live')));
+    (await card('posts')).n === '1,201' && /Reconnecting/.test(await page.innerText('#live')));
   st.down = false;
   await page.waitForTimeout(4600);
-  check('  and it carries on when the connection is back', /Live · updated/.test(await page.innerText('#live')));
+  check('  and it carries on when the connection is back', /Live ·/.test(await page.innerText('#live')));
   await ctx.close();
 }
 
