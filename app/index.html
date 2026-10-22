@@ -1664,7 +1664,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v148';
+const BUILD = 'quota-v149';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2677,6 +2677,7 @@ async function runLoad() {
     // Whether this account moderates, which is what shows the agreements screen. Asked once;
     // the database refuses that screen's data to anybody else whatever the app thinks.
     if (me() && S.fresh && !takeOffered) { takeOffered = true; offerTake(); }
+    pingOpen();
     if (me() && S.isMod === undefined) { S.isMod = false; Promise.resolve(sb.rpc('am_moderator')).then(({data}) => { S.isMod = data === true; if (S.isMod && S.settings) render(); }, () => {}); }
     if (me()) { goLive(); noteForfeits(); } else dropLive();
     syncPhone();
@@ -6997,11 +6998,12 @@ const LEGAL = {
 <li><b>Friends and invites.</b> Who you are friends with, and invitations sent or received.</li>
 <li><b>Your time zone</b>, so that a spin-day reminder arrives in your morning and not somebody else's.</li>
 <li><b>A push subscription</b>, only if you turn notifications on. Turning them off deletes it.</li>
+<li><b>When you last opened the app.</b> One time per account, written over each time, used only to count how many people are using Quota on a given day. Nobody but the people who run Quota sees even the count.</li>
 <li><b>Reports and blocks.</b> If you report something, what you reported and why. If you block somebody, who.</li>
 <li><b>A record of agreeing.</b> Each time you agree to these terms, the guidelines and this policy: when, which version, your username and email at the time, and the network address and browser it came from. It is proof that you agreed, and nothing else.</li>
 </ul>
 <h3>What Quota does not do</h3>
-<p>There are no adverts, no analytics, no tracking pixels and no third-party trackers of any kind. Nothing here is sold, and nothing is handed to anyone for marketing. No profile of you is built for any purpose other than showing you the app.</p>
+<p>There are no adverts, no analytics services, no tracking pixels and no third-party trackers of any kind. Nothing here is sold, and nothing is handed to anyone for marketing. No profile of you is built for any purpose other than showing you the app.</p>
 <h3>Who can see it</h3>
 <ul>
 <li>Your proof, captions, comments and results are visible to the members of the group you posted them in, and to nobody else.</li>
@@ -7869,6 +7871,19 @@ function adminCsv() {
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+
+// ---- being here
+// What "active" counts on the private numbers page (site/n/): the app says it is open
+// when it loads and every couple of minutes while it is in front. The database keeps one
+// time per person and writes it at most once a minute, so this costs next to nothing.
+let pingedAt = 0;
+function pingOpen() {
+  if (!me() || document.hidden || Date.now() - pingedAt < 60e3) return;
+  pingedAt = Date.now();
+  Promise.resolve(sb.rpc('seen')).catch(() => {});
+}
+setInterval(pingOpen, 120e3);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pingOpen(); });
 
 // ---- dragging back
 // What a swipe means is whatever is on top, in the order render() draws them, so the two
@@ -9544,7 +9559,6 @@ function clearAvatar() {
   if (avatarPrev) URL.revokeObjectURL(avatarPrev);
   avatarFile = null; avatarPrev = null;
 }
-function avatarCam() { openCam('avatar'); }
 function pickAvatar(input) {
   const f = input.files && input.files[0];
   input.value = '';                        // or choosing the same file twice does nothing

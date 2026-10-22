@@ -40,6 +40,15 @@ for (const p of PRECACHE) {
 // 2b. The page has to know which build it is. A fault that only happens on somebody's
 // phone is unfixable without knowing what they are running, and the only way to be sure
 // the two never drift is to check them against each other here.
+// Two functions with the same name in one script do not fail: the later one silently
+// replaces the earlier everywhere, including where the earlier was meant. It has happened
+// (a story's markSeen replaced by the app's own, and a recap's statsView nearly), and the
+// only sign was a feature elsewhere quietly breaking. So a name is used once.
+{
+  const names = [...html.matchAll(/^(?:async )?function (\w+)\s*\(/gm)].map(m => m[1]);
+  const twice = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))];
+  assert.deepEqual(twice, [], `index.html declares ${twice.join(', ')} more than once. The last one wins everywhere, so rename one.`);
+}
 const BUILD = (html.match(/const BUILD = '([^']+)'/) || [])[1];
 assert.equal(BUILD, VERSION,
   `index.html says BUILD '${BUILD}' but sw.js says VERSION '${VERSION}'. They name the same build, and the page reports BUILD when something goes wrong, so a mismatch sends people chasing the wrong version.`);

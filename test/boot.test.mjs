@@ -2452,6 +2452,14 @@ await withPage(SIGNED_IN, async page => {
   check('  nobody else has it', await page.locator('#app button:has-text("Users & agreements")').count() === 0);
 });
 
+// The private numbers page counts who is active from the app saying it is open.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  check('the app says it is open, for counting who is active', await page.evaluate(() => self.__rpcs.includes('seen')));
+  await page.evaluate(() => openSettings()); await page.waitForTimeout(400);
+  check('  and there is no numbers screen in the app itself', !/Live numbers/.test(await page.innerText('#app')));
+});
+
 // Agreeing again after the documents change writes a record of its own.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
