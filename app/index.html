@@ -1521,20 +1521,6 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .adm .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .adm .chip.on{background:var(--mk);border-color:var(--mk);color:#fff}
 .alist{margin:0 12px 24px;border:1px solid var(--line);background:var(--card)}
-/* Live numbers: four big figures, a green dot that says they are live, and a figure that
-   changes lights up green for a moment so a new post is something you see happen. */
-.statlive{display:flex;align-items:center;gap:8px;margin:2px 16px 12px;font-weight:700;font-size:13px;color:var(--muted)}
-.statlive i{width:9px;height:9px;border-radius:50%;background:#2fd36f;box-shadow:0 0 0 4px rgba(47,211,111,.18);animation:statpulse 1.6s ease-in-out infinite}
-.statlive.off i{background:var(--muted);box-shadow:none;animation:none}
-@keyframes statpulse{50%{box-shadow:0 0 0 7px rgba(47,211,111,0)}}
-.lnums{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 12px}
-.lnum{background:var(--card);border:1px solid var(--line);padding:16px 14px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.lnum b{font-size:40px;line-height:1.05;color:var(--text);overflow-wrap:anywhere}
-.lnum span{font-weight:800;font-size:13px}
-.lnum em{font-style:normal;color:var(--muted);font-size:12px;min-height:15px}
-.lnum.bump b{animation:statbump 1.1s ease-out}
-@keyframes statbump{0%{color:#2fd36f;transform:scale(1.08)}100%{color:var(--text);transform:none}}
-.statnote{margin:14px 16px 24px}
 .arow + .arow{border-top:1px solid var(--line)}
 .arow .top{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;background:none;text-align:left;font-weight:400;white-space:normal}
 .arow .who{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -2728,7 +2714,6 @@ function screenHTML() {
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
     : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
-    : S.stats ? statsView()
     : S.admin ? adminView()
     : S.settings ? settingsView()
     : S.sub ? subScreen(S.sub)
@@ -6536,7 +6521,6 @@ const SICON = {
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
   block: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   bin: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
-  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
 };
 const srow = (icon, title, sub, right, click, cls = '') =>
   `<button type="button" class="li ${cls}" ${click ? `onclick="${click}"` : ''}>
@@ -6569,7 +6553,6 @@ function settingsView() {
     <div class="list">
       ${srow('help', 'Support', 'Help and FAQ', '<span class="go">\u203a</span>', 'supportDlg()')}
       ${srow('mail', 'Contact us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
-      ${S.isMod ? srow('chart', 'Live numbers', 'Posts and people, as they happen', '<span class="go">\u203a</span>', 'openStats()') : ''}
       ${S.isMod ? srow('doc', 'Users & agreements', 'Who has agreed to the terms, and when', '<span class="go">\u203a</span>', 'openAdmin()') : ''}
       ${srow('block', 'Blocked', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
     </div>
@@ -7889,68 +7872,10 @@ function adminCsv() {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-// ---- live numbers (moderators)
-// Posts and people, counted by the database and asked for again every few seconds while
-// the screen is open, so a post that lands while you are looking shows up while you are
-// looking. Nothing is asked for while the app is in the background, and the moment it is
-// back the numbers are fetched again rather than waiting out the clock.
-const STATS_EVERY = 4000;
-let statsT = null;
-function openStats() {
-  S.stats = {d: null, was: null, err: '', off: false, at: 0};
-  stackOn();
-  render();
-  loadStats();
-}
-function closeStats() { S.stats = null; clearTimeout(statsT); stackOff(); }
-const localMidnight = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); };
-async function loadStats() {
-  clearTimeout(statsT);
-  if (!S.stats) return;
-  if (!document.hidden) {
-    const {data, error} = await sb.rpc('admin_stats', {p_since: localMidnight()});
-    const st = S.stats;
-    if (!st) return;
-    if (error) {
-      const msg = `${error.code || ''} ${error.message || ''}`;
-      if (/moderator|42501|permission/i.test(msg)) { st.err = 'Only a moderator can see this.'; st.d = null; render(); return; }
-      if (/PGRST202|could not find the function/i.test(msg)) { st.err = "These numbers aren't switched on yet."; st.d = null; render(); return; }
-      // A blip on the connection keeps the last numbers up and says it is catching up.
-      if (st.d) st.off = true; else st.err = friendlyError(error, "Couldn't load the numbers. Trying again.");
-    } else {
-      st.was = st.d; st.d = data || {}; st.err = ''; st.off = false; st.at = Date.now();
-    }
-    render();
-  }
-  if (S.stats) statsT = setTimeout(loadStats, STATS_EVERY);
-}
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S.stats) loadStats(); });
-const fmtN = n => (+n || 0).toLocaleString();
-function statsView() {
-  const a = S.stats;
-  const head = `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div></div><h1>Live numbers</h1></div>
-    <button class="ghost back" onclick="closeStats()">‹ Settings</button>`;
-  if (!a.d) return head + (a.err ? `<div class="card empty"><b>Couldn't load this</b><p class="muted">${esc(a.err)}</p></div>`
-    : `<div class="card empty"><span class="spin" aria-hidden="true"></span><p class="muted">Loading…</p></div>`);
-  const d = a.d, w = a.was;
-  const people = n => `${fmtN(n)} ${+n === 1 ? 'person' : 'people'}`;
-  const tile = (k, label, sub) => `<div class="lnum${w && w[k] !== d[k] ? ' bump' : ''}" data-k="${k}">
-      <b class="num">${fmtN(d[k])}</b><span>${label}</span><em>${sub}</em></div>`;
-  const when = new Date(a.at).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'});
-  return head + `<p class="statlive${a.off ? ' off' : ''}"><i></i>${a.off ? 'Reconnecting… showing the last numbers' : `Live · updated ${esc(when)}`}</p>
-    <div class="lnums">
-      ${tile('posts_today', 'Posts today', `by ${people(d.posters_today)}`)}
-      ${tile('posts_total', 'Posts all time', '')}
-      ${tile('active_today', 'Active users today', `${fmtN(d.active_now)} in the app right now`)}
-      ${tile('users_total', 'Users all time', `${fmtN(d.users_new_today)} joined today`)}
-    </div>
-    <p class="muted small statnote">Today starts at your midnight. Active means the app was opened, counted from when this screen was switched on. Updates every few seconds while it is open.</p>`;
-}
-
 // ---- being here
-// What "active" counts: the app says it is open when it loads and every couple of
-// minutes while it is in front. The database keeps one time per person and writes it at
-// most once a minute, so this costs next to nothing.
+// What "active" counts on the private numbers page (site/n/): the app says it is open
+// when it loads and every couple of minutes while it is in front. The database keeps one
+// time per person and writes it at most once a minute, so this costs next to nothing.
 let markedSeen = 0;
 function markSeen() {
   if (!me() || document.hidden || Date.now() - markedSeen < 60e3) return;
@@ -7970,7 +7895,6 @@ function backAction() {
   // A flag opened from the list goes back to the list; one opened from a post goes back to
   // the post. Where it came from is remembered when it is opened.
   if (S.flag) return () => { S.flag = S.flag !== 'all' ? S.flagFrom : null; S.flagFrom = null; };
-  if (S.stats) return () => { S.stats = null; };
   if (S.admin) return () => { S.admin = null; };
   if (S.settings) return () => { S.settings = false; };
   if (S.who) return () => { S.who = null; };
@@ -7981,7 +7905,7 @@ function backAction() {
 // this is a look ahead, and until you let go it may come to nothing.
 function peekBack(act) {
   const was = {legal: S.legal, chat: S.chat, flag: S.flag, flagFrom: S.flagFrom,
-    stats: S.stats, admin: S.admin, settings: S.settings, who: S.who, open: S.open};
+    admin: S.admin, settings: S.settings, who: S.who, open: S.open};
   act();
   try { return screenHTML(); } finally { Object.assign(S, was); }
 }
@@ -8382,7 +8306,7 @@ async function confirmEmail(f) {
 }
 // Where you were goes with you. Settings was left open behind the welcome screen, so the
 // next account to sign in on this phone opened on it, before it even had a group.
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.isMod = undefined; S.admin = null; S.stats = null; S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.isMod = undefined; S.admin = null; S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -10884,7 +10808,7 @@ function goToHash() {
 }
 // Out of whatever is open first, then in, so the way back out lands where it should.
 function clearTo(tab = 'feed') {
-  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = S.admin = S.stats = null; S.settings = false;
+  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = S.admin = null; S.settings = false;
   backY.length = 0;
   closePost(); closeStory();
   render();
@@ -10965,9 +10889,6 @@ function goTarget(hash) {
     openFlag(id);
     return;
   }
-  // The live numbers, for a link kept on the home screen. Anybody can ask; only a
-  // moderator gets an answer, and the screen says so to everybody else.
-  if (hash === '#stats') { if (!S.stats) { clearTo('profile'); openSettings(); openStats(); } return; }
   if (hash === '#friends' || hash === '#groups') go(hash.slice(1));
 }
 addEventListener('hashchange', goToHash);

@@ -2452,43 +2452,12 @@ await withPage(SIGNED_IN, async page => {
   check('  nobody else has it', await page.locator('#app button:has-text("Users & agreements")').count() === 0);
 });
 
-// Live numbers: moderators only, four figures that keep themselves up to date while the
-// screen is open, and nothing asked for once it is closed.
-await withPage({ ...SIGNED_IN, mod: true }, async page => {
-  await settle(page);
-  await page.evaluate(() => openSettings()); await page.waitForTimeout(500);
-  check('a moderator has live numbers in Settings', await page.locator('#app button:has-text("Live numbers")').count() === 1);
-  await page.locator('#app button:has-text("Live numbers")').click(); await page.waitForTimeout(700);
-  const fig = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#app .lnum')].map(s => [s.dataset.k, s.querySelector('b').textContent])));
-  const first = await fig();
-  check('  showing posts today, posts all time, active users today and users all time',
-    first.posts_today === '14' && first.posts_total === '1,200' && first.active_today === '31' && first.users_total === '87', JSON.stringify(first));
-  const txt = await page.innerText('#app');
-  check('    with who posted, who is on right now and who joined today', /by 9 people/.test(txt) && /4 in the app right now/.test(txt) && /2 joined today/.test(txt), txt.slice(0, 400));
-  check('    and says it is live', /Live · updated/.test(txt));
-  const since = await page.evaluate(() => (self.__statsAsked || [])[0]);
-  check('  today is counted from this phone\'s own midnight', since && since.p_since === await page.evaluate(() => localMidnight()), JSON.stringify(since));
-  // A post landing while it is open.
-  await page.evaluate(() => { self.__stats = {posts_today: 15, posts_total: 1201}; });
-  await page.waitForTimeout(4800);
-  const next = await fig();
-  check('  a post that lands while it is open shows up by itself', next.posts_today === '15' && next.posts_total === '1,201', JSON.stringify(next));
-  check('    and the figures that moved light up', await page.locator('#app .lnum.bump').count() === 2);
-  await page.locator('#app .back:has-text("Settings")').click(); await page.waitForTimeout(300);
-  const asked = await page.evaluate(() => (self.__statsAsked || []).length);
-  await page.waitForTimeout(4800);
-  check('  closed, it stops asking', await page.evaluate(() => (self.__statsAsked || []).length) === asked && await page.evaluate(() => S.stats === null));
-  // A link that goes straight there, for the home screen.
-  await page.evaluate(() => { location.hash = '#stats'; }); await page.waitForTimeout(800);
-  check('  and #stats goes straight to it', await page.locator('#app .lnum').count() === 4);
-  check('  the app says it is open, for counting who is active', await page.evaluate(() => self.__rpcs.includes('seen')));
-});
+// The private numbers page counts who is active from the app saying it is open.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
-  await page.evaluate(() => openSettings()); await page.waitForTimeout(500);
-  check('  nobody else has live numbers', await page.locator('#app button:has-text("Live numbers")').count() === 0);
-  await page.evaluate(() => { location.hash = '#stats'; }); await page.waitForTimeout(800);
-  check('  and the link tells them so, without a single number', /Only a moderator/.test(await page.innerText('#app')) && await page.locator('#app .lnum').count() === 0);
+  check('the app says it is open, for counting who is active', await page.evaluate(() => self.__rpcs.includes('seen')));
+  await page.evaluate(() => openSettings()); await page.waitForTimeout(400);
+  check('  and there is no numbers screen in the app itself', !/Live numbers/.test(await page.innerText('#app')));
 });
 
 // Agreeing again after the documents change writes a record of its own.

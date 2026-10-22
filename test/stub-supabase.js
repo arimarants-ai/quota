@@ -346,14 +346,6 @@
     self.__rpcs.push(fn);
     // The record of agreeing: what the app sent, kept so a case can see it.
     if (fn === 'am_moderator') return { data: !!M().mod, error: null };
-    // The live numbers: whatever a case has put in __stats, so it can change them and
-    // watch the screen follow. Refused like the real one to anybody who is not a moderator.
-    if (fn === 'admin_stats') {
-      if (!M().mod) return { data: null, error: { code: '42501', message: 'only a moderator can see this' } };
-      self.__statsAsked = [...(self.__statsAsked || []), args];
-      return { data: { posts_total: 1200, posts_today: 14, posters_today: 9, users_total: 87, users_new_today: 2,
-        active_today: 31, active_now: 4, at: new Date().toISOString(), ...(self.__stats || {}) }, error: null };
-    }
     if (fn === 'admin_agreements') {
       if (!M().mod) return { data: null, error: { code: '42501', message: 'only a moderator can see this' } };
       const rec = (v, at, how, extra = {}) => ({ at, version: v, method: how, ip: '203.0.113.7', device: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', build: 'quota-v140', sha256: 'a'.repeat(64), ...extra });

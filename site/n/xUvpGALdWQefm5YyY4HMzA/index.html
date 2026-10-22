@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Quota's numbers: posts and people, live. No sign-in: it is counts and nothing else
+     (quota_numbers() in schema v53 returns only totals), and the address being unguessable
+     is what keeps it out of the way. Not linked from anywhere, and kept out of search
+     engines. The key below is the same public one the app ships with. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0b0c0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Quota numbers">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Quota numbers</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap">
+<style>
+:root{--bg:#f6f7f7;--card:#fff;--line:#e3e5e6;--text:#0b0c0e;--muted:#7b8085;--g:#2fd36f;--gt:#0e7044;--bad:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#0a0b0c;--card:#131416;--line:#25282a;--text:#f2f3f4;--muted:#949a9f;--gt:#55e58e;--bad:#ff7b6b}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:500 15px/1.45 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:720px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+header h1{font:600 22px/1 Oswald,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;margin:0;flex:1}
+header h1 small{display:block;font:700 12px/1.4 'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:4px}
+.live{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:var(--muted);margin:0 2px 12px}
+.live i{width:9px;height:9px;border-radius:50%;background:var(--g);box-shadow:0 0 0 4px rgba(47,211,111,.18);animation:pulse 1.6s ease-in-out infinite}
+.live.off i{background:var(--muted);box-shadow:none;animation:none}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(47,211,111,0)}}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.n{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 16px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.n b{font:600 clamp(40px,11vw,64px)/1.05 Oswald,system-ui,sans-serif;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.n span{font-weight:800;font-size:14px}
+.n em{font-style:normal;color:var(--muted);font-size:13px;min-height:1.3em}
+.n.bump b{animation:bump 1.2s ease-out}
+@keyframes bump{0%{color:var(--g);transform:scale(1.07);transform-origin:left center}100%{transform:none}}
+.note{color:var(--muted);font-size:13px;margin:16px 2px 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Quota numbers</h1>
+  </header>
+
+  <section id="board">
+    <p class="live" id="live"><i></i><span id="livetxt">Loading…</span></p>
+    <div class="grid" id="grid"></div>
+    <p class="note">Today starts at midnight where you are. Active means the app was opened (counted from when this page was switched on). Updates every few seconds while this page is open.</p>
+  </section>
+
+</main>
+<script>
+// Asks the database for the counts every few seconds while the page is in front, at once
+// when it comes back, and not at all while it is out of sight. Plain fetch, no library:
+// one endpoint, and a page with nothing to load opens instantly on a phone.
+const URL_ = 'https://txvjakpeyfnzigtsvmja.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
+const EVERY = 4000;
+const $ = s => document.querySelector(s);
+let timer = null, last = null, busy = false, stopped = false;
+
+const midnight = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); };
+const fmt = n => (+n || 0).toLocaleString();
+async function tick() {
+  clearTimeout(timer);
+  if (stopped) return;
+  if (!document.hidden && !busy) {
+    busy = true;
+    try {
+      const res = await fetch(`${URL_}/rest/v1/rpc/quota_numbers`, {method: 'POST',
+        headers: {'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}`},
+        body: JSON.stringify({p_since: midnight()})});
+      let d = null; try { d = await res.json(); } catch (e) {}
+      if (res.ok && d) draw(d);
+      else if (/PGRST202|could not find/i.test(`${d && d.code} ${d && d.message}`)) {
+        stopped = true;
+        $('#live').classList.add('off');
+        $('#livetxt').textContent = 'Not switched on yet: the database part (schema v53) has not been run.';
+      } else offline();
+    } catch (e) { offline(); }
+    finally { busy = false; }
+  }
+  if (!stopped) timer = setTimeout(tick, EVERY);
+}
+function offline() {
+  $('#live').classList.add('off');
+  $('#livetxt').textContent = last ? 'Reconnecting… showing the last numbers' : 'Reconnecting…';
+}
+function draw(d) {
+  const was = last; last = d;
+  $('#live').classList.remove('off');
+  $('#livetxt').textContent = `Live · updated ${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'})}`;
+  const people = n => `${fmt(n)} ${+n === 1 ? 'person' : 'people'}`;
+  const tiles = [
+    ['posts_today', 'Posts today', `by ${people(d.posters_today)}`],
+    ['posts_total', 'Posts all time', ''],
+    ['active_today', 'Active users today', `${fmt(d.active_now)} in the app right now`],
+    ['users_total', 'Users all time', `${fmt(d.users_new_today)} joined today`],
+  ];
+  const grid = $('#grid');
+  if (!grid.children.length) grid.innerHTML = tiles.map(([k]) => `<div class="n" data-k="${k}"><b></b><span></span><em></em></div>`).join('');
+  for (const [k, label, sub] of tiles) {
+    const el = grid.querySelector(`[data-k="${k}"]`);
+    el.querySelector('b').textContent = fmt(d[k]);
+    el.querySelector('span').textContent = label;
+    el.querySelector('em').textContent = sub;
+    // A number that moved lights up, every time it moves.
+    if (was && was[k] !== d[k]) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+addEventListener('online', tick);
+tick();
+</script>
+</body>
+</html>

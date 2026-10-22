@@ -3187,8 +3187,8 @@ revoke all on function public.admin_agreements() from public, anon, authenticate
 grant execute on function public.admin_agreements() to authenticated;
 
 -- ============================================================
--- v53 (live numbers): posts and people, counted live, for moderators only — a screen in
--- the app rather than a query. Safe to run on an existing project. No redeploy.
+-- v53 (live numbers): posts and people, counted live, for a private page on the website
+-- rather than a query. Safe to run on an existing project. No redeploy.
 -- ============================================================
 
 -- When each account last had the app open. One row per person, written by the app as it
@@ -3212,17 +3212,18 @@ $$;
 revoke all on function public.seen() from public, anon, authenticated;
 grant execute on function public.seen() to authenticated;
 
--- The numbers. "Today" starts at the viewer's own midnight, which the app sends; anything
--- that is not a time within the last day and a half is taken as the server's midnight
--- instead. Refused outright to anybody who is not a moderator.
-create or replace function public.admin_stats(p_since timestamptz default null)
+-- The numbers, for the private numbers page on the website (site/n/). Counts only: no
+-- names, no emails, nothing about anybody in particular, so the page needs no sign-in and
+-- this is open to the public key; the page's address being unguessable is what keeps it
+-- out of the way. "Today" starts at the viewer's own midnight, which the page sends;
+-- anything that is not a time within the last day and a half is taken as the server's
+-- midnight instead.
+drop function if exists public.admin_stats(timestamptz);
+create or replace function public.quota_numbers(p_since timestamptz default null)
 returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare since timestamptz := p_since;
 begin
-  if not exists (select 1 from public.moderators m where m.user_id = auth.uid()) then
-    raise exception 'only a moderator can see this' using errcode = '42501';
-  end if;
   if since is null or since > now() or since < now() - interval '36 hours' then
     since := date_trunc('day', now());
   end if;
@@ -3236,5 +3237,5 @@ begin
     'active_now',     (select count(*) from public.last_seen where at >= now() - interval '5 minutes'),
     'at', now());
 end $$;
-revoke all on function public.admin_stats(timestamptz) from public, anon, authenticated;
-grant execute on function public.admin_stats(timestamptz) to authenticated;
+revoke all on function public.quota_numbers(timestamptz) from public;
+grant execute on function public.quota_numbers(timestamptz) to anon, authenticated;

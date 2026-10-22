@@ -1063,20 +1063,14 @@ delete from public.moderators where user_id = '22222222-2222-2222-2222-222222222
 \echo PASS: the agreements screen
 
 
--- ---- live numbers (v53): counted for moderators, refused to everybody else, and the
--- table behind "active" is nobody's to read
+-- ---- live numbers (v53): counts for anybody with the page, and the table behind
+-- "active" is nobody's to read
 set role app;
 do $$
-declare s jsonb;
 begin
   perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
   perform public.seen();
   perform public.seen();                   -- twice is still one row
-  begin
-    perform public.admin_stats(null);
-    raise exception 'a non-moderator read the live numbers';
-  exception when insufficient_privilege then null;
-  end;
   -- This test role is handed every table outright, so the table is reachable here: what
   -- stands in the way is RLS with no policy, which lets nothing through.
   if exists (select 1 from public.last_seen) then raise exception 'the last-seen table is readable by the app'; end if;
@@ -1084,44 +1078,37 @@ end $$;
 reset role;
 do $$
 begin
-  if has_table_privilege('authenticated', 'public.last_seen', 'select') or has_table_privilege('anon', 'public.last_seen', 'select') then
-    raise exception 'the last-seen table is granted to the app''s roles';
-  end if;
-end $$;
-set role app;
-do $$ begin perform 1; end $$;
-reset role;
-do $$
-begin
   if (select count(*) from public.last_seen where user_id = '22222222-2222-2222-2222-222222222222') <> 1 then
     raise exception 'seen() did not leave exactly one row';
   end if;
+  if has_table_privilege('authenticated', 'public.last_seen', 'select') or has_table_privilege('anon', 'public.last_seen', 'select') then
+    raise exception 'the last-seen table is granted to the app''s roles';
+  end if;
+  if not has_function_privilege('anon', 'public.quota_numbers(timestamptz)', 'EXECUTE') then
+    raise exception 'the numbers page cannot read the numbers without signing in';
+  end if;
+  if has_function_privilege('anon', 'public.seen()', 'EXECUTE') then
+    raise exception 'somebody signed out can mark themselves active';
+  end if;
 end $$;
-insert into public.moderators values ('22222222-2222-2222-2222-222222222222') on conflict do nothing;
--- Counted here, as the owner: the app's own reads only see the posts its policies allow,
--- and the point of the numbers is that they are everybody's.
+-- Counted here, as the owner, to compare with: the app's own reads only see what its
+-- policies allow, and the point of the numbers is that they are everybody's.
 select set_config('test.posts', (select count(*) from public.posts)::text, false);
-set role app;
+set role anon;
 do $$
-declare s jsonb; posts int;
+declare s jsonb;
 begin
-  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
-  s := public.admin_stats(now() - interval '1 hour');
-  posts := current_setting('test.posts')::int;
-  if (s->>'posts_total')::int is distinct from posts then raise exception 'posts_total is wrong: %', s; end if;
+  s := public.quota_numbers(now() - interval '1 hour');
+  if (s->>'posts_total')::int is distinct from current_setting('test.posts')::int then raise exception 'posts_total is wrong: %', s; end if;
   if (s->>'active_today')::int < 1 or (s->>'active_now')::int < 1 then raise exception 'somebody seen just now is not active: %', s; end if;
   if (s->>'users_total')::int < 1 then raise exception 'users_total is wrong: %', s; end if;
+  -- Counts and nothing else.
+  if exists (select 1 from jsonb_object_keys(s) k where k not in ('posts_total','posts_today','posters_today','users_total','users_new_today','active_today','active_now','at')) then
+    raise exception 'the numbers carry more than numbers: %', s;
+  end if;
   -- A "since" a year back is not a day: it is taken as midnight instead.
-  s := public.admin_stats(now() - interval '400 days');
+  s := public.quota_numbers(now() - interval '400 days');
   if (s->>'posts_today')::int > (s->>'posts_total')::int then raise exception 'today is more than ever: %', s; end if;
 end $$;
 reset role;
-delete from public.moderators where user_id = '22222222-2222-2222-2222-222222222222';
-do $$
-begin
-  if has_function_privilege('anon', 'public.admin_stats(timestamptz)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.seen()', 'EXECUTE') then
-    raise exception 'the live numbers are open to the anon key';
-  end if;
-end $$;
 \echo PASS: live numbers

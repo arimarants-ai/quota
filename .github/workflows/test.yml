@@ -60,6 +60,7 @@ jobs:
       # Google Chrome, which the runner already has, is what converts it to H.264.
       - run: sudo apt-get install -y --no-install-recommends ffmpeg
       - run: node test/boot.test.mjs
+      - run: node test/numbers.test.mjs
 
       - run: node --experimental-strip-types supabase/functions/notify/push.test.ts
       - run: node --experimental-strip-types supabase/functions/notify/message.test.ts
