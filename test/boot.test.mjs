@@ -437,11 +437,13 @@ await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
 // through fetch, which reports nothing at all. A motionless "Uploading…" is how a slow
 // connection and a stuck one look identical.
 // There is no file input on the form any more: proof comes back from the camera or it does
-// not come at all. So a test hands one over the way a person does — tap Record, and give
-// the chooser the phone opens whatever it was going to give.
+// not come at all. So a test hands one over the way a person can — tap Record, take the
+// way through to the phone's own camera, and give the chooser it opens whatever it was
+// going to give. (Quota's camera recording for real is its own case, further down.)
 async function giveTake(page, file) {
-  const chooser = page.waitForEvent('filechooser');
   await page.locator('#dlg #recbtn').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.evaluate(() => camToPhone());
   await (await chooser).setFiles(file);
   await page.waitForTimeout(150);
 }
@@ -1233,12 +1235,258 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   check('with a day wheel, the wheel still decides', r.need === r.stored && r.need !== r.cycle, JSON.stringify(r));
 });
 
-// ---- recording, which is the phone's own camera
-// There is no camera in here any more. Four hundred lines of getUserMedia and MediaRecorder
-// produced a clip that was only its last second, a shutter that did nothing, and a preview
-// that drew as a small rectangle on a black screen — so recording is handed to the camera
-// app the phone already has, with `capture` on a file input. What can be checked here is
-// that the right camera is asked for, and that what comes back is treated as a take.
+// ---- Quota's camera
+// The camera is the app's own again, and Chromium's fake camera and microphone are real
+// enough to drive it end to end: a moving picture, a tone, a recorder that writes a file.
+// Wraps getUserMedia so a case can see which tracks were handed out and whether every one
+// of them was let go — a camera left on behind a closed screen is the failure that matters.
+const camSpy = page => page.evaluate(() => {
+  const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  self.__tracks = []; self.__asks = [];
+  navigator.mediaDevices.getUserMedia = async c => {
+    self.__asks.push(JSON.parse(JSON.stringify(c)));
+    const s = await gum(c); self.__tracks.push(...s.getTracks()); return s;
+  };
+  // Two cameras, the way a phone has: Chromium's fake one is a single device.
+  const en = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+  navigator.mediaDevices.enumerateDevices = async () => {
+    const ds = await en();
+    return [...ds, {kind: 'videoinput', deviceId: 'back', label: 'Back Camera', groupId: 'b'}];
+  };
+});
+const liveTracks = page => page.evaluate(() => self.__tracks.filter(t => t.readyState === 'live').map(t => t.kind).sort().join(','));
+const camReady = page => page.waitForFunction(() => typeof CAM !== 'undefined' && CAM.step === 'ready', null, {timeout: 8000}).then(() => true, () => false);
+
+// A clip, from the + button to the form.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await camSpy(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  let chose = false;
+  page.on('filechooser', () => { chose = true; });
+  await page.locator('#dlg button:has-text("Record")').click();
+  const ready = await camReady(page);
+  const cam = await page.evaluate(() => ({open: $('#cam').open, w: $('#campre').videoWidth, mode: CAM.mode,
+    green: getComputedStyle(document.querySelector('#camgo i')).backgroundColor,
+    modes: [...document.querySelectorAll('#cammodes button')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join('|')}));
+  check('Record opens Quota\'s own camera, with a live picture', ready && cam.open && cam.w > 0 && !chose, JSON.stringify(cam));
+  check('  in video, with Video and Photo to swap between', cam.mode === 'video' && cam.modes === 'Video*|Photo', cam.modes);
+  check('  and a green record button', cam.green === 'rgb(47, 211, 111)', cam.green);
+  check('  with the camera and the microphone on', await liveTracks(page) === 'audio,video', await liveTracks(page));
+  const fills = await page.evaluate(() => { const r = $('#campre').getBoundingClientRect(); return r.width >= innerWidth - 2 && r.height >= innerHeight - 2; });
+  check('  and the picture as big as the screen', fills);
+  check('  flip and the timer are there', await page.locator('#camflip').isVisible() && await page.locator('#camtimer').isVisible());
+
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1700);
+  const rec = await page.evaluate(() => ({step: CAM.step, clock: $('#camclock').textContent, clockShown: !$('#camclock').hidden,
+    sq: document.querySelector('#camgo').classList.contains('rec'), modes: $('#cammodes').hidden, flip: $('#camflip').hidden}));
+  check('  tapping it records, with a running clock', rec.step === 'recording' && rec.clockShown && /0:01/.test(rec.clock), JSON.stringify(rec));
+  check('    the button turns into a stop square, and the modes and flip step aside', rec.sq && rec.modes && rec.flip, JSON.stringify(rec));
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 6000}).catch(() => {});
+  await page.waitForTimeout(600);
+  const took = await page.evaluate(() => ({open: $('#cam').open, size: recorded && recorded.size, type: recorded && recorded.type,
+    shown: !!document.querySelector('#takeprev video'), again: ($('#recbtn') || {}).textContent}));
+  check('  tapping again stops it: the camera closes and the clip is on the form', !took.open && took.size > 2048 && /^video\//.test(took.type) && took.shown,
+    JSON.stringify(took));
+  check('    to watch back, and record again if it was not right', took.again === 'Record again', took.again);
+  check('  and the camera and microphone are off', await liveTracks(page) === '', await liveTracks(page));
+  check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
+});
+
+// A picture, by swiping across to Photo, and the timer counting it in.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await camSpy(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => openCam());
+  await camReady(page);
+  const b = await page.locator('#camview').boundingBox();
+  await page.mouse.move(b.x + b.width * 0.8, b.y + b.height / 2); await page.mouse.down();
+  await page.mouse.move(b.x + b.width * 0.2, b.y + b.height / 2, {steps: 6}); await page.mouse.up();
+  await camReady(page);
+  const pm = await page.evaluate(() => ({mode: CAM.mode, white: document.querySelector('#camgo').classList.contains('pic')}));
+  check('swiping across the picture switches to Photo', pm.mode === 'photo' && pm.white, JSON.stringify(pm));
+  check('  and a picture does not keep the microphone on', await liveTracks(page) === 'video', await liveTracks(page));
+  await page.locator('#camtimer').click();
+  check('  the timer goes to three seconds', await page.evaluate(() => CAM.timer) === 3 && /3s/.test(await page.locator('#camtimer').innerText()));
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1200);
+  const counting = await page.evaluate(() => ({n: $('#camcount').textContent, shown: !$('#camcount').hidden, open: $('#cam').open}));
+  check('  and counts it in before taking it', counting.shown && counting.open && /^[12]$/.test(counting.n), JSON.stringify(counting));
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 6000}).catch(() => {});
+  await page.waitForTimeout(400);
+  const pic = await page.evaluate(() => ({size: recorded && recorded.size, type: recorded && recorded.type, shown: !!document.querySelector('#takeprev img')}));
+  check('    then the picture is on the form', pic.size > 1024 && pic.type === 'image/jpeg' && pic.shown, JSON.stringify(pic));
+  check('  and the camera is off', await liveTracks(page) === '', await liveTracks(page));
+  check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
+});
+
+// Front and back in one picture: the back camera, then you, side by side.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await camSpy(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Photo")').click();
+  await camReady(page);
+  check('Photo opens the camera on a picture', await page.evaluate(() => CAM.mode) === 'photo');
+  check('  with a front-and-back button', await page.locator('#camdual').isVisible());
+  await page.locator('#camdual').click();
+  await camReady(page);
+  const d = await page.evaluate(() => ({dual: $('#cam').classList.contains('dual'), facing: CAM.facing, flip: $('#camflip').hidden,
+    asked: self.__asks.at(-1).video.facingMode}));
+  check('  which turns to the back camera and splits the screen', d.dual && d.facing === 'environment' && d.flip, JSON.stringify(d));
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => $('#cam').classList.contains('second') && CAM.step === 'counting', null, {timeout: 8000}).catch(() => {});
+  const mid = await page.evaluate(() => ({second: $('#cam').classList.contains('second'), facing: CAM.facing, half: !!$('#camhalf').getAttribute('src'),
+    count: !$('#camcount').hidden}));
+  check('  the back one is taken and held on the left while the front one counts in', mid.second && mid.facing === 'user' && mid.half && mid.count,
+    JSON.stringify(mid));
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 8000}).catch(() => {});
+  await page.waitForTimeout(400);
+  const out = await page.evaluate(async () => {
+    if (!recorded) return null;
+    const bm = await createImageBitmap(recorded);
+    const c = Object.assign(document.createElement('canvas'), {width: bm.width, height: bm.height});
+    const g = c.getContext('2d'); g.drawImage(bm, 0, 0);
+    const at = (x, y) => [...g.getImageData(x, y, 1, 1).data].slice(0, 3);
+    return {w: bm.width, h: bm.height, type: recorded.type, mid: at(bm.width / 2, bm.height / 2), above: at(bm.width / 4, 40)};
+  });
+  check('  and the picture is the two side by side, with a green line between',
+    out && out.w === 1080 && out.h === 1920 && out.type === 'image/jpeg' && out.mid[1] > 150 && out.mid[0] < 120, JSON.stringify(out));
+  check('    and the space above them is a blur of the picture, not black', out && out.above.some(v => v > 30), JSON.stringify(out && out.above));
+  check('  then the camera is off', await liveTracks(page) === '', await liveTracks(page));
+  check('  and remembers nothing it should not: the next one opens facing you', await page.evaluate(() => camSavedFacing()) === 'user');
+  check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
+});
+
+// Every way out leaves the camera off — and a clip being recorded is kept, not lost.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await camSpy(page);
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => openCam());
+  await camReady(page);
+  await page.locator('#camx').click();
+  await page.waitForTimeout(300);
+  check('✕ closes the camera and turns it off', !(await page.evaluate(() => $('#cam').open)) && await liveTracks(page) === '', await liveTracks(page));
+  check('  leaving the form as it was, with nothing on it', await page.evaluate(() => $('#dlg').open && !recorded));
+
+  await page.evaluate(() => openCam());
+  await camReady(page);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  check('  Escape does the same', !(await page.evaluate(() => $('#cam').open)) && await liveTracks(page) === '');
+
+  // Closed while it is still starting: the camera that arrives afterwards is let go of.
+  await page.evaluate(() => { openCam(); camX(); });
+  await page.waitForTimeout(1500);
+  check('  closed before it had even started, it still ends up off', !(await page.evaluate(() => $('#cam').open)) && await liveTracks(page) === '',
+    await liveTracks(page));
+
+  await page.evaluate(() => openCam());
+  await camReady(page);
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1300);
+  await page.locator('#camx').click();
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 6000}).catch(() => {});
+  await page.waitForTimeout(500);
+  check('  ✕ in the middle of a clip stops it and keeps what was filmed',
+    await page.evaluate(() => !!recorded && recorded.size > 2048 && /^video\//.test(recorded.type)) && await liveTracks(page) === '');
+
+  // The app put away mid-clip — a call, the home screen — keeps the clip too.
+  await page.evaluate(() => { recorded = null; openCam(); });
+  await camReady(page);
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1300);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', {configurable: true, get: () => true});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 6000}).catch(() => {});
+  await page.waitForTimeout(500);
+  check('  the app being put away mid-clip keeps the clip as well',
+    await page.evaluate(() => !!recorded && recorded.size > 2048) && await liveTracks(page) === '', await liveTracks(page));
+  await page.evaluate(() => { delete document.hidden; });
+
+  // Put away while just looking: off while away, back on by itself on the way back.
+  await page.evaluate(() => openCam());
+  await camReady(page);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', {configurable: true, get: () => true});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(300);
+  const away = await liveTracks(page);
+  await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
+  const back = await camReady(page);
+  check('  put away while open, the camera is off until the app is back, then on again by itself', away === '' && back
+    && await page.evaluate(() => $('#cam').open), away);
+  await page.evaluate(() => camX());
+  await page.waitForTimeout(300);
+  check('  with nothing said about any of it', alerts.length === 0, alerts.join(' | '));
+});
+
+// A camera that will not start says why and offers the phone's own — never a dead end.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error('no'), {name: 'NotAllowedError'})); });
+  await page.locator('.bar .add').click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => openCam());
+  await page.waitForTimeout(600);
+  const why = await page.evaluate(() => ({shown: !$('#camwhy').hidden, text: $('#camwhy').innerText, go: document.querySelector('#camgo').disabled}));
+  check('a camera that is not allowed says so, in words', why.shown && /allowed/i.test(why.text) && why.go, JSON.stringify(why));
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout: 3000}).catch(() => null),
+    page.locator('#camwhy button:has-text("phone")').click()]);
+  check('  and the phone\'s own camera is a tap away', !!fc && !(await page.evaluate(() => $('#cam').open)));
+  if (fc) await fc.setFiles([]).catch(() => {});
+
+  // No camera API at all: straight to the phone's camera.
+  await page.evaluate(() => { Object.defineProperty(navigator, 'mediaDevices', {configurable: true, value: undefined}); });
+  const [fc2] = await Promise.all([page.waitForEvent('filechooser', {timeout: 3000}).catch(() => null), page.evaluate(() => openCam())]);
+  check('  and a browser with no camera of its own goes straight to the phone\'s', !!fc2 && !(await page.evaluate(() => $('#cam').open)));
+  if (fc2) await fc2.setFiles([]).catch(() => {});
+});
+
+// A story stops itself at ten seconds; a profile picture is a picture of you, then framed.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await camSpy(page);
+  await page.evaluate(() => openCam('story'));
+  await camReady(page);
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(4000);
+  check('a story clip counts down to its ten seconds', /\/ 0:10/.test(await page.locator('#camclock').innerText()));
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 12000}).catch(() => {});
+  await page.waitForTimeout(1500);
+  const st = await page.evaluate(() => ({open: $('#cam').open, draft: S.draft && S.draft.kind}));
+  check('  and stops itself there, into the story', !st.open && st.draft === 'video', JSON.stringify(st));
+  check('  with the camera off', await liveTracks(page) === '');
+  await page.evaluate(() => closeDraft());
+
+  await page.evaluate(() => avatarCam());
+  await camReady(page);
+  const av = await page.evaluate(() => ({mode: CAM.mode, modes: $('#cammodes').hidden, dual: $('#camdual').hidden, facing: CAM.facing,
+    mic: self.__asks.at(-1).audio}));
+  check('a profile picture opens on you, for a picture, and nothing else', av.mode === 'photo' && av.modes && av.dual && av.facing === 'user' && !av.mic,
+    JSON.stringify(av));
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1200);
+  check('  and goes on to be framed', await page.evaluate(() => $('#crop').open && !$('#cam').open));
+  check('  with the camera off', await liveTracks(page) === '');
+  check('  with nothing said about any of it', alerts.length === 0, alerts.join(' | '));
+});
+
+// ---- the phone's own camera, behind Quota's
+// Quota's camera falls back to the camera app the phone already has, with `capture` on a
+// file input, wherever its own cannot run. What can be checked here is that the right
+// camera is asked for, and that what comes back is treated as a take.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
   await page.locator('.bar .add').click();
@@ -1250,7 +1498,7 @@ await withPage(NO_WHEEL, async page => {
   // it is consumed here because a chooser nobody answers holds the browser open behind it.
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.evaluate(() => openCam()),
+    page.evaluate(() => phoneCam()),
   ]);
   await chooser.setFiles([]).catch(() => {});
   const asked = await page.evaluate(() => { const i = $('#camin');
@@ -1332,7 +1580,7 @@ await withPage(NO_WHEEL, async page => {
       request: async () => { self.__wake.asked++; return {release: async () => { self.__wake.released++; }}; },
     }});
   });
-  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => openCam())]);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => phoneCam())]);
   await page.waitForTimeout(150);
   check('opening the camera asks the phone to stay awake',
     await page.evaluate(() => self.__wake.asked) === 1, JSON.stringify(await page.evaluate(() => self.__wake)));
@@ -1357,12 +1605,13 @@ await withPage(NO_WHEEL, async page => {
     await page.evaluate(() => wake === null));
 });
 
-// A profile picture is of you, so it opens the other way round and will not take a video.
+// A profile picture is of you, so it opens the other way round and will not take a video —
+// in the phone's camera too, where that is the one used.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
   const [pick] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.evaluate(() => avatarCam()),
+    page.evaluate(() => phoneCam('avatar')),
   ]);
   await pick.setFiles([]).catch(() => {});
   const a = await page.evaluate(() => { const i = $('#camin');
@@ -5451,8 +5700,8 @@ await withPage(NO_WHEEL, async page => {
   check('the form has no way to choose a file', await page.locator('#dlg input[type=file]').count() === 0,
     'a file input is still on the proof form');
   check('  Photo is its own button', await page.locator('#dlg button:has-text("Photo")').count() === 1);
-  await page.evaluate(() => openCam('post', true));
-  check('  and asks for a picture rather than a clip',
+  await page.evaluate(() => phoneCam('post', true));
+  check('  and the phone\'s camera, where it is used, asks for a picture rather than a clip',
     await page.locator('#camin').getAttribute('accept') === 'image/*',
     await page.locator('#camin').getAttribute('accept'));
   check('  from a camera rather than the roll',

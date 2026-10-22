@@ -59,6 +59,11 @@
     <!-- Recording proof, a story or a profile picture. Asked for the first time the camera opens. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- The sound on a clip recorded in Quota's own camera. The web view asks for both of these
+         when the camera opens in video; without them declared the answer is always no. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- Android 16 lifts an ongoing countdown into the status bar (and Samsung's Now Bar). -->
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- POST_NOTIFICATIONS comes in with @capacitor/push-notifications and is asked for when
