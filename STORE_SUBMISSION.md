@@ -7,6 +7,15 @@ Bundle ID / application ID: **`app.hitquota.quota`** (set in `native/capacitor.c
 the Xcode project and `native/android/app/build.gradle`). It is permanent once registered
 with Apple, so change it now if you want something else.
 
+> **Before every store build: build from the latest `main`.** The store apps carry their
+> own copy of `app/` from the moment they are built, and the private numbers page
+> (`hitquota.app/n/…`, `site/n/`) counts **active users** from the app calling `seen()`
+> as it opens (schema v53, `pingOpen()` in `app/index.html`). A build made from older code
+> still counts towards posts and users, but its people never show as active. So: build
+> from current `main`, keep `pingOpen()` in the app, and after a release check the numbers
+> page shows active users from phones on the new build. Posts and users need nothing; they
+> come straight from the database whatever the app version.
+
 ---
 
 ## 1. Listing text
@@ -99,7 +108,9 @@ under 13), which keeps it out of the Families programme.
 
 ## 3. App Privacy ("nutrition label") and Google Data safety
 
-**Tracking: No.** No ads, no analytics, no third-party SDKs that track.
+**Tracking: No.** No ads, no analytics services, no third-party SDKs that track. The one
+usage figure (when the app was last opened, for counting active users) stays in Quota's
+own database and is never shared, which is not tracking in Apple's sense.
 
 | Apple data type | Collected | Linked to the user | Used for | Google Data safety equivalent |
 |---|---|---|---|---|
@@ -112,7 +123,8 @@ under 13), which keeps it out of the Families programme.
 | Identifiers → User ID | Yes | Yes | App Functionality | App info → User IDs |
 | Identifiers → Device ID | Yes (push token, only if notifications are on) | Yes | App Functionality | Device or other IDs |
 | Other Data | Yes (date of birth, gender, time zone) | Yes | App Functionality | Personal info → Other info |
-| Usage Data, Diagnostics, Location, Financial, Health, Browsing, Search, Contacts | **No** | | | Not collected |
+| Usage Data → Product Interaction | Yes (when the app was last opened, one time per account, to count active users) | Yes | Analytics | App activity → App interactions |
+| Diagnostics, Location, Financial, Health, Browsing, Search, Contacts, other Usage Data | **No** | | | Not collected |
 
 Google also asks: data encrypted in transit **Yes**; users can request deletion **Yes** (in
 the app, and at hitquota.app/support); data shared with third parties **No** (Supabase,
