@@ -1061,3 +1061,67 @@ end $$;
 reset role;
 delete from public.moderators where user_id = '22222222-2222-2222-2222-222222222222';
 \echo PASS: the agreements screen
+
+
+-- ---- live numbers (v53): counted for moderators, refused to everybody else, and the
+-- table behind "active" is nobody's to read
+set role app;
+do $$
+declare s jsonb;
+begin
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  perform public.seen();
+  perform public.seen();                   -- twice is still one row
+  begin
+    perform public.admin_stats(null);
+    raise exception 'a non-moderator read the live numbers';
+  exception when insufficient_privilege then null;
+  end;
+  -- This test role is handed every table outright, so the table is reachable here: what
+  -- stands in the way is RLS with no policy, which lets nothing through.
+  if exists (select 1 from public.last_seen) then raise exception 'the last-seen table is readable by the app'; end if;
+end $$;
+reset role;
+do $$
+begin
+  if has_table_privilege('authenticated', 'public.last_seen', 'select') or has_table_privilege('anon', 'public.last_seen', 'select') then
+    raise exception 'the last-seen table is granted to the app''s roles';
+  end if;
+end $$;
+set role app;
+do $$ begin perform 1; end $$;
+reset role;
+do $$
+begin
+  if (select count(*) from public.last_seen where user_id = '22222222-2222-2222-2222-222222222222') <> 1 then
+    raise exception 'seen() did not leave exactly one row';
+  end if;
+end $$;
+insert into public.moderators values ('22222222-2222-2222-2222-222222222222') on conflict do nothing;
+-- Counted here, as the owner: the app's own reads only see the posts its policies allow,
+-- and the point of the numbers is that they are everybody's.
+select set_config('test.posts', (select count(*) from public.posts)::text, false);
+set role app;
+do $$
+declare s jsonb; posts int;
+begin
+  perform set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
+  s := public.admin_stats(now() - interval '1 hour');
+  posts := current_setting('test.posts')::int;
+  if (s->>'posts_total')::int is distinct from posts then raise exception 'posts_total is wrong: %', s; end if;
+  if (s->>'active_today')::int < 1 or (s->>'active_now')::int < 1 then raise exception 'somebody seen just now is not active: %', s; end if;
+  if (s->>'users_total')::int < 1 then raise exception 'users_total is wrong: %', s; end if;
+  -- A "since" a year back is not a day: it is taken as midnight instead.
+  s := public.admin_stats(now() - interval '400 days');
+  if (s->>'posts_today')::int > (s->>'posts_total')::int then raise exception 'today is more than ever: %', s; end if;
+end $$;
+reset role;
+delete from public.moderators where user_id = '22222222-2222-2222-2222-222222222222';
+do $$
+begin
+  if has_function_privilege('anon', 'public.admin_stats(timestamptz)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.seen()', 'EXECUTE') then
+    raise exception 'the live numbers are open to the anon key';
+  end if;
+end $$;
+\echo PASS: live numbers

@@ -3185,3 +3185,56 @@ begin
 end $$;
 revoke all on function public.admin_agreements() from public, anon, authenticated;
 grant execute on function public.admin_agreements() to authenticated;
+
+-- ============================================================
+-- v53 (live numbers): posts and people, counted live, for moderators only — a screen in
+-- the app rather than a query. Safe to run on an existing project. No redeploy.
+-- ============================================================
+
+-- When each account last had the app open. One row per person, written by the app as it
+-- loads and every couple of minutes while it is in front, so "active" means somebody
+-- actually opened Quota, not merely that they have an account. Nobody reads this table
+-- directly: no policies, no grants. Only the two functions below touch it.
+create table if not exists public.last_seen (
+  user_id uuid primary key references auth.users on delete cascade,
+  at timestamptz not null default now()
+);
+alter table public.last_seen enable row level security;
+revoke all on public.last_seen from public, anon, authenticated;
+
+-- "I am here." At most one write a minute per person, however often it is called.
+create or replace function public.seen() returns void
+language sql volatile security definer set search_path = public as $$
+  insert into public.last_seen (user_id, at)
+  select auth.uid(), now() where auth.uid() is not null
+  on conflict (user_id) do update set at = now() where last_seen.at < now() - interval '1 minute';
+$$;
+revoke all on function public.seen() from public, anon, authenticated;
+grant execute on function public.seen() to authenticated;
+
+-- The numbers. "Today" starts at the viewer's own midnight, which the app sends; anything
+-- that is not a time within the last day and a half is taken as the server's midnight
+-- instead. Refused outright to anybody who is not a moderator.
+create or replace function public.admin_stats(p_since timestamptz default null)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare since timestamptz := p_since;
+begin
+  if not exists (select 1 from public.moderators m where m.user_id = auth.uid()) then
+    raise exception 'only a moderator can see this' using errcode = '42501';
+  end if;
+  if since is null or since > now() or since < now() - interval '36 hours' then
+    since := date_trunc('day', now());
+  end if;
+  return jsonb_build_object(
+    'posts_total',    (select count(*) from public.posts),
+    'posts_today',    (select count(*) from public.posts where created_at >= since),
+    'posters_today',  (select count(distinct user_id) from public.posts where created_at >= since),
+    'users_total',    (select count(*) from public.profiles),
+    'users_new_today',(select count(*) from public.profiles where created_at >= since),
+    'active_today',   (select count(*) from public.last_seen where at >= since),
+    'active_now',     (select count(*) from public.last_seen where at >= now() - interval '5 minutes'),
+    'at', now());
+end $$;
+revoke all on function public.admin_stats(timestamptz) from public, anon, authenticated;
+grant execute on function public.admin_stats(timestamptz) to authenticated;
