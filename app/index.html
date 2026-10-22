@@ -1320,18 +1320,25 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 /* What you see is what is kept: the whole frame, not a crop of it. */
 #campre{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;background:#000;display:block}
 #campre.mirror{transform:scaleX(-1)}
-#camhalf{position:absolute;left:0;top:0;width:100%;height:50%;object-fit:cover;display:none}
-.camyou{position:absolute;left:0;right:0;top:50%;bottom:0;display:none;place-items:center;align-content:center;gap:10px;
-  color:rgba(255,255,255,.55);font-weight:700;font-size:14px;background:#0b0c0e}
-.camyou svg{width:54px;height:54px;fill:rgba(255,255,255,.18)}
-/* Front and back: the back camera live in the top half, then frozen there while the
-   front one goes live underneath. Cropped to fill, because the picture is too. */
-#cam.dual #campre{height:50%;object-fit:cover}
+/* Front and back: side by side, each the shape of a phone screen, the back camera on the
+   left and you on the right, centred with the space above and below them filled by a
+   blur of the picture. The back one is live on the left, then frozen there while the
+   front one goes live on the right. Cropped to fill, because the picture is too. */
+#cam{--pw:calc(50vw - 2px);--ph:min(calc((50vw - 2px) * 16 / 9), 72dvh)}
+#cambg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;
+  filter:blur(28px) brightness(.55);display:none}
+#camhalf{position:absolute;left:0;top:50%;width:var(--pw);height:var(--ph);transform:translateY(-50%);object-fit:cover;display:none}
+.camyou{position:absolute;right:0;top:50%;width:var(--pw);height:var(--ph);transform:translateY(-50%);display:none;
+  place-items:center;align-content:center;gap:10px;color:rgba(255,255,255,.55);font-weight:700;font-size:14px;background:#16181a}
+.camyou svg{width:46px;height:46px;fill:rgba(255,255,255,.18)}
+#cam.dual #campre{top:50%;width:var(--pw);height:var(--ph);transform:translateY(-50%);object-fit:cover}
+#cam.dual #campre.mirror{transform:translateY(-50%) scaleX(-1)}
 #cam.dual .camyou{display:grid}
-#cam.dual.second #campre{top:50%}
-#cam.dual.second #camhalf{display:block}
+#cam.dual.second #campre{left:auto;right:0}
+#cam.dual.second #camhalf,#cam.dual.second #cambg{display:block}
 #cam.dual.second .camyou{display:none}
-#cam.dual .camview::after{content:"";position:absolute;left:0;right:0;top:calc(50% - 2px);height:4px;background:var(--camg);z-index:1}
+#cam.dual .camview::after{content:"";position:absolute;left:calc(50% - 2px);top:50%;width:4px;height:var(--ph);
+  transform:translateY(-50%);background:var(--camg);z-index:1}
 .camtop{position:absolute;left:0;right:0;top:0;z-index:3;display:flex;align-items:center;gap:10px;
   padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
 .camtop .sp{flex:1}
@@ -1368,7 +1375,7 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 .shutter:disabled{opacity:.45}
 .camcount{position:absolute;left:0;right:0;top:0;bottom:0;z-index:2;display:grid;place-items:center;pointer-events:none;margin:0;
   font:700 120px/1 Oswald,system-ui,sans-serif;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.6)}
-#cam.dual.second .camcount{top:50%}
+#cam.dual.second .camcount{left:50%}
 .camzoom{position:absolute;left:50%;bottom:calc(178px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3;margin:0;
   background:rgba(0,0,0,.55);border-radius:999px;padding:6px 11px;font:700 13px/1 system-ui,sans-serif;color:var(--camg)}
 .camnote{position:absolute;left:50%;top:calc(66px + env(safe-area-inset-top));transform:translateX(-50%);z-index:3;margin:0;
@@ -1595,6 +1602,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <input id="camin" type="file" hidden onchange="camPicked(this)">
 <dialog id="cam" aria-label="Camera">
   <div class="camview" id="camview">
+    <img id="cambg" alt="">
     <video id="campre" playsinline muted autoplay disablepictureinpicture></video>
     <img id="camhalf" alt="">
     <div class="camyou"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Then you</div>
@@ -1617,7 +1625,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
   <div class="cambot">
     <div class="cammodes" id="cammodes"><button type="button" data-m="video" onclick="camModeTo('video')">Video</button><button type="button" data-m="photo" onclick="camModeTo('photo')">Photo</button></div>
     <div class="camrow">
-      <button type="button" class="cbtn" id="camdual" onclick="camDualTap()" aria-label="Front and back"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 12h18"/></svg></button>
+      <button type="button" class="cbtn" id="camdual" onclick="camDualTap()" aria-label="Front and back"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 3v18"/></svg></button>
       <button type="button" class="shutter" id="camgo" onclick="camShutter()" aria-label="Record"><i></i></button>
       <button type="button" class="cbtn" id="camflip" onclick="camFlip()" aria-label="Switch camera"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
     </div>
@@ -1656,7 +1664,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v147';
+const BUILD = 'quota-v148';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -9074,8 +9082,8 @@ async function camPhoto() {
 
 // ---- front and back
 // A phone will only run one camera for a page at a time, so the two are taken one after
-// the other: the back camera first, live in the top half, then the front one live in the
-// bottom half with a moment to look at it. The picture is the two halves as they were
+// the other: the back camera first, live on the left, then the front one live on the
+// right with a moment to look at it. The picture is the two side by side as they were
 // shown, with a green line between them.
 function camDualTap() {
   if (!(CAM.step === 'ready' || CAM.step === 'error') || CAM.mode !== 'photo') return;
@@ -9092,7 +9100,7 @@ async function camDualShot() {
   if (seq !== CAM.seq || !camOpen()) return;
   if (!back) { CAM.step = 'ready'; paintCam(); return camNote("That didn't come out. Try again."); }
   CAM.dualShot = back;
-  $('#camhalf').src = back.toDataURL('image/jpeg', 0.85);
+  $('#camhalf').src = $('#cambg').src = back.toDataURL('image/jpeg', 0.85);
   d.classList.add('second');
   const was = CAM.facing;
   CAM.dualWas = was;
@@ -9127,24 +9135,40 @@ async function camDualShot() {
   if (!b) { d.classList.remove('second'); CAM.dualShot = null; camNote("That didn't come out. Try again."); return startCam(); }
   camDeliver(new File([b], 'photo.jpg', {type: 'image/jpeg', lastModified: Date.now()}));
 }
-// Each half filled the way the screen showed it (cropped to cover), the back camera on top.
+// Side by side, the back camera on the left: each the shape of a phone screen and filled
+// the way the screen showed it (cropped to cover), with a green line between, centred on a
+// portrait picture whose space above and below is a blur of the two. The blur is made by
+// shrinking each one to almost nothing and drawing it back up, which every browser does
+// the same way — a canvas blur filter is not something all of them have.
 function dualCompose(first, second, firstIsBack) {
-  const W = 1080, H = 1920, line = 6, half = (H - line) / 2;
-  const top = firstIsBack ? first : second, bot = firstIsBack ? second : first;
-  if (!top || !bot) return null;
+  const W = 1080, H = 1920, line = 6, pw = (W - line) / 2, ph = Math.round(pw * 16 / 9), y = Math.round((H - ph) / 2);
+  const left = firstIsBack ? first : second, right = firstIsBack ? second : first;
+  if (!left || !right) return null;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  const cover = (img, y) => {
-    const k = Math.max(W / img.width, half / img.height), w = img.width * k, h = img.height * k;
-    g.save(); g.beginPath(); g.rect(0, y, W, half); g.clip();
-    g.drawImage(img, (W - w) / 2, y + (half - h) / 2, w, h);
+  const cover = (img, x, y0, w, h) => {
+    const k = Math.max(w / img.width, h / img.height), dw = img.width * k, dh = img.height * k;
+    g.save(); g.beginPath(); g.rect(x, y0, w, h); g.clip();
+    g.drawImage(img, x + (w - dw) / 2, y0 + (h - dh) / 2, dw, dh);
     g.restore();
   };
+  const blurred = img => {
+    const t = Object.assign(document.createElement('canvas'), {width: 18, height: 32});
+    const tg = t.getContext('2d');
+    tg.imageSmoothingQuality = 'high';
+    const k = Math.max(18 / img.width, 32 / img.height);
+    tg.drawImage(img, (18 - img.width * k) / 2, (32 - img.height * k) / 2, img.width * k, img.height * k);
+    return t;
+  };
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  cover(top, 0);
-  cover(bot, half + line);
-  g.fillStyle = '#2fd36f'; g.fillRect(0, half, W, line);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  cover(blurred(left), 0, 0, W / 2, H);
+  cover(blurred(right), W / 2, 0, W / 2, H);
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 0, W, H);
+  cover(left, 0, y, pw, ph);
+  cover(right, pw + line, y, pw, ph);
+  g.fillStyle = '#2fd36f'; g.fillRect(pw, y, line, ph);
   return c;
 }
 
@@ -9253,7 +9277,7 @@ function camClose() {
   camWhy(); camNote();
   if (CAM.dualWas) { CAM.facing = CAM.dualWas; CAM.dualWas = null; }
   CAM.dualShot = null;
-  $('#camhalf').removeAttribute('src');
+  $('#camhalf').removeAttribute('src'); $('#cambg').removeAttribute('src');
   const d = $('#cam');
   d.classList.remove('dual', 'second');
   if (CAM.step !== 'done') CAM.step = 'idle';

@@ -1325,7 +1325,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
 });
 
-// Front and back in one picture: the back camera, then you, one above the other.
+// Front and back in one picture: the back camera, then you, side by side.
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   await camSpy(page);
@@ -1344,7 +1344,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   await page.waitForFunction(() => $('#cam').classList.contains('second') && CAM.step === 'counting', null, {timeout: 8000}).catch(() => {});
   const mid = await page.evaluate(() => ({second: $('#cam').classList.contains('second'), facing: CAM.facing, half: !!$('#camhalf').getAttribute('src'),
     count: !$('#camcount').hidden}));
-  check('  the back one is taken and held at the top while the front one counts in', mid.second && mid.facing === 'user' && mid.half && mid.count,
+  check('  the back one is taken and held on the left while the front one counts in', mid.second && mid.facing === 'user' && mid.half && mid.count,
     JSON.stringify(mid));
   await page.waitForFunction(() => !$('#cam').open, null, {timeout: 8000}).catch(() => {});
   await page.waitForTimeout(400);
@@ -1353,11 +1353,12 @@ await withPage(NO_WHEEL, async (page, alerts) => {
     const bm = await createImageBitmap(recorded);
     const c = Object.assign(document.createElement('canvas'), {width: bm.width, height: bm.height});
     const g = c.getContext('2d'); g.drawImage(bm, 0, 0);
-    const px = g.getImageData(bm.width / 2, Math.floor(bm.height / 2), 1, 1).data;
-    return {w: bm.width, h: bm.height, type: recorded.type, mid: [px[0], px[1], px[2]]};
+    const at = (x, y) => [...g.getImageData(x, y, 1, 1).data].slice(0, 3);
+    return {w: bm.width, h: bm.height, type: recorded.type, mid: at(bm.width / 2, bm.height / 2), above: at(bm.width / 4, 40)};
   });
-  check('  and the picture is the two together, one above the other, with a green line between',
+  check('  and the picture is the two side by side, with a green line between',
     out && out.w === 1080 && out.h === 1920 && out.type === 'image/jpeg' && out.mid[1] > 150 && out.mid[0] < 120, JSON.stringify(out));
+  check('    and the space above them is a blur of the picture, not black', out && out.above.some(v => v > 30), JSON.stringify(out && out.above));
   check('  then the camera is off', await liveTracks(page) === '', await liveTracks(page));
   check('  and remembers nothing it should not: the next one opens facing you', await page.evaluate(() => camSavedFacing()) === 'user');
   check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
