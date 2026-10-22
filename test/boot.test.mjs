@@ -437,11 +437,13 @@ await withPage({ ...SIGNED_IN, noCaption: true }, async page => {
 // through fetch, which reports nothing at all. A motionless "Uploading…" is how a slow
 // connection and a stuck one look identical.
 // There is no file input on the form any more: proof comes back from the camera or it does
-// not come at all. So a test hands one over the way a person does — tap Record, and give
-// the chooser the phone opens whatever it was going to give.
+// not come at all. So a test hands one over the way a person can — tap Record, take the
+// way through to the phone's own camera, and give the chooser it opens whatever it was
+// going to give. (Quota's camera recording for real is its own case, further down.)
 async function giveTake(page, file) {
-  const chooser = page.waitForEvent('filechooser');
   await page.locator('#dlg #recbtn').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.evaluate(() => camToPhone());
   await (await chooser).setFiles(file);
   await page.waitForTimeout(150);
 }
