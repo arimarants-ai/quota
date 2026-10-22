@@ -1547,7 +1547,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v145';
+const BUILD = 'quota-v146';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5901,17 +5901,17 @@ function moreMsgReact(ev, btn, id) {
   box.innerHTML = [...new Set([...CHAT_REACTS, ...ALL_EMOJI])].map(e => msgReactBtn(id, e)).join('');   // the quick ones first
 }
 // Same as reacting to a post: shown at once and put back if the write is refused.
+// One reaction each on a line, the way Messages does it: picking another one swaps it
+// for the one you had, and picking the one you had takes it back.
 async function toggleMsgReact(id, emoji) {
-  const m = me(), had = S.mreacts.some(r => r.m === id && r.u === m.id && r.e === emoji);
-  const undo = () => { S.mreacts = had ? [...S.mreacts, {m: id, u: m.id, e: emoji}]
-    : S.mreacts.filter(r => !(r.m === id && r.u === m.id && r.e === emoji)); render(); };
-  S.mreacts = had ? S.mreacts.filter(r => !(r.m === id && r.u === m.id && r.e === emoji))
-    : [...S.mreacts, {m: id, u: m.id, e: emoji}];
+  const m = me(), mineOn = r => r.m === id && r.u === m.id;
+  const before = S.mreacts, had = before.some(r => mineOn(r) && r.e === emoji);
+  S.mreacts = [...before.filter(r => !mineOn(r)), ...(had ? [] : [{m: id, u: m.id, e: emoji}])];
   render();
   try {
-    if (had) await q(sb.from('message_reactions').delete().eq('message_id', id).eq('user_id', m.id).eq('emoji', emoji));
-    else await q(sb.from('message_reactions').insert({message_id: id, user_id: m.id, emoji}));
-  } catch (e) { undo(); }
+    await q(sb.from('message_reactions').delete().eq('message_id', id).eq('user_id', m.id));
+    if (!had) await q(sb.from('message_reactions').insert({message_id: id, user_id: m.id, emoji}));
+  } catch (e) { S.mreacts = before; render(); }
 }
 async function delMessage(id) {
   if (!confirm('Delete this message?')) return;
