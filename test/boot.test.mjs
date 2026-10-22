@@ -3304,6 +3304,15 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
     await page.evaluate(() => self.__mreacts.length) === 1 && await page.locator('#app .m .reactpick.opts').count() === 1,
     JSON.stringify(await page.evaluate(() => self.__mreacts)));
   check('      with the one you picked marked as yours', marked.length === 1 && marked[0] === '❤️', JSON.stringify(marked));
+  // One each, as in Messages: picking another swaps it rather than adding a second.
+  await page.locator('#app .m .reactpick:not(.opts) button:has-text("👍")').click();
+  await page.waitForTimeout(700);
+  check('      picking another one swaps it for the first, rather than adding to it',
+    await page.locator('#app .m .mrx button').count() === 1
+    && JSON.stringify(await page.evaluate(() => self.__mreacts.map(r => r.emoji))) === '["👍"]',
+    JSON.stringify(await page.evaluate(() => self.__mreacts)));
+  await page.locator('#app .m .mrx button').first().click();
+  await page.waitForTimeout(400);
   await page.locator('#app .m .reactpick:not(.opts) button.on').click();
   await page.waitForTimeout(700);
   check('      and tapping it there takes it back',
