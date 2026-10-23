@@ -455,6 +455,64 @@ async function submitProof(page) {
 }
 const labels = page => page.evaluate(() => self.__btn);
 
+// One video to every group with the same thing in its quota, whatever each one asks for:
+// the same video, amount and caption, posted to each, under each group's own name for it.
+const MULTI = { ...NO_WHEEL, extraGroups: [
+  { id: 2, name: 'Push Club', quotas: [{ metric: 'Push-ups', target: 100 }] },
+  { id: 3, name: 'Readers', quotas: [{ metric: 'pages', target: 20 }] },
+  { id: 4, name: 'Strong', quotas: [{ metric: 'pages', target: 5 }, { metric: 'pushup', target: 25 }] }] };
+await withPage(MULTI, async page => {
+  await settle(page);
+  await page.evaluate(() => submitDlg(1));
+  await page.waitForTimeout(200);
+  const offered = await page.locator('#alsobox input[name=also]').evaluateAll(xs => xs.map(x => ({id: +x.value, on: x.checked})));
+  check('posting offers your other groups with the same thing in their quota', offered.map(x => x.id).join() === '2,4', JSON.stringify(offered));
+  check('  however each one spells it, and not the ones without it', !offered.some(x => x.id === 3));
+  check('  none of them ticked until you tick them', offered.every(x => !x.on));
+  const said = await page.locator('#alsobox').innerText();
+  check('  each saying what it asks for', /Push Club/.test(said) && /100 Push-ups a day/.test(said) && /25 pushup a day/.test(said), said);
+  await page.locator('#alsobox input[value="2"]').check();
+  await page.locator('#alsobox input[value="4"]').check();
+  await page.locator('#dlg input[name=amount]').fill('25');
+  await page.locator('#dlg textarea[name=caption]').fill('two for one');
+  await page.locator('#dlg input[name=onprofile]').check();
+  await giveTake(page, { name: 'm.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(2048, 3) });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => self.__posts.length >= 3, null, {timeout: 8000}).catch(() => {});
+  await page.waitForTimeout(300);
+  const sent = await page.evaluate(() => self.__posts.slice(-3));
+  check('  one post in each group', sent.map(p => p.group_id).join() === '1,2,4', JSON.stringify(sent));
+  check('    the same amount and caption in all of them', sent.every(p => p.amount === 25 && p.caption === 'two for one'), JSON.stringify(sent));
+  check('    each under that group\'s own name for it', sent.map(p => p.metric).join() === 'pushups,Push-ups,pushup', JSON.stringify(sent.map(p => p.metric)));
+  check('    each its own upload, where only that group can watch it',
+    sent.every(p => String(p.video_path).startsWith(`${p.group_id}/`)) && new Set(sent.map(p => p.video_path)).size === 3, JSON.stringify(sent.map(p => p.video_path)));
+  check('    and on the profile once, not three times', sent.map(p => !!p.on_profile).join() === 'true,false,false', JSON.stringify(sent.map(p => p.on_profile)));
+});
+// Which group a post is in stands out on its own, not tucked after the time.
+await withPage(MULTI, async page => {
+  await settle(page);
+  const t = await page.evaluate(() => { const p = document.querySelector('.post'), g = p && p.querySelector('.head .gtag'), w = p.querySelector('.head .when');
+    const cs = g && getComputedStyle(g);
+    return {name: g && g.innerText, when: w.innerText, size: cs && parseFloat(cs.fontSize), weight: cs && +cs.fontWeight,
+      upper: cs && cs.textTransform, color: cs && cs.color, bg: cs && cs.backgroundColor, icon: !!(g && g.querySelector('svg'))}; });
+  check('a post in the feed names its group in a label of its own', !!t.name && /mornings/i.test(t.name) && t.icon, JSON.stringify(t));
+  check('  not after the time any more', !/Mornings/.test(t.when), t.when);
+  check('  bold, capitals, on a background, not green', t.weight >= 600 && t.upper === 'uppercase' && t.bg !== 'rgba(0, 0, 0, 0)' && !/47, 211, 111/.test(t.color), JSON.stringify(t));
+  await page.locator('.post .head .gtag').first().click();
+  await page.waitForTimeout(400);
+  check('  and tapping it opens the group', await page.evaluate(() => S.open === 1));
+});
+// Changing what is being posted changes which groups are offered.
+await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 5, name: 'Two things', quotas: [{ metric: 'pushups', target: 10 }, { metric: 'squats', target: 10 }] }] }, async page => {
+  await settle(page);
+  await page.evaluate(() => submitDlg(5));
+  await page.waitForTimeout(200);
+  const ids = () => page.locator('#alsobox input[name=also]').evaluateAll(xs => xs.map(x => +x.value).join());
+  check('the groups offered follow what is being posted', await ids() === '1,2,4', await ids());
+  await page.locator('#dlg select[name=metric]').selectOption('squats');
+  check('  and change when it changes', await ids() === '', await ids());
+});
+
 await withPage(NO_WHEEL, async page => {
   await settle(page);
   let release;

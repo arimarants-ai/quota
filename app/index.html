@@ -711,6 +711,16 @@ button.rg{border:0;font:inherit}
 .post .head .rg:active{transform:scale(.92)}
 .post .head .who{font-weight:800;font-size:14.5px;line-height:1.2}
 .post .head .when{font-size:12.5px;color:var(--muted);font-weight:600}
+/* Which group a post is in, said on its own rather than tucked in after the time: a label
+   of its own in the header, in ink, not green (green is what was done). Tapping it opens
+   the group. */
+.post .head .gtag{display:inline-flex;align-items:center;gap:6px;flex:none;max-width:44%;padding:6px 9px;border-radius:0;
+  background:var(--soft);border:1px solid var(--line);color:var(--text);
+  font:600 12.5px/1 Oswald,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.05em}
+.post .head .gtag span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.post .head .gtag svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.post .head .grow{min-width:0}
+.post .head .gtag + .more{margin-left:0}
 .post .head .more{margin-left:auto;background:none;color:var(--muted);line-height:0;padding:4px 6px}
 .post .head .more svg{width:20px;height:20px;display:block;fill:currentColor}
 .reel .badge{position:absolute;right:12px;top:12px;z-index:4;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:13px;padding:5px 10px;border-radius:0;text-transform:uppercase;letter-spacing:.02em}
@@ -1669,7 +1679,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v155';
+const BUILD = 'quota-v156';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5097,6 +5107,7 @@ const lockedReel = p => `<div class="reel lockedreel">
 // ponytail: a slice and a button. Attaching sources to only what is on screen would keep
 // the whole history scrollable, but the elements are the cost here, not the sources.
 const PAGE = 24;
+const GROUP_ICON = '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 13.8c1.9.7 3 2.6 3 5.2"/></svg>';
 function feed(ps, showGroup, bare, scope) {
   if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
   // A single post opened on its own is already one post; there is nothing to page.
@@ -5109,7 +5120,8 @@ function feed(ps, showGroup, bare, scope) {
     // The header sits on the card above the clip, so the clip is only the clip. The
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
-      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${showGroup ? ' · ' + esc(g.name) : ''}</div></div>
+      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}</div></div>
+        ${showGroup && g.id ? `<button type="button" class="gtag" onclick="openGroup(${g.id})" aria-label="Open ${esc(g.name)}">${GROUP_ICON}<span>${esc(g.name)}</span></button>` : ''}
         <button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button></div>
       ${locked(p) ? lockedReel(p) : `<div class="reel">
       ${isPhoto(p)
@@ -7577,6 +7589,33 @@ const myChallenges = g => wheelsOf(g).filter(running)
   .filter(sp => sp && !satOut(sp) && effChallenge(sp)
     && requiredDays(S.wheels.find(x => x.id === sp.wheel_id), sp));
 
+// One video, more than one group: every other group of yours with the same thing in its
+// quota can have it too, whatever amount each one asks for. "Same thing" is the thing, not
+// the spelling: "Push-ups", "pushups" and "Pushup" are one challenge.
+const sameThing = m => String(m || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s$/, '');
+const alsoFor = (g, metric) => myGroups().filter(x => x.id !== g.id)
+  .map(x => ({g: x, qq: (x.quotas || []).find(qq => sameThing(qq.metric) === sameThing(metric))}))
+  .filter(x => x.qq);
+// A group with its wheel still to spin can't take a post yet (the database says no too).
+const alsoOk = x => !dueIn(x).length;
+function alsoBlock(g, metric, ticked = new Set()) {
+  const xs = alsoFor(g, metric);
+  if (!xs.length) return '';
+  return `<label>Also post to</label>${xs.map(({g: x, qq}) => {
+    const ok = alsoOk(x);
+    return `<label class="check chk"><input type="checkbox" name="also" value="${x.id}"${ok ? '' : ' disabled'}${ok && ticked.has(x.id) ? ' checked' : ''}>
+      <span class="t"><b>${esc(x.name)}</b><em>${ok ? `${qq.target} ${esc(qq.metric)} a day · same video and caption` : 'Spin its wheel first'}</em></span></label>`;
+  }).join('')}`;
+}
+// Redrawn whenever the thing being posted changes, keeping what was already ticked.
+function paintAlso() {
+  const f = $('#dlg').open && $('#dlg form'), box = $('#alsobox');
+  if (!f || !box || !f.metric) return;
+  const g = S.groups.find(x => x.id === postFor);
+  const was = new Set([...f.querySelectorAll('[name=also]:checked')].map(i => +i.value));
+  box.innerHTML = g ? alsoBlock(g, f.metric.value, was) : '';
+}
+
 function submitDlg(gid, keep) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
@@ -7590,7 +7629,8 @@ function submitDlg(gid, keep) {
   const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value,1)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   postFor = g.id;
   dlg(`<h2>Post proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})" oninput="keepForm(this)" onchange="keepForm(this)">${pick}
-    <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
+    <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none" onchange="paintAlso()">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
+    <div id="alsobox">${alsoBlock(g, g.quotas[0] ? g.quotas[0].metric : '')}</div>
     <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
     <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button><button type="button" class="grow" onclick="openCam('post',true)">Photo</button></div>
     <div id="takeprev" hidden></div>
@@ -8594,7 +8634,7 @@ async function restoreTake() {
   if (recorded || !$('#takeprev')) return;
   const v = t.form || {};
   if (v.amount && f.amount && !f.amount.value) f.amount.value = v.amount;
-  if (v.metric && f.metric && [...f.metric.options].some(o => o.value === v.metric)) f.metric.value = v.metric;
+  if (v.metric && f.metric && [...f.metric.options].some(o => o.value === v.metric)) { f.metric.value = v.metric; paintAlso(); }
   if (v.caption && f.caption && !f.caption.value) f.caption.value = v.caption;
   if (v.onprofile && f.onprofile) f.onprofile.checked = true;
   takeBack(file);
@@ -10185,26 +10225,44 @@ async function sendPost(f, gid) {
     caption: fd.get('caption').trim(), day,
     on_profile: !!fd.get('onprofile'),
     challenge: chalText || null, spin_id: spinId ? +spinId : null};
+  // The other groups it goes to, ticked under "Also post to": the same video, amount and
+  // caption, under each group's own name for the thing. A challenge belongs to the group
+  // whose wheel it came off, and the profile only needs it once, so those stay with the first.
+  const home = S.groups.find(x => x.id === gid) || {id: gid, quotas: []};
+  const also = [...new Set(fd.getAll('also').map(Number))]
+    .map(id => alsoFor(home, row.metric).find(a => a.g.id === id)).filter(a => a && alsoOk(a.g));
+  const sends = [{gid, name: home.name, row}, ...also.map(a => ({gid: a.g.id, name: a.g.name,
+    row: {...row, group_id: a.g.id, metric: a.qq.metric, on_profile: false, challenge: null, spin_id: null}}))];
+  const before = new Map(sends.map(x => [x.gid, hit(S.groups.find(g => g.id === x.gid) || {quotas: []}, me().id)]));
+  wasDone = before.get(gid);
+  chalWas = doneChallengeIds();
+  let at = 0;
   try {
     // The still is read off what is actually being sent, before it goes, so both are
     // signed for together.
     poster = isPic(video) ? null : await grabPoster(video);
-    key = await putFile({group_id: gid}, video, (sent, total, rate) => {
-      const pct = Math.round(sent / total * 100);
-      sendStatus(`Uploading… ${pct}% · ${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`, 50 + pct * 0.45);
-    }, poster);
-    sendStatus('Posting…', 97);
-    wasDone = hit(S.groups.find(x => x.id === gid) || {quotas: []}, me().id);
-    chalWas = doneChallengeIds();
-    await q(sb.from('posts').insert({...row, video_path: key, video_store: 'r2'}));
+    // Each group's copy goes up under that group, where only its members can watch it,
+    // so the video is sent once per group.
+    for (; at < sends.length; at++) {
+      const x = sends[at], span = 47 / sends.length, base = 50 + span * at;
+      const to = sends.length > 1 ? ` to ${x.name}` : '';
+      key = null;
+      key = await putFile({group_id: x.gid}, video, (sent, total, rate) => {
+        const pct = Math.round(sent / total * 100);
+        sendStatus(`Uploading${to}… ${pct}% · ${mb(sent)} of ${mb(total)} MB${rate ? ` · ${rate.toFixed(1)} MB/s` : ''}`, base + pct / 100 * span);
+      }, poster);
+      sendStatus(`Posting${to}…`, base + span);
+      await q(sb.from('posts').insert({...x.row, video_path: key, video_store: 'r2'}));
+    }
   } catch (e) {
     posting = false; sendStatus(null);
-    // Nothing that goes wrong now loses the take. It goes in the outbox with the day it was
-    // for, and the feed says it is waiting; already uploaded if it got that far, so the
-    // outbox posts that file rather than sending it again under a new name.
+    // Nothing that goes wrong now loses the take. Whatever has not gone yet goes in the
+    // outbox with the day it was for, one entry per group, and the feed says it is
+    // waiting; already uploaded if it got that far, so the outbox posts that file rather
+    // than sending it again under a new name.
     // A file too big for the bucket will never go, and waiting would only hide that.
     if (e.status === 413 || /maximum allowed size|too big/i.test(String(e.message || ''))) return alert(friendlyError(e));
-    await queuePost(row, video, key, poster);
+    for (let i = at; i < sends.length; i++) await queuePost(sends[i].row, video, i === at ? key : null, poster);
     render();
     if (e.offline || navigator.onLine === false) return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
     if (!e.shown) alert(`${friendlyError(e)} It is saved on your phone, under Waiting to send.`);
@@ -10219,10 +10277,10 @@ async function sendPost(f, gid) {
   // challenge, which can land on a day already done. Either way it is one card, and it is
   // the day: a challenge is not a second card but a word in the first, "62 military
   // pushups" rather than "62 pushups", the way a post already says it.
-  const g = S.groups.find(x => x.id === gid);
   const fresh = [...doneChallengeIds()].find(id => !chalWas.has(id));
   const freshIn = fresh && myGroups().find(x => myChallenges(x).some(sp => sp.id === fresh));
-  const fin = freshIn || (g && !wasDone && hit(g, me().id) ? g : null);
+  const fin = freshIn || sends.map(x => S.groups.find(g => g.id === x.gid))
+    .find(g => g && !before.get(g.id) && hit(g, me().id)) || null;
   if (fin) suggestAfterPost(fin);
 }
 // What you can do to a post of your own. Showing it on your profile is a decision you can

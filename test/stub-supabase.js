@@ -84,10 +84,13 @@
     // back through whatever the page last saved, the way a group's picture is.
     groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString(),
         created_by: M().groupBy || 'u1', forfeit: M().forfeit || null, forfeit_since: M().forfeit ? new Date(Date.now() - (M().forfeitDays || 10) * 864e5).toISOString() : null }]
+      // More groups of the signed-in person's, when a case needs them.
+      .concat((M().extraGroups || []).map(g => ({ created_at: new Date(Date.now() - 20 * 864e5).toISOString(), created_by: 'u1', ...g })))
       .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g))
       .map(g => (g.id in self.__gforfeit ? { ...g, ...self.__gforfeit[g.id] } : g)),
     group_members: (M().noGroup && !self.__joined ? [] : [{ group_id: 1, user_id: 'u1' }])
       .concat([{ group_id: 1, user_id: 'u2' }])
+      .concat((M().extraGroups || []).map(g => ({ group_id: g.id, user_id: 'u1' })))
       .map(m => ({ ...m, muted: m.user_id === 'u1' && !!self.__muted[m.group_id] })),
     // on_profile is the one thing about a post that can change after it is posted, so it
     // is read back through whatever the page last set rather than off the fixture.
