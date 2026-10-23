@@ -1,5 +1,6 @@
 package app.hitquota.quota;
 
+import android.view.WindowManager;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -30,6 +31,18 @@ public class QuotaPlugin extends Plugin {
         out.put("started", shown);
         if (!shown) out.put("reason", "notifications off");
         call.resolve(out);
+    }
+
+    // The screen stays on while the camera is open: a recording is not something anybody
+    // touches the glass during, and the screen going off takes the camera from the app.
+    @PluginMethod
+    public void keepAwake(PluginCall call) {
+        final boolean on = Boolean.TRUE.equals(call.getBoolean("on", false));
+        getActivity().runOnUiThread(() -> {
+            if (on) getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            call.resolve();
+        });
     }
 
     @PluginMethod

@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Capacitor
 import WidgetKit
 #if canImport(ActivityKit)
@@ -16,8 +17,19 @@ public class QuotaPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setWidget", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startCountdown", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endCountdown", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "keepAwake", returnType: CAPPluginReturnPromise),
     ]
     static let group = "group.app.hitquota.quota"
+
+    // The screen stays on while the camera is open: a recording is not something anybody
+    // touches the glass during, and the phone locking takes the camera from the app.
+    @objc func keepAwake(_ call: CAPPluginCall) {
+        let on = call.getBool("on") ?? false
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = on
+            call.resolve()
+        }
+    }
 
     @objc func setWidget(_ call: CAPPluginCall) {
         let data = try? JSONSerialization.data(withJSONObject: call.options ?? [:])

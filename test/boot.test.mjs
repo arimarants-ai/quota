@@ -1275,7 +1275,15 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   check('  and a green record button', cam.green === 'rgb(47, 211, 111)', cam.green);
   check('  with the camera and the microphone on', await liveTracks(page) === 'audio,video', await liveTracks(page));
   const fills = await page.evaluate(() => { const r = $('#campre').getBoundingClientRect(); return r.width >= innerWidth - 2 && r.height >= innerHeight - 2; });
-  check('  and the picture as big as the screen', fills);
+  check('  and the picture filling the screen, not boxed in black', fills
+    && await page.evaluate(() => getComputedStyle($('#campre')).objectFit) === 'cover');
+  // A flash on the front camera for a clip: the screen around the picture lit white.
+  check('  a flash is there on the front camera too', await page.locator('#camflash').isVisible());
+  await page.locator('#camflash').click();
+  check('    and lights the screen around the picture like a ring light', await page.evaluate(() => $('#cam').classList.contains('ring')
+    && getComputedStyle(document.querySelector('.camring')).display === 'block'));
+  await page.locator('#camflash').click();
+  check('    and off again', await page.evaluate(() => !$('#cam').classList.contains('ring')));
   check('  flip and the timer are there', await page.locator('#camflip').isVisible() && await page.locator('#camtimer').isVisible());
 
   await page.locator('#camgo').click();
@@ -1283,6 +1291,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   const rec = await page.evaluate(() => ({step: CAM.step, clock: $('#camclock').textContent, clockShown: !$('#camclock').hidden,
     sq: document.querySelector('#camgo').classList.contains('rec'), modes: $('#cammodes').hidden, flip: $('#camflip').hidden}));
   check('  tapping it records, with a running clock', rec.step === 'recording' && rec.clockShown && /0:01/.test(rec.clock), JSON.stringify(rec));
+  check('    and no limit on how long', !/\//.test(rec.clock) && await page.evaluate(() => camRecMax()) === Infinity, rec.clock);
   check('    the button turns into a stop square, and the modes and flip step aside', rec.sq && rec.modes && rec.flip, JSON.stringify(rec));
   await page.locator('#camgo').click();
   await page.waitForFunction(() => !$('#cam').open, null, {timeout: 6000}).catch(() => {});
@@ -1341,10 +1350,10 @@ await withPage(NO_WHEEL, async (page, alerts) => {
     asked: self.__asks.at(-1).video.facingMode}));
   check('  which turns to the back camera and splits the screen', d.dual && d.facing === 'environment' && d.flip, JSON.stringify(d));
   await page.locator('#camgo').click();
-  await page.waitForFunction(() => $('#cam').classList.contains('second') && CAM.step === 'counting', null, {timeout: 8000}).catch(() => {});
+  await page.waitForFunction(() => $('#cam').classList.contains('second'), null, {timeout: 8000}).catch(() => {});
   const mid = await page.evaluate(() => ({second: $('#cam').classList.contains('second'), facing: CAM.facing, half: !!$('#camhalf').getAttribute('src'),
     count: !$('#camcount').hidden}));
-  check('  the back one is taken and held on the left while the front one counts in', mid.second && mid.facing === 'user' && mid.half && mid.count,
+  check('  the back one is taken and held on the left, and the front one straight after with no count', mid.second && mid.facing === 'user' && mid.half && !mid.count,
     JSON.stringify(mid));
   await page.waitForFunction(() => !$('#cam').open, null, {timeout: 8000}).catch(() => {});
   await page.waitForTimeout(400);
@@ -1399,7 +1408,8 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   check('  ✕ in the middle of a clip stops it and keeps what was filmed',
     await page.evaluate(() => !!recorded && recorded.size > 2048 && /^video\//.test(recorded.type)) && await liveTracks(page) === '');
 
-  // The app put away mid-clip — a call, the home screen — keeps the clip too.
+  // The app put away mid-clip — a call, the lock button, the home screen — pauses the clip
+  // rather than ending it, and it carries on when the app is back: one clip, nothing lost.
   await page.evaluate(() => { recorded = null; openCam(); });
   await camReady(page);
   await page.locator('#camgo').click();
@@ -1408,11 +1418,38 @@ await withPage(NO_WHEEL, async (page, alerts) => {
     Object.defineProperty(document, 'hidden', {configurable: true, get: () => true});
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 6000}).catch(() => {});
+  await page.waitForTimeout(1500);
+  const gone = await page.evaluate(() => ({open: $('#cam').open, rec: !!CAM.rec, state: CAM.rec && CAM.rec.state, paused: !!CAM.pausedAt}));
+  check('  the app being put away mid-clip pauses it, not ends it', gone.open && gone.rec && gone.state === 'paused' && gone.paused, JSON.stringify(gone));
+  await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForTimeout(1300);
+  const resumed = await page.evaluate(() => ({state: CAM.rec && CAM.rec.state, step: CAM.step, secs: camElapsed() / 1000}));
+  check('    and it carries on recording when the app is back, not counting the time away',
+    resumed.state === 'recording' && resumed.step === 'recording' && resumed.secs > 2 && resumed.secs < 3.4, JSON.stringify(resumed));
+  // A call or Siri taking the sound for a moment mutes a track; the clip keeps going.
+  await page.evaluate(() => { const t = CAM.stream.getAudioTracks()[0]; t && t.dispatchEvent(new Event('mute')); CAM.stream.getVideoTracks()[0].dispatchEvent(new Event('mute')); });
+  await page.waitForTimeout(400);
+  check('    and a muted track (a call, a notification) does not stop it', await page.evaluate(() => CAM.step === 'recording' && CAM.rec.state === 'recording'));
+  await page.locator('#camgo').click();
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 8000}).catch(() => {});
   await page.waitForTimeout(500);
-  check('  the app being put away mid-clip keeps the clip as well',
+  check('    then stopping keeps the whole clip, and the camera is off',
     await page.evaluate(() => !!recorded && recorded.size > 2048) && await liveTracks(page) === '', await liveTracks(page));
-  await page.evaluate(() => { delete document.hidden; });
+
+  // An iPhone that was locked hands a clip over late. It used to be given up on after four
+  // seconds and thrown away ("Saving…", then nothing); now it is waited for.
+  await page.evaluate(() => { recorded = null; openCam(); });
+  await camReady(page);
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { const r = CAM.rec, stop = r.stop.bind(r); r.stop = () => setTimeout(stop, 6000); });
+  await page.locator('#camgo').click();
+  await page.waitForTimeout(4500);
+  const slow = await page.evaluate(() => ({step: CAM.step, open: $('#cam').open}));
+  check('  a clip that is slow to come back is waited for, not thrown away', slow.step === 'saving' && slow.open, JSON.stringify(slow));
+  await page.waitForFunction(() => !$('#cam').open, null, {timeout: 12000}).catch(() => {});
+  await page.waitForTimeout(500);
+  check('    and lands on the form when it does', await page.evaluate(() => !!recorded && recorded.size > 2048));
 
   // Put away while just looking: off while away, back on by itself on the way back.
   await page.evaluate(() => openCam());
