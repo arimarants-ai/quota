@@ -16,16 +16,23 @@ with Apple, so change it now if you want something else.
 > page shows active users from phones on the new build. Posts and users need nothing; they
 > come straight from the database whatever the app version.
 
-> **Front and back at the same time (iPhone app only).** The iPhone app has its own camera
-> for front and back (`native/ios/App/App/DualCamPlugin.swift`), which runs both cameras at
-> once, for pictures and videos. The page finds it by itself: in the App Store app, tapping
-> the front-and-back button opens it. In a browser, or on a phone that can't do it, the
-> button falls back to the back camera and then the front. It needs an iPhone XS / XR or
-> newer. Nothing here could build or run it, so before the first submission, on a real
-> iPhone (Xcode → Run, or TestFlight), check that: the button shows in Video and Photo; a
-> picture of both comes back side by side; a video of both records with sound and posts;
-> a call or locking the phone mid-video doesn't lose it; ✕ goes back to the normal camera.
-> Android keeps the back-then-front picture for now.
+> **Front and back at the same time (store apps only).** Both store apps have their own
+> camera for front and back that runs both cameras at once, for pictures and videos, with
+> the flash on both (the back camera's light, and the screen for the front):
+> `native/ios/App/App/DualCamPlugin.swift` (iPhone XS / XR or newer) and
+> `native/android/.../DualCamPlugin.java` + `DualCamActivity.java` (Android 11+ phones that
+> support two cameras at once). The page finds it by itself: in the store app, tapping the
+> front-and-back button opens it. In a browser, or on a phone that can't do it, the button
+> falls back to the back camera and then the front. Nothing here could run it on a phone
+> (the Android code was compiled against Android's own framework; the iPhone code
+> couldn't be compiled here), so before the first submission, on a real phone of each kind
+> (Xcode → Run / TestFlight; Android Studio → Run / internal testing), check that:
+> - the button shows in Video and Photo;
+> - a picture of both comes back side by side, the right way up, you not mirrored;
+> - a video of both records with sound and posts;
+> - with the flash on, the back light comes on and the screen lights your face;
+> - a call or locking the phone mid-video doesn't lose it;
+> - ✕ goes back to the normal camera.
 
 ---
 

@@ -41,11 +41,12 @@ public class DualCamPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let video = call.getString("mode") == "video"
         let maxSeconds = call.getDouble("maxSeconds") ?? 0
+        let flash = call.getBool("flash") ?? false
         DualCamPlugin.permitted(video: video) { ok in
             guard ok else { return call.reject("Quota isn't allowed to use the camera.", "DENIED") }
             DispatchQueue.main.async {
                 guard let presenter = self.bridge?.viewController else { return call.reject("No screen to show it on.", "UNAVAILABLE") }
-                let vc = DualCamViewController(video: video, maxSeconds: maxSeconds) { outcome in
+                let vc = DualCamViewController(video: video, maxSeconds: maxSeconds, flash: flash) { outcome in
                     switch outcome {
                     case .done(let url, let mime, let seconds):
                         call.resolve(["path": url.absoluteString, "mime": mime, "seconds": seconds])
@@ -87,6 +88,14 @@ enum DualCamOutcome {
 final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     private let video: Bool
     private let maxSeconds: Double
+    // The flash, on both cameras at once: the light on the back, and the screen on the
+    // front (a white flash for a picture, a white ring around the screen for a clip).
+    private var flashOn: Bool
+    private var backDevice: AVCaptureDevice?
+    private let flashButton = UIButton(type: .system)
+    private let ring = UIView()
+    private let white = UIView()
+    private var brightnessWas: CGFloat?
     private var finish: ((DualCamOutcome) -> Void)?
 
     private let session = AVCaptureMultiCamSession()
@@ -130,9 +139,10 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
     private static let green = UIColor(red: 47 / 255, green: 211 / 255, blue: 111 / 255, alpha: 1)
     static let W = 1080, H = 1920, line = 6
 
-    init(video: Bool, maxSeconds: Double, finish: @escaping (DualCamOutcome) -> Void) {
+    init(video: Bool, maxSeconds: Double, flash: Bool, finish: @escaping (DualCamOutcome) -> Void) {
         self.video = video
         self.maxSeconds = maxSeconds
+        self.flashOn = flash
         self.finish = finish
         super.init(nibName: nil, bundle: nil)
     }
@@ -184,6 +194,7 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
               let frontCam = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
             return fail("This phone doesn't have both cameras.")
         }
+        backDevice = backCam
         session.beginConfiguration()
         do {
             try add(camera: backCam, output: backOut, preview: backPreview, mirrored: false)
@@ -214,6 +225,7 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
             return fail("This phone can't run both cameras at once right now.")
         }
         session.startRunning()
+        torch(flashOn && video)
         DispatchQueue.main.async { self.shutter.isEnabled = true }
     }
 
@@ -331,8 +343,27 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
 
     private func takePicture() {
         shutter.isEnabled = false
-        flashBlink()
+        guard flashOn else { flashBlink(); return grabPicture() }
+        // The front camera lit by the screen, the back by its light; the picture is taken
+        // once both have had a moment to come up.
+        white.alpha = 1
+        brightnessWas = UIScreen.main.brightness
+        UIScreen.main.brightness = 1
+        torch(true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            self.grabPicture {
+                DispatchQueue.main.async {
+                    self.white.alpha = 0
+                    if let b = self.brightnessWas { UIScreen.main.brightness = b; self.brightnessWas = nil }
+                    self.torch(false)
+                }
+            }
+        }
+    }
+
+    private func grabPicture(_ after: (() -> Void)? = nil) {
         dataQueue.async {
+            defer { after?() }
             guard let b = self.lastBack, let f = self.lastFront else {
                 DispatchQueue.main.async { self.shutter.isEnabled = true; self.say("Not ready yet. Try again.") }
                 return
@@ -422,6 +453,27 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
     @objc private func back() {
         markBack()
         sessionQueue.async { if !self.session.isRunning { self.session.startRunning() } }
+        torch(flashOn && video)                         // the light goes out while the app is away
+    }
+
+    private func torch(_ on: Bool) {
+        sessionQueue.async {
+            guard let d = self.backDevice, d.hasTorch, d.isTorchModeSupported(on ? .on : .off) else { return }
+            do { try d.lockForConfiguration(); d.torchMode = on ? .on : .off; d.unlockForConfiguration() } catch {}
+        }
+    }
+
+    @objc private func flashTapped() {
+        flashOn.toggle()
+        paintFlash()
+        torch(flashOn && video)
+        if flashOn && backDevice?.hasTorch == false { say("This phone's back camera has no light.") }
+    }
+    private func paintFlash() {
+        flashButton.setImage(UIImage(systemName: flashOn ? "bolt.fill" : "bolt.slash"), for: .normal)
+        flashButton.tintColor = flashOn ? Self.green : .white
+        flashButton.accessibilityLabel = flashOn ? "Flash on" : "Flash off"
+        ring.isHidden = !(flashOn && video)
     }
     private func markAway() {
         DispatchQueue.main.async { if self.awayStarted == nil { self.awayStarted = Date() } }
@@ -445,6 +497,8 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
     }
     private func fail(_ why: String) { end(.failed(why)) }
     private func end(_ outcome: DualCamOutcome) {
+        torch(false)
+        if let b = brightnessWas { UIScreen.main.brightness = b; brightnessWas = nil }
         sessionQueue.async { if self.session.isRunning { self.session.stopRunning() } }
         DispatchQueue.main.async {
             guard let done = self.finish else { return }
@@ -465,6 +519,26 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
     private func buildControls() {
         divider.backgroundColor = Self.green
         view.addSubview(divider)
+
+        // The front camera's light for a clip: a white frame around the screen, the pictures
+        // still showing inside it.
+        ring.layer.borderColor = UIColor.white.cgColor
+        ring.layer.borderWidth = 44
+        ring.isUserInteractionEnabled = false
+        ring.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(ring)
+        white.backgroundColor = .white
+        white.alpha = 0
+        white.isUserInteractionEnabled = false
+        white.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(white)
+
+        flashButton.addTarget(self, action: #selector(flashTapped), for: .touchUpInside)
+        flashButton.backgroundColor = UIColor(white: 0, alpha: 0.45)
+        flashButton.layer.cornerRadius = 21
+        flashButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(flashButton)
+        paintFlash()
 
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
         closeButton.tintColor = .white
@@ -518,6 +592,13 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
             closeButton.leadingAnchor.constraint(equalTo: g.leadingAnchor, constant: 14),
             closeButton.topAnchor.constraint(equalTo: g.topAnchor, constant: 10),
             closeButton.widthAnchor.constraint(equalToConstant: 42), closeButton.heightAnchor.constraint(equalToConstant: 42),
+            flashButton.trailingAnchor.constraint(equalTo: g.trailingAnchor, constant: -14),
+            flashButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            flashButton.widthAnchor.constraint(equalToConstant: 42), flashButton.heightAnchor.constraint(equalToConstant: 42),
+            ring.leadingAnchor.constraint(equalTo: view.leadingAnchor), ring.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            ring.topAnchor.constraint(equalTo: view.topAnchor), ring.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            white.leadingAnchor.constraint(equalTo: view.leadingAnchor), white.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            white.topAnchor.constraint(equalTo: view.topAnchor), white.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             clock.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             clock.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             note.centerXAnchor.constraint(equalTo: view.centerXAnchor),

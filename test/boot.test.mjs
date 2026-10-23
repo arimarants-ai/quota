@@ -6260,12 +6260,14 @@ await withNative(SIGNED_IN, async page => {
   await page.evaluate(() => camDualTap()); await page.waitForTimeout(300);
   const v = await page.evaluate(() => ({calls: __native.dual, got: __got, open: $('#cam').open, stream: !!CAM.stream}));
   check('  a clip of both is recorded by the app, with no time limit', v.calls.length === 1 && v.calls[0].mode === 'video' && v.calls[0].maxSeconds === 0, JSON.stringify(v));
+  check('    with the flash as it was set (off)', v.calls[0].flash === false, JSON.stringify(v));
   check('    and comes back as the take, its length known', v.got.length === 1 && v.got[0].type === 'video/mp4' && v.got[0].own === 42.5 && v.got[0].size === 4096, JSON.stringify(v));
   check('    with the page camera off', !v.open && !v.stream, JSON.stringify(v));
   await page.evaluate(() => openCam('post', true)); await ready();
-  await page.evaluate(() => camDualTap()); await page.waitForTimeout(300);
+  await page.evaluate(() => { CAM.flash = true; camDualTap(); }); await page.waitForTimeout(300);
   const ph = await page.evaluate(() => ({calls: __native.dual, got: __got}));
   check('  a picture of both comes back as a picture', ph.calls.at(-1).mode === 'photo' && ph.got.at(-1).type === 'image/jpeg', JSON.stringify(ph));
+  check('    the flash going with it when it is on', ph.calls.at(-1).flash === true, JSON.stringify(ph));
   await page.evaluate(() => { self.__dualAnswer = 'cancel'; openCam('story'); }); await ready();
   await page.evaluate(() => camDualTap()); await page.waitForTimeout(200); await ready();
   const c = await page.evaluate(() => ({calls: __native.dual, open: $('#cam').open, stream: !!CAM.stream, n: __got.length}));
@@ -6285,6 +6287,26 @@ await withPage(NO_WHEEL, async page => {
   await page.evaluate(() => openCam('post'));
   await page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
   check('in a browser front and back is not offered for a clip', await page.evaluate(() => nativeDual === null && $('#camdual').hidden));
+  await page.evaluate(() => camClose());
+});
+
+// The second clip of a sitting came up on an iPhone as a small box in a black screen: the
+// picture element reused from the first one. Every camera gets a fresh one, filling the screen.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const ready = () => page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
+  await page.evaluate(() => openCam('post')); await ready();
+  await page.evaluate(() => { self.__first = $('#campre'); camClose(); });
+  await page.evaluate(() => openCam('post')); await ready();
+  const r = await page.evaluate(() => { const v = $('#campre'), b = v.getBoundingClientRect();
+    return {fresh: v !== self.__first, one: document.querySelectorAll('#campre').length, w: b.width, h: b.height,
+      iw: innerWidth, ih: innerHeight, fit: getComputedStyle(v).objectFit, playing: !!v.srcObject && v.videoWidth > 0,
+      old: self.__first.srcObject === null && !self.__first.isConnected}; });
+  check('opening the camera again gets a fresh picture, not the last one', r.fresh && r.one === 1 && r.old, JSON.stringify(r));
+  check('  filling the whole screen', Math.abs(r.w - r.iw) < 2 && Math.abs(r.h - r.ih) < 2 && r.fit === 'cover' && r.playing, JSON.stringify(r));
+  await page.evaluate(() => camModeTo('photo')); await ready();
+  check('  and so does changing mode', await page.evaluate(() => { const b = $('#campre').getBoundingClientRect();
+    return Math.abs(b.width - innerWidth) < 2 && Math.abs(b.height - innerHeight) < 2 && document.querySelectorAll('#campre').length === 1; }));
   await page.evaluate(() => camClose());
 });
 await withNative(SIGNED_IN, async page => {

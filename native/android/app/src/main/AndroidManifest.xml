@@ -36,6 +36,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Front and back at the same time, on phones that can run both cameras at once. -->
+        <activity
+            android:name=".DualCamActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+
         <receiver android:name=".StreakWidget" android:exported="false" android:label="Streak">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

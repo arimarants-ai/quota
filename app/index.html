@@ -1670,7 +1670,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v151';
+const BUILD = 'quota-v152';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8855,7 +8855,17 @@ async function startCam() {
   const vt = s.getVideoTracks()[0];
   if (vt) vt.onended = () => camLost(my);
   s.getAudioTracks().forEach(t => { t.onended = () => { if (my === CAM.token && !CAM.rec) camLost(my); }; });
-  const v = $('#campre');
+  // A fresh picture element for every camera: an iPhone reusing the last one can draw the
+  // new camera as a small box in the middle of a black screen (the second clip of a sitting
+  // came up that way) and never put it right.
+  const was = $('#campre'), v = was.cloneNode(false);
+  try { was.srcObject = null; } catch (e) {}
+  was.replaceWith(v);
+  // The camera changing size under it (it does, around a recording) gets it measured again.
+  v.addEventListener('resize', () => {
+    v.style.width = '99.9%';
+    requestAnimationFrame(() => { v.style.width = ''; });
+  });
   const fm = vt && vt.getSettings ? vt.getSettings().facingMode : '';
   v.classList.toggle('mirror', (fm || CAM.facing) !== 'environment');
   v.srcObject = s;
@@ -9190,7 +9200,7 @@ async function camNativeDual() {
   CAM.step = 'native'; paintCam();
   let r;
   try {
-    r = await plug('DualCam').capture({mode: CAM.mode, maxSeconds: video ? (CAM.for === 'story' ? STORY_SECS : 0) : 0});
+    r = await plug('DualCam').capture({mode: CAM.mode, flash: !!CAM.flash, maxSeconds: video ? (CAM.for === 'story' ? STORY_SECS : 0) : 0});
   } catch (e) {
     if (seq !== CAM.seq || !camOpen()) return;
     const code = e && e.code;
@@ -9406,7 +9416,8 @@ function camClose() {
 }
 // Escape, and Android's back button, are ✕.
 $('#cam').addEventListener('cancel', e => { e.preventDefault(); camX(); });
-$('#cam').addEventListener('close', () => { if (CAM.stream || CAM.rec) camClose(); });
+// (Reported a moment after it happens: a camera opened again in between is not closed by it.)
+$('#cam').addEventListener('close', () => { if (!$('#cam').open && (CAM.stream || CAM.rec)) camClose(); });
 // The app being put away — a call, the home screen, the lock button — takes the camera
 // from the page whether it likes it or not. A clip in progress is paused, not ended, and
 // carries on when the app is back (or, if the camera did not survive, is kept as far as
