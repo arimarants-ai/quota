@@ -116,11 +116,11 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
 
     private boolean video;
     private double maxSeconds;
-    // The flash, on both cameras at once: the light on the back, and the screen on the
-    // front (a white flash for a picture, a white ring around the screen for a clip).
+    // The flash, on both cameras at once: the light on the back, and for a picture the
+    // whole screen white, as bright as it goes, for the front.
     private volatile boolean flashOn, torchOn;
     private TextView flashButton;
-    private View ring, white;
+    private View white;
     private float brightnessWas = -2;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private HandlerThread thread;
@@ -563,8 +563,8 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
             white.setAlpha(1f);
             screenBright(true);
             torch(true);
-            ui.postDelayed(() -> work.post(() -> photoWanted = true), 450);
-            ui.postDelayed(() -> { white.setAlpha(0f); screenBright(false); torch(false); }, 700);
+            ui.postDelayed(() -> work.post(() -> photoWanted = true), 900);
+            ui.postDelayed(() -> { white.setAlpha(0f); screenBright(false); torch(false); }, 1150);
             return;
         }
         if (uiRecording) { shutter.setEnabled(false); work.post(this::stopRecording); }
@@ -802,7 +802,6 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         flashButton.setTextColor(flashOn ? GREEN : Color.WHITE);
         flashButton.setAlpha(flashOn ? 1f : 0.7f);
         flashButton.setContentDescription(flashOn ? "Flash on" : "Flash off");
-        ring.setVisibility(flashOn && video ? View.VISIBLE : View.GONE);
     }
     private void screenBright(boolean on) {
         WindowManager.LayoutParams lp = getWindow().getAttributes();
@@ -894,14 +893,7 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         view.getHolder().addCallback(this);
         root.addView(view, new FrameLayout.LayoutParams(-1, -1));
 
-        // The front camera's light for a clip: a white frame around the screen, the pictures
-        // still showing inside it. And all white, for a moment, for a picture.
-        ring = new View(this);
-        GradientDrawable frame = new GradientDrawable();
-        frame.setColor(Color.TRANSPARENT);
-        frame.setStroke(dp(44), Color.WHITE);
-        ring.setBackground(frame);
-        root.addView(ring, new FrameLayout.LayoutParams(-1, -1));
+        // The front camera's flash for a picture: the whole screen white for a moment.
         white = new View(this);
         white.setBackgroundColor(Color.WHITE);
         white.setAlpha(0f);

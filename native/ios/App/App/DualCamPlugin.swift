@@ -88,12 +88,11 @@ enum DualCamOutcome {
 final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     private let video: Bool
     private let maxSeconds: Double
-    // The flash, on both cameras at once: the light on the back, and the screen on the
-    // front (a white flash for a picture, a white ring around the screen for a clip).
+    // The flash, on both cameras at once: the light on the back, and for a picture the
+    // whole screen white, as bright as it goes, for the front.
     private var flashOn: Bool
     private var backDevice: AVCaptureDevice?
     private let flashButton = UIButton(type: .system)
-    private let ring = UIView()
     private let white = UIView()
     private var brightnessWas: CGFloat?
     private var finish: ((DualCamOutcome) -> Void)?
@@ -350,7 +349,7 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         brightnessWas = UIScreen.main.brightness
         UIScreen.main.brightness = 1
         torch(true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
             self.grabPicture {
                 DispatchQueue.main.async {
                     self.white.alpha = 0
@@ -473,7 +472,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         flashButton.setImage(UIImage(systemName: flashOn ? "bolt.fill" : "bolt.slash"), for: .normal)
         flashButton.tintColor = flashOn ? Self.green : .white
         flashButton.accessibilityLabel = flashOn ? "Flash on" : "Flash off"
-        ring.isHidden = !(flashOn && video)
     }
     private func markAway() {
         DispatchQueue.main.async { if self.awayStarted == nil { self.awayStarted = Date() } }
@@ -520,13 +518,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         divider.backgroundColor = Self.green
         view.addSubview(divider)
 
-        // The front camera's light for a clip: a white frame around the screen, the pictures
-        // still showing inside it.
-        ring.layer.borderColor = UIColor.white.cgColor
-        ring.layer.borderWidth = 44
-        ring.isUserInteractionEnabled = false
-        ring.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(ring)
         white.backgroundColor = .white
         white.alpha = 0
         white.isUserInteractionEnabled = false
@@ -595,8 +586,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
             flashButton.trailingAnchor.constraint(equalTo: g.trailingAnchor, constant: -14),
             flashButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             flashButton.widthAnchor.constraint(equalToConstant: 42), flashButton.heightAnchor.constraint(equalToConstant: 42),
-            ring.leadingAnchor.constraint(equalTo: view.leadingAnchor), ring.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            ring.topAnchor.constraint(equalTo: view.topAnchor), ring.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             white.leadingAnchor.constraint(equalTo: view.leadingAnchor), white.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             white.topAnchor.constraint(equalTo: view.topAnchor), white.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             clock.centerXAnchor.constraint(equalTo: view.centerXAnchor),

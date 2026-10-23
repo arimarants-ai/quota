@@ -1319,11 +1319,11 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 #cam .camview{position:absolute;inset:0;overflow:hidden}
 /* The picture fills the screen, the way the phone's own camera does: no black around it. */
 #campre{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;background:#000;display:block}
-/* The front flash for a clip: the screen around the picture lit white, like a ring light,
-   for as long as the flash is on. */
-.camring{position:absolute;inset:0;z-index:1;pointer-events:none;display:none;
-  box-shadow:inset 0 0 0 clamp(36px,10vw,64px) #fff;border-radius:0}
-#cam.ring .camring{display:block}
+/* A new camera's picture waits, hidden, behind the last one until it is really up: an
+   iPhone first draws it as a small box in black for a moment. */
+#campre.camwait{opacity:0}
+#cam video.camold{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;background:#000;display:block}
+#cam video.camold.mirror{transform:scaleX(-1)}
 #campre.mirror{transform:scaleX(-1)}
 /* Front and back: side by side, each the shape of a phone screen, the back camera on the
    left and you on the right, centred with the space above and below them filled by a
@@ -1612,7 +1612,6 @@ dialog h2{font-size:20px;margin-bottom:2px}
     <img id="camhalf" alt="">
     <div class="camyou"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Then you</div>
     <p class="camcount" id="camcount" hidden></p>
-    <div class="camring"></div>
   </div>
   <div class="camtop">
     <button type="button" class="cbtn" id="camx" onclick="camX()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -1670,7 +1669,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v152';
+const BUILD = 'quota-v153';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8858,9 +8857,11 @@ async function startCam() {
   // A fresh picture element for every camera: an iPhone reusing the last one can draw the
   // new camera as a small box in the middle of a black screen (the second clip of a sitting
   // came up that way) and never put it right.
+  // It stays hidden behind the last one until it is really up.
   const was = $('#campre'), v = was.cloneNode(false);
-  try { was.srcObject = null; } catch (e) {}
-  was.replaceWith(v);
+  v.classList.remove('camwait'); v.classList.add('camwait');
+  was.removeAttribute('id'); was.classList.remove('camwait'); was.classList.add('camold');
+  was.after(v);
   // The camera changing size under it (it does, around a recording) gets it measured again.
   v.addEventListener('resize', () => {
     v.style.width = '99.9%';
@@ -8879,6 +8880,13 @@ async function startCam() {
     if (my !== CAM.token) return;
   }
   if (!v.videoWidth) return camFail({name: 'NoFrames'});
+  // Measured again, given a couple of frames to settle at full size, then shown.
+  v.style.width = '99.9%';
+  await new Promise(r => requestAnimationFrame(r));
+  v.style.width = '';
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  if (my !== CAM.token) return;
+  camShow();
   CAM.step = 'ready';
   holdWake();
   camFit();
@@ -8941,6 +8949,13 @@ function camStopTracks() {
   CAM.stream = null;
   const v = $('#campre');
   if (v) { try { v.pause(); } catch (e) {} v.srcObject = null; }
+  camShow();
+}
+// The new picture in front, and the last one let go of.
+function camShow() {
+  const v = $('#campre');
+  if (v) v.classList.remove('camwait');
+  document.querySelectorAll('#cam video.camold').forEach(o => { try { o.srcObject = null; } catch (e) {} o.remove(); });
 }
 function camToPhone() {
   const what = CAM.for, photo = CAM.mode === 'photo';
@@ -8990,13 +9005,12 @@ function paintCam() {
   tm.classList.toggle('on', !!CAM.timer);
   tm.innerHTML = tm.innerHTML.replace(/<b>.*<\/b>/, '') + (CAM.timer ? `<b>${CAM.timer}s</b>` : '');
   tm.disabled = !idle;
-  // A flash where there is one: the torch on the back, the screen on the front (pictures).
-  // A flash on both cameras, for pictures and clips: the light on the back, the screen on
-  // the front (a white flash for a picture, a white ring around the picture for a clip).
+  // A flash where there is a real one: the light on the back, for pictures and clips; on
+  // the front, the whole screen white for a picture. A page can't turn the screen up, so
+  // a lit screen around a clip lights nobody: there is no front flash for clips.
   const fl = $('#camflash');
-  fl.hidden = st === 'error';
+  fl.hidden = st === 'error' || (front && !photo);
   fl.classList.toggle('on', CAM.flash);
-  d.classList.toggle('ring', CAM.flash && front && !photo && st !== 'error' && st !== 'starting');
   $('#cammic').hidden = !(CAM.noMic && !photo && st !== 'error');
   const clock = $('#camclock');
   clock.hidden = !(rec || st === 'saving');
@@ -9137,19 +9151,30 @@ function camRecDone(r) {
 
 // A still off the live picture. Proof is drawn the way the world looks, not the way the
 // mirror did; a profile picture keeps the mirror, because that is the face you framed.
+const CAM_FRONT_FLASH_MS = 900;
 async function camFrame() {
   const v = $('#campre'), w = v.videoWidth, h = v.videoHeight;
   if (!w || !h) return null;
   const front = v.classList.contains('mirror');
   const fx = $('#camflashfx');
-  if (CAM.flash && front) { fx.classList.add('white'); await new Promise(r => setTimeout(r, 260)); }
+  // The front flash is the screen: all of it white, and as bright as the phone will go
+  // where the app can turn it up, held long enough for the camera to see by it (it takes
+  // the best part of a second to adjust to the light) before the picture is taken.
+  if (CAM.flash && front) {
+    fx.classList.add('white');
+    try { plug('Quota')?.screenBright?.({on: true})?.catch?.(() => {}); } catch (e) {}
+    await new Promise(r => setTimeout(r, CAM_FRONT_FLASH_MS));
+  }
   else if (CAM.flash && CAM.caps.torch) { await camTorch(true); await new Promise(r => setTimeout(r, 400)); }
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const g = c.getContext('2d');
   if (mirrorShot(CAM.for, front)) { g.translate(w, 0); g.scale(-1, 1); }
   g.drawImage(v, 0, 0, w, h);
-  fx.classList.remove('white');
+  if (fx.classList.contains('white')) {
+    fx.classList.remove('white');
+    try { plug('Quota')?.screenBright?.({on: false})?.catch?.(() => {}); } catch (e) {}
+  }
   if (CAM.flash && !front && CAM.mode === 'photo') camTorch(false);
   fx.classList.remove('blink'); void fx.offsetWidth; fx.classList.add('blink');
   buzz();
@@ -9320,7 +9345,7 @@ function camFlashTap() {
   // The back light is the phone's to give: some will not hand it to an app at all. Saying
   // so beats a button that turns on and lights nothing.
   if (!CAM.flash && !front && CAM.step === 'ready' && !CAM.caps.torch) {
-    return camNote("This phone won't let apps use its light. The front camera's flash still works.", 3200);
+    return camNote("This phone won't let apps use its light.", 3200);
   }
   CAM.flash = !CAM.flash;
   // On a clip the light is a light: on while it is on. On a picture it fires with the shutter.

@@ -45,6 +45,21 @@ public class QuotaPlugin extends Plugin {
         });
     }
 
+    // The front camera's flash is the screen: as bright as it goes for the moment of the
+    // picture, then back to where it was.
+    private float brightnessWas = -2;
+    @PluginMethod
+    public void screenBright(PluginCall call) {
+        final boolean on = Boolean.TRUE.equals(call.getBoolean("on", false));
+        getActivity().runOnUiThread(() -> {
+            WindowManager.LayoutParams lp = getActivity().getWindow().getAttributes();
+            if (on) { if (brightnessWas == -2) brightnessWas = lp.screenBrightness; lp.screenBrightness = 1f; }
+            else if (brightnessWas != -2) { lp.screenBrightness = brightnessWas; brightnessWas = -2; }
+            getActivity().getWindow().setAttributes(lp);
+            call.resolve();
+        });
+    }
+
     @PluginMethod
     public void endCountdown(PluginCall call) {
         Countdown.cancel(getContext());

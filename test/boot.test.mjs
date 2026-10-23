@@ -1277,13 +1277,10 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   const fills = await page.evaluate(() => { const r = $('#campre').getBoundingClientRect(); return r.width >= innerWidth - 2 && r.height >= innerHeight - 2; });
   check('  and the picture filling the screen, not boxed in black', fills
     && await page.evaluate(() => getComputedStyle($('#campre')).objectFit) === 'cover');
-  // A flash on the front camera for a clip: the screen around the picture lit white.
-  check('  a flash is there on the front camera too', await page.locator('#camflash').isVisible());
-  await page.locator('#camflash').click();
-  check('    and lights the screen around the picture like a ring light', await page.evaluate(() => $('#cam').classList.contains('ring')
-    && getComputedStyle(document.querySelector('.camring')).display === 'block'));
-  await page.locator('#camflash').click();
-  check('    and off again', await page.evaluate(() => !$('#cam').classList.contains('ring')));
+  // A page can't turn the screen up, so a lit screen around a clip lights nobody (it came
+  // out as white lines): no front flash for clips.
+  check('  no flash offered on the front camera for a clip', await page.locator('#camflash').isHidden()
+    && await page.evaluate(() => !document.querySelector('.camring')));
   check('  flip and the timer are there', await page.locator('#camflip').isVisible() && await page.locator('#camtimer').isVisible());
 
   await page.locator('#camgo').click();
@@ -6288,6 +6285,62 @@ await withPage(NO_WHEEL, async page => {
   await page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
   check('in a browser front and back is not offered for a clip', await page.evaluate(() => nativeDual === null && $('#camdual').hidden));
   await page.evaluate(() => camClose());
+});
+
+// The front flash for a picture is the whole screen, white, held long enough for the
+// camera to see by it, and the picture taken while it is lit.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const ready = () => page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
+  await page.evaluate(() => { localStorage.removeItem('quota.camFacing'); openCam('post', true); }); await ready();
+  if (!(await page.evaluate(() => $('#campre').classList.contains('mirror')))) { await page.evaluate(() => camFlip()); await ready(); }
+  check('a flash is there on the front camera for a picture', await page.locator('#camflash').isVisible());
+  await page.locator('#camflash').click();
+  const seen = await page.evaluate(async () => {
+    const fx = $('#camflashfx'), out = {};
+    self.camDeliver = f => { out.got = f.type; };
+    const t0 = Date.now(); camShutter();
+    await new Promise(r => setTimeout(r, 400));
+    const b = fx.getBoundingClientRect(), cs = getComputedStyle(fx);
+    out.white = fx.classList.contains('white') && cs.backgroundColor === 'rgb(255, 255, 255)' && cs.opacity === '1';
+    out.full = b.width >= innerWidth - 1 && b.height >= innerHeight - 1;
+    while (fx.classList.contains('white') && Date.now() - t0 < 3000) await new Promise(r => setTimeout(r, 20));
+    out.held = Date.now() - t0;
+    await new Promise(r => setTimeout(r, 300));
+    return out;
+  });
+  check('  the whole screen goes white', seen.white && seen.full, JSON.stringify(seen));
+  check('    for long enough for the camera to see by it', seen.held >= 850, JSON.stringify(seen));
+  check('    and the picture is taken', seen.got === 'image/jpeg', JSON.stringify(seen));
+  await page.evaluate(() => camClose());
+});
+
+// Flipping the camera keeps the last picture up until the new one is really there, never
+// the new one drawn as a small box first.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const ready = () => page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
+  await page.evaluate(() => openCam('post')); await ready();
+  const mid = await page.evaluate(() => new Promise(done => {
+    const was = $('#campre');
+    // Looked at the moment the new picture goes in.
+    const mo = new MutationObserver(() => {
+      const now = $('#campre');
+      if (!now || now === was) return;
+      mo.disconnect();
+      done({newHidden: now.classList.contains('camwait') && getComputedStyle(now).opacity === '0',
+        oldShown: was.isConnected && was.classList.contains('camold') && getComputedStyle(was).opacity === '1'
+          && was.getBoundingClientRect().width >= innerWidth - 2});
+    });
+    mo.observe($('#camview'), {childList: true});
+    camFlip();
+  }));
+  check('flipping keeps the last picture up while the new camera starts', mid.newHidden && mid.oldShown, JSON.stringify(mid));
+  await ready();
+  const after = await page.evaluate(() => ({shown: !$('#campre').classList.contains('camwait'), old: document.querySelectorAll('#cam video').length}));
+  check('  then shows the new one, and lets the last one go', after.shown && after.old === 1, JSON.stringify(after));
+  await page.evaluate(() => camClose());
+  check('  closing leaves nothing behind', await page.evaluate(() => document.querySelectorAll('#cam video').length === 1 && !$('#campre').srcObject));
 });
 
 // The second clip of a sitting came up on an iPhone as a small box in a black screen: the

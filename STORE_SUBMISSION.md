@@ -30,7 +30,7 @@ with Apple, so change it now if you want something else.
 > - the button shows in Video and Photo;
 > - a picture of both comes back side by side, the right way up, you not mirrored;
 > - a video of both records with sound and posts;
-> - with the flash on, the back light comes on and the screen lights your face;
+> - with the flash on, the back light comes on, and a picture lights your face with a full white screen at full brightness;
 > - a call or locking the phone mid-video doesn't lose it;
 > - ✕ goes back to the normal camera.
 

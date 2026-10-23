@@ -18,6 +18,7 @@ public class QuotaPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "startCountdown", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endCountdown", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "keepAwake", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "screenBright", returnType: CAPPluginReturnPromise),
     ]
     static let group = "group.app.hitquota.quota"
 
@@ -27,6 +28,23 @@ public class QuotaPlugin: CAPPlugin, CAPBridgedPlugin {
         let on = call.getBool("on") ?? false
         DispatchQueue.main.async {
             UIApplication.shared.isIdleTimerDisabled = on
+            call.resolve()
+        }
+    }
+
+    // The front camera's flash is the screen: as bright as it goes for the moment of the
+    // picture, then back to where it was.
+    private static var brightnessWas: CGFloat?
+    @objc func screenBright(_ call: CAPPluginCall) {
+        let on = call.getBool("on") ?? false
+        DispatchQueue.main.async {
+            if on {
+                if Self.brightnessWas == nil { Self.brightnessWas = UIScreen.main.brightness }
+                UIScreen.main.brightness = 1
+            } else if let b = Self.brightnessWas {
+                UIScreen.main.brightness = b
+                Self.brightnessWas = nil
+            }
             call.resolve()
         }
     }
