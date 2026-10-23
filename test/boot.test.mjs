@@ -6232,6 +6232,61 @@ await withNative(SIGNED_IN, async page => {
   await page.waitForTimeout(500);
   check('  a tapped notification takes you to what it was about', await page.evaluate(() => !S.settings && S.tab === 'feed' && location.hash === ''));
 }, 'ios');
+// In the App Store app, front and back is both cameras at once, by the app's own camera:
+// the page finds it by itself, hands over to it in pictures and in clips, and takes back
+// what it gives as the take. Where the phone can't, it is the page's one-then-the-other.
+await withNative(SIGNED_IN, async page => {
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => {
+    const N = self.__native; N.dual = [];
+    self.__dualAnswer = 'photo';
+    Capacitor.convertFileSrc = p => p;
+    Capacitor.Plugins.DualCam = {
+      isAvailable: () => Promise.resolve({available: true}),
+      capture: o => { N.dual.push(o);
+        if (self.__dualAnswer === 'cancel') return Promise.reject(Object.assign(new Error('Closed.'), {code: 'CANCELLED'}));
+        if (self.__dualAnswer === 'none') return Promise.reject(Object.assign(new Error('no'), {code: 'UNAVAILABLE'}));
+        const video = o.mode === 'video';
+        const url = URL.createObjectURL(new Blob([new Uint8Array(4096)], {type: video ? 'video/mp4' : 'image/jpeg'}));
+        return Promise.resolve({path: url, mime: video ? 'video/mp4' : 'image/jpeg', seconds: video ? 42.5 : 0}); },
+    };
+    self.__got = [];
+    camPicked = async i => { const f = i.files[0]; self.__got.push({name: f.name, type: f.type, own: f.ownCam, size: f.size}); };
+  });
+  const ready = () => page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
+  await page.evaluate(() => openCam('post')); await ready();
+  check('in the app the camera finds both-at-once by itself', await page.evaluate(() => nativeDual === true));
+  check('  and offers front and back for a clip too', await page.evaluate(() => CAM.mode === 'video' && !$('#camdual').hidden));
+  await page.evaluate(() => camDualTap()); await page.waitForTimeout(300);
+  const v = await page.evaluate(() => ({calls: __native.dual, got: __got, open: $('#cam').open, stream: !!CAM.stream}));
+  check('  a clip of both is recorded by the app, with no time limit', v.calls.length === 1 && v.calls[0].mode === 'video' && v.calls[0].maxSeconds === 0, JSON.stringify(v));
+  check('    and comes back as the take, its length known', v.got.length === 1 && v.got[0].type === 'video/mp4' && v.got[0].own === 42.5 && v.got[0].size === 4096, JSON.stringify(v));
+  check('    with the page camera off', !v.open && !v.stream, JSON.stringify(v));
+  await page.evaluate(() => openCam('post', true)); await ready();
+  await page.evaluate(() => camDualTap()); await page.waitForTimeout(300);
+  const ph = await page.evaluate(() => ({calls: __native.dual, got: __got}));
+  check('  a picture of both comes back as a picture', ph.calls.at(-1).mode === 'photo' && ph.got.at(-1).type === 'image/jpeg', JSON.stringify(ph));
+  await page.evaluate(() => { self.__dualAnswer = 'cancel'; openCam('story'); }); await ready();
+  await page.evaluate(() => camDualTap()); await page.waitForTimeout(200); await ready();
+  const c = await page.evaluate(() => ({calls: __native.dual, open: $('#cam').open, stream: !!CAM.stream, n: __got.length}));
+  check('  a story clip is held to the length of a story', c.calls.at(-1).maxSeconds === 10, JSON.stringify(c));
+  check('  closing it comes back to the page camera, running', c.open && c.stream && c.n === 2, JSON.stringify(c));
+  await page.evaluate(() => { self.__dualAnswer = 'none'; camModeTo('photo'); }); await ready();
+  await page.evaluate(() => camDualTap()); await page.waitForTimeout(200); await ready();
+  const f = await page.evaluate(() => ({native: nativeDual, dual: CAM.dual, note: $('#camnote').textContent}));
+  check('  a phone that turns out not to manage it falls back to one then the other', f.native === false && f.dual === true && /one then the other/.test(f.note), JSON.stringify(f));
+  await page.evaluate(() => camModeTo('video')); await ready();
+  check('    and stops offering it for clips', await page.evaluate(() => $('#camdual').hidden));
+  await page.evaluate(() => camClose());
+}, 'ios');
+// The same page in a browser has no app camera to hand to.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => openCam('post'));
+  await page.waitForFunction(() => CAM.step === 'ready', null, {timeout: 8000});
+  check('in a browser front and back is not offered for a clip', await page.evaluate(() => nativeDual === null && $('#camdual').hidden));
+  await page.evaluate(() => camClose());
+});
 await withNative(SIGNED_IN, async page => {
   await page.waitForTimeout(800);
   await page.evaluate(() => enablePush()); await page.waitForTimeout(300);

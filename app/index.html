@@ -1670,7 +1670,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v150';
+const BUILD = 'quota-v151';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8804,6 +8804,7 @@ function openCam(what = 'post', photo = false) {
   trimClips();                             // the feed lets go of its clips while the camera has the phone
   paintCam();
   startCam();
+  if (NATIVE && nativeDual === null) dualProbe();
 }
 
 // Opening the camera, flipping it and switching modes are all the same job: let go of
@@ -8971,7 +8972,7 @@ function paintCam() {
   flip.hidden = CAM.cams < 2 || dual || rec;
   flip.disabled = !idle;
   const du = $('#camdual');
-  du.hidden = !photo || avatar || CAM.cams < 2;
+  du.hidden = avatar || !(nativeDual || (photo && CAM.cams >= 2));
   du.classList.toggle('on', dual);
   du.disabled = !idle;
   const tm = $('#camtimer');
@@ -9162,11 +9163,54 @@ async function camPhoto() {
 // it is up, on the right. The picture is the two side by side as they were
 // shown, with a green line between them.
 function camDualTap() {
-  if (!(CAM.step === 'ready' || CAM.step === 'error') || CAM.mode !== 'photo') return;
+  if (!(CAM.step === 'ready' || CAM.step === 'error')) return;
+  if (nativeDual) return camNativeDual();
+  if (CAM.mode !== 'photo') return;
   CAM.dual = !CAM.dual;
   if (CAM.dual && CAM.facing !== 'environment') { CAM.facing = 'environment'; return startCam(); }
   paintCam();
   if (CAM.step === 'error') startCam();
+}
+
+// In the app from the App Store, the phone can run both cameras at once (iPhone XS and
+// newer), so front and back is the real thing there: both live together, a picture of both
+// at the same instant, or a clip of both. The app's own camera screen does it, and hands
+// back the same side-by-side picture this page makes; anywhere it can't, the button is
+// the one-then-the-other picture above, as it always was.
+let nativeDual = null;                     // null until asked; asked once per run of the app
+async function dualProbe() {
+  try { nativeDual = !!(await plug('DualCam')?.isAvailable())?.available; } catch (e) { nativeDual = false; }
+  if (camOpen()) paintCam();
+}
+async function camNativeDual() {
+  const video = CAM.mode === 'video', seq = CAM.seq;
+  CAM.token++;
+  camTorch(false);
+  camStopTracks();                         // the app's camera needs both, so the page lets go of its one
+  CAM.step = 'native'; paintCam();
+  let r;
+  try {
+    r = await plug('DualCam').capture({mode: CAM.mode, maxSeconds: video ? (CAM.for === 'story' ? STORY_SECS : 0) : 0});
+  } catch (e) {
+    if (seq !== CAM.seq || !camOpen()) return;
+    const code = e && e.code;
+    if (code === 'DENIED') { camClose(); return permDlg('camera'); }
+    if (code !== 'CANCELLED') {
+      nativeDual = false;                  // not on this phone after all: the page's own from now on
+      camNote(video ? "Both cameras at once didn't start. Recording with one." : "Both cameras at once didn't start, so it takes one then the other.", 3600);
+      if (!video) CAM.dual = true;
+    }
+    return startCam();
+  }
+  if (seq !== CAM.seq || !camOpen()) return;
+  let blob = null;
+  try { blob = await (await fetch(Capacitor.convertFileSrc(r.path))).blob(); } catch (e) {}
+  if (seq !== CAM.seq || !camOpen()) return;
+  if (!blob || blob.size < 1024) { camNote(video ? "That clip didn't come through. Try again." : "That didn't come out. Try again.", 3600); return startCam(); }
+  const type = r.mime || blob.type || (video ? 'video/mp4' : 'image/jpeg');
+  const f = new File([blob], video ? 'clip.mp4' : 'photo.jpg', {type, lastModified: Date.now()});
+  if (video) f.ownCam = Math.min(+r.seconds || 0, camRecMax());
+  camDeliver(f);
 }
 async function camDualShot() {
   if (CAM.step !== 'ready') return;
@@ -9369,7 +9413,7 @@ $('#cam').addEventListener('close', () => { if (CAM.stream || CAM.rec) camClose(
 // it got); a front-and-back picture half taken is started again; and the camera comes
 // back on by itself when the app does.
 document.addEventListener('visibilitychange', () => {
-  if (!camOpen()) return;
+  if (!camOpen() || CAM.step === 'native') return;   // the app's own camera minds itself
   if (CAM.rec) return document.hidden ? camPauseRec() : camResumeRec();
   if (document.hidden) {
     CAM.seq++; CAM.token++;

@@ -16,6 +16,17 @@ with Apple, so change it now if you want something else.
 > page shows active users from phones on the new build. Posts and users need nothing; they
 > come straight from the database whatever the app version.
 
+> **Front and back at the same time (iPhone app only).** The iPhone app has its own camera
+> for front and back (`native/ios/App/App/DualCamPlugin.swift`), which runs both cameras at
+> once, for pictures and videos. The page finds it by itself: in the App Store app, tapping
+> the front-and-back button opens it. In a browser, or on a phone that can't do it, the
+> button falls back to the back camera and then the front. It needs an iPhone XS / XR or
+> newer. Nothing here could build or run it, so before the first submission, on a real
+> iPhone (Xcode → Run, or TestFlight), check that: the button shows in Video and Photo; a
+> picture of both comes back side by side; a video of both records with sound and posts;
+> a call or locking the phone mid-video doesn't lose it; ✕ goes back to the normal camera.
+> Android keeps the back-then-front picture for now.
+
 ---
 
 ## 1. Listing text

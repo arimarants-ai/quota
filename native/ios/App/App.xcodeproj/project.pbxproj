@@ -22,6 +22,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		A4E8E48570B4C295BE9CF5EE /* QuotaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = ED8673907BDE006EC4E31B00 /* QuotaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B16E6D4D0C33A4A2317C4D12 /* QuotaPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED7B65C37CD3BC90327DFD2 /* QuotaPlugin.swift */; };
+		D0A1C2E3F4B5A6978899AABB /* DualCamPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A1C2E3F4B5A6978899AACC /* DualCamPlugin.swift */; };
 		BB23DD5FEEC88028D2E55668 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 821B111F4AEAB1A5C00D6601 /* Foundation.framework */; };
 		C2BC1F24AB24DA21CFF360AA /* QuotaActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02B5A4248C0B8746EA5111A1 /* QuotaActivityAttributes.swift */; };
 		DB04FCD6DB18558D6F319D1F /* StreakWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A718253C6C9B0C64ACA790D0 /* StreakWidget.swift */; };
@@ -75,6 +76,7 @@
 		DAB39DF75581E58E6572FC18 /* QuotaWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuotaWidgetBundle.swift; sourceTree = "<group>"; };
 		ED8673907BDE006EC4E31B00 /* QuotaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuotaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FED7B65C37CD3BC90327DFD2 /* QuotaPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuotaPlugin.swift; sourceTree = "<group>"; };
+		D0A1C2E3F4B5A6978899AACC /* DualCamPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DualCamPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -153,6 +155,7 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				FED7B65C37CD3BC90327DFD2 /* QuotaPlugin.swift */,
+				D0A1C2E3F4B5A6978899AACC /* DualCamPlugin.swift */,
 				652BF8E743EE87DDF89C27F0 /* QuotaViewController.swift */,
 			);
 			path = App;
@@ -299,6 +302,7 @@
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				56375A28296BC0958AAFB669 /* QuotaActivityAttributes.swift in Sources */,
 				B16E6D4D0C33A4A2317C4D12 /* QuotaPlugin.swift in Sources */,
+				D0A1C2E3F4B5A6978899AABB /* DualCamPlugin.swift in Sources */,
 				EDDCDC2C46767468C4F00E6C /* QuotaViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
