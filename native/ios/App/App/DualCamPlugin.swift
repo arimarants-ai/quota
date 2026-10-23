@@ -451,7 +451,13 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
             self.finish = nil
             UIApplication.shared.isIdleTimerDisabled = false
             self.ticker?.invalidate()
-            if self.presentingViewController != nil { self.dismiss(animated: true) { done(outcome) } } else { done(outcome) }
+            let leave = {
+                if self.presentingViewController != nil { self.dismiss(animated: true) { done(outcome) } } else { done(outcome) }
+            }
+            // Failing to start can happen while it is still sliding up; it goes once it has arrived.
+            if self.isBeingPresented, let tc = self.transitionCoordinator {
+                tc.animate(alongsideTransition: nil) { _ in leave() }
+            } else { leave() }
         }
     }
 
