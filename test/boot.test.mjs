@@ -1657,8 +1657,8 @@ await withPage(NO_WHEEL, async page => {
   check('  and asks for a picture, not a clip', a.accept === 'image/*', JSON.stringify(a));
 });
 
-// Nothing stops the phone recording at two minutes, so the length is checked once it is
-// back — or twenty minutes of something stands as a day's proof.
+// Proof has no time limit: a long clip is kept, not turned away (it is squeezed to fit
+// when it is sent).
 await withPage(NO_WHEEL, async page => {
   await settle(page);
   await page.locator('.bar .add').click();
@@ -1671,8 +1671,8 @@ await withPage(NO_WHEEL, async page => {
     await camPicked({files: [new File([new Uint8Array(1024)], 'long.mp4', {type: 'video/mp4'})], value: ''});
   });
   await page.waitForTimeout(200);
-  check('a clip over the cap is turned away', said.some(m => /400 seconds/.test(m)), JSON.stringify(said));
-  check('  and is not left as the take', await page.evaluate(() => recorded === null));
+  check('a long clip is not turned away', !said.some(m => /seconds/.test(m)), JSON.stringify(said));
+  check('  and is kept as the take', await page.evaluate(() => recorded !== null));
 });
 
 // A story is ten seconds, however the file got here — taken on the phone or picked off it.
