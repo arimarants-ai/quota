@@ -88,15 +88,12 @@ enum DualCamOutcome {
 final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     private let video: Bool
     private let maxSeconds: Double
-    // The flash, on both cameras at once: the light on the back, and for the front the
-    // screen as bright as it goes: all of it white for a picture, a ring light around the
-    // pictures for a clip.
+    // The flash, on both cameras at once: the light on the back, and for a picture the
+    // whole screen white, as bright as it goes, for the front.
     private var flashOn: Bool
     private var backDevice: AVCaptureDevice?
     private let flashButton = UIButton(type: .system)
     private let white = UIView()
-    private let ring = UIView()
-    private let ringShape = CAShapeLayer()
     private var brightnessWas: CGFloat?
     private var finish: ((DualCamOutcome) -> Void)?
 
@@ -185,14 +182,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         frontPreview.frame = CGRect(x: pw + 3, y: y, width: pw, height: ph)
         CATransaction.commit()
         divider.frame = CGRect(x: pw, y: y, width: 3, height: ph)
-        // The ring light: white all round, the pictures in a rounded window in the middle.
-        let s = view.safeAreaInsets
-        let hole = CGRect(x: b.width * 0.06, y: s.top + 68, width: b.width * 0.88, height: max(0, b.height - s.top - 68 - s.bottom - 190))
-        let path = UIBezierPath(rect: b)
-        path.append(UIBezierPath(roundedRect: hole, cornerRadius: 28))
-        ring.frame = b
-        ringShape.frame = b
-        ringShape.path = path.cgPath
     }
     private let divider = UIView()
 
@@ -473,16 +462,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         }
     }
 
-    private func bright(_ on: Bool) {
-        if on {
-            if brightnessWas == nil { brightnessWas = UIScreen.main.brightness }
-            UIScreen.main.brightness = 1
-        } else if let b = brightnessWas {
-            UIScreen.main.brightness = b
-            brightnessWas = nil
-        }
-    }
-
     @objc private func flashTapped() {
         flashOn.toggle()
         paintFlash()
@@ -493,8 +472,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         flashButton.setImage(UIImage(systemName: flashOn ? "bolt.fill" : "bolt.slash"), for: .normal)
         flashButton.tintColor = flashOn ? Self.green : .white
         flashButton.accessibilityLabel = flashOn ? "Flash on" : "Flash off"
-        ring.isHidden = !(flashOn && video)
-        bright(flashOn && video)
     }
     private func markAway() {
         DispatchQueue.main.async { if self.awayStarted == nil { self.awayStarted = Date() } }
@@ -541,11 +518,6 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         divider.backgroundColor = Self.green
         view.addSubview(divider)
 
-        ringShape.fillRule = .evenOdd
-        ringShape.fillColor = UIColor(red: 1, green: 0.98, blue: 0.953, alpha: 1).cgColor
-        ring.layer.addSublayer(ringShape)
-        ring.isUserInteractionEnabled = false
-        view.addSubview(ring)
         white.backgroundColor = .white
         white.alpha = 0
         white.isUserInteractionEnabled = false
@@ -571,7 +543,7 @@ final class DualCamViewController: UIViewController, AVCaptureVideoDataOutputSam
         clock.textColor = .white
         clock.font = UIFont.monospacedDigitSystemFont(ofSize: 16, weight: .semibold)
         clock.textAlignment = .center
-        clock.backgroundColor = UIColor(white: 0, alpha: 0.45)   // readable on the ring light too
+        clock.backgroundColor = UIColor(white: 0, alpha: 0.45)   // readable over a bright picture
         clock.layer.cornerRadius = 15
         clock.layer.masksToBounds = true
         clock.translatesAutoresizingMaskIntoConstraints = false

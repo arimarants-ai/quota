@@ -1277,20 +1277,10 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   const fills = await page.evaluate(() => { const r = $('#campre').getBoundingClientRect(); return r.width >= innerWidth - 2 && r.height >= innerHeight - 2; });
   check('  and the picture filling the screen, not boxed in black', fills
     && await page.evaluate(() => getComputedStyle($('#campre')).objectFit) === 'cover');
-  // The front flash for a clip is a ring light: the screen white all round, a thick one
-  // (a thin border came out as white lines), and you in a rounded window in the middle.
-  check('  a flash is there on the front camera for a clip', await page.locator('#camflash').isVisible());
-  await page.locator('#camflash').click();
-  await page.waitForTimeout(400);
-  const ring = await page.evaluate(() => { const r = document.querySelector('.camring'), b = getComputedStyle(r, '::before');
-    return {on: $('#cam').classList.contains('ring'), shown: getComputedStyle(r).display === 'block',
-      side: parseFloat(b.left), top: parseFloat(b.top), bottom: parseFloat(b.bottom), round: parseFloat(b.borderTopLeftRadius),
-      w: innerWidth, label: getComputedStyle(document.querySelector('#cammodes button:not(.on)')).color}; });
-  check('    lighting you with a thick ring of white, a rounded window in the middle', ring.on && ring.shown
-    && ring.side >= ring.w * 0.07 && ring.top >= 60 && ring.bottom >= 190 && ring.round >= 20, JSON.stringify(ring));
-  check('      with the words on it still readable', /rgba\(0, 0, 0/.test(ring.label), ring.label);
-  await page.locator('#camflash').click();
-  check('    and off again', await page.evaluate(() => !$('#cam').classList.contains('ring')));
+  // A lit screen around a clip never lit anyone (a thin border, then a ring light, both
+  // tried): there is no front flash for clips.
+  check('  no flash offered on the front camera for a clip', await page.locator('#camflash').isHidden()
+    && await page.evaluate(() => !document.querySelector('.camring')));
   check('  flip and the timer are there', await page.locator('#camflip').isVisible() && await page.locator('#camtimer').isVisible());
 
   await page.locator('#camgo').click();

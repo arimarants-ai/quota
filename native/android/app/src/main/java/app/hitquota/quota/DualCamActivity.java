@@ -116,13 +116,11 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
 
     private boolean video;
     private double maxSeconds;
-    // The flash, on both cameras at once: the light on the back, and for the front the
-    // screen as bright as it goes: all of it white for a picture, a ring light around the
-    // pictures for a clip.
+    // The flash, on both cameras at once: the light on the back, and for a picture the
+    // whole screen white, as bright as it goes, for the front.
     private volatile boolean flashOn, torchOn;
     private TextView flashButton;
     private View white;
-    private Ring ring;
     private float brightnessWas = -2;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private HandlerThread thread;
@@ -804,8 +802,6 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         flashButton.setTextColor(flashOn ? GREEN : Color.WHITE);
         flashButton.setAlpha(flashOn ? 1f : 0.7f);
         flashButton.setContentDescription(flashOn ? "Flash on" : "Flash off");
-        ring.setVisibility(flashOn && video ? View.VISIBLE : View.GONE);
-        screenBright(flashOn && video);
     }
     private void screenBright(boolean on) {
         WindowManager.LayoutParams lp = getWindow().getAttributes();
@@ -897,10 +893,7 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         view.getHolder().addCallback(this);
         root.addView(view, new FrameLayout.LayoutParams(-1, -1));
 
-        // The front camera's flash: a ring light for a clip, the whole screen white for a moment
-        // for a picture.
-        ring = new Ring(this);
-        root.addView(ring, new FrameLayout.LayoutParams(-1, -1));
+        // The front camera's flash for a picture: the whole screen white for a moment.
         white = new View(this);
         white.setBackgroundColor(Color.WHITE);
         white.setAlpha(0f);
@@ -947,7 +940,7 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         clock.setPadding(dp(13), 0, dp(13), 0);
         GradientDrawable cpill = new GradientDrawable();
         cpill.setCornerRadius(dp(21));
-        cpill.setColor(0x73000000);                  // readable on the ring light too
+        cpill.setColor(0x73000000);                  // readable over a bright picture
         clock.setBackground(cpill);
         controls.addView(clock, lp);
 
@@ -986,7 +979,6 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         controls.setOnApplyWindowInsetsListener((v, ins) -> {
             Insets i = ins.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
             v.setPadding(i.left, i.top, i.right, i.bottom);
-            ring.top = i.top; ring.bottom = i.bottom; ring.invalidate();
             return ins;
         });
         setContentView(root);
@@ -1028,24 +1020,6 @@ public class DualCamActivity extends Activity implements SurfaceHolder.Callback 
         note.setVisibility(View.VISIBLE);
         ui.removeCallbacks(hideNote);
         ui.postDelayed(hideNote, 2400);
-    }
-
-    // The ring light: white all round, the pictures in a rounded window in the middle.
-    static final class Ring extends View {
-        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final android.graphics.Path path = new android.graphics.Path();
-        private final RectF hole = new RectF();
-        int top, bottom;
-        Ring(Context c) { super(c); p.setColor(0xFFFFFAF3); setVisibility(GONE); }
-        @Override protected void onDraw(Canvas c) {
-            float w = getWidth(), h = getHeight(), d = getResources().getDisplayMetrics().density;
-            path.reset();
-            path.setFillType(android.graphics.Path.FillType.EVEN_ODD);
-            path.addRect(0, 0, w, h, android.graphics.Path.Direction.CW);
-            hole.set(w * 0.06f, top + 68 * d, w * 0.94f, Math.max(top + 68 * d, h - bottom - 190 * d));
-            path.addRoundRect(hole, 28 * d, 28 * d, android.graphics.Path.Direction.CW);
-            c.drawPath(path, p);
-        }
     }
 
     // The page's shutter: a white ring around green (a clip) or white (a picture), the
