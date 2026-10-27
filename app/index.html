@@ -721,6 +721,26 @@ button.rg{border:0;font:inherit}
 .post .head .gtag svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .post .head .grow{min-width:0}
 .post .head .gtag + .more{margin-left:0}
+/* A person in a list you can tap through to, with the friends you have in common under
+   their name: two faces and as many names, then how many more. */
+.prow .pgo,.pgo.prow{display:flex;align-items:center;gap:12px;flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit}
+.pgo.prow{width:100%;padding:10px 0}
+.prow .pgo .grow,.pgo.prow .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mutual{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;line-height:1.3;color:var(--text)}
+.faces{display:inline-flex;flex:none;vertical-align:middle}
+.faces .av{width:18px;height:18px;font-size:9px;box-shadow:0 0 0 2px var(--card)}
+.faces .av + .av{margin-left:-5px}
+.pmut{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:0;margin:12px 0 4px;text-align:left;font-size:13.5px;font-weight:500;line-height:1.35;color:var(--text)}
+.pmut b{font-weight:700}
+.pmut .faces .av{width:26px;height:26px;font-size:11px}
+.pmut .faces .av + .av{margin-left:-7px}
+.pmut .go{margin-left:auto;color:var(--muted);font-size:20px}
+.pfriend{margin-top:12px}
+/* "Seen", under your last message. */
+.cseen{align-self:flex-end;display:flex;align-items:center;gap:6px;margin:3px 4px 0 0;padding:0;background:none;border:0;
+  font-size:12px;font-weight:600;color:var(--muted)}
+.cseen i{font-style:normal;font-size:11px;font-weight:700;color:var(--text);background:var(--soft);padding:2px 6px;border-radius:9px}
+.m:has(.mrx) + .cseen{margin-top:14px}
 .post .head .more{margin-left:auto;background:none;color:var(--muted);line-height:0;padding:4px 6px}
 .post .head .more svg{width:20px;height:20px;display:block;fill:currentColor}
 .reel .badge{position:absolute;right:12px;top:12px;z-index:4;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:13px;padding:5px 10px;border-radius:0;text-transform:uppercase;letter-spacing:.02em}
@@ -1679,7 +1699,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v156';
+const BUILD = 'quota-v157';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1777,7 +1797,7 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {blocked: new Set(), settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
+let S = {blocked: new Set(), mut: {}, cseen: {}, settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
   msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -5720,6 +5740,7 @@ function openChat(key) {
   stackOn();
   if (!viaHub) backY.push(0);
   markChatRead(key);
+  loadSeen(key);
 }
 function closeChat() { S.chat = S.chat !== 'list' ? 'list' : null; S.medit = null; stackOff(); }
 // Written once when a chat is opened, and again when something lands while it is open —
@@ -5763,6 +5784,7 @@ function chatBody(key) {
       isGroup ? 'Everyone in the group can read this.' : `Only you and ${esc(name(other))}.`}</p></div>`;
   }
   let day = '', lastWho = '';
+  const seen = seenLine(key, list);
   return list.map(msg => {
     const mine = msg.userId === m.id;
     const d = ymd(new Date(msg.ts));
@@ -5788,8 +5810,67 @@ function chatBody(key) {
       <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}${msg.edited ? '<em class="ed">Edited</em>' : ''}</button>
       ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
         onclick="pickMsgReact(event,${msg.id})">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
-</div>`;
+</div>` + (seen && seen.id === msg.id ? seen.html : '');
   }).join('');
+}
+
+// ---- "Seen"
+// Who has read the chat and when, from the server (v54), for the line under your last
+// message. Asked when the chat opens, after you send, and every few seconds while it is in
+// front. Nobody's is shown if you have turned yours off, and nobody who turned theirs off is.
+async function loadSeen(key) {
+  if (S.noSeen || !key || key === 'list' || !me() || me().hide_seen) return;
+  try {
+    const {data, error} = await sb.rpc('chat_seen', {p_chat: key});
+    if (error) throw error;
+    const rows = (data || []).map(r => ({u: r.user_id, ts: r.seen_at ? Date.parse(r.seen_at) : 0}));
+    const was = JSON.stringify(S.cseen[key] || null);
+    S.cseen[key] = rows;
+    if (was !== JSON.stringify(rows)) repaintChat(key);
+  } catch (e) { S.noSeen = true; }             // before v54 is run: no "Seen", nothing broken
+}
+function repaintChat(key) {
+  const box = $('#msgs');
+  if (!box || S.chat !== key) return;
+  const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  redraw('#msgs', chatBody(key));
+  if (atEnd) chatToEnd();
+}
+setInterval(() => { if (S.chat && S.chat !== 'list' && !document.hidden) loadSeen(S.chat); }, 8000);
+// Under your last message. Just "Seen" between two people, and only until they answer,
+// which says it better. In a group, who has seen your latest, by face; tap for everyone.
+function seenLine(key, list) {
+  const rows = S.cseen[key], m = me();
+  if (!rows || !rows.length || m.hide_seen) return null;
+  const mine = [...list].reverse().find(x => x.userId === m.id && !x.pending && x.id > 0);
+  if (!mine) return null;
+  if (!key.startsWith('g:')) {
+    if (list[list.length - 1] !== mine || !(rows[0].ts >= mine.ts)) return null;
+    return {id: mine.id, html: `<div class="cseen">Seen</div>`};
+  }
+  const ids = rows.filter(r => r.ts >= mine.ts).sort((a, b) => a.ts - b.ts).map(r => r.u);
+  if (!ids.length) return null;
+  return {id: mine.id, html: `<button type="button" class="cseen" onclick="seenByDlg('${esc(key)}',${mine.id})" aria-label="Seen by ${ids.length}">Seen by ${
+    faces(ids, 3)}${ids.length > 3 ? `<i>+${ids.length - 3}</i>` : ''}</button>`};
+}
+function seenByDlg(key, id) {
+  const msg = S.msgs.find(x => x.id === id), rows = S.cseen[key] || [];
+  if (!msg) return;
+  const when = ts => (ymd(new Date(ts)) === today() ? '' : dayLabel(ymd(new Date(ts))) + ' ') + time(ts);
+  const seen = rows.filter(r => r.ts >= msg.ts).sort((a, b) => a.ts - b.ts), not = rows.filter(r => !(r.ts >= msg.ts));
+  const row = (r, t) => { const u = user(r.u); return `<button type="button" class="row prow pgo" onclick="dlg();openWho('${esc(r.u)}')">${av(u, 'lg')}<span class="grow"><b>${esc(name(u))}</b></span>${t ? `<span class="muted">${esc(t)}</span>` : ''}</button>`; };
+  dlg(`<h2>Seen by</h2><p class="muted">\u201c${esc(clip(msg.body, 80))}\u201d</p>
+    <div class="list">${seen.map(r => row(r, when(r.ts))).join('')}</div>
+    ${not.length ? `<p class="sec" style="margin-top:16px">Not seen yet</p><div class="list">${not.map(r => row(r, '')).join('')}</div>` : ''}
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Close</button></div>`);
+}
+async function toggleSeen() {
+  const m = me(), was = !!m.hide_seen;
+  m.hide_seen = !was;
+  if (m.hide_seen) S.cseen = {};
+  render();
+  try { await q(sb.from('profiles').update({hide_seen: m.hide_seen}).eq('id', m.id)); }
+  catch (e) { m.hide_seen = was; render(); showErr("That didn't save.", String(e && e.message || e)); }
 }
 
 // One conversation. Days are marked because a chat read a day later is otherwise a wall of
@@ -5842,6 +5923,7 @@ async function sendMessage(f, key) {
     return showErr('That message did not send.', String(e && e.message || e));
   }
   await load(); chatToEnd();
+  loadSeen(key);
 }
 // The pair, sorted, which is how the row is stored and how the policy looks it up.
 const pairOf = other => { const [a, b] = [me().id, other].sort(); return {a, b}; };
@@ -6526,6 +6608,7 @@ function profileView() {
 // Everything the profile used to be carrying, now that the profile is a profile. One row
 // per thing, the two that are a yes or a no switching in place, the rest opening a sheet.
 const SICON = {
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',
   people: '<circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
@@ -6560,6 +6643,8 @@ function settingsView() {
     <p class="sec">Preferences</p>
     <div class="list">
       ${srow('moon', 'Dark mode', isDark() ? 'On' : 'Off', sw(isDark()), 'toggleTheme()')}
+      ${S.noChat ? '' : srow('eye', 'Seen', m.hide_seen ? "Off. People can't see when you've read their messages, and you can't see when they've read yours."
+        : 'People can see when you\u2019ve read their messages', sw(!m.hide_seen), 'toggleSeen()')}
       ${srow('bell', 'Notifications', PUSHSUB[S.push] || '', pushable ? sw(pushOn) : '<span class="go"></span>',
         pushable ? (pushOn ? 'disablePush()' : 'enablePush()') : '')}
     </div>
@@ -6708,6 +6793,25 @@ const shownGroups = uid => {
 // Worked out from the groups you two share, because that is the history you are allowed to
 // read. Share none and there is no number to show rather than a zero that reads as a lapse.
 const seenTogether = uid => S.groups.filter(g => g.members.includes(uid) && g.members.includes(me().id));
+// Friends in common, on somebody's profile: their faces and who, tapping through to all of them.
+function profileMutuals(uid) {
+  const ids = mutualsOf(uid);
+  if (!ids.length) return '';
+  const names = ids.slice(0, 2).map(f => `<b>${esc(firstName(user(f)))}</b>`);
+  const text = ids.length === 1 ? `Friends with ${names[0]}`
+    : ids.length === 2 ? `Friends with ${names[0]} and ${names[1]}`
+    : `Friends with ${names.join(', ')} and <b>${plural(ids.length - 2, 'other')}</b> you know`;
+  return `<button type="button" class="pmut" onclick="mutualsDlg('${esc(uid)}')">${faces(ids, 3)}<span>${text}</span><span class="go">\u203a</span></button>`;
+}
+// What you can do about somebody from their profile, so a profile is a place to add from.
+function friendButton(uid) {
+  const st = standing(uid), inv = S.invites.find(i => i.type === 'friend' && i.from === uid && i.to === me().id);
+  const b = st === 'none' ? `<button class="primary grow" onclick="inviteFriend('${esc(uid)}')">Add friend</button>`
+    : st === 'sent' ? `<button class="grow" disabled>Requested</button>`
+    : st === 'asked' && inv ? `<button class="primary grow" onclick="accept(${inv.id})">Accept friend request</button>`
+    : st === 'friends' && !S.noChat ? `<button class="grow" onclick="openChat('${esc(uKey(uid))}')">Message</button>` : '';
+  return b ? `<div class="row pad pfriend">${b}</div>` : '';
+}
 function personView(uid) {
   const u = user(uid), own = uid === me().id;
   const mine = seenTogether(uid);
@@ -6730,6 +6834,8 @@ function personView(uid) {
     <div class="who">${av(u, 'xl')}
       <div class="nm"><b>${esc(name(u))}${badgeChip(uid)}</b><span>@${esc(u.username || '')}</span></div></div>
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
+    ${own ? '' : profileMutuals(uid)}
+    ${own || S.blocked.has(uid) ? '' : friendButton(uid)}
     <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
     ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Stats</button></div>`
       : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,'${esc(uid)}')">Report</button>${S.blocked.has(uid)
@@ -7015,6 +7121,7 @@ const LEGAL = {
 <li><b>Friends and invites.</b> Who you are friends with, and invitations sent or received.</li>
 <li><b>Your time zone</b>, so that a spin-day reminder arrives in your morning and not somebody else's.</li>
 <li><b>A push subscription</b>, only if you turn notifications on. Turning them off deletes it.</li>
+<li><b>When you last read each chat.</b> The people in that chat can see it, as "Seen" under what they sent you. Turn off Seen in Settings and nobody can, and you no longer see theirs.</li>
 <li><b>When you last opened the app.</b> One time per account, written over each time, used only to count how many people are using Quota on a given day. Nobody but the people who run Quota sees even the count.</li>
 <li><b>Reports and blocks.</b> If you report something, what you reported and why. If you block somebody, who.</li>
 <li><b>A record of agreeing.</b> Each time you agree to these terms, the guidelines and this policy: when, which version, your username and email at the time, and the network address and browser it came from. It is proof that you agreed, and nothing else.</li>
@@ -8125,6 +8232,7 @@ function closeSettings() { S.settings = false; stackOff(); }
 // drawn, with the way back.
 function retryProfile(uid) { delete S.pro[uid]; loadProfile(uid); render(); }
 async function loadProfile(uid) {
+  if (uid !== me().id && !(uid in S.mut)) loadMutuals([uid]).then(() => { if (S.who === uid) render(); });
   if (S.pro[uid]) return;
   const own = uid === me().id;
   S.pro[uid] = {loading: true, posts: []};
@@ -8362,7 +8470,7 @@ function findPeople(v) {
   S.fq = v;
   clearTimeout(fTimer);
   const term = v.trim().replace(/^@/, '');
-  if (term.length < 2) { S.frows = []; S.fbusy = false; S.ferr = ''; return paintPeople(); }
+  if (!term.length) { S.frows = []; S.fbusy = false; S.ferr = ''; return paintPeople(); }
   S.fbusy = true; S.ferr = '';
   paintPeople();
   fTimer = setTimeout(() => runSearch(term), 250);   // a request per keystroke is nobody's friend
@@ -8376,10 +8484,17 @@ async function runSearch(term) {
   if (!safe) { S.frows = []; S.fbusy = false; return paintPeople(); }
   let rows = [];
   try {
+    // From the first letter: names that start with it, or have a word that does. From the
+    // third, anywhere in the name as well.
     const {data, error} = await sb.from('profiles').select('id,username,display_name,avatar_path')
-      .or(`username.ilike.${safe}%,display_name.ilike.%${safe}%`).limit(10);
+      .or(`username.ilike.${safe}%,display_name.ilike.${safe}%,display_name.ilike.% ${safe}%${
+        safe.length >= 3 ? `,display_name.ilike.%${safe}%,username.ilike.%${safe}%` : ''}`).limit(30);
     if (error) throw error;
     rows = (data || []).filter(r => !S.blocked.has(r.id));   // somebody you blocked is not somebody to add
+    // Who you have in common with each, before anything is shown, so the list does not
+    // reshuffle under a thumb a moment after it appears.
+    await Promise.race([loadMutuals(rows.map(r => r.id)), new Promise(r => setTimeout(r, 1500))]);
+    rows = rankPeople(rows, safe).slice(0, 12);
   } catch (e) {
     if (seq !== fSeq) return;
     S.fbusy = false; S.ferr = friendlyError(e, "Couldn't search right now. Try again in a moment.");
@@ -8404,7 +8519,7 @@ function standing(id) {
 
 function peopleList() {
   const term = (S.fq || '').trim().replace(/^@/, '');
-  if (term.length < 2) return '';
+  if (!term.length) return '';
   if (S.ferr) return `<p class="warn" style="margin-top:12px">${esc(S.ferr)}</p>`;
   if (S.fbusy) return `<p class="muted" style="margin-top:12px">Searching…</p>`;
   if (!(S.frows || []).length) return `<p class="muted" style="margin-top:12px">Nobody goes by that.</p>`;
@@ -8415,8 +8530,56 @@ function peopleList() {
       : st === 'sent' ? `<span class="muted">Requested</span>`
       : st === 'asked' ? `<span class="muted">Asked you</span>`
       : `<button class="small primary" onclick="inviteFriend('${u.id}')">Add</button>`;
-    return `<div class="row">${av(u, 'lg')}<div class="grow"><b>${esc(name(u))}</b><div class="muted">@${esc(u.username)}</div></div>${right}</div>`;
-  }).join('') + `</div>`;
+    // The whole row opens their profile, to look before adding; the button adds from here.
+    return `<div class="row prow"><button type="button" class="pgo" onclick="openWho('${esc(u.id)}')">${av(u, 'lg')}<span class="grow">
+      <b>${esc(name(u))}</b><span class="muted">@${esc(u.username)}</span>${mutualLine(u.id)}</span></button>${right}</div>`;
+  }).join('') + `</div><p class="muted small" style="margin-top:6px">Tap someone to see their profile first.</p>`;
+}
+
+// ---- friends in common
+// Asked of the server for whoever is on screen: only your own friends ever come back, so
+// this tells you which of your friends know somebody, never who else they know (v54).
+async function loadMutuals(ids) {
+  ids = [...new Set(ids)].filter(id => id && id !== me().id && !(id in S.mut));
+  if (!ids.length || S.noMutuals) return;
+  try {
+    const {data, error} = await sb.rpc('mutual_friends', {p_ids: ids.slice(0, 50)});
+    if (error) throw error;
+    ids.forEach(id => { S.mut[id] = []; });
+    (data || []).forEach(r => { S.mut[r.id] = (r.friends || []).filter(f => S.friends.includes(f)); });
+  } catch (e) { S.noMutuals = true; }          // before v54 is run: no faces, nothing broken
+}
+const mutualsOf = id => (S.mut[id] || []).filter(f => !S.blocked.has(f));
+const firstName = u => String(u.display_name || u.username || '').trim().split(/\s+/)[0] || 'Someone';
+// Two faces and as many names, then how many more: enough to recognise, short enough for a row.
+const faces = (ids, n = 2) => `<span class="faces">${ids.slice(0, n).map(id => av(user(id), 'sm')).join('')}</span>`;
+function mutualLine(id) {
+  const ids = mutualsOf(id);
+  if (!ids.length) return '';
+  const names = ids.slice(0, 2).map(f => `<b>${esc(firstName(user(f)))}</b>`);
+  const text = ids.length === 1 ? `${names[0]} is a mutual friend`
+    : ids.length === 2 ? `${names[0]} and ${names[1]} are mutual friends`
+    : `${names.join(', ')} <span class="muted">+${ids.length - 2} more mutual friends</span>`;
+  return `<span class="mutual">${faces(ids)}<span>${text}</span></span>`;
+}
+// Most in common first. Somebody whose name or username is exactly what was typed still
+// comes first of all, and after friends in common, the closer the name the higher.
+function rankPeople(rows, term) {
+  const t = term.toLowerCase();
+  const close = u => {
+    const n = String(u.display_name || '').toLowerCase(), un = String(u.username || '').toLowerCase();
+    return un === t || n === t ? 0 : un.startsWith(t) || n.startsWith(t) ? 1 : n.split(/\s+/).some(w => w.startsWith(t)) ? 2 : 3;
+  };
+  return rows.map(u => ({u, c: close(u), m: mutualsOf(u.id).length}))
+    .sort((a, b) => (a.c === 0) !== (b.c === 0) ? (a.c === 0 ? -1 : 1) : b.m - a.m || a.c - b.c
+      || name(a.u).length - name(b.u).length || name(a.u).localeCompare(name(b.u)))
+    .map(x => x.u);
+}
+function mutualsDlg(id) {
+  const ids = mutualsOf(id), u = user(id);
+  dlg(`<h2>Mutual friends</h2><p class="muted">You and ${esc(firstName(u))} are both friends with ${ids.length} ${ids.length === 1 ? 'person' : 'people'}.</p>
+    <div class="list">${ids.map(f => { const x = user(f); return `<button type="button" class="row prow pgo" onclick="dlg();openWho('${esc(f)}')">${av(x, 'lg')}<span class="grow"><b>${esc(name(x))}</b><span class="muted">@${esc(x.username || '')}</span></span></button>`; }).join('')}</div>
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Close</button></div>`);
 }
 
 // Painted on its own rather than through render(), which replaces the whole screen and
@@ -8428,6 +8591,7 @@ async function inviteFriend(id) {
   await q(sb.from('invites').insert({type: 'friend', from_user: me().id, to_user: id}));
   await load();
   paintPeople();
+  if (S.who === id) render();
 }
 async function accept(id) { await q(sb.rpc('accept_invite', {invite_id: id})); load(); }
 async function decline(id) { await q(sb.from('invites').delete().eq('id', id)); load(); }

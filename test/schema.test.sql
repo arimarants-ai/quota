@@ -1112,3 +1112,84 @@ begin
 end $$;
 reset role;
 \echo PASS: live numbers
+
+
+-- ---- mutual friends and "Seen" (v54)
+insert into auth.users (id) values ('a1000000-0000-0000-0000-000000000001'), ('b1000000-0000-0000-0000-000000000002'),
+  ('c1000000-0000-0000-0000-000000000003'), ('d1000000-0000-0000-0000-000000000004'), ('e1000000-0000-0000-0000-000000000005');
+insert into public.profiles (id, username) values ('a1000000-0000-0000-0000-000000000001', 'mf_me'), ('b1000000-0000-0000-0000-000000000002', 'mf_bo'),
+  ('c1000000-0000-0000-0000-000000000003', 'mf_cy'), ('d1000000-0000-0000-0000-000000000004', 'mf_them'), ('e1000000-0000-0000-0000-000000000005', 'mf_nobody');
+-- Me: friends with bo and cy. Them: friends with bo, cy and nobody. Nobody: friends with them only.
+insert into public.friendships (a, b) select least(x::uuid, y::uuid), greatest(x::uuid, y::uuid) from (values
+  ('a1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000002'),
+  ('a1000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000003'),
+  ('d1000000-0000-0000-0000-000000000004', 'b1000000-0000-0000-0000-000000000002'),
+  ('d1000000-0000-0000-0000-000000000004', 'c1000000-0000-0000-0000-000000000003'),
+  ('d1000000-0000-0000-0000-000000000004', 'e1000000-0000-0000-0000-000000000005')) v(x, y);
+insert into public.groups (id, name, quotas) overriding system value values (9054, 'Seen test', '[{"metric":"pushups","target":5}]');
+insert into public.group_members values (9054, 'a1000000-0000-0000-0000-000000000001'), (9054, 'b1000000-0000-0000-0000-000000000002'),
+  (9054, 'c1000000-0000-0000-0000-000000000003');
+set role app;
+do $$
+declare r record; n int;
+begin
+  perform set_config('test.uid', 'a1000000-0000-0000-0000-000000000001', true);
+  select * into r from public.mutual_friends(array['d1000000-0000-0000-0000-000000000004', 'e1000000-0000-0000-0000-000000000005',
+    'a1000000-0000-0000-0000-000000000001']::uuid[]) where id = 'd1000000-0000-0000-0000-000000000004';
+  if r.friends is distinct from array['b1000000-0000-0000-0000-000000000002', 'c1000000-0000-0000-0000-000000000003']::uuid[] then
+    raise exception 'the friends in common are wrong: %', r.friends;
+  end if;
+  -- Their other friend is not mine, so it never comes back; nor does anybody with none in
+  -- common, nor me.
+  select count(*) into n from public.mutual_friends(array['d1000000-0000-0000-0000-000000000004', 'e1000000-0000-0000-0000-000000000005',
+    'a1000000-0000-0000-0000-000000000001']::uuid[]);
+  if n <> 1 then raise exception 'people with nothing in common came back: %', n; end if;
+  if exists (select 1 from public.mutual_friends(array['d1000000-0000-0000-0000-000000000004']::uuid[]) m, unnest(m.friends) f
+              where f = 'e1000000-0000-0000-0000-000000000005') then
+    raise exception 'a friend of theirs who is not mine came back';
+  end if;
+
+  -- Reading a chat: stamped by the server whatever the phone says.
+  perform set_config('test.uid', 'b1000000-0000-0000-0000-000000000002', true);
+  insert into public.chat_reads (user_id, chat, seen_at) values ('b1000000-0000-0000-0000-000000000002', 'g:9054', '2000-01-01');
+  insert into public.chat_reads (user_id, chat, seen_at) values ('b1000000-0000-0000-0000-000000000002', 'u:a1000000-0000-0000-0000-000000000001', '2000-01-01');
+  perform set_config('test.uid', 'a1000000-0000-0000-0000-000000000001', true);
+  select count(*) into n from public.chat_seen('g:9054');
+  if n <> 2 then raise exception 'a group chat should list the two others in it: %', n; end if;
+  select * into r from public.chat_seen('g:9054') where user_id = 'b1000000-0000-0000-0000-000000000002';
+  if r.seen_at is null or r.seen_at < now() - interval '1 minute' then raise exception 'a read was not stamped by the server: %', r.seen_at; end if;
+  if (select seen_at from public.chat_seen('g:9054') where user_id = 'c1000000-0000-0000-0000-000000000003') is not null then
+    raise exception 'somebody who never opened the chat has seen it';
+  end if;
+  select * into r from public.chat_seen('u:b1000000-0000-0000-0000-000000000002');
+  if r.user_id is distinct from 'b1000000-0000-0000-0000-000000000002'::uuid or r.seen_at is null then
+    raise exception 'their read of our private chat did not come back: %', r;
+  end if;
+  -- A chat you are not in says nothing.
+  if exists (select 1 from public.chat_seen('g:1')) then raise exception 'a group you are not in shows who read it'; end if;
+end $$;
+reset role;
+-- Turned off: they vanish from everybody else's "Seen", and whoever turns it off sees nobody's.
+update public.profiles set hide_seen = true where id = 'b1000000-0000-0000-0000-000000000002';
+set role app;
+do $$
+begin
+  perform set_config('test.uid', 'a1000000-0000-0000-0000-000000000001', true);
+  if exists (select 1 from public.chat_seen('g:9054') where user_id = 'b1000000-0000-0000-0000-000000000002')
+     or exists (select 1 from public.chat_seen('u:b1000000-0000-0000-0000-000000000002')) then
+    raise exception 'somebody who turned Seen off still shows';
+  end if;
+  perform set_config('test.uid', 'b1000000-0000-0000-0000-000000000002', true);
+  if exists (select 1 from public.chat_seen('g:9054')) then raise exception 'somebody with Seen off still sees everybody else''s'; end if;
+end $$;
+reset role;
+do $$
+begin
+  if has_column_privilege('authenticated', 'public.profiles', 'hide_seen', 'select') then
+    raise exception 'whether somebody turned Seen off is readable by everyone';
+  end if;
+  if has_function_privilege('anon', 'public.chat_seen(text)', 'EXECUTE') or has_function_privilege('anon', 'public.mutual_friends(uuid[])', 'EXECUTE') then
+    raise exception 'somebody signed out can ask who read what or who knows whom';
+  end if;
+end $$;
+\echo PASS: mutual friends and Seen

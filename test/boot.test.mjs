@@ -5888,8 +5888,8 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#fq').count() === 1 && await page.locator('#fq').getAttribute('placeholder') !== null);
 
   await page.locator('#fq').fill('s');
-  await page.waitForTimeout(500);
-  check('  one letter is not a search', (await page.locator('#fsr').innerText()).trim() === '',
+  await page.waitForTimeout(700);
+  check('  people come up from the first letter', /Sam/.test(await page.locator('#fsr').innerText()),
     await page.locator('#fsr').innerText());
 
   await page.locator('#fq').fill('sam');
@@ -5922,7 +5922,111 @@ await withPage(SIGNED_IN, async page => {
   await page.locator('#fq').fill('ari');
   await page.waitForTimeout(700);
   check('you cannot add yourself', /You/.test(await page.locator('#fsr').innerText())
-    && await page.locator('#fsr button').count() === 0, await page.locator('#fsr').innerText());
+    && await page.locator('#fsr button:has-text("Add")').count() === 0, await page.locator('#fsr').innerText());
+});
+
+// Friends in common: who comes first, what each row says, and a profile to look at before
+// adding. Sam is your friend; Sam Gamgee and Rosie both know Sam.
+const MUT = { ...NO_WHEEL, friends: true, mutuals: { u3: ['u2'], u4: ['u2'] } };
+await withPage(MUT, async page => {
+  await settle(page);
+  await page.evaluate(() => go('friends'));
+  await page.locator('#fq').fill('sa');
+  await page.waitForTimeout(900);
+  const order = await page.locator('#fsr .prow b').evaluateAll(xs => xs.map(x => x.textContent));
+  check('somebody you have friends in common with comes above a name just as close', order[0] === 'Sam Gamgee' && order.includes('Sam'), JSON.stringify(order));
+  const line = await page.locator('#fsr .prow').first().locator('.mutual').innerText().catch(() => '');
+  check('  and says who, with their face', /Sam is a mutual friend/.test(line)
+    && await page.locator('#fsr .prow').first().locator('.mutual .faces .av').count() === 1, line);
+  await page.locator('#fq').fill('sam');
+  await page.waitForTimeout(900);
+  const exact = await page.locator('#fsr .prow b').evaluateAll(xs => xs.map(x => x.textContent));
+  check('  but exactly what you typed still comes first', exact[0] === 'Sam', JSON.stringify(exact));
+
+  // Tapping a row opens their profile, to look before adding.
+  await page.locator('#fq').fill('rosie');
+  await page.waitForTimeout(900);
+  await page.locator('#fsr .pgo').first().click();
+  await page.waitForTimeout(500);
+  check('tapping somebody in the results opens their profile', await page.evaluate(() => S.who === 'u4'));
+  const pm = await page.locator('.pmut').innerText().catch(() => '');
+  check('  which says which of your friends they know', /Friends with Sam/.test(pm), pm);
+  check('  and can add them from there', await page.locator('.pfriend button:has-text("Add friend")').count() === 1);
+  await page.locator('.pmut').click();
+  await page.waitForTimeout(300);
+  const dl = await page.locator('#dlg').innerText();
+  check('  tapping who you have in common lists them', /Mutual friends/.test(dl) && /Sam/.test(dl) && /both friends with 1 person/.test(dl), dl);
+  await page.evaluate(() => dlg());
+  await page.locator('.pfriend button:has-text("Add friend")').click();
+  await page.waitForTimeout(800);
+  check('  adding from the profile sends the request', await page.evaluate(() => self.__invited && self.__invited.to_user === 'u4'));
+});
+
+// Before v54 is run, search and chat work as they did, with no faces and no "Seen".
+await withPage({ ...MUT, noV54: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => go('friends'));
+  await page.locator('#fq').fill('sa');
+  await page.waitForTimeout(900);
+  check('without the new SQL, search still works, just without friends in common',
+    await page.locator('#fsr .prow').count() >= 2 && await page.locator('#fsr .mutual').count() === 0);
+});
+
+// "Seen": under your last message once they have read it, and gone once they answer.
+const SEEN_AT = new Date(Date.now() + 60e3).toISOString();
+await withPage({ ...NO_WHEEL, friends: true, chatSeen: { 'u:u2': [{ user_id: 'u2', seen_at: SEEN_AT }] } }, async page => {
+  await settle(page);
+  await page.evaluate(async () => {
+    self.__msgs.push({ id: 801, a: 'u1', b: 'u2', group_id: null, user_id: 'u1', body: 'did my 50', created_at: new Date(Date.now() - 60e3).toISOString() });
+    await load();
+    openChat(uKey('u2'));
+  });
+  await page.waitForTimeout(800);
+  const seen = await page.locator('#msgs .cseen').innerText().catch(() => '');
+  check('a message they have read says Seen under it', seen === 'Seen', seen);
+  check('  right under that message', await page.evaluate(() => document.querySelector('#msgs .cseen').previousElementSibling.dataset.msg === '801'));
+  await page.evaluate(async () => {
+    self.__msgs.push({ id: 802, a: 'u1', b: 'u2', group_id: null, user_id: 'u2', body: 'nice', created_at: new Date().toISOString() });
+    await load(); render();
+  });
+  await page.waitForTimeout(400);
+  check('  and once they answer it goes, the answer says it', await page.locator('#msgs .cseen').count() === 0);
+});
+await withPage({ ...NO_WHEEL, friends: true, chatSeen: { 'u:u2': [{ user_id: 'u2', seen_at: new Date(Date.now() - 3600e3).toISOString() }] } }, async page => {
+  await settle(page);
+  await page.evaluate(async () => {
+    self.__msgs.push({ id: 803, a: 'u1', b: 'u2', group_id: null, user_id: 'u1', body: 'you up?', created_at: new Date(Date.now() - 60e3).toISOString() });
+    await load(); openChat(uKey('u2'));
+  });
+  await page.waitForTimeout(800);
+  check('a message they have not read yet says nothing', await page.locator('#msgs .cseen').count() === 0);
+});
+
+// In a group: who has seen it, by face, and everyone on a tap; the setting turns it off.
+await withPage({ ...NO_WHEEL, chatSeen: { 'g:1': [{ user_id: 'u2', seen_at: SEEN_AT }] } }, async page => {
+  await settle(page);
+  await page.evaluate(async () => {
+    self.__msgs.push({ id: 811, group_id: 1, a: null, b: null, user_id: 'u1', body: 'who is up', created_at: new Date(Date.now() - 60e3).toISOString() });
+    await load(); openChat('g:1');
+  });
+  await page.waitForTimeout(800);
+  const by = await page.locator('#msgs .cseen').innerText().catch(() => '');
+  check('in a group your message says who has seen it', /Seen by/.test(by) && await page.locator('#msgs .cseen .faces .av').count() === 1, by);
+  await page.locator('#msgs .cseen').click();
+  await page.waitForTimeout(300);
+  const dl = await page.locator('#dlg').innerText();
+  check('  and tapping it lists them', /Seen by/.test(dl) && /Sam/.test(dl), dl);
+  await page.evaluate(() => { dlg(); closeChat(); closeChat(); openSettings(); });
+  await page.waitForTimeout(400);
+  const row = page.locator('#app .li:has-text("Seen")');
+  check('Settings has a switch for Seen, on to start with', await row.count() === 1 && /can see when you/.test(await row.innerText()));
+  await row.click();
+  await page.waitForTimeout(400);
+  check('  turning it off saves', await page.evaluate(() => self.__hideSeen === true && me().hide_seen === true));
+  check('    and says you no longer see anyone else\'s either', /can't see when they've read yours/.test(await row.innerText()), await row.innerText());
+  await page.evaluate(() => { closeSettings(); openChat('g:1'); });
+  await page.waitForTimeout(600);
+  check('    and your own chats stop showing who has seen what', await page.locator('#msgs .cseen').count() === 0);
 });
 
 // A post says who by both names, the way every app that has usernames does.

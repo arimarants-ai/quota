@@ -3239,3 +3239,81 @@ begin
 end $$;
 revoke all on function public.quota_numbers(timestamptz) from public;
 grant execute on function public.quota_numbers(timestamptz) to anon, authenticated;
+
+-- ============================================================
+-- v54 (mutual friends, and "Seen"): safe to run on an existing project. No redeploy.
+-- ============================================================
+
+-- Whether you let people see that you have read what they sent. On by default, and private:
+-- the column is not in the grant v49 gives the app to read other people's profiles, so
+-- nobody can tell who has turned it off. Your own row comes back through my_profile().
+alter table public.profiles add column if not exists hide_seen boolean not null default false;
+
+-- When you read a chat is the server's to say: "Seen" compares it with when a message was
+-- sent, which the server stamps, and a phone whose clock is a few minutes out would
+-- otherwise say a message was seen before it was sent, or not seen at all.
+create or replace function public.chat_reads_stamp() returns trigger
+language plpgsql as $$
+begin
+  new.seen_at := now();
+  return new;
+end $$;
+drop trigger if exists chat_reads_stamp on public.chat_reads;
+create trigger chat_reads_stamp before insert or update on public.chat_reads
+  for each row execute function public.chat_reads_stamp();
+
+-- The friends you have in common with each of some people: who they are, so a search
+-- result or a profile can show their faces. Only friends you have yourself ever come back,
+-- so nobody's friend list is any more open than it was: what you learn is which of your own
+-- friends know them. At most 50 people at a time.
+create or replace function public.mutual_friends(p_ids uuid[])
+returns table (id uuid, friends uuid[])
+language sql stable security definer set search_path = public as $$
+  with mine as (
+    select case when f.a = auth.uid() then f.b else f.a end as f
+      from public.friendships f where auth.uid() in (f.a, f.b)),
+  them as (select distinct x as id from unnest(p_ids[1:50]) x where x is not null and x <> auth.uid())
+  select t.id, array_agg(m.f order by m.f)
+    from them t
+    join public.friendships fr on t.id in (fr.a, fr.b)
+    join mine m on m.f = case when fr.a = t.id then fr.b else fr.a end
+   group by t.id;
+$$;
+revoke all on function public.mutual_friends(uuid[]) from public, anon, authenticated;
+grant execute on function public.mutual_friends(uuid[]) to authenticated;
+
+-- Who else is in a chat and when they last read it, for "Seen" under your messages. Only a
+-- chat you are in; only the people in it who let others see that; and nobody's at all if
+-- you have turned it off yourself, the same trade every app with read receipts makes. A
+-- person who has never opened the chat comes back with no time.
+create or replace function public.chat_seen(p_chat text)
+returns table (user_id uuid, seen_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+declare
+  me uuid := auth.uid();
+  gid bigint;
+  other uuid;
+begin
+  if me is null or exists (select 1 from public.profiles p where p.id = me and p.hide_seen) then return; end if;
+  if p_chat ~ '^g:[0-9]{1,18}$' then
+    gid := substring(p_chat from 3)::bigint;
+    if not exists (select 1 from public.group_members gm where gm.group_id = gid and gm.user_id = me) then return; end if;
+    return query
+      select gm.user_id, r.seen_at
+        from public.group_members gm
+        join public.profiles p on p.id = gm.user_id and not p.hide_seen
+        left join public.chat_reads r on r.user_id = gm.user_id and r.chat = p_chat
+       where gm.group_id = gid and gm.user_id <> me;
+  elsif p_chat ~ '^u:[0-9a-f-]{36}$' then
+    other := substring(p_chat from 3)::uuid;
+    if other = me then return; end if;
+    -- Their side of the same conversation is keyed by you.
+    return query
+      select p.id, r.seen_at
+        from public.profiles p
+        left join public.chat_reads r on r.user_id = p.id and r.chat = 'u:' || me::text
+       where p.id = other and not p.hide_seen;
+  end if;
+end $$;
+revoke all on function public.chat_seen(text) from public, anon, authenticated;
+grant execute on function public.chat_seen(text) to authenticated;

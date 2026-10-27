@@ -143,11 +143,10 @@
   // Searching for somebody is a filter the page builds as an or() string; the stub reads
   // it back rather than pretending, so a broken one shows up as no matches.
   const matches = (rows, or) => {
-    const m = /username\.ilike\.([^,]*)%,display_name\.ilike\.%([^,]*)%/.exec(or || '');
-    if (!m) return [];
-    const a = m[1], b = m[2];
-    return rows.filter(r => (r.username || '').toLowerCase().startsWith(a)
-      || (r.display_name || '').toLowerCase().includes(b));
+    const parts = String(or || '').split(',').map(x => /^(\w+)\.ilike\.(.*)$/.exec(x)).filter(Boolean);
+    if (!parts.length) return [];
+    const like = (v, pat) => new RegExp('^' + pat.split('%').map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i').test(v || '');
+    return rows.filter(r => parts.some(([, col, pat]) => like(r[col], pat)));
   };
   const chain = (t, st = { filters: {} }) => {
     const run = () => {
@@ -200,6 +199,7 @@
         if (x && Date.now() - Date.parse(x.created_at) > 15 * 60e3) return { data: null, error: { message: 'too late to edit' } };
         if (x) { x.body = st.row.body; x.edited_at = new Date().toISOString(); }
       }
+      if (st.op === 'update' && t === 'profiles' && st.row && 'hide_seen' in st.row) self.__hideSeen = st.row.hide_seen;
       if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
         self.__onprofile[st.filters.id] = st.row.on_profile;
       }
@@ -361,6 +361,18 @@
         { user_id: 'u9', username: 'gone', display_name: null, email: 'gone@example.com', joined: null, account_exists: false,
           last_version: '2026-09-30', last_at: '2026-09-29T10:00:00Z', last_method: 'signup', records: 1, history: [rec('2026-09-30', '2026-09-29T10:00:00Z', 'signup')] },
       ], error: null };
+    }
+    // Friends in common (v54): whatever the case says each person has with you.
+    if (fn === 'mutual_friends') {
+      if (M().noV54) return { data: null, error: err('function public.mutual_friends does not exist') };
+      const mf = M().mutuals || {};
+      return { data: (args.p_ids || []).filter(id => mf[id]).map(id => ({ id, friends: mf[id] })), error: null };
+    }
+    // Who has read a chat and when (v54), from the case, or as a test sets it later.
+    if (fn === 'chat_seen') {
+      if (M().noV54) return { data: null, error: err('function public.chat_seen does not exist') };
+      self.__seenAsked = (self.__seenAsked || 0) + 1;
+      return { data: ((self.__chatSeen || M().chatSeen || {})[args.p_chat]) || [], error: null };
     }
     if (fn === 'record_consent') { self.__consents = [...(self.__consents || []), args]; return { data: new Date().toISOString(), error: null }; }
     if (fn === 'my_files') return { data: [{ bucket: 'proof', path: '1/u1/p.mp4' }, { bucket: 'proof', path: '9/u1/left.mp4' }], error: null };
