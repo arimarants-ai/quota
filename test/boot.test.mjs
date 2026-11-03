@@ -5802,13 +5802,57 @@ await withPage({ wheel: false }, async page => {
   await swipe(-220, 0);
   const crew2 = await at();
   check('  swiping sideways moves to the next crew', crew2.c === 1 && crew2.i === 0 && /Night Owls Book Club/.test(await page.innerText('#dview')), JSON.stringify(crew2));
-  const unlocked = await page.evaluate(() => { for (let n = 0; n < 40 && document.querySelector('#dview .lockedreel'); n++) demoStep(1); return document.querySelector('#dview').innerText; });
+  const unlocked = await page.evaluate(() => { const p = demoPosts(1).find(x => x.day !== today()); DV.i = demoPosts(1).indexOf(p); demoShow(); return document.querySelector('#dview').innerText; });
   check('  an unlocked one shows the badge, the day and the crew', /\+\d+ pages/i.test(unlocked) && /· day \d+/.test(unlocked) && /4 people · 8 days everyone showed up/.test(unlocked), unlocked.slice(0, 300));
-  await page.evaluate(() => { for (let n = 0; n < 40 && !DV.end; n++) demoStep(1); });
-  check('  and after the last crew\'s last post, an end card to start your own', /Start your crew/.test(await page.innerText('#dview .dend').catch(() => '')));
-  check('nothing in the example asked Supabase for anything', asked.length === 0 && (await page.evaluate(() => self.__sbCalls)).length === 0,
+  // Four seen so far; the fifth, then Your turn in place of a sixth.
+  await swipe(0, -220);
+  await swipe(0, -220);
+  const turn = await page.innerText('#dview').catch(() => '');
+  check('"Your turn" comes after five posts', /YOUR TURN/i.test(turn) && /Do one now\. It takes a minute\./.test(turn) && /5 of 5/i.test(turn) && /Log in/.test(turn), turn.slice(0, 300));
+  check('  with the pick the crew last watched does, already chosen', await page.evaluate(() => turnPicks()[+document.querySelector('#dview input[name=dpick]:checked').value].metric) === 'pages'
+    && /Start: Read 2 pages/.test(turn));
+  await page.locator('#dview .dpick:has-text("A 1-minute plank")').click();
+  check('  and the button follows a new pick', /Start: A 1-minute plank/.test(await page.innerText('#dview .dgo')));
+  await page.locator('#dview .dpick:has-text("20 squats")').click();
+  await page.locator('#dview .dgo').click();
+  const rec = await page.innerText('#dview');
+  check('  Start says what it is, and that it is only practice', /20 squats/i.test(rec) && /Practice only\. Nothing is posted until you say so\./.test(rec)
+    && await page.locator('#dview button:has-text("Record")').count() === 1 && await page.locator('#dview button:has-text("Photo")').count() === 1, rec.slice(0, 300));
+  await page.locator('#dview button:has-text("Record")').click();
+  await page.waitForTimeout(600);
+  check('  and Record is the same camera a post uses, with the pick on it', await page.locator('#cam').evaluate(d => d.open)
+    && /20 squats/i.test(await page.innerText('#campract').catch(() => '')) && /Practice only/.test(await page.innerText('#campract').catch(() => '')));
+  await page.evaluate(() => camClose());
+  // What the camera hands back, down the same road any take comes back by.
+  await page.evaluate(async () => {
+    const c = Object.assign(document.createElement('canvas'), { width: 120, height: 150 });
+    c.getContext('2d').fillRect(0, 0, 120, 150);
+    const b = await new Promise(r => c.toBlob(r, 'image/jpeg'));
+    camFor = 'practice'; camAt = Date.now() - 1000;
+    await camPicked({ files: [new File([b], 'take.jpg', { type: 'image/jpeg', lastModified: Date.now() })], value: '' });
+  });
+  await page.waitForTimeout(300);
+  const done = await page.innerText('#dview').catch(() => '');
+  check('the practice comes back as your first proof', /NICE\. THAT'S YOUR FIRST PROOF/i.test(done) && /\+20 squats/i.test(done)
+    && await page.locator('#dview .dproof img').count() === 1, done.slice(0, 300));
+  check('  under what a crew does when you post, said as what would happen', /What your crew does when you post/i.test(done)
+    && /Reactions on your proof/.test(done) && /"let's go" in the comments/.test(done) && /Today's posts unlock for you/.test(done) && /Counts toward today's goal/.test(done));
+  const kept = await page.evaluate(async () => { const t = await takeTx('readonly', st => st.get('practice')); return t && { ...t, file: t.file && t.file.size }; });
+  check('  kept on the phone, with what it was and the day', !!kept && kept.metric === 'squats' && kept.amount === 20 && kept.day === await page.evaluate(() => today()) && kept.file > 0,
+    JSON.stringify(kept));
+  await page.locator('#dview button:has-text("Keep looking")').click();
+  await page.waitForTimeout(200);
+  check('  Keep looking goes back to the example, and the practice stays', await page.locator('#dview').isHidden() && await page.locator('#app .demo').count() === 1
+    && !!(await page.evaluate(() => takeTx('readonly', st => st.get('practice')))));
+  await page.evaluate(() => { demoOpen(demoPosts(0)[0].id); DV.mode = 'done'; demoShow(); });
+  await page.locator('#dview button:has-text("Save it and start your crew")').click();
+  await page.waitForTimeout(300);
+  check('  and Save it goes to the ways to sign up', /Continue with email/.test(await page.innerText('#app')));
+  await page.locator('#app .welcome .aback').click();
+  await page.waitForTimeout(300);
+  check('nothing in the example or the practice asked Supabase for anything', asked.length === 0 && (await page.evaluate(() => self.__sbCalls)).length === 0,
     JSON.stringify({ asked, calls: await page.evaluate(() => self.__sbCalls) }));
-  await page.locator('#dview .dend button:has-text("Start your crew")').click();
+  await page.locator('#app .demo .dfoot button:has-text("Start your crew")').click();
   await page.waitForTimeout(300);
   const ways = await page.innerText('#app');
   check('Start your crew reaches the ways to sign up', /Continue with email/.test(ways) && /By continuing you agree/.test(ways) && await page.locator('#dview').isHidden(), ways.slice(0, 200));
@@ -5818,6 +5862,111 @@ await withPage({ wheel: false }, async page => {
   await page.locator('#app .demo .dbar button:has-text("Log in")').click();
   await page.waitForTimeout(300);
   check('Log in reaches logging in', /Welcome back/.test(await page.innerText('#app')));
+});
+
+// "Your turn" at the end, too, when five posts never came first; and the pick follows the crew.
+await withPage({ wheel: false }, async page => {
+  await page.goto(`${base}/?local&demo`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#app .demo', { timeout: 5000 }).catch(() => {});
+  await page.evaluate(() => { DEMO.c = 2; demoOpen(demoPosts(2).at(-1).id); demoStep(1); });
+  check('"Your turn" comes at the end of the last crew', (await page.evaluate(() => DV.mode)) === 'turn' && /Do one now/.test(await page.innerText('#dview')));
+  check('  with squats picked for a crew that is neither pushups nor reading', await page.evaluate(() => turnPick().metric) === 'squats');
+  await page.evaluate(() => { demoClose(); DEMO.turned = false; DEMO.c = 0; demoOpen(demoPosts(0)[0].id); [1, 2, 3, 4, 5].forEach(n => DEMO.viewed.add(n)); demoStep(1); });
+  check('  and pushups for the pushups crew', await page.evaluate(() => DV.mode === 'turn' && turnPick().metric === 'pushups')
+    && /Like the Morning Grind crew/.test(await page.innerText('#dview')));
+});
+
+// A practice kept on the phone, put there the way practiceTaken puts one.
+const keepPractice = (page, metric, amount, day) => page.evaluate(async ([metric, amount, day]) => {
+  const c = Object.assign(document.createElement('canvas'), { width: 120, height: 150 });
+  c.getContext('2d').fillRect(0, 0, 120, 150);
+  const b = await new Promise(r => c.toBlob(r, 'image/jpeg'));
+  await takeTx('readwrite', st => st.put({ metric, amount, day: day || today(), at: Date.now(), file: new File([b], 'take.jpg', { type: 'image/jpeg' }) }, 'practice'));
+  await loadPractice();
+}, [metric, amount, day]);
+const practiceGone = page => page.evaluate(async () => !practice && !(await takeTx('readonly', st => st.get('practice'))));
+
+// Signed up with a practice waiting: Start your crew says so, and leads with its goal.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await keepPractice(page, 'pushups', 5);
+  await page.waitForTimeout(200);
+  const txt = await page.innerText('#app');
+  check('a saved practice is named on Start your crew', /Your 5 pushups are saved/.test(txt) && /They post as your first proof today, as soon as your crew is made\./.test(txt), txt.slice(0, 300));
+  check('  with its goal first among the presets, and marked', await page.locator('#app .presets button').first().evaluate(b => b.classList.contains('on') && /pushups/.test(b.textContent)));
+  await keepPractice(page, 'minutes of plank', 1);
+  await page.waitForTimeout(200);
+  check('  in the singular for one', /Your 1 minute of plank is saved/.test(await page.innerText('#app')) && /It posts as your first proof/.test(await page.innerText('#app')));
+  await page.locator('#app button:has-text("New group")').click();
+  await page.waitForTimeout(300);
+  check('  and with no preset for it, New group starts on it', await page.locator('#dlg input[name=metric]').first().inputValue() === 'minutes of plank'
+    && await page.locator('#dlg input[name=target]').first().inputValue() === '1');
+});
+
+// In a crew that does it, the practice goes up as the first proof, and is let go of.
+await withPage({ ...NO_WHEEL, samToday: true }, async page => {
+  await settle(page);
+  await keepPractice(page, 'pushups', 5);
+  await page.waitForFunction(() => !practice && !practiceBusy, null, { timeout: 15000 }).catch(() => {});
+  const sent = await page.evaluate(() => self.__posts.filter(p => p.metric === 'pushups' && p.amount === 5 && p.group_id === 1));
+  check('a practice posts to a crew whose goal it is', sent.length === 1 && sent[0].day === await page.evaluate(() => today()), JSON.stringify(sent));
+  check('  and the copy on the phone is deleted', await practiceGone(page));
+  check('  with a word to say so', /Your 5 pushups are posted/.test(await page.innerText('#toast').catch(() => '')));
+  check('  and the walkthrough knows it was done', await page.evaluate(() => localStorage['did:practice'] === '1'));
+});
+
+// In a crew that does something else, it is not posted, and the feed says why, once.
+await withPage({ ...NO_WHEEL, samToday: true }, async page => {
+  await settle(page);
+  await keepPractice(page, 'squats', 20);
+  await page.waitForTimeout(600);
+  check('a practice is not posted to a crew whose goal is something else', (await page.evaluate(() => self.__posts.length)) === 0 && await practiceGone(page));
+  const txt = await page.innerText('#app');
+  check('  and the feed says so', /Your practice was 20 squats, and your crew's goal is 50 pushups a day, so it wasn't posted\./.test(txt), txt.slice(0, 400));
+  await page.locator('#app .pnote button').click();
+  await page.waitForTimeout(200);
+  check('    once', !/Your practice was/.test(await page.innerText('#app')));
+});
+
+// Yesterday's practice is nobody's proof today.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await keepPractice(page, 'pushups', 5, await page.evaluate(() => daysAgo(1)));
+  await page.waitForTimeout(200);
+  check('a practice from yesterday is let go of', await practiceGone(page) && !/are saved/.test(await page.innerText('#app')));
+});
+
+// The walkthrough leaves out what the example already showed, and only that.
+await withPage({ ...NO_WHEEL, samToday: true }, async page => {
+  await settle(page);
+  const run = async all => page.evaluate(async all => {
+    endTour(); startTour(0, all);
+    const seen = [];
+    for (let n = 0; n < 8 && S.tour; n++) {
+      await new Promise(r => setTimeout(r, n === 5 ? 700 : 150));
+      const box = document.querySelector('.tour .tbox');
+      if (!box) break;
+      seen.push(`${box.querySelector('b').textContent}:${box.querySelectorAll('.dots i').length}`);
+      box.querySelector('.next').click();
+    }
+    endTour(); dlg();
+    return seen.join('|');
+  }, all);
+  const set = keys => page.evaluate(keys => { localStorage.removeItem('seen:lock'); localStorage.removeItem('did:practice'); keys.forEach(k => { localStorage[k] = '1'; }); }, keys);
+  await set([]);
+  check('with nothing seen first, the walkthrough is all six', await run(false) === "Your streak:6|Post proof:6|Your crew's proof:6|Add friends:6|Your crew:6|Your turn:6");
+  await set(['seen:lock']);
+  check('a locked post seen in the example leaves out "Your crew\'s proof"', await run(false) === 'Your streak:5|Post proof:5|Add friends:5|Your crew:5|Your turn:5');
+  await set(['did:practice']);
+  check('a practice posted leaves out "Post proof" and "Your turn"', await run(false) === "Your streak:4|Your crew's proof:4|Add friends:4|Your crew:4");
+  await set(['seen:lock', 'did:practice']);
+  check('  both leave the three that are always there', await run(false) === 'Your streak:3|Add friends:3|Your crew:3');
+  await page.locator('#app .hdr button[aria-label="Help"]').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Watch the intro again")').click();
+  await page.waitForTimeout(400);
+  const replay = await page.evaluate(() => S.tour && S.tour.steps.length);
+  check('Help\'s "Watch the intro again" is all six, whatever was seen', replay === 6, String(replay));
 });
 
 // An invite is its own arrival: the example never stands in front of it.
