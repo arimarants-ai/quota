@@ -70,6 +70,48 @@ blocking and deleting an account (schema v46) are in `MODERATION.md`.
 
 After changing anything in `app/`, run `npx cap sync` in `native/` before building.
 
+## Example crews
+
+Somebody who opens the app signed out, and not from an invite link, lands on an example
+crew instead of the welcome screen: the real group page and feed, drawn from files, with
+**Start your crew** and **Log in** pinned at the bottom. Tapping a clip opens them full
+screen, a clip at a time. Nothing in it is an account and nothing in it talks to Supabase.
+
+It is off until `DEMO_READY` in `index.html` is `true`. Until then everyone gets the
+welcome screen as before, and adding `?demo` to the address shows the example anyway:
+`https://app.hitquota.app/?demo` to look at it live.
+
+Everything it shows is in `app/demo/`:
+
+- `crews.json`, the crews themselves.
+- The clips and their stills beside it, named in `crews.json`. The ones there now are
+  placeholders, plain coloured cards that say PLACEHOLDER and which file they stand in for.
+
+```json
+{ "crews": [{
+  "id": "pushups", "label": "Pushups", "name": "Morning Grind",
+  "metric": "pushups", "target": 100, "forfeit": "Buys the coffee", "crewBonusDays": 4,
+  "members": [{ "key": "maya", "name": "Maya", "username": "maya.lifts", "streak": 30 }],
+  "posts": [{ "member": "maya", "daysAgo": 0, "amount": 100, "caption": "Day 30",
+    "media": "demo/pushups-1.mp4", "poster": "demo/pushups-1.jpg",
+    "comments": [{ "member": "jordan", "body": "Thirty! Unreal" }], "reactions": ["🔥", "👏"] }]
+}] }
+```
+
+- `label` is the chip; `name` is the crew.
+- `daysAgo` counts back from the viewer's own today, so the example never looks old. Posts
+  with `daysAgo` 0 are today's and show locked ("Post yours to unlock"), as they do for
+  anybody who has not posted yet.
+- `streak` is each person's run in days. Keep each post's `daysAgo` inside its person's
+  streak, and `crewBonusDays` no bigger than the shortest streak, so the numbers agree.
+- `media` is a clip (`.mp4`) or a picture (`.jpg`); `poster` is the still shown before a
+  clip plays. Portrait, 9:16 is best. Clips start muted, and a tap turns the sound on.
+
+Swapping in real clips is replacing files: put them in `app/demo/` and point `media` and
+`poster` at them. The service worker never caches anything under `/demo/`, so a change
+shows without a version bump, and the files are only fetched by somebody who sees the
+example. They do ship inside the store app, which bundles all of `app/`.
+
 ## Installing it as an app
 
 The app is a PWA, so it installs to a phone home screen with no app store.

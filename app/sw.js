@@ -3,7 +3,7 @@
 // signed video URLs) is deliberately left alone so it always hits the network, and so is
 // every clip and still on R2.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v160';
+const VERSION = 'quota-v161';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
@@ -61,6 +61,10 @@ self.addEventListener('fetch', e => {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
   if (url.hostname.endsWith('supabase.co')) return;      // API, auth and signed video URLs: never cached
   if (url.origin === self.location.origin && url.pathname === '/sw.js') return; // let the browser manage its own updates
+  // The example crews' clips and the file listing them: too big to keep, and swapped for real
+  // ones without a release, so a kept copy would go on showing the old crew. The browser's
+  // own cache is enough.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/demo/')) return;
 
   // The page itself: network first, so a deploy shows up straight away — but only for a
   // few seconds. A slow connection does not fail, it crawls, and waiting on it was a blank

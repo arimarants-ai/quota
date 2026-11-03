@@ -25,7 +25,7 @@ catch { console.log('SKIP: boot tests need playwright (npx playwright install --
 
 const STUB = await readFile(join(HERE, 'stub-supabase.js'), 'utf8');
 const LIB = '**/vendor/**/supabase.js';
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.mp4': 'video/mp4' };
 
 // Playwright's request interception suppresses xhr.upload.onprogress, so an upload
 // answered by route.fulfill() reports nothing and would prove nothing. Instead the stub's
@@ -5741,6 +5741,91 @@ await withPage(NO_WHEEL, async page => {
     && !/proof or it didn/i.test(body), body);
   check('  with your own link in it, not the group\'s', /\/join\/mine12345678$/.test(body), body);
   check('  and another way to share beside it', await page.locator('#dlg button:has-text("More")').count() === 1);
+});
+
+// The example crews. Off by default: a visitor with nothing in the address gets the
+// welcome screen exactly as before.
+await withPage({ wheel: false }, async page => {
+  await page.waitForTimeout(1200);
+  const html = await page.innerHTML('#app');
+  check('signed out, with the example off, the welcome screen is first', /Pick a daily goal/.test(html) && !/class="demo"/.test(html), html.slice(0, 200));
+});
+
+// ?demo shows it anyway, and every tap on it is the example's own: nothing reaches Supabase.
+await withPage({ wheel: false }, async page => {
+  await page.goto(`${base}/?local&demo`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#app .demo', { timeout: 5000 }).catch(() => {});
+  // From here on, anything the page asks of Supabase is counted: the library's calls, and
+  // anything over the network to where it lives.
+  const asked = [];
+  page.on('request', r => { if (/\/(rest|auth|functions|storage)\/v1\/|supabase\.co/.test(r.url())) asked.push(r.url()); });
+  await page.evaluate(() => {
+    self.__sbCalls = [];
+    const spy = (o, k) => { const f = o[k]; o[k] = (...a) => { self.__sbCalls.push(k); return f.apply(o, a); }; };
+    ['from', 'rpc', 'channel'].forEach(k => spy(sb, k));
+    spy(sb.storage, 'from'); spy(sb.functions, 'invoke');
+  });
+  const txt = await page.innerText('#app').catch(() => '');
+  check('?demo opens on an example crew', /EXAMPLE CREW/i.test(txt) && /Morning Grind/.test(txt), txt.slice(0, 200));
+  check('  led by the longest streak in it', /30\s*day streak/i.test(txt) && /Maya's, the longest in this crew/.test(txt));
+  check('  with the crew bonus', /Crew bonus: 4 days everyone showed up/.test(txt));
+  check('  today\'s proof locked, as it is for anybody who has not posted', await page.locator('#app .demo .lockedreel').count() >= 1
+    && /Maya did \+100 pushups today/.test(txt));
+  check('  and no invite, manage, recaps, back link or tab bar', !/Invite a friend|Manage|Recaps/.test(txt)
+    && await page.locator('#app .demo .gback').count() === 0 && await page.locator('#bar').isHidden());
+  check('  with a way to start, pinned at the bottom', /This is a real crew, set up as an example/.test(txt) && /Start your crew/.test(txt));
+  await page.locator('#app .demo .dchips button:has-text("Reading")').click();
+  await page.waitForTimeout(200);
+  check('  the chips switch crews', /Night Owls Book Club/.test(await page.innerText('#app')));
+  await page.locator('#app .demo .dchips button:has-text("Pushups")').click();
+  await page.waitForTimeout(200);
+  await page.locator('#app .demo .post .lk').first().click();
+  await page.waitForTimeout(400);
+  const sheet = await page.locator('#dlg').innerText().catch(() => '');
+  check('liking a post in the example asks you to join', /Join to cheer \w+ on/.test(sheet) && /Keep looking/.test(sheet), sheet);
+  await page.locator('#dlg button:has-text("Keep looking")').click();
+  await page.waitForTimeout(400);
+  check('  and Keep looking leaves you where you were', !(await page.locator('#dlg').evaluate(d => d.open)) && await page.locator('#app .demo').count() === 1);
+
+  // The full screen: a clip at a time, up for the next, sideways for the next crew.
+  await page.locator('#app .demo .reel').first().click();
+  await page.waitForSelector('#dview', { timeout: 2000 }).catch(() => {});
+  const at = () => page.evaluate(() => DV && { c: DV.c, i: DV.i, end: DV.end, who: (document.querySelector('#dview .dinfo b') || {}).textContent });
+  const first = await at();
+  check('tapping a clip opens it full screen', !!first && first.c === 0 && first.i === 0 && /Swipe up for the next one/.test(await page.innerText('#dview')), JSON.stringify(first));
+  check('  newest first, today\'s still locked', await page.locator('#dview .lockedreel').count() === 1);
+  const swipe = async (dx, dy) => { await page.mouse.move(400, 400); await page.mouse.down(); await page.mouse.move(400 + dx, 400 + dy, { steps: 5 }); await page.mouse.up(); await page.waitForTimeout(150); };
+  await swipe(0, -220);
+  const second = await at();
+  check('  swiping up moves to the next post', second.c === 0 && second.i === 1 && second.who !== first.who, JSON.stringify(second));
+  check('    and the hint is only on the first', !/Swipe up for the next one/.test(await page.innerText('#dview')));
+  await swipe(-220, 0);
+  const crew2 = await at();
+  check('  swiping sideways moves to the next crew', crew2.c === 1 && crew2.i === 0 && /Night Owls Book Club/.test(await page.innerText('#dview')), JSON.stringify(crew2));
+  const unlocked = await page.evaluate(() => { for (let n = 0; n < 40 && document.querySelector('#dview .lockedreel'); n++) demoStep(1); return document.querySelector('#dview').innerText; });
+  check('  an unlocked one shows the badge, the day and the crew', /\+\d+ pages/i.test(unlocked) && /· day \d+/.test(unlocked) && /4 people · 8 days everyone showed up/.test(unlocked), unlocked.slice(0, 300));
+  await page.evaluate(() => { for (let n = 0; n < 40 && !DV.end; n++) demoStep(1); });
+  check('  and after the last crew\'s last post, an end card to start your own', /Start your crew/.test(await page.innerText('#dview .dend').catch(() => '')));
+  check('nothing in the example asked Supabase for anything', asked.length === 0 && (await page.evaluate(() => self.__sbCalls)).length === 0,
+    JSON.stringify({ asked, calls: await page.evaluate(() => self.__sbCalls) }));
+  await page.locator('#dview .dend button:has-text("Start your crew")').click();
+  await page.waitForTimeout(300);
+  const ways = await page.innerText('#app');
+  check('Start your crew reaches the ways to sign up', /Continue with email/.test(ways) && /By continuing you agree/.test(ways) && await page.locator('#dview').isHidden(), ways.slice(0, 200));
+  await page.locator('#app .welcome .aback').click();
+  await page.waitForTimeout(300);
+  check('  with a way back to the example', await page.locator('#app .demo').count() === 1);
+  await page.locator('#app .demo .dbar button:has-text("Log in")').click();
+  await page.waitForTimeout(300);
+  check('Log in reaches logging in', /Welcome back/.test(await page.innerText('#app')));
+});
+
+// An invite is its own arrival: the example never stands in front of it.
+await withPage({ wheel: false }, async page => {
+  await page.goto(`${base}/?local&demo#join-samSAM123456`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1400);
+  const html = await page.innerHTML('#app');
+  check('an invite link still opens on the invite, demo or not', /Sam invited you to Mornings/i.test(html) && !/class="demo"/.test(html), html.slice(0, 200));
 });
 
 // The page somebody lands on. It names who sent it, because a person is why anybody signs up.

@@ -1,0 +1,432 @@
+{
+  "crews": [
+    {
+      "id": "pushups",
+      "label": "Pushups",
+      "name": "Morning Grind",
+      "metric": "pushups",
+      "target": 100,
+      "forfeit": "Buys the coffee",
+      "crewBonusDays": 4,
+      "members": [
+        {
+          "key": "maya",
+          "name": "Maya",
+          "username": "maya.lifts",
+          "streak": 30
+        },
+        {
+          "key": "jordan",
+          "name": "Jordan",
+          "username": "jordanr",
+          "streak": 21
+        },
+        {
+          "key": "priya",
+          "name": "Priya",
+          "username": "priya_k",
+          "streak": 12
+        },
+        {
+          "key": "leo",
+          "name": "Leo",
+          "username": "leo.m",
+          "streak": 6
+        },
+        {
+          "key": "sam",
+          "name": "Sam",
+          "username": "samwise",
+          "streak": 4
+        }
+      ],
+      "posts": [
+        {
+          "member": "maya",
+          "daysAgo": 0,
+          "amount": 100,
+          "caption": "Day 30. Before the kids wake up.",
+          "media": "demo/pushups-1.jpg",
+          "poster": "demo/pushups-1.jpg",
+          "comments": [
+            {
+              "member": "jordan",
+              "body": "Thirty! Unreal"
+            }
+          ],
+          "reactions": [
+            "🔥",
+            "👏",
+            "💪"
+          ]
+        },
+        {
+          "member": "jordan",
+          "daysAgo": 0,
+          "amount": 110,
+          "caption": "Ten extra for the late start",
+          "media": "demo/pushups-2.jpg",
+          "poster": "demo/pushups-2.jpg",
+          "comments": [
+            {
+              "member": "maya",
+              "body": "Show off 😄"
+            }
+          ],
+          "reactions": [
+            "👏"
+          ]
+        },
+        {
+          "member": "priya",
+          "daysAgo": 1,
+          "amount": 100,
+          "caption": "Sets of 20 between meetings",
+          "media": "demo/pushups-3.jpg",
+          "poster": "demo/pushups-3.jpg",
+          "comments": [
+            {
+              "member": "leo",
+              "body": "Stealing this idea"
+            }
+          ],
+          "reactions": [
+            "🔥",
+            "🙌"
+          ]
+        },
+        {
+          "member": "maya",
+          "daysAgo": 1,
+          "amount": 100,
+          "caption": "Rainy one, still counts",
+          "media": "demo/pushups-4.jpg",
+          "poster": "demo/pushups-4.jpg",
+          "comments": [
+            {
+              "member": "sam",
+              "body": "Respect"
+            }
+          ],
+          "reactions": [
+            "💪",
+            "🔥"
+          ]
+        },
+        {
+          "member": "leo",
+          "daysAgo": 2,
+          "amount": 100,
+          "caption": "Last 10 were ugly but they're in",
+          "media": "demo/pushups-5.jpg",
+          "poster": "demo/pushups-5.jpg",
+          "comments": [
+            {
+              "member": "priya",
+              "body": "They all count!"
+            }
+          ],
+          "reactions": [
+            "😂",
+            "👏"
+          ]
+        },
+        {
+          "member": "sam",
+          "daysAgo": 3,
+          "amount": 100,
+          "caption": "100 in one go for the first time. Arms are gone",
+          "media": "demo/pushups-6.jpg",
+          "poster": "demo/pushups-6.jpg",
+          "comments": [
+            {
+              "member": "maya",
+              "body": "Welcome to the club"
+            }
+          ],
+          "reactions": [
+            "🎉",
+            "🔥",
+            "👏"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reading",
+      "label": "Reading",
+      "name": "Night Owls Book Club",
+      "metric": "pages",
+      "target": 20,
+      "forfeit": "Picks the next book",
+      "crewBonusDays": 8,
+      "members": [
+        {
+          "key": "aisha",
+          "name": "Aisha",
+          "username": "aisha.reads",
+          "streak": 45
+        },
+        {
+          "key": "tom",
+          "name": "Tom",
+          "username": "tomw",
+          "streak": 19
+        },
+        {
+          "key": "grace",
+          "name": "Grace",
+          "username": "gracie",
+          "streak": 14
+        },
+        {
+          "key": "ben",
+          "name": "Ben",
+          "username": "ben_o",
+          "streak": 8
+        }
+      ],
+      "posts": [
+        {
+          "member": "aisha",
+          "daysAgo": 0,
+          "amount": 32,
+          "caption": "Couldn't stop, chapter 12 is wild",
+          "media": "demo/reading-1.jpg",
+          "poster": "demo/reading-1.jpg",
+          "comments": [
+            {
+              "member": "grace",
+              "body": "No spoilers!!"
+            }
+          ],
+          "reactions": [
+            "📚",
+            "🔥"
+          ]
+        },
+        {
+          "member": "tom",
+          "daysAgo": 1,
+          "amount": 20,
+          "caption": "Exactly 20, on the train",
+          "media": "demo/reading-2.jpg",
+          "poster": "demo/reading-2.jpg",
+          "comments": [
+            {
+              "member": "ben",
+              "body": "The train counts double"
+            }
+          ],
+          "reactions": [
+            "👏"
+          ]
+        },
+        {
+          "member": "grace",
+          "daysAgo": 1,
+          "amount": 25,
+          "caption": "Finished it. Ugly cried",
+          "media": "demo/reading-3.jpg",
+          "poster": "demo/reading-3.jpg",
+          "comments": [
+            {
+              "member": "aisha",
+              "body": "Told you"
+            }
+          ],
+          "reactions": [
+            "😭",
+            "❤️"
+          ]
+        },
+        {
+          "member": "ben",
+          "daysAgo": 2,
+          "amount": 20,
+          "caption": "Audiobook doesn't count so here's paper",
+          "media": "demo/reading-4.jpg",
+          "poster": "demo/reading-4.jpg",
+          "comments": [
+            {
+              "member": "tom",
+              "body": "Proper rules"
+            }
+          ],
+          "reactions": [
+            "😂"
+          ]
+        },
+        {
+          "member": "aisha",
+          "daysAgo": 3,
+          "amount": 40,
+          "caption": "Rainy Sunday stack",
+          "media": "demo/reading-5.jpg",
+          "poster": "demo/reading-5.jpg",
+          "comments": [
+            {
+              "member": "grace",
+              "body": "Goals"
+            }
+          ],
+          "reactions": [
+            "📚",
+            "🙌",
+            "🔥"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "running",
+      "label": "Running",
+      "name": "Dawn Patrol",
+      "metric": "km",
+      "target": 5,
+      "forfeit": "Hosts the long run",
+      "crewBonusDays": 3,
+      "members": [
+        {
+          "key": "diego",
+          "name": "Diego",
+          "username": "diego.runs",
+          "streak": 24
+        },
+        {
+          "key": "hana",
+          "name": "Hana",
+          "username": "hana_t",
+          "streak": 17
+        },
+        {
+          "key": "ollie",
+          "name": "Ollie",
+          "username": "olliej",
+          "streak": 11
+        },
+        {
+          "key": "zoe",
+          "name": "Zoe",
+          "username": "zoe.k",
+          "streak": 5
+        },
+        {
+          "key": "kai",
+          "name": "Kai",
+          "username": "kai_runs",
+          "streak": 3
+        }
+      ],
+      "posts": [
+        {
+          "member": "diego",
+          "daysAgo": 0,
+          "amount": 8,
+          "caption": "Sunrise loop, 8 for the bonus",
+          "media": "demo/running-1.jpg",
+          "poster": "demo/running-1.jpg",
+          "comments": [
+            {
+              "member": "hana",
+              "body": "Saw you out there!"
+            }
+          ],
+          "reactions": [
+            "🔥",
+            "🌅"
+          ]
+        },
+        {
+          "member": "hana",
+          "daysAgo": 1,
+          "amount": 5,
+          "caption": "Slow and steady",
+          "media": "demo/running-2.jpg",
+          "poster": "demo/running-2.jpg",
+          "comments": [
+            {
+              "member": "zoe",
+              "body": "Steady wins"
+            }
+          ],
+          "reactions": [
+            "👏",
+            "💪"
+          ]
+        },
+        {
+          "member": "ollie",
+          "daysAgo": 1,
+          "amount": 6,
+          "caption": "New shoes, new me",
+          "media": "demo/running-3.jpg",
+          "poster": "demo/running-3.jpg",
+          "comments": [
+            {
+              "member": "kai",
+              "body": "Those are loud"
+            }
+          ],
+          "reactions": [
+            "😂",
+            "🔥"
+          ]
+        },
+        {
+          "member": "zoe",
+          "daysAgo": 2,
+          "amount": 5,
+          "caption": "Treadmill, it was hailing",
+          "media": "demo/running-4.jpg",
+          "poster": "demo/running-4.jpg",
+          "comments": [
+            {
+              "member": "diego",
+              "body": "Hail is a valid excuse. You still did it"
+            }
+          ],
+          "reactions": [
+            "🙌"
+          ]
+        },
+        {
+          "member": "kai",
+          "daysAgo": 3,
+          "amount": 5,
+          "caption": "Day 1. Everything hurts",
+          "media": "demo/running-5.jpg",
+          "poster": "demo/running-5.jpg",
+          "comments": [
+            {
+              "member": "ollie",
+              "body": "Only up from here"
+            }
+          ],
+          "reactions": [
+            "🎉",
+            "👏"
+          ]
+        },
+        {
+          "member": "diego",
+          "daysAgo": 2,
+          "amount": 10,
+          "caption": "Long one with the dog",
+          "media": "demo/running-6.jpg",
+          "poster": "demo/running-6.jpg",
+          "comments": [
+            {
+              "member": "hana",
+              "body": "Dog's streak is longer than mine"
+            }
+          ],
+          "reactions": [
+            "🐶",
+            "🔥"
+          ]
+        }
+      ]
+    }
+  ]
+}
