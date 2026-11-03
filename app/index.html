@@ -220,6 +220,14 @@ a.textbtn:active{opacity:.6}
 .rendering b{font-family:Oswald,sans-serif;font-weight:600;font-size:17px}
 .rendering .muted{color:rgba(255,255,255,.6);font-size:13px}
 .card.pend{border-color:var(--mk);background:var(--mktint)}
+/* The one-time word on flags: tinted like the pending card, so it reads as the app talking. */
+.card.tip{border-color:var(--mk);background:var(--mktint)}
+.card.tip .tiphead{display:flex;gap:12px;align-items:flex-start}
+.card.tip .tipicon{width:34px;height:34px;flex:none;border-radius:50%;background:var(--card);display:grid;place-items:center}
+.card.tip .tipicon svg{width:18px;height:18px;fill:none;stroke:var(--mkt);stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}
+.card.tip b{display:block;font-size:15.5px;color:var(--mkt)}
+.card.tip p{margin:4px 0 0;font-size:14px;line-height:1.45}
+.card.tip button{width:100%;margin-top:14px}
 .card.pend .spin{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--mkring);
   border-top-color:var(--mk);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -1699,7 +1707,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v157';
+const BUILD = 'quota-v158';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3175,6 +3183,7 @@ function feedView() {
     + oweBanner()
     + storyRow()
     + flagsBar()
+    + (gs.length ? flagTip() : '')
     + emailPrompt()
     + pushPrompt()
     + spinPrompt()
@@ -5083,7 +5092,7 @@ function groupView(g) {
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
   ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
   ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
-  <h3>Proof</h3>${feed(S.posts.filter(p => p.groupId === g.id), false, false, g.id)}`;
+  <h3>Proof</h3>${flagTip(g)}${feed(S.posts.filter(p => p.groupId === g.id), false, false, g.id)}`;
 }
 // Who owes the crew, kindly: a name, the forfeit in the crew's own words, and which day.
 // Anybody else in the group can mark it paid; nobody marks their own.
@@ -5115,10 +5124,11 @@ function oweBanner() {
 // there is one question with two answers, and putting the reel, the reason and the vote on
 // one screen is the difference between deciding and scrolling to find where to.
 // What stands where the clip would be until you have posted. A silhouette rather than a
-// blurred frame: there is no frame to blur, because the URL was never asked for.
+// blurred frame: there is no frame to blur, because the URL was never asked for. The number
+// is not hidden, only the clip: knowing somebody did +50 is the reason to go and post.
 const lockedReel = p => `<div class="reel lockedreel">
   <svg class="sil" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
-  <div class="lockmsg"><b>Post yours to unlock</b><span>${esc(name(user(p.userId)))} has posted today</span></div></div>`;
+  <div class="lockmsg"><b>Post yours to unlock</b><span>${esc(name(user(p.userId)))} did +${effort(p)} today</span></div></div>`;
 // How many posts a feed puts on the screen before asking. Every post in a group used to
 // go up at once: 173 of them is 13,000 nodes and as many <video> elements as posts, built
 // in one go while the screen you came from is still in the document. A phone kills a page
@@ -6203,6 +6213,22 @@ function flagButton(p) {
   return `<button type="button" class="flg" onclick="flagDlg(${p.id})" aria-label="Flag this">
     <svg viewBox="0 0 24 24">${FLAG_PATH}</svg></button>`;
 }
+// Said once, to everyone, the first time they are somewhere a flag could be used: a crew
+// that does not know proof can be questioned never questions any, and somebody who finds
+// out by being flagged finds out the worst way. Once per account on this phone, gone
+// for good the moment it is dismissed, from whichever screen. Only in a crew of two or
+// more, because alone there is nobody to flag and nobody to vote.
+const tipKey = () => `flagTip:${me().id}`;
+const tipSeen = () => { try { return !!localStorage[tipKey()]; } catch (e) { return true; } };
+function flagTip(g) {
+  if (S.noFlags || tipSeen()) return '';
+  if (g ? g.members.length < 2 : !myGroups().some(x => x.members.length > 1)) return '';
+  return `<div class="card tip"><div class="tiphead"><span class="tipicon"><svg viewBox="0 0 24 24" aria-hidden="true">${FLAG_PATH}</svg></span>
+    <div><b>You can flag proof</b>
+    <p>Tap the flag on a post that looks off. Your crew can flag yours too.</p></div></div>
+    <button type="button" onclick="dropTip()">Got it</button></div>`;
+}
+function dropTip() { try { localStorage[tipKey()] = '1'; } catch (e) {} render(); }
 // And a line across the post saying where that question got to. Your own post has no flag
 // button on it but very much needs this one.
 function flagStrip(p) {
@@ -6863,8 +6889,9 @@ function personView(uid) {
 // on show by definition.
 function tile(p, own) {
   // A grid tile of today's locked proof is the same lock, small: no frame, no way in.
-  if (locked(p)) return `<span class="tile lockedtile" aria-label="Locked until you post today">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg></span>`;
+  if (locked(p)) return `<span class="tile lockedtile" aria-label="+${esc(effort(p))}, locked until you post today">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
+    <b>+${num(p.amount)}</b></span>`;
   const pic = isPhoto(p);
   const pub = own && p.onProfile;
   return `<button type="button" class="tile" onclick="openPost(${p.id})" aria-label="${esc(effort(p))} on ${esc(dayLabel(p.day))}${own ? (p.onProfile ? ', on show' : ', only you can see this') : ''}">
@@ -7063,7 +7090,7 @@ function setupView() {
 //
 // Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
 // against each account, so it is always possible to say which wording somebody agreed to.
-const TERMS_VERSION = '2026-10-15';
+const TERMS_VERSION = '2026-11-02';
 // Where every contact line in the documents points. hello@ reaches both co-founders.
 const CONTACT = 'hello@hitquota.app';
 // The website, where the same documents are published for anyone without the app, and
@@ -7090,6 +7117,7 @@ const LEGAL = {
 </ul>
 <h3>What you post</h3>
 <p>You own what you post. By posting it you give Quota permission to store it and show it to the people you shared it with, which is only what the app needs to work, and that permission ends when you delete it. Post only what you have the right to post, and only film people who are happy to be filmed.</p>
+<p>You are responsible for what you post, and for what you agree to with your groups, forfeits included. Quota does not review posts before they go up, and a forfeit is between the people in a group: Quota does not set it, enforce it, or answer for it.</p>
 <h3>Using Quota fairly</h3>
 <p>Do not try to break, overload, or get around the app or its security; do not scrape it or read other people's data; and do not use it for anything illegal.</p>
 <h3>If things go wrong</h3>
@@ -7189,6 +7217,14 @@ const LEGAL = {
 <li>No posting somebody else's private information.</li>
 <li>No pretending to be someone you are not, in a username, a display name or anywhere else.</li>
 </ul>
+<h3>Forfeits</h3>
+<p>A forfeit is a small, friendly price for a missed day. Keep it that way.</p>
+<ul>
+<li>Cheap, safe and fun: buying the coffee, extra pushups, planning the next hangout.</li>
+<li>Nothing dangerous, nothing involving alcohol or drugs, nothing sexual, and nothing meant to humiliate somebody. A little friendly embarrassing is fine; cruelty is not.</li>
+<li>Never money, and nothing anybody has not agreed to by joining the group.</li>
+</ul>
+<p>Nobody has to do a forfeit that breaks these rules, and whoever set it can be reported from their profile like anything else.</p>
 <h3>What does not go on Quota</h3>
 <ul>
 <li>Nudity and sexual content.</li>
@@ -7773,11 +7809,13 @@ function manageDlg(gid) {
 }
 // Whoever made the group decides the forfeit; once they have left, anybody in it can.
 const canForfeit = g => !g.id || !g.created_by || g.created_by === me().id || !g.members.includes(g.created_by);
-const FORFEITS = ['buys coffee', 'does 20 pushups on camera', 'posts an embarrassing photo', 'picks the next group song'];
+// Suggestions are the tone the crew copies, so every one is cheap, safe and fun, and none
+// is a photo of somebody: pressure is the point, humiliation is not (see the guidelines).
+const FORFEITS = ['buys coffee', 'does 20 pushups on camera', 'plans the next hangout', 'picks the next group song'];
 const forfeitField = v => `<label>Forfeit <span class="muted">(optional)</span></label>
   <input name="forfeit" maxlength="60" autocomplete="off" value="${esc(v || '')}" placeholder="e.g. Buys the coffee">
   <div class="row wrap sugg">${FORFEITS.map(x => `<button type="button" class="chip" onclick="this.closest('form').forfeit.value=this.textContent">${esc(x)}</button>`).join('')}</div>
-  <p class="muted small" style="margin-top:6px">Just for fun, never money. Owed for a day someone misses that their monthly pass doesn't cover.</p>`;
+  <p class="muted small" style="margin-top:6px">Keep it fun: nothing dangerous, humiliating or costly, and never money. Owed for a day someone misses that their monthly pass doesn't cover.</p>`;
 function forfeitDlg(gid) {
   const g = S.groups.find(x => x.id === gid);
   if (!g) return;
