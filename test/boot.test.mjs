@@ -2943,7 +2943,9 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => { document.documentElement.style.minHeight = '3000px'; });
   await page.evaluate(() => scrollTo(0, 800));
   await page.waitForTimeout(150);
-  await page.locator('.post .head .who').nth(1).click();
+  // Clicked from the page rather than by Playwright, which scrolls the name into view
+  // first and so moves the very place this is about.
+  await page.evaluate(() => document.querySelectorAll('.post .head .who')[1].click());
   await page.waitForTimeout(400);
   check('  a profile opened part way down remembers where that was',
     await page.evaluate(() => backY[backY.length - 1]) === 800,
@@ -2961,7 +2963,7 @@ await withPage(SIGNED_IN, async page => {
   // already behind it, which is the whole point: you can see where you are going before
   // you have committed to going there.
   await page.evaluate(() => scrollTo(0, 800));
-  await page.locator('.post .head .who').nth(1).click();
+  await page.evaluate(() => document.querySelectorAll('.post .head .who')[1].click());
   await page.waitForTimeout(450);
   await page.mouse.move(40, 500);
   await page.mouse.down();
