@@ -177,6 +177,11 @@ function browser({ refuse = [], net = async () => ({ ok: true }) } = {}) {
   check('  and so does its still', routed === 0);
   ask('https://txvjakpeyfnzigtsvmja.supabase.co/storage/v1/object/sign/proof/1.mov');
   check('  and a clip still on Supabase', routed === 0);
+  // The example crews are swapped for real ones without a release; a kept copy of the list
+  // would go on showing the old crew until the next version.
+  ask('https://example.test/demo/crews.json');
+  ask('https://example.test/demo/pushups-1.mp4');
+  check('  and so are the example crews, list and clips', routed === 0);
 
   const gone = [];
   caches.delete = async k => { gone.push(k); return true; };

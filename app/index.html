@@ -910,6 +910,54 @@ button.rg{border:0;font:inherit}
 .hdr .top .chatbtn svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
 .hdr .top .chatbtn i{position:absolute;right:-3px;top:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
   background:var(--mk);color:var(--onmk);font-style:normal;font-size:10.5px;line-height:17px;text-align:center}
+/* ---- the example crews ----
+   The real group page, under a dark bar that says it is an example and over a footer that
+   says how to make your own. */
+.demo{padding-bottom:calc(128px + env(safe-area-inset-bottom))}
+.demo .dtop{position:sticky;top:0;z-index:20;padding:calc(10px + env(safe-area-inset-top)) 12px 6px;background:var(--bg)}
+.dbar{background:#16181b;color:#fff;border-radius:16px;padding:10px 12px 12px}
+.dbar .drow{display:flex;align-items:center;justify-content:space-between}
+.dbar .drow b{font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+button.dlog{background:none;color:#2fd36f;padding:4px 2px;font-size:14px}
+.dchips{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+.dchips button{background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px}
+.dchips button.on{background:#fff;color:#16181b}
+.demo .hdr{padding-top:2px}
+.dfoot{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:600px;margin:0 auto;background:var(--bg);border-top:1px solid var(--line);
+  padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+.dfoot p{margin:0 0 8px;text-align:center;font-size:12.5px;font-weight:600;color:var(--muted)}
+.dbtns{display:flex;gap:8px}
+.dbtns .primary{flex:1}
+/* One clip, the whole screen. The page under it does not scroll while it is up. */
+:root.dviewing,:root.dviewing body{overflow:hidden}
+.dview{position:fixed;inset:0;z-index:90;background:#000;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+.dview .dslide{position:absolute;inset:0}
+.dview .dmedia{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.dview .reel{position:absolute;inset:0;aspect-ratio:auto}
+.dvtop{position:absolute;left:0;right:0;top:0;z-index:3;padding:calc(10px + env(safe-area-inset-top)) 12px 18px;background:linear-gradient(rgba(0,0,0,.55),transparent)}
+.dvtop .ticks{display:flex;gap:4px;margin-bottom:10px}
+.dvtop .ticks i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.3)}
+.dvtop .ticks i.on{background:#fff}
+.dvrow{display:flex;align-items:center;gap:8px}
+.dvrow .dchips{flex:1;margin:0}
+.dvx{background:none;color:#fff;padding:4px;line-height:0}
+.dvx svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.dinfo{position:absolute;left:16px;right:76px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:2;text-shadow:0 1px 4px rgba(0,0,0,.55)}
+.dinfo .dbadge{display:inline-block;margin:0;opacity:1;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:14px;padding:5px 10px;text-transform:uppercase;letter-spacing:.03em;text-shadow:none}
+.dinfo b{display:block;margin-top:10px;font-size:16.5px;font-weight:800}
+.dinfo span{display:block;margin-top:3px;font-size:13px;font-weight:600;opacity:.88}
+.dcmt{margin:10px 0 0;font-size:14px;line-height:1.35}
+.dcmt b{display:inline;margin:0;font-size:14px}
+.dside{position:absolute;right:10px;bottom:calc(112px + env(safe-area-inset-bottom));z-index:2;display:flex;flex-direction:column;gap:18px}
+.dside button{background:none;color:#fff;padding:0;display:grid;justify-items:center;gap:3px;font-size:12.5px}
+.dside svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+.dside i{font-style:normal;font-weight:800}
+.dhint{position:absolute;left:0;right:0;top:70%;z-index:2;margin:0;text-align:center;font-weight:800;font-size:14px;text-shadow:0 1px 4px rgba(0,0,0,.6);animation:rise .6s .4s both}
+.dvfoot{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.65))}
+.dvfoot button{width:100%}
+.dend{position:absolute;inset:0;display:grid;place-content:center;gap:12px;padding:24px;text-align:center}
+.dend h2{margin:0;font-size:28px}
+.dend p{margin:0 0 10px;opacity:.8}
 /* ---- help ----
    On every screen once you are in, and muted, so it is there when you look for it and
    never competes with the thing the screen is for. */
@@ -1655,6 +1703,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <dialog id="dlg"></dialog>
 <div id="one" hidden role="dialog" aria-label="One post"></div>
 <div id="party" hidden role="dialog" aria-live="polite"></div>
+<div id="dview" class="dview" hidden></div>
 <svg id="metals" aria-hidden="true" focusable="false"><defs>
   <linearGradient id="bgGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fd36f"/><stop offset=".55" stop-color="#12934f"/><stop offset="1" stop-color="#0b5a34"/></linearGradient>
   <linearGradient id="bgBronze" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#f0c39c"/><stop offset=".45" stop-color="#b8763f"/><stop offset="1" stop-color="#7d4520"/></linearGradient>
@@ -1737,7 +1786,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v160';
+const BUILD = 'quota-v161';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1835,8 +1884,11 @@ const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups()
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S = {blocked: new Set(), mut: {}, cseen: {}, settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
-  msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null};
+// Made by a function rather than written out once, so the example crews (demoState) start
+// from exactly the same shape the app does and every screen finds what it expects.
+const freshS = () => ({blocked: new Set(), mut: {}, cseen: {}, settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
+  msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null});
+let S = freshS();
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
 const name = u => u.display_name || u.username;
@@ -2003,7 +2055,7 @@ const postedIn = (g, uid = me().id, day = today()) => S.posts.some(p => p.groupI
 function locked(p, uid = S.me ? me().id : null) {
   if (p.day !== today() || !uid || p.userId === uid) return false;
   const g = S.groups.find(x => x.id === p.groupId);
-  return !!g && g.members.includes(uid) && !postedIn(g, uid);
+  return !!g && (g.members.includes(uid) || !!S.demo) && !postedIn(g, uid);
 }
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
 const hitDays = (g, uid) => new Set([...(totalsIndex().days.get(`${g.id}|${uid}`) || NO_DAYS)].filter(d => hit(g, uid, d)));
@@ -2892,7 +2944,7 @@ function render() {
   $('#bar').classList.toggle('away', inChat);   // a fade, not a pop, over the screen coming in
   $('#app').classList.toggle('chatting', inChat);
   $('#app').classList.toggle('out', held);
-  if (held) return $('#app').innerHTML = screenHTML();
+  if (held) return demoHere() ? demoPaint() : $('#app').innerHTML = screenHTML();
   // Still needed down at the tab bar, which offers the + for whichever group you are in.
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
   if (S.open && !g) S.open = null;
@@ -5105,8 +5157,8 @@ function groupHdr(g) {
       crew.n ? `${plural(crew.n, 'day')} everyone showed up` : 'starts the next day everyone shows up'}</p></div>`;
 }
 function groupView(g) {
-  const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id);
-  return groupHdr(g) + `<div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
+  const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id), demo = !!S.demo;
+  return (demo ? demoHdr(g) : groupHdr(g)) + `<div class="card"><div class="ghead big">${gav(g, 'xl')}<div><b>${esc(g.name)}</b>
       <span class="muted">${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}</span></div></div>
     ${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     ${g.forfeit && !S.noForfeits ? `<p class="forfeitline">Forfeit: <b>${esc(g.forfeit)}</b></p>` : ''}
@@ -5115,10 +5167,10 @@ function groupView(g) {
     ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
       <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
       Chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
-    <div class="row" style="margin-top:8px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button></div>
+    ${demo ? '' : `<div class="row" style="margin-top:8px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button></div>`}
     <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
-      <button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div>
-    <div class="row" style="margin-top:8px"><button class="ghost grow" onclick="manageDlg(${g.id})">Manage${g.muted ? ' \u00b7 muted' : ''}</button></div></div>
+      ${demo ? '' : `<button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button>`}</div>
+    ${demo ? '' : `<div class="row" style="margin-top:8px"><button class="ghost grow" onclick="manageDlg(${g.id})">Manage${g.muted ? ' \u00b7 muted' : ''}</button></div>`}</div>
   <h3>Today</h3>
   ${missLine(g)}
   <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row mrow"><div class="pst"><b class="num">${st}</b><small>${st === 1 ? 'day' : 'days'}</small></div>${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="qchips">${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div></div></div>`; }).join('')}</div>
@@ -6101,7 +6153,7 @@ const MENU_HOLD_MS = 450;          // longer than a story pause: this one opens 
 function unpress() { if (press) { clearTimeout(press.t); press = null; } }
 document.addEventListener('pointerdown', e => {
   pressDone = false;
-  if (e.button > 0) return;
+  if (e.button > 0 || e.target.closest('.demo')) return;      // the example's comments have no menu
   const c = e.target.closest('.clist .c:not(.pending)');
   const m = e.target.closest('#msgs .m:not(.pending)');
   if ((c || m) && !e.target.closest('.reactpick, .clk, .creply, .mrx')) {
@@ -6256,7 +6308,7 @@ function flagButton(p) {
 const tipKey = () => `flagTip:${me().id}`;
 const tipSeen = () => { try { return !!localStorage[tipKey()]; } catch (e) { return true; } };
 function flagTip(g) {
-  if (S.noFlags || S.tour || tipSeen()) return '';
+  if (S.noFlags || S.tour || S.demo || tipSeen()) return '';
   if (g ? g.members.length < 2 : !myGroups().some(x => x.members.length > 1)) return '';
   return `<div class="card tip"><div class="tiphead"><span class="tipicon"><svg viewBox="0 0 24 24" aria-hidden="true">${FLAG_PATH}</svg></span>
     <div><b>You can flag proof</b>
@@ -7135,7 +7187,7 @@ function welcomeView() {
   // signing up is joining that rather than signing up for nothing in particular.
   const inv = pendingJoin() ? S.invited : null;
   const does = inv ? doesLine(inv.quotas) : '';
-  return `<div class="welcome"><div class="brand">${LOGO(true)}<span>Quota</span></div>
+  return `<div class="welcome">${!inv && DEMO && S.demoLeft ? authTop('S.demoLeft=false;render();scrollTo(0,0)') : ''}<div class="brand">${LOGO(true)}<span>Quota</span></div>
     <div class="hero">${inv ? `<h1>${inv.inviter ? `${esc(inv.inviter)} invited you to ${esc(inv.name)}` : `You're invited to ${esc(inv.name)}`}</h1>
       <div class="invchips">${does ? `<span>${esc(does)}</span>` : ''}${inv.members ? `<span>${plural(inv.members, 'person').replace('persons', 'people')}</span>` : ''}${inv.forfeit ? `<span>Forfeit: ${esc(inv.forfeit)}</span>` : ''}</div>
       <p>Post proof before midnight, ${inv.forfeit ? 'or owe the crew the forfeit' : 'every day'}. Make an account and you're in the crew${inv.inviter ? ` and friends with ${esc(inv.inviter)}` : ''}, nothing to accept.</p>`
@@ -7200,6 +7252,248 @@ function installView(a) {
       <ol>${steps.map(t => `<li>${t}</li>`).join('')}</ol></div>
     <button class="ghost" onclick="S.installAfter=null;render();scrollTo(0,0)">Not now</button></div>`;
 }
+// ---- the example crews
+// Somebody who has never been here opens the app on a crew rather than on a form: what the
+// app is for, shown, before anything is asked of them. The crews are data, demo/crews.json
+// and the clips beside it, so they change without this file changing (README, "Example
+// crews"). Nothing in them is a real account and nothing here reaches Supabase: the page is
+// drawn by the app's own screens, run against a state of their own (demoState), with every
+// handler taken off what they draw and every tap caught before the app's own code sees it.
+//
+// Off until DEMO_READY, so production is what it was until the real clips are in. ?demo on
+// the address shows it anyway, which is how it gets looked at live first.
+const DEMO_READY = false;
+const DEMO_YOU = 'demo-you';
+let DEMO = null;                           // {crews, states, c: the crew on screen}
+let DV = null;                             // the full-screen viewer: {c, i, end, first}
+const demoWanted = () => DEMO_READY || /[?&]demo(?:[=&]|$)/.test(location.search);
+// Signed out, on the way in, and not arriving on an invite, which has its own screen.
+// S.demoLeft is "Start your crew": the ways in, with a way back to here.
+const demoHere = () => !!DEMO && !S.demoLeft && !S.me && !S.legal && !S.booting && !S.loadFailed
+  && S.auth === 'welcome' && !pendingJoin();
+async function loadDemo() {
+  if (!demoWanted() || pendingJoin()) return;
+  try {
+    const res = await fetch('/demo/crews.json', {cache: 'no-cache'});
+    if (!res.ok) throw new Error(`demo/crews.json: ${res.status}`);
+    const crews = ((await res.json()).crews || []).filter(c => c && c.members && c.members.length && c.posts && c.posts.length);
+    if (!crews.length) return;
+    DEMO = {crews, states: crews.map(demoState), c: 0};
+  } catch (e) { return console.error('Quota: no example crews', e); }   // the welcome screen, as before
+  render();
+}
+const demoUrl = f => f ? '/' + String(f).replace(/^\/+/, '') : '';
+// One crew as the app's own state: a group you are looking at but not in, its people, its
+// posts, and a history of days behind each streak so the numbers the app works out for
+// itself (the board, who has not posted) agree with the ones in the file. daysAgo is
+// counted from the viewer's today, so the example never goes stale.
+function demoState(c, ci) {
+  const st = freshS(), gid = ci + 1, uid = k => `demo:${c.id}:${k}`, metric = c.metric, target = +c.target || 1;
+  Object.assign(st, {demo: true, demoCrew: c, booting: false, noForfeits: !c.forfeit, feedEnd: {[gid]: true}});
+  st.me = st.profiles[DEMO_YOU] = {id: DEMO_YOU, username: 'you', display_name: 'You'};
+  for (const m of c.members) st.profiles[uid(m.key)] = {id: uid(m.key), username: m.username || m.key, display_name: m.name};
+  const longest = Math.max(...c.members.map(m => +m.streak || 0));
+  st.groups = [{id: gid, name: c.name, quotas: [{metric, target}], forfeit: c.forfeit || null, members: c.members.map(m => uid(m.key)),
+    active_days: [...ALLDAYS], created_at: new Date(Date.now() - (longest + 7) * 864e5).toISOString()}];
+  const now = Date.now(), midnight = new Date(`${today()}T00:00`).getTime();
+  st.posts = c.posts.map((p, i) => {
+    const ago = Math.max(0, +p.daysAgo || 0), day = daysAgo(ago), m = c.members.find(x => x.key === p.member) || c.members[0];
+    // Today's went up over the last few hours, never before midnight; older ones in the day.
+    const ts = ago ? midnight - ago * 864e5 + (7 + (i * 3) % 12) * 36e5 : Math.max(midnight + (i + 1) * 6e4, now - (i + 1) * 41 * 6e4);
+    return {id: 9000 + ci * 100 + i, groupId: gid, userId: uid(m.key), metric, amount: +p.amount || target, caption: p.caption || '',
+      path: p.media, url: demoUrl(p.media), poster: demoUrl(p.poster), day, ts, at: new Date(ts).toISOString(),
+      dayN: Math.max(1, (+m.streak || 1) - ago)};
+  }).sort((a, b) => b.ts - a.ts);
+  for (const p of st.posts) {
+    const src = c.posts[p.id - 9000 - ci * 100], others = st.groups[0].members.filter(u => u !== p.userId);
+    (src.comments || []).forEach((x, j) => st.comments.push({id: p.id * 10 + j, postId: p.id, userId: uid(x.member), body: x.body,
+      ts: Math.min(now, p.ts + (j + 1) * 9e5), replyTo: null, edited: false}));
+    st.likes.push(...others.map(u => ({p: p.id, u})));
+    st.reacts.push(...(src.reactions || []).map((e, j) => ({p: p.id, u: others[j % others.length], e})));
+  }
+  // Each streak as days done: up to today for anybody who has posted today, up to
+  // yesterday for anybody who has not yet. Joined the day it started, so nobody owes.
+  for (const m of c.members) {
+    const n = Math.max(1, +m.streak || 1), u = uid(m.key), inToday = st.posts.some(p => p.userId === u && p.day === today());
+    for (let x = inToday ? 0 : 1; x < (inToday ? n : n + 1); x++) {
+      const d = daysAgo(x), did = st.posts.filter(p => p.userId === u && p.day === d).reduce((a, p) => a + p.amount, 0);
+      st.totals.push({g: gid, u, m: metric, d, n: Math.max(target, did)});
+    }
+    st.joined[`${gid}|${u}`] = new Date(`${daysAgo(inToday ? n - 1 : n)}T12:00`).getTime();
+  }
+  return st;
+}
+// The app's screens, drawn against an example crew's state rather than the real one.
+function inDemo(st, fn) { const real = S; S = st; try { return fn(); } finally { S = real; } }
+// What the group page leads with in place of your own streak, which there is none of yet.
+function demoHdr(g) {
+  const c = S.demoCrew, top = c.members.reduce((a, m) => (+m.streak || 0) > (+a.streak || 0) ? m : a);
+  return `<div class="hdr"><div class="big"><b class="num">${+top.streak || 0}</b><div>day streak<small>${esc(top.name)}'s, the longest in this crew</small></div></div>
+    <p class="crewline">Crew bonus: ${+c.crewBonusDays ? `${plural(+c.crewBonusDays, 'day')} everyone showed up` : 'starts the next day everyone shows up'}</p></div>`;
+}
+const demoChips = (on, act) => `<div class="dchips">${DEMO.crews.map((c, i) =>
+  `<button type="button" data-demo="${act}" data-i="${i}" class="${i === on ? 'on' : ''}">${esc(c.label || c.metric)}</button>`).join('')}</div>`;
+function demoView() {
+  const st = DEMO.states[DEMO.c];
+  return `<div class="demo">
+    <div class="dtop"><div class="dbar"><div class="drow"><b>Example crew</b><button type="button" class="dlog" data-demo="login">Log in</button></div>
+      ${demoChips(DEMO.c, 'crew')}</div></div>
+    ${inDemo(st, () => groupView(st.groups[0]))}
+    <div class="dfoot"><p>This is a real crew, set up as an example.</p>
+      <div class="dbtns"><button type="button" class="primary" data-demo="start">Start your crew</button><button type="button" data-demo="login">Log in</button></div></div></div>`;
+}
+// Only rebuilt when the crew changes: a render for any other reason would restart the clip.
+function demoPaint() {
+  const box = $('#app'), key = String(DEMO.c);
+  if (box.dataset.demo === key && box.querySelector('.demo')) return;
+  box.innerHTML = demoView();
+  box.dataset.demo = key;
+  // Inert, and given its files straight away: there is nothing to sign and nothing to wait for.
+  for (const el of box.querySelectorAll('*')) for (const a of [...el.attributes]) if (a.name.startsWith('on')) el.removeAttribute(a.name);
+  for (const el of box.querySelectorAll('.proof')) {
+    if (el.dataset.poster) el.poster = el.dataset.poster;
+    if (el.tagName === 'IMG' && el.dataset.src) el.src = el.dataset.src;
+  }
+  const v = box.querySelector('video.proof');   // the first one that is not locked: locked ones have none
+  if (v) demoPlay(v);
+}
+function demoPlay(v) {
+  v.muted = true; v.loop = true; v.playsInline = true;
+  if (!v.getAttribute('src') && v.dataset.src) v.src = v.dataset.src;
+  const r = v.closest('.reel'); if (r) r.classList.add('playing', 'started');
+  const go = v.play(); if (go && go.catch) go.catch(() => {});
+}
+const demoWho = (st, el) => { const card = el && el.closest && el.closest('[data-post]'), p = card && st.posts.find(x => x.id === +card.dataset.post);
+  return p ? name(st.profiles[p.userId]) : st.demoCrew.name; };
+// Anything that needs an account asks for one, kindly, and leaves you where you were.
+function demoJoin(who) {
+  dlg(`<h2>Join to cheer ${esc(who)} on</h2>
+    <p class="muted">Reactions, comments and your own streak start with an account. It takes a minute.</p>
+    <button type="button" class="primary" style="width:100%;margin-top:18px" onclick="dlg();demoStart()">Start your crew</button>
+    <button type="button" class="ghost" style="width:100%;margin-top:8px" onclick="dlg()">Keep looking</button>`);
+}
+function demoStart() { demoClose(); S.demoLeft = true; render(); scrollTo(0, 0); }
+function demoLogin() { demoClose(); S.auth = 'login'; render(); scrollTo(0, 0); }
+function demoDo(act, i, el) {
+  if (act === 'start') return demoStart();
+  if (act === 'login') return demoLogin();
+  if (act === 'close') return demoClose();
+  if (act === 'crew') { DEMO.c = i; render(); return scrollTo(0, 0); }
+  if (act === 'vcrew') return demoSwitch(i - DV.c);
+  if (act === 'join') return demoJoin(demoWho(DEMO.states[DV ? DV.c : DEMO.c], el));
+}
+// Every tap on the example lands here first. The few that belong to it do what they say; a
+// clip opens the viewer; anything else that could be pressed asks for an account.
+for (const t of ['pointerdown', 'dblclick', 'contextmenu']) $('#app').addEventListener(t, e => { if (e.target.closest && e.target.closest('.demo')) e.stopPropagation(); }, true);
+$('#app').addEventListener('submit', e => { if (e.target.closest('.demo')) { e.preventDefault(); e.stopPropagation(); } }, true);
+$('#app').addEventListener('focusin', e => {
+  const f = e.target.closest && e.target.closest('.demo input, .demo textarea');
+  if (f) { f.blur(); demoJoin(demoWho(DEMO.states[DEMO.c], f)); }
+});
+$('#app').addEventListener('click', e => {
+  if (!e.target.closest || !e.target.closest('.demo')) return;
+  e.stopPropagation(); e.preventDefault();
+  const t = e.target.closest('[data-demo], .reel, button, a, input, textarea, select, label, [tabindex]');
+  if (!t) return;
+  if (t.dataset.demo) return demoDo(t.dataset.demo, +t.dataset.i, t);
+  const card = t.closest('.reel') && t.closest('[data-post]');
+  if (card) return demoOpen(+card.dataset.post);
+  demoJoin(demoWho(DEMO.states[DEMO.c], t));
+}, true);
+
+// The same crews a clip at a time, the whole screen each: up and down through a crew's
+// posts, newest first, and sideways from one crew to the next.
+const demoPosts = c => DEMO.states[c].posts;
+function demoOpen(postId) {
+  DV = {c: DEMO.c, i: Math.max(0, demoPosts(DEMO.c).findIndex(p => p.id === postId)), end: false, first: true};
+  $('#dview').hidden = false;
+  document.documentElement.classList.add('dviewing');
+  demoShow();
+}
+// A finger moved far enough is a swipe: along whichever way it moved most. Less is a tap.
+$('#dview').addEventListener('pointerdown', e => { if (DV) { DV.at = {x: e.clientX, y: e.clientY}; DV.moved = 0; } });
+$('#dview').addEventListener('pointerup', e => {
+  const a = DV && DV.at; if (!a) return;
+  DV.at = null;
+  const dx = e.clientX - a.x, dy = e.clientY - a.y;
+  DV.moved = Math.max(Math.abs(dx), Math.abs(dy));
+  if (DV.moved < 40) return;
+  Math.abs(dy) > Math.abs(dx) ? demoStep(dy < 0 ? 1 : -1) : demoSwitch(dx < 0 ? 1 : -1);
+});
+$('#dview').addEventListener('click', e => {
+  if (!DV || (e.detail && DV.moved >= 40)) return;                 // the end of a swipe, not a tap (a key has no swipe)
+  const t = e.target.closest('[data-demo]');
+  if (t) return demoDo(t.dataset.demo, +t.dataset.i, t);
+  const v = $('#dview video.dmedia');                               // anywhere else on a clip: sound
+  if (v) v.muted = !v.muted;
+});
+function demoClose() {
+  if (!DV) return;
+  const c = DV.c; DV = null;
+  $('#dview').hidden = true;
+  $('#dview').innerHTML = '';              // and the clip in it with it
+  document.documentElement.classList.remove('dviewing');
+  if (DEMO && c !== DEMO.c) { DEMO.c = c; render(); scrollTo(0, 0); }
+}
+function demoShow() {
+  const el = $('#dview'); if (!DV) return;
+  const top = `<div class="dvtop">${DV.end ? '' : `<div class="ticks">${demoPosts(DV.c).map((_, j) => `<i class="${j <= DV.i ? 'on' : ''}"></i>`).join('')}</div>`}
+    <div class="dvrow"><button type="button" class="dvx" data-demo="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      ${demoChips(DV.end ? -1 : DV.c, 'vcrew')}<button type="button" class="dlog" data-demo="login">Log in</button></div></div>`;
+  if (DV.end) return el.innerHTML = top + demoEnd();
+  const c = DEMO.crews[DV.c], st = DEMO.states[DV.c], p = st.posts[DV.i], u = st.profiles[p.userId];
+  const shut = inDemo(st, () => locked(p)), cs = st.comments.filter(x => x.postId === p.id);
+  const cheers = st.likes.filter(l => l.p === p.id).length + st.reacts.filter(r => r.p === p.id).length;
+  el.innerHTML = `${top}<div class="dslide">
+      ${shut ? inDemo(st, () => lockedReel(p)) : isPhoto(p) ? `<img class="dmedia" src="${esc(p.url)}" alt="">`
+        : `<video class="dmedia" src="${esc(p.url)}"${p.poster ? ` poster="${esc(p.poster)}"` : ''} muted playsinline loop></video>`}
+      <div class="dinfo">${shut ? '' : `<span class="dbadge">+${effort(p)}</span>`}
+        <b>${esc(name(u))} · day ${p.dayN}</b>
+        <span>${esc(c.name)} · ${plural(c.members.length, 'person').replace('persons', 'people')} · ${plural(+c.crewBonusDays || 0, 'day')} everyone showed up</span>
+        ${!shut && cs[0] ? `<p class="dcmt"><b>${esc(name(st.profiles[cs[0].userId]))}</b> ${esc(cs[0].body)}</p>` : ''}</div>
+      ${shut ? '' : `<div class="dside">
+        <button type="button" data-demo="join" data-post="${p.id}" aria-label="${plural(cheers, 'reaction')}"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><i>${num(cheers)}</i></button>
+        <button type="button" data-demo="join" data-post="${p.id}" aria-label="${plural(cs.length, 'comment')}"><svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg><i>${num(cs.length)}</i></button></div>`}
+      ${DV.first ? '<p class="dhint">Swipe up for the next one</p>' : ''}</div>
+    <div class="dvfoot"><button type="button" class="primary" data-demo="start">Start your crew</button></div>`;
+  const v = el.querySelector('video.dmedia');
+  if (v) { v.muted = true; const go = v.play(); if (go && go.catch) go.catch(() => {}); }
+}
+// Up and down. Past a crew's last post is the next crew's first; past the last crew's last
+// is the end card.
+function demoStep(d) {
+  if (!DV) return;
+  DV.first = false;
+  if (DV.end) { if (d < 0) DV.end = false; return demoShow(); }
+  const n = demoPosts(DV.c).length;
+  DV.i += d;
+  if (DV.i >= n) {
+    if (DV.c + 1 < DEMO.crews.length) { DV.c++; DV.i = 0; } else { DV.i = n - 1; DV.end = true; }
+  } else if (DV.i < 0) {
+    if (DV.c > 0) { DV.c--; DV.i = demoPosts(DV.c).length - 1; } else DV.i = 0;
+  }
+  demoShow();
+}
+function demoSwitch(d) {
+  if (!DV) return;
+  const c = (DV.end ? DEMO.crews.length - 1 : DV.c) + d;
+  if (c < 0 || c >= DEMO.crews.length) return;
+  Object.assign(DV, {c, i: 0, end: false, first: false});
+  demoShow();
+}
+addEventListener('keydown', e => {
+  if (!DV || $('#dlg').open) return;
+  const k = {ArrowDown: () => demoStep(1), ArrowUp: () => demoStep(-1), ArrowRight: () => demoSwitch(1), ArrowLeft: () => demoSwitch(-1), Escape: demoClose}[e.key];
+  if (k) { e.preventDefault(); k(); }
+});
+// After the last post of the last crew. Stage 2 puts "Your turn" here, a practice clip that
+// becomes your first post, so this card is the one thing it replaces.
+function demoEnd() {
+  return `<div class="dend"><h2>Your crew could look like this</h2>
+    <p>Pick a goal, bring your people, and post proof every day.</p>
+    <button type="button" class="primary" data-demo="start">Start your crew</button></div>`;
+}
+
 function authView(mode) {
   const signup = mode === 'signup', ways = signup ? '' : oauthButtons();
   return `<div class="auth">${authTop(`S.auth='welcome';render()`)}
@@ -11535,6 +11829,7 @@ render();
 restoreSnap().then(ok => { if (ok) render(); });   // what was here last time, while the fresh load is on its way
 load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
 peekProviders();
+loadDemo();
 // The browser saying it is back is the one moment worth trying without being asked.
 addEventListener('online', () => { render(); flushOutbox(); if (S.loadFailed || S.fromSnap || !me()) load(); });
 // Tried again every so often while the app is open, rather than only at the few moments
