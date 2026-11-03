@@ -2943,7 +2943,9 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => { document.documentElement.style.minHeight = '3000px'; });
   await page.evaluate(() => scrollTo(0, 800));
   await page.waitForTimeout(150);
-  await page.locator('.post .head .who').nth(1).click();
+  // Clicked from the page rather than by Playwright, which scrolls the name into view
+  // first and so moves the very place this is about.
+  await page.evaluate(() => document.querySelectorAll('.post .head .who')[1].click());
   await page.waitForTimeout(400);
   check('  a profile opened part way down remembers where that was',
     await page.evaluate(() => backY[backY.length - 1]) === 800,
@@ -2961,7 +2963,7 @@ await withPage(SIGNED_IN, async page => {
   // already behind it, which is the whole point: you can see where you are going before
   // you have committed to going there.
   await page.evaluate(() => scrollTo(0, 800));
-  await page.locator('.post .head .who').nth(1).click();
+  await page.evaluate(() => document.querySelectorAll('.post .head .who')[1].click());
   await page.waitForTimeout(450);
   await page.mouse.move(40, 500);
   await page.mouse.down();
@@ -5790,6 +5792,77 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
   await page.locator('#dlg button:has-text("Post first, invite later")').click();
   await page.waitForTimeout(400);
   check('    which opens the proof form for that group', /Post proof/.test(await page.locator('#dlg').innerHTML()));
+});
+
+// The walkthrough comes once, right after the first group, when the invite sheet goes.
+await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
+  await settle(page);
+  await page.locator('button:has-text("New group")').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=name]').fill('Mornings');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => /Invite your crew/.test(document.querySelector('#dlg').innerHTML), null, { timeout: 8000 }).catch(() => {});
+  check('the walkthrough waits for the invite sheet', await page.locator('.tour').count() === 0);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.tour .tbox', { timeout: 3000 }).catch(() => {});
+  const box = await page.locator('.tour .tbox').innerText().catch(() => '');
+  check('a new account that makes its first group sees step 1', /Your streak/.test(box) && /Today's goal fills up right here/.test(box), box);
+  await page.waitForTimeout(100);
+  const ring = await page.evaluate(() => { const r = document.querySelector('.tour .ring').getBoundingClientRect(), t = document.querySelector('.hdr .big').getBoundingClientRect();
+    return Math.abs(r.top - t.top) < 12 && Math.abs(r.width - t.width) < 16; });
+  check('  with the ring round the streak', ring);
+  check('  and the page underneath not dimmed', await page.evaluate(() => getComputedStyle(document.querySelector('.tour')).backgroundColor === 'rgba(0, 0, 0, 0)'));
+  await page.locator('.tour .next').click();
+  await page.waitForTimeout(200);
+  check('  Next goes on to Post proof', /Post proof/.test(await page.locator('.tour .tbox').innerText()));
+  await page.locator('.tour .skip').click();
+  await page.waitForTimeout(200);
+  check('  Skip ends it', await page.locator('.tour').count() === 0);
+  check('  and marks it done', await page.evaluate(() => localStorage['tour:u1'] === '1'));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => { S.tourDue = S.groups[0] && S.groups[0].id; maybeTour(); });
+  check('    and it does not come back after a reload', await page.locator('.tour').count() === 0);
+});
+
+// All six steps, the last one standing over the proof sheet and leaving it open. Sam has
+// posted today and you have not, so there is a locked post to point at and a day to do.
+await withPage({ ...NO_WHEEL, samToday: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => startTour());
+  const seen = [];
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(i === 5 ? 700 : 250);
+    seen.push(await page.locator('.tour:not([hidden]) .tbox b').first().innerText().catch(() => ''));
+    if (i < 5) await page.locator('.tour .next').click().catch(() => {});
+  }
+  check('the walkthrough goes through all six steps', seen.join('|') === "Your streak|Post proof|Your crew's proof|Add friends|Your crew|Your turn", seen.join('|'));
+  check('  the last one inside the sheet, so it is drawn over it', await page.evaluate(() => !!document.querySelector('#dlg .tour')));
+  check('  with no Skip', await page.locator('.tour .skip').count() === 0);
+  await page.locator('.tour .next').click();
+  await page.waitForTimeout(200);
+  check("  and Let's go leaves the proof sheet open", await page.locator('.tour').count() === 0 && /Post proof/.test(await page.locator('#dlg[open]').innerHTML().catch(() => '')));
+});
+
+// Help, from every screen once you are in.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const has = () => page.locator('#app .hdr button[aria-label="Help"]').count();
+  const on = [];
+  if (await has()) on.push('feed');
+  for (const t of ['groups', 'friends', 'profile']) { await page.evaluate(t => go(t), t); await page.waitForTimeout(150); if (await has()) on.push(t); }
+  await page.evaluate(() => openGroup(S.groups[0].id));
+  await page.waitForTimeout(400);
+  if (await has()) on.push('group');
+  check('the help button is on Feed, Groups, Friends, Profile and a group page', on.join() === 'feed,groups,friends,profile,group', on.join());
+  await page.locator('#app .hdr button[aria-label="Help"]').click();
+  await page.waitForTimeout(300);
+  const d = await page.locator('#dlg').innerText();
+  check('  it opens the Help sheet', /^Help/m.test(d) && /How Quota works/.test(d) && /Watch the intro again/.test(d) && /FAQ/.test(d) && /Contact us/.test(d) && /Community guidelines/.test(d), d.slice(0, 300));
+  await page.locator('#dlg button:has-text("How Quota works")').click();
+  await page.waitForTimeout(300);
+  const b = await page.locator('#dlg').innerText();
+  check('  and How Quota works opens from there', /How Quota works/.test(b) && /One pass a month covers a miss/.test(b) && /Spin for a bonus challenge on spin day/.test(b), b.slice(0, 300));
 });
 
 // Proof can be a picture as well as a clip — both come off the camera.
