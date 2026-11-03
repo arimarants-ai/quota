@@ -958,6 +958,41 @@ button.dlog{background:none;color:#2fd36f;padding:4px 2px;font-size:14px}
 .dend{position:absolute;inset:0;display:grid;place-content:center;gap:12px;padding:24px;text-align:center}
 .dend h2{margin:0;font-size:28px}
 .dend p{margin:0 0 10px;opacity:.8}
+/* ---- your turn ----
+   The screens after the example: what to do, the camera's way in, and the practice back. */
+.dvstep{flex:1;text-align:center;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.dturn{position:absolute;inset:0;overflow-y:auto;touch-action:pan-y;display:flex;flex-direction:column;gap:12px;
+  padding:calc(96px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto}
+.dturn h2{margin:0;font-size:27px;line-height:1.15}
+.dkick{margin:0;color:#2fd36f;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.dsub{margin:0;opacity:.8;font-weight:600}
+.dpicks{display:grid;gap:8px;margin:6px 0}
+.dpick{display:flex;align-items:center;gap:12px;padding:14px;margin:0;color:#fff;font-size:inherit;border:1.5px solid rgba(255,255,255,.18);border-radius:14px;cursor:pointer}
+.dpick.on{border-color:#2fd36f;background:rgba(47,211,111,.1)}
+.dpick input{accent-color:#2fd36f;width:20px;height:20px;margin:0;flex:none}
+.dpick b{display:block;font-size:16px}
+.dpick em{display:block;font-style:normal;font-size:13px;opacity:.7;font-weight:600;margin-top:2px}
+.dturn .primary{width:100%}
+.dnot{background:none;color:#fff;opacity:.75;font-size:14px;padding:8px}
+.dwhat{margin:8px 0 0;font-family:Oswald;font-size:44px;font-weight:600;text-transform:uppercase;line-height:1}
+.drec .row{margin-top:10px}
+.dproof{position:relative;aspect-ratio:4/5;max-height:42vh;border-radius:14px;overflow:hidden;background:#111;flex:none}
+.dproof .dbadge{position:absolute;right:10px;top:10px;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:14px;padding:5px 10px;text-transform:uppercase}
+.dpop{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:4px}
+.dpop i{font-style:normal;font-size:26px;animation:dpop .5s calc(.5s + var(--i) * .35s) cubic-bezier(.2,.9,.3,1.4) both}
+@keyframes dpop{from{opacity:0;transform:translateY(24px) scale(.4)}}
+.dwill{border:1.5px dashed rgba(47,211,111,.6);background:rgba(47,211,111,.08);border-radius:14px;padding:14px 16px}
+.dwill b{display:block;font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#2fd36f}
+.dwill ul{margin:8px 0 0;padding-left:18px;font-weight:600;font-size:14px;line-height:1.7}
+.campract{position:absolute;left:0;right:0;top:calc(64px + env(safe-area-inset-top));z-index:3;text-align:center;color:#fff;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.campract b{display:inline-block;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:15px;padding:5px 12px;text-transform:uppercase;text-shadow:none}
+.campract span{display:block;margin-top:8px;font-size:13px;font-weight:700}
+.start .saved{background:var(--mktint);border-radius:14px;padding:13px 15px;margin-bottom:14px}
+.start .saved b{display:block;font-size:15px}
+.start .saved p{margin:3px 0 0;font-size:13.5px;color:var(--text);opacity:.8}
+.presets button.on{background:var(--mktint);box-shadow:inset 0 0 0 2px var(--mk)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:70;max-width:calc(100vw - 32px);
+  background:#16181b;color:#fff;border-radius:999px;padding:11px 18px;font-weight:700;font-size:14px;box-shadow:0 8px 24px -8px rgba(0,0,0,.4);animation:rise .3s both}
 /* ---- help ----
    On every screen once you are in, and muted, so it is there when you look for it and
    never competes with the thing the screen is for. */
@@ -1718,6 +1753,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 <input id="storyfile" type="file" accept="image/*,video/*" hidden onchange="storyFile(this)">
 <div id="drop" hidden aria-live="polite"></div>
 <div id="sendbar" hidden role="status"></div>
+<div id="toast" hidden role="status"></div>
 <div id="err" hidden role="alert"><span></span><button type="button" onclick="copyErr(this)">Copy</button><button type="button" class="rty" onclick="load()">Retry</button><button type="button" class="dis" onclick="hideErr()" aria-label="Dismiss">✕</button></div>
 <!-- The phone's own camera app, asked for with capture= on a file input: what the camera
      falls back to when this device cannot run Quota's. -->
@@ -1739,6 +1775,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
     <button type="button" class="cbtn" id="camflash" onclick="camFlashTap()" aria-label="Flash" hidden><svg viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 8-11h-6z"/></svg></button>
     <button type="button" class="cbtn" id="camtimer" onclick="camTimerTap()" aria-label="Timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2h5"/></svg></button>
   </div>
+  <div class="campract" id="campract" hidden></div>
   <p class="camzoom" id="camzoom" hidden></p>
   <p class="camnote" id="camnote" role="status" hidden></p>
   <div class="camwhy" id="camwhy" hidden><p></p>
@@ -1786,7 +1823,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v161';
+const BUILD = 'quota-v162';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2986,6 +3023,7 @@ function render() {
   const on = bar.querySelector('button.on'), ind = bar.querySelector('.ind');
   ind.style.setProperty('--o', on ? 1 : 0);
   if (on) ind.style.setProperty('--x', (on.offsetLeft + on.offsetWidth / 2 - 11) + 'px');
+  maybePractice();
   maybeTour();
 }
 
@@ -3264,6 +3302,7 @@ function feedView() {
     ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}</b></div>`).join('')
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
     + oweBanner()
+    + practiceNote()
     + storyRow()
     + flagsBar()
     + (gs.length ? flagTip() : '')
@@ -4585,6 +4624,7 @@ async function takePendingJoin() {
     if (gid) {
       await load(); openGroup(gid);
       if (first) S.tourDue = gid;          // after the install step, if there is one
+      if (first) S.tourFull = true;        // and all of it: nothing in the example was this
       // In a browser, the next thing is putting the app on the home screen. It comes after
       // the account rather than before, on purpose: on iPhone an installed app cannot see
       // anything Safari stored, so a code saved before installing would be lost on the way.
@@ -4623,11 +4663,19 @@ const PRESETS = [
   {name: 'Practice', metric: 'minutes of practice', target: 30, label: 'Practice 30 minutes'},
 ];
 const presetGroup = i => ({name: PRESETS[i].name, goal: '', quotas: [{metric: PRESETS[i].metric, target: PRESETS[i].target}]});
+// A group whose goal is what the practice was, at the size it was done.
+const practiceGroup = () => ({name: '', goal: '', quotas: [{metric: practice.metric, target: practice.amount}]});
 function needGroupView() {
+  // A practice waiting to be posted: its goal first and marked, and New group already set to
+  // it when there is no such goal among these.
+  const x = practiceToday(), at = x ? PRESETS.findIndex(p => p.metric === x.metric) : -1;
+  const order = at < 0 ? PRESETS.map((_, i) => i) : [at, ...PRESETS.map((_, i) => i).filter(i => i !== at)];
   return `<div class="auth start"><div class="word">${LOGO(true)}Quota</div>
+    ${x ? `<div class="saved"><b>Your ${esc(amountText(x))} ${x.amount === 1 ? 'is' : 'are'} saved</b>
+      <p>${x.amount === 1 ? 'It posts' : 'They post'} as your first proof today, as soon as your crew is made.</p></div>` : ''}
     <h2>Start your crew</h2><p>Quota is a group thing: proof goes to the people doing it with you. Pick a goal to start from, or make your own.</p>
-    <div class="presets">${PRESETS.map((x, i) => `<button type="button" onclick="groupDlg(presetGroup(${i}))">${esc(x.label)}<span>a day</span></button>`).join('')}</div>
-    <button class="primary" onclick="groupDlg()">New group</button>
+    <div class="presets">${order.map(i => `<button type="button"${i === at ? ' class="on"' : ''} onclick="groupDlg(presetGroup(${i}))">${esc(PRESETS[i].label)}<span>a day</span></button>`).join('')}</div>
+    <button class="primary" onclick="${x && at < 0 ? 'groupDlg(practiceGroup())' : 'groupDlg()'}">New group</button>
     <button class="alt" onclick="joinDlg()">Join with a link</button>
     <p class="muted small" style="margin-top:auto;padding-top:24px">Signed in as ${esc(name(me()))}. <button type="button" class="ghost" onclick="logout()">Log out</button></p></div>`;
 }
@@ -6835,7 +6883,7 @@ function helpDlg() {
   dlg(`<h2>Help</h2>
     <div class="list" style="margin:12px -18px 0">
       ${srow('book', 'How Quota works', 'The basics, in one screen', go, 'basicsDlg()')}
-      ${myGroups().length ? srow('play', 'Watch the intro again', 'The walkthrough from sign-up', go, 'dlg();startTour()') : ''}
+      ${myGroups().length ? srow('play', 'Watch the intro again', 'The walkthrough from sign-up', go, 'dlg();startTour(0,true)') : ''}
       ${srow('help', 'FAQ', 'Common questions, on hitquota.app', go, `window.open('${SITE}/faq','_blank')`)}
       ${srow('mail', 'Contact us', `${CONTACT}, we reply within a day`, go, 'supportDlg()')}
       ${srow('shield', 'Community guidelines', "What goes on Quota, and what doesn't", go, "dlg();openLegal('guidelines')")}
@@ -6879,14 +6927,23 @@ const tourKey = () => `tour:${me().id}`;
 // is written the moment the walkthrough starts, before the save can have landed.
 function maybeTour() {
   const m = me();
-  if (!m || S.tour || S.tourHold || !myGroups().length || $('#dlg').open || $('#app').classList.contains('out')) return;
+  if (!m || S.tour || S.tourHold || practiceWaits() || !myGroups().length || $('#dlg').open || $('#app').classList.contains('out')) return;
   const due = 'tour_seen_at' in m ? !m.tour_seen_at : !!S.tourDue, gid = S.tourDue;
   S.tourDue = 0;
   if (!due) return;
   try { if (localStorage[tourKey()]) return; } catch (e) { return; }
   startTour(gid);
 }
-function startTour(gid) {
+// The steps somebody still needs. What the example already showed them is left out: a
+// locked post seen there is "Your crew's proof", and a practice that went up as their first
+// proof is "Post proof" and "Your turn". Somebody who came in on an invite, or who never
+// saw the example, gets all six, and so does anybody asking for it again from Help.
+function tourSteps(all) {
+  let lock = false, did = false;
+  if (!all && !S.tourFull) try { lock = !!localStorage['seen:lock']; did = !!localStorage['did:practice']; } catch (e) {}
+  return TOUR.map((_, i) => i).filter(i => !(lock && TOUR[i].b === BASICS[2]) && !(did && (TOUR[i].b === BASICS[1] || TOUR[i].sheet)));
+}
+function startTour(gid, all) {
   if (S.tour) return;
   const gs = myGroups();
   gid = gid || (S.open && gs.some(x => x.id === S.open) ? S.open : gs[0] && gs[0].id);
@@ -6905,28 +6962,29 @@ function startTour(gid) {
   lay.className = 'tour';
   lay.innerHTML = '<i class="ring"></i><div class="tbox" role="dialog" aria-live="polite"></div>';
   document.body.append(lay);
-  S.tour = {gid, n: -1, lay};
+  S.tour = {gid, n: -1, lay, steps: tourSteps(all)};
   render();                                // the flag tip goes while this is on
   tourStep(0);
   requestAnimationFrame(tourPlace);
 }
-function tourStep(n) {
+// k is the place in this run's steps; n is which of TOUR that is.
+function tourStep(k) {
   const t = S.tour;
   if (!t) return;
-  for (; n < TOUR.length; n++) {
-    const s = TOUR[n];
+  for (; k < t.steps.length; k++) {
+    const n = t.steps[k], s = TOUR[n];
     if (s.skip && s.skip(t.gid)) continue;
     if (s.go) s.go(t.gid);
     const el = s.el();
     if (!el) continue;
     el.scrollIntoView({block: 'center'});
     t.n = n;
-    const last = n === TOUR.length - 1, box = t.lay.lastChild;
+    const last = k === t.steps.length - 1, box = t.lay.lastChild;
     box.innerHTML = `<div class="th"><svg viewBox="0 0 24 24" aria-hidden="true">${SICON[s.b.icon]}</svg>
         <div><b>${esc(s.b.title)}</b><p>${esc(s.b.tour)}</p></div></div>
       <div class="tf">${last ? '<span></span>' : '<button type="button" class="skip" onclick="endTour()">Skip</button>'}
-        <span class="dots" aria-label="Step ${n + 1} of ${TOUR.length}">${TOUR.map((_, i) => `<i class="${i === n ? 'on' : ''}"></i>`).join('')}</span>
-        <button type="button" class="next" onclick="${last ? 'endTour()' : `tourStep(${n + 1})`}">${last ? "Let's go" : 'Next'}</button></div>`;
+        <span class="dots" aria-label="Step ${k + 1} of ${t.steps.length}">${t.steps.map((_, i) => `<i class="${i === k ? 'on' : ''}"></i>`).join('')}</span>
+        <button type="button" class="next" onclick="${last ? 'endTour()' : `tourStep(${k + 1})`}">${!last ? 'Next' : s.sheet ? "Let's go" : 'Done'}</button></div>`;
     // Back out of the sheet, if the step before was in it.
     if (!s.sheet && t.lay.parentNode !== document.body) document.body.append(t.lay);
     t.lay.hidden = !!s.sheet;              // until the sheet has finished coming up
@@ -6973,7 +7031,7 @@ function tourPlace() {
   box.classList.toggle('up', up);
   box.style.setProperty('--ax', `${Math.min(Math.max(20, r.left + r.width / 2 - left), bw - 20)}px`);
 }
-$('#dlg').addEventListener('close', () => maybeTour());
+$('#dlg').addEventListener('close', () => { maybePractice(); maybeTour(); });
 
 // Deleting the account, from inside the app, which both stores require. Typing the word is
 // the confirmation: a button alone is one stray tap from losing everything.
@@ -7265,7 +7323,7 @@ function installView(a) {
 const DEMO_READY = false;
 const DEMO_YOU = 'demo-you';
 let DEMO = null;                           // {crews, states, c: the crew on screen}
-let DV = null;                             // the full-screen viewer: {c, i, end, first}
+let DV = null;                             // the full-screen viewer: {c, i, mode, first, pick}
 const demoWanted = () => DEMO_READY || /[?&]demo(?:[=&]|$)/.test(location.search);
 // Signed out, on the way in, and not arriving on an invite, which has its own screen.
 // S.demoLeft is "Start your crew": the ways in, with a way back to here.
@@ -7278,7 +7336,7 @@ async function loadDemo() {
     if (!res.ok) throw new Error(`demo/crews.json: ${res.status}`);
     const crews = ((await res.json()).crews || []).filter(c => c && c.members && c.members.length && c.posts && c.posts.length);
     if (!crews.length) return;
-    DEMO = {crews, states: crews.map(demoState), c: 0};
+    DEMO = {crews, states: crews.map(demoState), c: 0, viewed: new Set(), turned: false};
   } catch (e) { return console.error('Quota: no example crews', e); }   // the welcome screen, as before
   render();
 }
@@ -7356,6 +7414,12 @@ function demoPaint() {
   }
   const v = box.querySelector('video.proof');   // the first one that is not locked: locked ones have none
   if (v) demoPlay(v);
+  // Seeing a locked post is what lets the walkthrough leave "Your crew's proof" out later.
+  // Seeing it, not opening the page: at least half of one on the screen.
+  if (lockObs) lockObs.disconnect();
+  if (!self.IntersectionObserver) return;
+  lockObs = new IntersectionObserver(es => { if (es.some(e => e.intersectionRatio >= .5)) { sawLock(); lockObs.disconnect(); } }, {threshold: .5});
+  box.querySelectorAll('.lockedreel').forEach(el => lockObs.observe(el));
 }
 function demoPlay(v) {
   v.muted = true; v.loop = true; v.playsInline = true;
@@ -7381,6 +7445,8 @@ function demoDo(act, i, el) {
   if (act === 'crew') { DEMO.c = i; render(); return scrollTo(0, 0); }
   if (act === 'vcrew') return demoSwitch(i - DV.c);
   if (act === 'join') return demoJoin(demoWho(DEMO.states[DV ? DV.c : DEMO.c], el));
+  if (act === 'practice' || act === 'turn') { DV.mode = act === 'turn' ? 'turn' : 'rec'; return demoShow(); }
+  if (act === 'cam' || act === 'photo') return openCam('practice', act === 'photo');
 }
 // Every tap on the example lands here first. The few that belong to it do what they say; a
 // clip opens the viewer; anything else that could be pressed asks for an account.
@@ -7402,48 +7468,73 @@ $('#app').addEventListener('click', e => {
 }, true);
 
 // The same crews a clip at a time, the whole screen each: up and down through a crew's
-// posts, newest first, and sideways from one crew to the next.
+// posts, newest first, and sideways from one crew to the next. Then "Your turn": after the
+// fifth post, or at the end, whichever is first and only once, a practice clip of your own.
+// DV.mode is which of those is on screen: 'post', 'turn' (the picks), 'rec' (Record or
+// Photo) or 'done' (the practice, back from the camera).
 const demoPosts = c => DEMO.states[c].posts;
+const TURN_AFTER = 5;
 function demoOpen(postId) {
-  DV = {c: DEMO.c, i: Math.max(0, demoPosts(DEMO.c).findIndex(p => p.id === postId)), end: false, first: true};
+  DV = {c: DEMO.c, i: Math.max(0, demoPosts(DEMO.c).findIndex(p => p.id === postId)), mode: 'post', first: true, pick: 0};
   $('#dview').hidden = false;
   document.documentElement.classList.add('dviewing');
   demoShow();
 }
 // A finger moved far enough is a swipe: along whichever way it moved most. Less is a tap.
+// Only between posts: the other screens have buttons on them, and scroll on a small phone.
 $('#dview').addEventListener('pointerdown', e => { if (DV) { DV.at = {x: e.clientX, y: e.clientY}; DV.moved = 0; } });
+// A mouse dragging a picture drags the picture, and the swipe never ends. Not here.
+$('#dview').addEventListener('dragstart', e => e.preventDefault());
 $('#dview').addEventListener('pointerup', e => {
   const a = DV && DV.at; if (!a) return;
   DV.at = null;
   const dx = e.clientX - a.x, dy = e.clientY - a.y;
   DV.moved = Math.max(Math.abs(dx), Math.abs(dy));
-  if (DV.moved < 40) return;
+  if (DV.moved < 40 || DV.mode !== 'post') return;
   Math.abs(dy) > Math.abs(dx) ? demoStep(dy < 0 ? 1 : -1) : demoSwitch(dx < 0 ? 1 : -1);
 });
 $('#dview').addEventListener('click', e => {
-  if (!DV || (e.detail && DV.moved >= 40)) return;                 // the end of a swipe, not a tap (a key has no swipe)
+  if (!DV || (e.detail && DV.mode === 'post' && DV.moved >= 40)) return;   // the end of a swipe, not a tap (a key has no swipe)
   const t = e.target.closest('[data-demo]');
   if (t) return demoDo(t.dataset.demo, +t.dataset.i, t);
-  const v = $('#dview video.dmedia');                               // anywhere else on a clip: sound
+  const v = DV.mode === 'post' && $('#dview video.dmedia');               // anywhere else on a clip: sound
   if (v) v.muted = !v.muted;
+});
+// Choosing what to do changes what the button says, and nothing else.
+$('#dview').addEventListener('change', e => {
+  if (!DV || e.target.name !== 'dpick') return;
+  DV.pick = +e.target.value;
+  document.querySelectorAll('#dview .dpick').forEach((l, i) => l.classList.toggle('on', i === DV.pick));
+  const go = $('#dview .dgo'); if (go) go.textContent = `Start: ${turnPicks()[DV.pick].title}`;
 });
 function demoClose() {
   if (!DV) return;
   const c = DV.c; DV = null;
   $('#dview').hidden = true;
   $('#dview').innerHTML = '';              // and the clip in it with it
+  if (takeUrl) { try { URL.revokeObjectURL(takeUrl); } catch (e) {} takeUrl = null; }
   document.documentElement.classList.remove('dviewing');
   if (DEMO && c !== DEMO.c) { DEMO.c = c; render(); scrollTo(0, 0); }
 }
 function demoShow() {
   const el = $('#dview'); if (!DV) return;
-  const top = `<div class="dvtop">${DV.end ? '' : `<div class="ticks">${demoPosts(DV.c).map((_, j) => `<i class="${j <= DV.i ? 'on' : ''}"></i>`).join('')}</div>`}
-    <div class="dvrow"><button type="button" class="dvx" data-demo="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      ${demoChips(DV.end ? -1 : DV.c, 'vcrew')}<button type="button" class="dlog" data-demo="login">Log in</button></div></div>`;
-  if (DV.end) return el.innerHTML = top + demoEnd();
+  const close = `<button type="button" class="dvx" data-demo="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  const login = `<button type="button" class="dlog" data-demo="login">Log in</button>`;
+  if (DV.mode !== 'post') {
+    el.innerHTML = `<div class="dvtop">${DV.mode === 'turn' ? `<div class="ticks">${'<i class="on"></i>'.repeat(TURN_AFTER)}</div>` : ''}
+      <div class="dvrow">${close}<span class="dvstep">${DV.mode === 'turn' ? `${TURN_AFTER} of ${TURN_AFTER}` : ''}</span>${login}</div></div>
+      ${DV.mode === 'turn' ? demoEnd() : DV.mode === 'rec' ? demoRec() : demoDone()}`;
+    const v = el.querySelector('video.dmedia');
+    if (v) { v.muted = true; const go = v.play(); if (go && go.catch) go.catch(() => {}); }
+    return;
+  }
+  const top = `<div class="dvtop"><div class="ticks">${demoPosts(DV.c).map((_, j) => `<i class="${j <= DV.i ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="dvrow">${close}${demoChips(DV.c, 'vcrew')}${login}</div></div>`;
   const c = DEMO.crews[DV.c], st = DEMO.states[DV.c], p = st.posts[DV.i], u = st.profiles[p.userId];
   const shut = inDemo(st, () => locked(p)), cs = st.comments.filter(x => x.postId === p.id);
   const cheers = st.likes.filter(l => l.p === p.id).length + st.reacts.filter(r => r.p === p.id).length;
+  DEMO.viewed.add(p.id);
+  if (shut) sawLock();
   el.innerHTML = `${top}<div class="dslide">
       ${shut ? inDemo(st, () => lockedReel(p)) : isPhoto(p) ? `<img class="dmedia" src="${esc(p.url)}" alt="">`
         : `<video class="dmedia" src="${esc(p.url)}"${p.poster ? ` poster="${esc(p.poster)}"` : ''} muted playsinline loop></video>`}
@@ -7459,39 +7550,177 @@ function demoShow() {
   const v = el.querySelector('video.dmedia');
   if (v) { v.muted = true; const go = v.play(); if (go && go.catch) go.catch(() => {}); }
 }
+// "Your turn", in place of whatever was next, once: after five posts, or past the end.
+function turnNow() {
+  DEMO.turned = true;
+  const m = DEMO.crews[DV.c].metric;
+  DV.pick = Math.max(0, turnPicks().findIndex(x => x.metric === (m === 'pushups' || m === 'pages' ? m : 'squats')));
+  DV.mode = 'turn';
+  demoShow();
+}
 // Up and down. Past a crew's last post is the next crew's first; past the last crew's last
-// is the end card.
+// is "Your turn", or nowhere once that has been and gone.
 function demoStep(d) {
-  if (!DV) return;
+  if (!DV || DV.mode !== 'post') return;
   DV.first = false;
-  if (DV.end) { if (d < 0) DV.end = false; return demoShow(); }
+  if (d > 0 && !DEMO.turned && DEMO.viewed.size >= TURN_AFTER) return turnNow();
   const n = demoPosts(DV.c).length;
   DV.i += d;
   if (DV.i >= n) {
-    if (DV.c + 1 < DEMO.crews.length) { DV.c++; DV.i = 0; } else { DV.i = n - 1; DV.end = true; }
+    if (DV.c + 1 < DEMO.crews.length) { DV.c++; DV.i = 0; }
+    else { DV.i = n - 1; if (!DEMO.turned) return turnNow(); }
   } else if (DV.i < 0) {
     if (DV.c > 0) { DV.c--; DV.i = demoPosts(DV.c).length - 1; } else DV.i = 0;
   }
   demoShow();
 }
 function demoSwitch(d) {
-  if (!DV) return;
-  const c = (DV.end ? DEMO.crews.length - 1 : DV.c) + d;
+  if (!DV || DV.mode !== 'post') return;
+  const c = DV.c + d;
   if (c < 0 || c >= DEMO.crews.length) return;
-  Object.assign(DV, {c, i: 0, end: false, first: false});
+  DV.first = false;
+  if (!DEMO.turned && DEMO.viewed.size >= TURN_AFTER) return turnNow();
+  Object.assign(DV, {c, i: 0});
   demoShow();
 }
 addEventListener('keydown', e => {
-  if (!DV || $('#dlg').open) return;
+  if (!DV || $('#dlg').open || $('#cam').open) return;
   const k = {ArrowDown: () => demoStep(1), ArrowUp: () => demoStep(-1), ArrowRight: () => demoSwitch(1), ArrowLeft: () => demoSwitch(-1), Escape: demoClose}[e.key];
   if (k) { e.preventDefault(); k(); }
 });
-// After the last post of the last crew. Stage 2 puts "Your turn" here, a practice clip that
-// becomes your first post, so this card is the one thing it replaces.
+
+// ---- your turn: a practice clip that becomes your first proof
+// Four small things anybody can do where they are standing. The first names the example
+// crew that does it, so the pick is "be like them", not a form.
+function turnPicks() {
+  const pc = DEMO && DEMO.crews.find(c => c.metric === 'pushups');
+  return [
+    {metric: 'pushups', amount: 5, title: '5 pushups', line: pc ? `Like the ${pc.name} crew` : 'Wherever you are'},
+    {metric: 'pages', amount: 2, title: 'Read 2 pages', line: 'Grab whatever book is closest'},
+    {metric: 'squats', amount: 20, title: '20 squats', line: 'No equipment'},
+    {metric: 'minutes of plank', amount: 1, title: 'A 1-minute plank', line: 'Phone on the floor'},
+  ];
+}
+const turnPick = () => DV ? turnPicks()[DV.pick] : null;
+// What stands at the end of the example now: the screen that used to say "Start your crew".
 function demoEnd() {
-  return `<div class="dend"><h2>Your crew could look like this</h2>
-    <p>Pick a goal, bring your people, and post proof every day.</p>
-    <button type="button" class="primary" data-demo="start">Start your crew</button></div>`;
+  const picks = turnPicks();
+  return `<div class="dturn"><p class="dkick">Your turn</p>
+    <h2>Do one now. It takes a minute.</h2>
+    <p class="dsub">Film it in Quota and see what your crew would do.</p>
+    <div class="dpicks">${picks.map((x, i) => `<label class="dpick${i === DV.pick ? ' on' : ''}"><input type="radio" name="dpick" value="${i}"${i === DV.pick ? ' checked' : ''}>
+      <span><b>${esc(x.title)}</b><em>${esc(x.line)}</em></span></label>`).join('')}</div>
+    <button type="button" class="primary dgo" data-demo="practice">Start: ${esc(picks[DV.pick].title)}</button>
+    <button type="button" class="dnot" data-demo="start">Not now, take me to sign up</button></div>`;
+}
+// The same two ways in as the proof sheet, and the same camera behind them.
+function demoRec() {
+  const x = turnPick();
+  return `<div class="dturn drec"><p class="dkick">Your turn</p>
+    <p class="dwhat">${esc(`${x.amount} ${x.metric}`)}</p>
+    <p class="dsub">Practice only. Nothing is posted until you say so.</p>
+    <div class="row"><button type="button" class="teal grow" data-demo="cam">Record</button><button type="button" class="grow" data-demo="photo">Photo</button></div>
+    <button type="button" class="dnot" data-demo="turn">Back</button></div>`;
+}
+// Back from the camera: on the phone, never sent. A take is a file, so it goes where the
+// proof sheet keeps its own (keepTake), under a key of its own, with what it was and the day.
+async function practiceTaken(f) {
+  if (!DV) return;
+  const x = turnPick();
+  practice = {metric: x.metric, amount: x.amount, day: today(), at: Date.now()};
+  try { if (self.indexedDB) await takeTx('readwrite', st => st.put({...practice, file: f}, 'practice')); } catch (e) {}
+  if (takeUrl) { try { URL.revokeObjectURL(takeUrl); } catch (e) {} }
+  takeUrl = URL.createObjectURL(f);
+  DV.pic = isPic(f);
+  DV.mode = 'done';
+  demoShow();
+}
+// What a crew does with it, said as what would happen, never as if somebody just did.
+function demoDone() {
+  const x = practice || turnPick();
+  return `<div class="dturn ddone"><p class="dkick">Nice. That's your first proof</p>
+    <div class="dproof">${DV.pic ? `<img class="dmedia" src="${takeUrl}" alt="Your practice">`
+      : `<video class="dmedia" src="${takeUrl}" muted playsinline loop></video>`}
+      <span class="dbadge">+${esc(`${x.amount} ${x.metric}`)}</span>
+      <div class="dpop" aria-hidden="true">${['🔥', '👏', '💪'].map((e, i) => `<i style="--i:${i}">${e}</i>`).join('')}</div></div>
+    <div class="dwill"><b>What your crew does when you post</b>
+      <ul><li>Reactions on your proof</li><li>"let's go" in the comments</li><li>Today's posts unlock for you</li><li>Counts toward today's goal</li></ul></div>
+    <button type="button" class="primary" data-demo="start">Save it and start your crew</button>
+    <button type="button" class="dnot" data-demo="close">Keep looking</button></div>`;
+}
+
+// ---- the practice, after sign-up
+// Kept on the phone (practiceTaken) until the account is in a crew the same day, then
+// posted there the way any proof is: through sendPost, with the same upload and the same
+// rules. Never before there is an account, and never on another day: proof is for today.
+let practice = null;                       // {metric, amount, day, at}: what is kept, without the file
+let practiceBusy = false, practiceTried = -1;
+const amountText = x => `${x.amount} ${x.amount === 1 ? x.metric.replace(/^(\w+?)s\b/, '$1') : x.metric}`;
+function dropPractice() {
+  practice = null;
+  try { if (self.indexedDB) takeTx('readwrite', st => st.delete('practice')).catch(() => {}); } catch (e) {}
+}
+// Today's, or nothing: yesterday's is let go of the moment it is looked at.
+const practiceToday = () => practice && practice.day !== today() ? (dropPractice(), null) : practice;
+async function loadPractice() {
+  if (!self.indexedDB) return;
+  let t; try { t = await takeTx('readonly', st => st.get('practice')); } catch (e) { return; }
+  if (!t || !t.file) return;
+  if (t.day !== today()) return dropPractice();
+  practice = {metric: t.metric, amount: +t.amount, day: t.day, at: t.at};
+  render();
+}
+// Waiting to go: the walkthrough holds off until this has had its try, so it can leave out
+// what the practice has already shown.
+const practiceWaits = () => practiceBusy || (!!practiceToday() && practiceTried !== lastLoad);
+async function maybePractice() {
+  const m = me(), x = practiceToday();
+  if (!x || !m || practiceBusy || posting || practiceTried === lastLoad || S.tourHold || !myGroups().length
+    || $('#dlg').open || $('#app').classList.contains('out')) return;
+  const g = myGroups().find(y => y.quotas.some(q => q.metric === x.metric));
+  if (!g) {
+    // Not proof of anything this crew does, so it does not go up as if it were.
+    const goal = doesLine(myGroups()[0].quotas) || 'something else';
+    try { localStorage[`practiceNote:${m.id}`] = `Your practice was ${amountText(x)}, and your crew's goal is ${goal}, so it wasn't posted.`; } catch (e) {}
+    dropPractice();
+    render();
+    return maybeTour();
+  }
+  practiceBusy = true; practiceTried = lastLoad;
+  try {
+    const t = await takeTx('readonly', st => st.get('practice')).catch(() => null);
+    const bytes = t && t.file && await clipBytes(t.file);
+    if (!bytes) return dropPractice();
+    // A fresh copy, as restoreTake makes one: on iOS a stored File can go out empty.
+    recorded = new File([bytes], t.file.name || (isPic(t.file) ? 'take.jpg' : 'take.mp4'), {type: t.file.type || 'video/mp4'});
+    const f = document.createElement('form');
+    f.innerHTML = `<input name="amount" value="${x.amount}"><input name="metric" value="${esc(x.metric)}"><input name="caption" value="">`;
+    const waiting = outbox.length;
+    await addPost(f, g.id);
+    if (S.posts.some(p => p.groupId === g.id && p.userId === m.id && p.day === x.day && p.metric === x.metric && p.amount === x.amount)) {
+      dropPractice();
+      try { localStorage['did:practice'] = '1'; } catch (e) {}
+      toast(`Your ${amountText(x)} ${x.amount === 1 ? 'is' : 'are'} posted`);
+    } else if (outbox.length > waiting) dropPractice();   // waiting to send like any post that could not go, and it goes on its own
+    // Anything else keeps it, for the next load today to try again.
+  } finally { practiceBusy = false; render(); maybeTour(); }
+}
+// Once, on the feed, when the practice was for something the crew does not do.
+function practiceNote() {
+  const m = me(); let t = '';
+  try { t = localStorage[`practiceNote:${m.id}`] || ''; } catch (e) {}
+  return t ? `<div class="card tip pnote"><p>${esc(t)}</p><button type="button" onclick="dropPracticeNote()">Got it</button></div>` : '';
+}
+function dropPracticeNote() { try { localStorage.removeItem(`practiceNote:${me().id}`); } catch (e) {} render(); }
+// What the walkthrough can leave out, from what happened on this phone before signing up.
+const sawLock = () => { try { localStorage['seen:lock'] = '1'; } catch (e) {} };
+let lockObs = null;
+// A short message that goes by itself.
+let toastT = null;
+function toast(text) {
+  const el = $('#toast');
+  el.textContent = text; el.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 4000);
 }
 
 function authView(mode) {
@@ -9735,6 +9964,9 @@ function paintCam() {
   const d = $('#cam'), st = CAM.step, rec = st === 'recording', idle = st === 'ready' || st === 'error';
   const avatar = CAM.for === 'avatar', photo = CAM.mode === 'photo', dual = CAM.dual && photo && !avatar;
   const front = $('#campre').classList.contains('mirror');
+  const pr = $('#campract'), pick = CAM.for === 'practice' && turnPick();
+  pr.hidden = !pick;
+  if (pick) pr.innerHTML = `<b>${esc(`${pick.amount} ${pick.metric}`)}</b><span>Practice only. Nothing is posted until you say so.</span>`;
   d.classList.toggle('dual', dual);
   if (!dual) d.classList.remove('second');
   const go = $('#camgo');
@@ -10277,6 +10509,7 @@ async function camPicked(input) {
   if (!camAt || (f.lastModified && f.lastModified < camAt - FRESH_SLACK)) {
     return alert('That one was not recorded just now. Proof has to be a take from the camera — tap Record and film it.');
   }
+  if (camFor === 'practice') { camFor = 'post'; return practiceTaken(f); }
   // Nothing stops the phone at two minutes, so the length is checked once it is back
   // rather than letting twenty minutes of something stand as a day's proof.
   // Proof has no time limit: it is as long as the thing being proved. A very long one is
@@ -11830,6 +12063,7 @@ restoreSnap().then(ok => { if (ok) render(); });   // what was here last time, w
 load().then(() => { takePendingJoin(); peekInvite(); flushOutbox(); });
 peekProviders();
 loadDemo();
+loadPractice();
 // The browser saying it is back is the one moment worth trying without being asked.
 addEventListener('online', () => { render(); flushOutbox(); if (S.loadFailed || S.fromSnap || !me()) load(); });
 // Tried again every so often while the app is open, rather than only at the few moments
