@@ -5844,6 +5844,55 @@ await withPage({ ...NO_WHEEL, samToday: true }, async page => {
   check("  and Let's go leaves the proof sheet open", await page.locator('.tour').count() === 0 && /Post proof/.test(await page.locator('#dlg[open]').innerHTML().catch(() => '')));
 });
 
+// Once v55 is run, the account says whether the walkthrough is owed, not the phone. An
+// account that has never seen it and is in a group gets it on load, with no invite sheet
+// having closed: the installed app, opened after joining from a link in Safari.
+await withPage({ ...NO_WHEEL, samToday: true, tourSeen: null }, async page => {
+  await settle(page);
+  await page.waitForSelector('.tour .tbox', { timeout: 3000 }).catch(() => {});
+  check('an account that has never seen the walkthrough gets it on load', /Your streak/.test(await page.locator('.tour .tbox').innerText().catch(() => '')));
+  const wrote = await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && 'tour_seen_at' in e));
+  check('  and starting it marks the account', wrote.length === 1 && !isNaN(Date.parse(wrote[0].tour_seen_at)), JSON.stringify(wrote));
+  check('    and the phone too, so it cannot start twice before that lands', await page.evaluate(() => localStorage['tour:u1'] === '1'));
+});
+
+// Seen on the account: never again, on a phone that has never heard of it.
+await withPage({ ...NO_WHEEL, samToday: true, tourSeen: '2026-11-01T12:00:00Z' }, async page => {
+  await settle(page);
+  await page.evaluate(() => { localStorage.clear(); S.tourDue = S.groups[0].id; render(); maybeTour(); });
+  await page.waitForTimeout(300);
+  check('an account that has seen the walkthrough never gets it again, whatever the phone holds', await page.locator('.tour').count() === 0);
+});
+
+// A brand-new account on v55 still waits for the invite sheet after its first group.
+await withPage({ ...NO_WHEEL, noGroup: true, tourSeen: null }, async page => {
+  await settle(page);
+  check('  an account with no group is not shown it', await page.locator('.tour').count() === 0);
+  await page.locator('button:has-text("New group")').click();
+  await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=name]').fill('Mornings');
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => /Invite your crew/.test(document.querySelector('#dlg').innerHTML), null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  check('  and a first group still goes to the invite sheet before it', await page.locator('.tour').count() === 0
+    && /Invite your crew/.test(await page.locator('#dlg').innerHTML()));
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.tour .tbox', { timeout: 3000 }).catch(() => {});
+  check('    which it follows once that is closed', /Your streak/.test(await page.locator('.tour .tbox').innerText().catch(() => '')));
+});
+
+// Before v55 is run the row has no such column, and only a first group on this phone
+// counts: somebody already in a group is not shown it just for opening the app.
+await withPage({ ...NO_WHEEL, samToday: true }, async page => {
+  await settle(page);
+  await page.waitForTimeout(300);
+  check('without v55 an account already in a group is not shown it on load', await page.locator('.tour').count() === 0);
+  const wrote = await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && 'tour_seen_at' in e));
+  await page.evaluate(() => startTour());
+  await page.waitForTimeout(200);
+  check('  and starting it writes nothing to a column that is not there', await page.evaluate(() => self.__edits.filter(e => e.table === 'profiles' && 'tour_seen_at' in e).length) === wrote.length);
+});
+
 // Help, from every screen once you are in.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
