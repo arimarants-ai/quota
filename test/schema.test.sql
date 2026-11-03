@@ -1193,3 +1193,30 @@ begin
   end if;
 end $$;
 \echo PASS: mutual friends and Seen
+
+-- v55: when somebody was shown the walkthrough. Their own to read and to set, nobody else's
+-- to see or touch. The accounts above were made after the column was, so all start at null.
+set role app;
+do $$
+declare got timestamptz; n int;
+begin
+  perform set_config('test.uid', 'a1000000-0000-0000-0000-000000000001', true);
+  if (select tour_seen_at from public.my_profile()) is not null then raise exception 'a new account starts out having seen the walkthrough'; end if;
+  update public.profiles set tour_seen_at = now() where id = auth.uid();
+  if (select tour_seen_at from public.my_profile()) is null then raise exception 'you cannot mark the walkthrough seen on your own account'; end if;
+  -- Somebody else's: the row is not yours to edit, so nothing changes.
+  update public.profiles set tour_seen_at = now() where id = 'b1000000-0000-0000-0000-000000000002';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'you can mark the walkthrough seen on somebody else''s account'; end if;
+end $$;
+reset role;
+do $$
+begin
+  if (select tour_seen_at from public.profiles where id = 'b1000000-0000-0000-0000-000000000002') is not null then
+    raise exception 'somebody else''s walkthrough was marked seen';
+  end if;
+  if has_column_privilege('authenticated', 'public.profiles', 'tour_seen_at', 'select') then
+    raise exception 'whether somebody has seen the walkthrough is readable by everyone';
+  end if;
+end $$;
+\echo PASS: the walkthrough, once per account

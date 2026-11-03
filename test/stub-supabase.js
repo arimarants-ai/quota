@@ -78,7 +78,10 @@
   // Two members so the leaderboard has something to rank, and a group old enough for the
   // completion rate to have days to look at.
   const rows = t => ({
-    profiles: [{ id: 'u1', username: M().noUsername ? null : 'ari', display_name: M().noUsername ? null : 'Ari' }, { id: 'u2', username: 'sam', display_name: 'Sam' },
+    // tour_seen_at is only on the row once v55 is run, so it is only here when a case says
+    // so; every other case is a project that has not run it yet.
+    profiles: [{ id: 'u1', username: M().noUsername ? null : 'ari', display_name: M().noUsername ? null : 'Ari',
+      ...('tourSeen' in M() ? { tour_seen_at: M().tourSeen } : {}) }, { id: 'u2', username: 'sam', display_name: 'Sam' },
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     // Made by whoever the case says, and carrying a forfeit when the case gives one — read
     // back through whatever the page last saved, the way a group's picture is.

@@ -3317,3 +3317,28 @@ begin
 end $$;
 revoke all on function public.chat_seen(text) from public, anon, authenticated;
 grant execute on function public.chat_seen(text) to authenticated;
+
+-- ============================================================
+-- v55 (the walkthrough, once per account): safe to run on an existing project, and safe to
+-- run twice. No redeploy. Run it before or after the app that reads it goes out, in either
+-- order: until it is run, the app keeps deciding the way it did, on the phone alone.
+-- ============================================================
+
+-- When somebody was first shown the walkthrough. On the account rather than on the phone,
+-- because the phone is the wrong place: somebody who joins from a link in Safari and then
+-- opens the app they installed is on a phone that has never heard of them. Null means not
+-- yet. Private the same way hide_seen is: not in the column grant v49 gives the app for
+-- other people's profiles, so only your own row, through my_profile(), says it. Writing it
+-- is an edit of your own row, which "edit own profile" already allows.
+--
+-- Everybody already here when this is run has been using Quota without it, so they are
+-- counted as having seen it: the walkthrough is for people who are new. Only when the column
+-- is being added, so running this a second time does not sweep up the accounts made since.
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'profiles' and column_name = 'tour_seen_at') then
+    alter table public.profiles add column tour_seen_at timestamptz;
+    update public.profiles set tour_seen_at = now();
+  end if;
+end $$;

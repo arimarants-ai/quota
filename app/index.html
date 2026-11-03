@@ -1737,7 +1737,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v159';
+const BUILD = 'quota-v160';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -4526,6 +4526,7 @@ async function takePendingJoin() {
   if (!code || joining || !S.me) return;
   joining = true;
   const first = !myGroups().length;
+  S.tourHold = 1;                          // not over the group arriving, nor the install step
   try {
     const gid = await q(sb.rpc('join_by_code', {code}));
     setPending('');
@@ -4541,7 +4542,7 @@ async function takePendingJoin() {
   } catch (e) {
     setPending('');                        // a dead link is not something to carry around
     alert(friendlyError(e, "Couldn't join that group. Try again in a moment."));
-  } finally { joining = false; render(); }
+  } finally { joining = false; S.tourHold = 0; render(); }
 }
 // The name behind a code, so the welcome screen can say what you were invited to rather
 // than asking you to sign up for nothing in particular.
@@ -6796,8 +6797,8 @@ function basicsDlg() {
     <button type="button" style="width:100%;margin-top:18px" onclick="dlg()">Done</button>`);
 }
 
-// The walkthrough: six steps over the real app, once per account, right after the first
-// group is there. Each step goes where its thing is and points at it; a step whose thing
+// The walkthrough: six steps over the real app, once per account, as soon as there is a
+// group to show it with. Each step goes where its thing is and points at it; a step whose thing
 // is not on the screen is passed over rather than pointing at nothing. The state is on S
 // because render() asks about it, and render() can run before anything down here has.
 const TOUR = [
@@ -6814,12 +6815,22 @@ const TOUR = [
 ];
 const tourKey = () => `tour:${me().id}`;
 // Asked whenever the screen might be free for it: after every render, and whenever the
-// sheet goes. It waits out anything in the way — the invite sheet, the install screen —
-// and starts the first time nothing is.
+// sheet goes. It waits out anything in the way — the invite sheet, the install screen, a
+// first group or a join still on its way in (tourHold) — and starts the first time
+// nothing is.
+//
+// Whether it is owed is the account's to say (v55): an account that has never been shown
+// it, wherever it was made, gets it on whichever phone it turns up on next. That is what
+// lets somebody who joined from a link in Safari get it in the app they installed after.
+// Until v55 is run the column is not on the row at all, and only a first group made or
+// joined on this phone, right now, counts. The key on the phone is checked either way: it
+// is written the moment the walkthrough starts, before the save can have landed.
 function maybeTour() {
-  const gid = S.tourDue;
-  if (!gid || S.tour || !me() || $('#dlg').open || $('#app').classList.contains('out')) return;
+  const m = me();
+  if (!m || S.tour || S.tourHold || !myGroups().length || $('#dlg').open || $('#app').classList.contains('out')) return;
+  const due = 'tour_seen_at' in m ? !m.tour_seen_at : !!S.tourDue, gid = S.tourDue;
   S.tourDue = 0;
+  if (!due) return;
   try { if (localStorage[tourKey()]) return; } catch (e) { return; }
   startTour(gid);
 }
@@ -6829,7 +6840,15 @@ function startTour(gid) {
   gid = gid || (S.open && gs.some(x => x.id === S.open) ? S.open : gs[0] && gs[0].id);
   if (!gid) return;
   // Done the moment it starts: it is shown once, however it ends, and Help has it again.
+  // On the phone at once, and on the account as soon as the save lands. A save that fails
+  // costs nothing worse than seeing it once more on another phone, so it is not reported.
   try { localStorage[tourKey()] = '1'; } catch (e) {}
+  const m = me();
+  if ('tour_seen_at' in m && !m.tour_seen_at) {
+    m.tour_seen_at = new Date().toISOString();
+    sb.from('profiles').update({tour_seen_at: m.tour_seen_at}).eq('id', m.id)
+      .then(({error}) => { if (error) console.error('Could not save that the walkthrough was seen', error); });
+  }
   const lay = document.createElement('div');
   lay.className = 'tour';
   lay.innerHTML = '<i class="ring"></i><div class="tbox" role="dialog" aria-live="polite"></div>';
@@ -8880,9 +8899,13 @@ async function saveGroup(f, id) {
     } catch (e) { picErr = e || 'picture'; }
   }
   clearAvatar();
-  dlg(); await load(); openGroup(gid);
-  // The walkthrough follows the invite sheet, whichever way that is closed.
-  if (first) { inviteDlg(gid, true); S.tourDue = gid; }
+  // The walkthrough follows the invite sheet, whichever way that is closed, and so must not
+  // start in the moment between this sheet going and that one coming up.
+  if (first) S.tourHold = 1;
+  try {
+    dlg(); await load(); openGroup(gid);
+    if (first) { inviteDlg(gid, true); S.tourDue = gid; }
+  } finally { if (first) S.tourHold = 0; }
   // After the load, not before it: a load that goes well clears the bar, so saying this any
   // earlier is saying it to a bar that is about to be wiped. Nobody would ever have read it.
   if (picErr) {
