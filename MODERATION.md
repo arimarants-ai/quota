@@ -31,8 +31,13 @@ Settings → Reports in the app. Anybody can file at most 10 reports in 24 hours
 3. Moderators are the rows in `public.moderators`:
 
    ```sql
-   insert into public.moderators select id from public.profiles where username in ('amarants', 'jsmith');
+   insert into public.moderators (user_id, name)
+     select id, case username when 'amarants' then 'Ari' else 'Justin' end
+       from public.profiles where username in ('amarants', 'jsmith');
    ```
+
+   `name` (v57) is what the Reports screen calls a moderator: "Only you and Justin can see
+   this", and who decided something on Done. It falls back to the display name if empty.
 
    Notifications must be on in the app on that phone for the report push to arrive.
 4. Put a daily reminder in your calendar to open Reports anyway. A push that doesn't
@@ -63,6 +68,13 @@ harassment. Tap to review.").
 | 3 | Account suspended |
 | **Serious** ticked (nudity, threats, hate) | Suspended now, whatever the count |
 | Reported for self-harm | No strike. A supportive email with crisis resources instead |
+
+While a report is open, whoever posted the thing can't delete it ("This is under review and
+can't be deleted right now"), so the evidence is still there when you look. The database
+enforces it in the delete policies (v57); once you decide either way, the usual rules apply.
+
+Dates in the emails are on the poster's own calendar (their `profiles.tz`), or US Central if
+the app has never seen their time zone.
 
 A suspended account can still sign in and look, and sees a banner saying so. It cannot
 post, story, comment or message: the database refuses it. **Lift suspension** is on the

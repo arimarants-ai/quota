@@ -1889,7 +1889,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v164';
+const BUILD = 'quota-v165';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1940,6 +1940,23 @@ let VIEWER = null;
 const SUSPENDED_LINE = 'Your account is suspended. Reply to the email we sent if you think this is a mistake.';
 const isSuspended = () => !!(typeof S !== 'undefined' && S.me && S.me.suspended_at);
 const suspendedBar = () => isSuspended() ? `<div class="susp" role="status"><b>Your account is suspended.</b> Reply to the email we sent if you think this is a mistake.</div>` : '';
+// Something of yours under review can't be deleted until a moderator has decided (v57):
+// the database refuses it, and says so by deleting nothing. The app asks first, with the
+// row's own flag, and checks the count afterwards in case the flag was out of date.
+const UNDER_REVIEW = "This is under review and can't be deleted right now.";
+function reviewStop(x) {
+  if (!x || !x.review) return false;
+  dlg(`<h2>Under review</h2><p class="muted">${UNDER_REVIEW}</p>
+    <button type="button" style="width:100%;margin-top:18px" onclick="dlg()">OK</button>`);
+  return true;
+}
+// A delete, and whether anything went. Zero rows is the database keeping something under
+// review; an error is an error, said the way q() says them.
+async function delRow(table, id) {
+  const {error, count} = await sb.from(table).delete({count: 'exact'}).eq('id', id);
+  if (error) { if (!quiet) { alert(friendlyError(error)); error.shown = true; } throw error; }
+  return count !== 0;
+}
 function suspendedStop() {
   if (!isSuspended()) return false;
   dlg(`<h2>Your account is suspended</h2><p class="muted">You can still look around, but you can't post, comment or message while it is. Reply to the email we sent if you think this is a mistake.</p>
@@ -4281,11 +4298,12 @@ function editStory(id) {
 }
 async function delStory(id) {
   const st = S.stories.find(x => x.id === id);
+  if (reviewStop(st)) return;
   if (!confirm('Take this story down?')) return;
   closeStory();
   S.stories = S.stories.filter(x => x.id !== id); render();
   try {
-    await q(sb.from('stories').delete().eq('id', id));
+    if (!(await delRow('stories', id))) { reviewStop({review: true}); return load(); }
     if (st && st.path) await dropFiles(st.store, 'stories', [st.path]);
   } catch (e) {}
   load();
@@ -6382,10 +6400,11 @@ async function toggleMsgReact(id, emoji) {
   } catch (e) { S.mreacts = before; render(); }
 }
 async function delMessage(id) {
+  if (reviewStop(S.msgs.find(x => x.id === id))) return;
   if (!confirm('Delete this message?')) return;
   const before = S.msgs;
   S.msgs = S.msgs.filter(x => x.id !== id); render();
-  try { await q(sb.from('messages').delete().eq('id', id)); }
+  try { if (!(await delRow('messages', id))) { S.msgs = before; render(); reviewStop({review: true}); return; } }
   catch (e) { S.msgs = before; render(); return showErr('That did not delete.', String(e && e.message || e)); }
   load();
 }
@@ -11806,10 +11825,13 @@ async function dropFiles(store, bucket, paths) {
   } catch (e) {}
 }
 async function delPost(id, ask = 'Delete this post?') {
+  if (reviewStop(postById(id))) return;
   if (!confirm(ask)) return;
   const p = postById(id);
   if (!p) return;
-  await q(sb.from('posts').delete().eq('id', id));
+  // The file only goes once the row has. A row the database kept, because it is under
+  // review, keeps its file too: that is what the moderators look at.
+  if (!(await delRow('posts', id))) { reviewStop({review: true}); return load(); }
   await dropFiles(p.store, 'proof', isPhoto(p) ? [p.path] : [p.path, POSTER(p.path)]);
   load();
 }
@@ -11883,6 +11905,7 @@ function commentMenu(el) {
 }
 // Asked first, like every delete. One with replies under it takes them with it, so that is said too.
 function delCommentAsk(id) {
+  if (reviewStop(S.comments.find(c => c.id === id))) return;
   const under = S.comments.filter(c => c.replyTo === id).length;
   if (!confirm(under ? `Delete this comment? The ${under === 1 ? 'reply' : `${under} replies`} under it go too.` : 'Delete this comment?')) return;
   delComment(id);
@@ -11892,7 +11915,7 @@ async function delComment(id) {
   for (let grew = true; grew;) { grew = false; for (const c of S.comments) if (c.replyTo && gone.has(c.replyTo) && !gone.has(c.id)) { gone.add(c.id); grew = true; } }
   S.comments = S.comments.filter(c => !gone.has(c.id)); render();
   try {
-    await q(sb.from('comments').delete().eq('id', id));
+    if (!(await delRow('comments', id))) { await load(); return reviewStop({review: true}); }
   } catch (e) { await load(); throw e; }
   const y = scrollY; await load(); scrollTo(0, y);
 }

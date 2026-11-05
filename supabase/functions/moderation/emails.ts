@@ -16,12 +16,18 @@ export function firstName(name: string | null | undefined): string {
   return String(name || '').trim().split(/\s+/)[0].slice(0, 40);
 }
 
-/** "November 5", in the poster's own time zone when we know it. */
+// Where most of Quota is, for an account that has never told the app its time zone. UTC
+// would put a post made on a Tuesday evening in Chicago on Wednesday, which is not the day
+// anybody remembers posting it.
+export const DEFAULT_TZ = 'America/Chicago';
+
+/** "November 5", on the poster's own calendar: profiles.tz, or Central when it is unknown or unusable. */
 export function postedOn(at: string | null | undefined, tz?: string | null): string {
   const d = at ? new Date(at) : null;
   if (!d || isNaN(+d)) return '';
-  try { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: tz || 'UTC' }); }
-  catch { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }); }
+  const fmt = (zone: string) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: zone });
+  try { return fmt(String(tz || '').trim() || DEFAULT_TZ); }
+  catch { return fmt(DEFAULT_TZ); }
 }
 
 export type Takedown = {

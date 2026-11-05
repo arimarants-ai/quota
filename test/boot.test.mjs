@@ -2648,6 +2648,32 @@ await withPage({ ...SIGNED_IN, hidden: [100], held: [{ id: 100, group_id: 1, use
   check("somebody else's post under review is not shown", await page.locator('.post[data-post="100"]').count() === 0);
   check('  but its numbers still count for their day', await page.evaluate(() => S.totals.some(t => t.u === 'u2' && t.n === 50 && t.d === ymd(new Date(Date.now() - 864e5)))));
 });
+// Under review, it can't be deleted by whoever posted it (v57). The app says so before asking,
+// and when the database keeps a row it thought it could delete, the file stays with it.
+await withPage({ ...SIGNED_IN, hidden: [1], r2: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { self.confirm = () => { self.__asked = true; return true; }; delPost(1); }); await page.waitForTimeout(300);
+  check('deleting your own post under review says why it can\'t be done',
+    /This is under review and can't be deleted right now\./.test(await page.innerText('#dlg')), await page.innerText('#dlg'));
+  check('  without asking first, or deleting anything', !(await page.evaluate(() => self.__asked))
+    && !(await page.evaluate(() => self.__deletedPosts)).includes(1) && !(await page.evaluate(() => self.__r2removed || [])).length);
+  check('  and the post is still on your screen', await page.locator('.post[data-post="1"]').count() === 1);
+});
+await withPage({ ...SIGNED_IN, keepDeletes: ['posts', 'comments', 'messages', 'stories'], r2: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => { self.confirm = () => true; return delPost(1); }); await page.waitForTimeout(400);
+  check('when the database keeps a post, the app says it is under review', /under review and can't be deleted/.test(await page.innerText('#dlg')));
+  check('  and its file is not touched', !(await page.evaluate(() => self.__r2removed || [])).length, JSON.stringify(await page.evaluate(() => self.__r2removed)));
+  await page.evaluate(() => { dlg(); S.msgs = [{id: 77, groupId: 1, userId: 'u1', body: 'hi', ts: Date.now()}]; delMessage(77); }); await page.waitForTimeout(300);
+  check('  and the same for a message, which stays', /under review/.test(await page.innerText('#dlg')) && await page.evaluate(() => S.msgs.some(m => m.id === 77)));
+});
+// The moderators are named by their moderator names, from the database.
+await withPage({ ...SIGNED_IN, mod: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => openReports('done')); await page.waitForTimeout(600);
+  const txt = await page.innerText('#app');
+  check('Reports says who else can see it by name, and Done says who decided', /Only you and Justin can see this/.test(txt) && /Justin ·/.test(txt), txt.slice(0, 400));
+});
 // Nobody else gets Reports, and the database says no if they try.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

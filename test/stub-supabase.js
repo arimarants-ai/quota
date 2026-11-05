@@ -178,6 +178,12 @@
   };
   const chain = (t, st = { filters: {} }) => {
     const run = () => {
+      // Something under review (v57): the database keeps it and says so by deleting nothing,
+      // which PostgREST reports as a count of 0 rather than as an error.
+      if (st.op === 'delete' && (M().keepDeletes || []).includes(t)) {
+        (self.__kept = self.__kept || []).push({ t, ...st.filters });
+        return { data: null, error: null, count: 0 };
+      }
       if (st.op === 'delete' && t === 'wheel_days') {
         self.__ticks = self.__ticks.filter(x => !Object.entries(st.filters).every(([k, v]) => x[k] === v));
       }

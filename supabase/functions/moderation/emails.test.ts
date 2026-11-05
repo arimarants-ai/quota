@@ -15,7 +15,16 @@ const base = { name: 'Sam Lee', thing: 'video', group: 'Mornings', date: 'Novemb
 ok(FROM === 'Quota <safety@hitquota.app>' && REPLY_TO === 'safety@hitquota.app', 'from and reply-to are safety@');
 ok(firstName('Sam Lee') === 'Sam' && firstName('') === '', 'the first name');
 ok(postedOn('2026-11-05T03:00:00Z', 'America/Los_Angeles') === 'November 4', 'the date is the poster\'s own', postedOn('2026-11-05T03:00:00Z', 'America/Los_Angeles'));
-ok(postedOn('2026-11-05T03:00:00Z', 'Not/AZone') === 'November 5', 'a bad time zone falls back to UTC');
+// 9:40 PM Central on November 5 is 03:40 on November 6 in UTC. The email says the 5th.
+{
+  const at = '2026-11-06T03:40:00Z';
+  ok(postedOn(at, 'America/Chicago') === 'November 5', 'a post at 9:40 PM Central is dated that day, not the next', postedOn(at, 'America/Chicago'));
+  ok(postedOn(at, null) === 'November 5' && postedOn(at, '') === 'November 5', 'no time zone on the account means Central, not UTC', postedOn(at, null));
+  ok(postedOn(at, 'Not/AZone') === 'November 5', 'a time zone that is not one falls back to Central', postedOn(at, 'Not/AZone'));
+  ok(postedOn(at, 'Europe/London') === 'November 6', 'and somebody in London posting at the same moment is on the 6th');
+  const e = takedownEmail({ ...base, date: postedOn(at, null), strikeNo: 1 });
+  ok(e.text.includes('in Mornings on November 5 was reported'), 'and that is the date the email says', e.text.split('\n')[2]);
+}
 
 // Strike 1
 {
