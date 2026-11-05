@@ -27,6 +27,10 @@ export const BUNDLES = {
     files: ['rules.ts', 'r2.ts', 'index.ts'],
     drop: /^import .*from '\.\/(rules|r2)\.ts';$/,
   },
+  moderation: {
+    files: ['../notify/push.ts', '../notify/message.ts', 'emails.ts', 'polish.ts', 'index.ts'],
+    drop: /^import .*from '(\.\.\/notify\/push|\.\.\/notify\/message|\.\/emails|\.\/polish)\.ts';$/,
+  },
 };
 
 export const bundle = name => {

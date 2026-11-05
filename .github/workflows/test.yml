@@ -71,6 +71,10 @@ jobs:
       # Who may sign what on R2: the storage policies, moved into the media function.
       - run: node --experimental-strip-types supabase/functions/media/rules.test.ts
 
+      # What a take-down email says, for each kind of take-down, and the polish falling back
+      # to the moderator's own words whenever the model cannot be reached.
+      - run: node --experimental-strip-types supabase/functions/moderation/emails.test.ts
+
       # The copy of the old proof to R2 runs once, against the real thing, so it is run here
       # first against a stand-in for both sides, with real clips made by ffmpeg.
       - run: npm ci --no-audit --no-fund --prefix scripts/r2

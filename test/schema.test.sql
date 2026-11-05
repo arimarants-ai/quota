@@ -1220,3 +1220,194 @@ begin
   end if;
 end $$;
 \echo PASS: the walkthrough, once per account
+
+-- ---- v56: moderation. A report hides, a moderator decides, strikes add up to a suspension.
+reset role;
+insert into auth.users (id) values
+  ('56000000-0000-0000-0000-000000000001'),  -- posts things
+  ('56000000-0000-0000-0000-000000000002'),  -- reports them
+  ('56000000-0000-0000-0000-000000000003'),  -- another member, who should stop seeing them
+  ('56000000-0000-0000-0000-000000000004'),  -- a moderator, not in the group
+  ('56000000-0000-0000-0000-000000000005');  -- a second reporter
+insert into public.profiles (id, username, display_name) values
+  ('56000000-0000-0000-0000-000000000001', 'm_poster', 'Pat'),
+  ('56000000-0000-0000-0000-000000000002', 'm_reporter', 'Rae'),
+  ('56000000-0000-0000-0000-000000000003', 'm_member', 'Mo'),
+  ('56000000-0000-0000-0000-000000000004', 'm_mod', 'Ari'),
+  ('56000000-0000-0000-0000-000000000005', 'm_reporter2', 'Rob');
+insert into public.moderators values ('56000000-0000-0000-0000-000000000004');
+insert into public.groups (id, name, quotas) overriding system value values (56, 'Lifters', '[{"metric":"pushups","target":10}]');
+insert into public.group_members (group_id, user_id) values (56, '56000000-0000-0000-0000-000000000001'),
+  (56, '56000000-0000-0000-0000-000000000002'), (56, '56000000-0000-0000-0000-000000000003'), (56, '56000000-0000-0000-0000-000000000005');
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, day) overriding system value values
+  (5601, 56, '56000000-0000-0000-0000-000000000001', 'pushups', 10, '56/p/1.mp4', current_date),
+  (5602, 56, '56000000-0000-0000-0000-000000000001', 'pushups', 10, '56/p/2.mp4', current_date),
+  (5603, 56, '56000000-0000-0000-0000-000000000001', 'pushups', 10, '56/p/3.mp4', current_date),
+  (5604, 56, '56000000-0000-0000-0000-000000000001', 'pushups', 10, '56/p/4.mp4', current_date);
+insert into public.comments (id, post_id, user_id, body) overriding system value
+  values (5601, 5602, '56000000-0000-0000-0000-000000000001', 'a comment');
+grant select, insert, update, delete on public.strikes to app;
+-- Reports from the v46 checks above are closed first, so the cards below are only these.
+update public.reports set resolved_at = now(), resolution = 'kept' where resolved_at is null;
+set role app;
+
+do $$
+declare n int; x jsonb; r1 bigint; r2 bigint; r3 bigint;
+begin
+  -- A report hides the post from the group at once.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values
+    ('56000000-0000-0000-0000-000000000001', 'post', 5601, 56, 'spam'); r1 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000003', true);
+  if exists (select 1 from public.posts where id = 5601) then raise exception 'a reported post is still visible to the group'; end if;
+  if not exists (select 1 from public.posts where id = 5602) then raise exception 'reporting one post hid another'; end if;
+  -- ...but its numbers still count for the day.
+  if not exists (select 1 from public.held_posts() where id = 5601 and amount = 10) then raise exception 'a post under review stopped counting for the group'; end if;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000001', true);
+  if not exists (select 1 from public.posts where id = 5601 and hidden_at is not null) then raise exception 'the owner cannot see their own post under review'; end if;
+  -- The owner cannot un-hide it.
+  update public.posts set hidden_at = null, caption = 'edited' where id = 5601;
+  if not exists (select 1 from public.posts where id = 5601 and hidden_at is not null and caption = 'edited') then raise exception 'the owner cleared hidden_at, or could not edit the caption'; end if;
+  -- Nobody but a moderator reads reports, or the cards.
+  if exists (select 1 from public.reports) then raise exception 'a non-moderator can read reports'; end if;
+  begin perform public.mod_reports('open'); raise exception 'mod_reports ran for a non-moderator';
+  exception when sqlstate '42501' then null; end;
+  begin perform public.moderate_report(r1, 'kept'); raise exception 'moderate_report ran for a non-moderator';
+  exception when sqlstate '42501' then null; end;
+  if public.mod_open_count() <> 0 then raise exception 'the badge count leaks to a non-moderator'; end if;
+
+  -- A moderator outside the group sees it, and the report.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  if not exists (select 1 from public.posts where id = 5601) then raise exception 'a moderator cannot see the reported post'; end if;
+  if exists (select 1 from public.posts where id = 5602) then raise exception 'a moderator sees ordinary posts in groups they are not in'; end if;
+  if (select count(*) from public.reports where thing_id = 5601) <> 1 then raise exception 'a moderator cannot read reports'; end if;
+  x := public.mod_reports('open');
+  if jsonb_array_length(x) <> 1 or x->0->>'poster_name' <> 'Pat' or x->0->>'group_name' <> 'Lifters' then raise exception 'mod_reports card is wrong: %', x; end if;
+  if x::text ~* 'email' and x::text !~ 'email_(sent_at|error)' then raise exception 'mod_reports exposes an email'; end if;
+  if public.mod_open_count() <> 1 then raise exception 'badge count wrong'; end if;
+
+  -- Keep it up: back, closed as kept, no strike.
+  x := public.moderate_report(r1, 'kept');
+  if (x->>'strike_no') is not null or (x->>'suspended')::boolean then raise exception 'keeping it up struck somebody: %', x; end if;
+  if (select resolution from public.reports where id = r1) <> 'kept' then raise exception 'not closed as kept'; end if;
+  if (select decided_by from public.reports where id = r1) <> auth.uid() then raise exception 'who decided was not recorded'; end if;
+  begin perform public.moderate_report(r1, 'removed'); raise exception 'decided twice';
+  exception when sqlstate 'P0001' then if sqlerrm not like '%already been decided%' then raise; end if; end;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000003', true);
+  if not exists (select 1 from public.posts where id = 5601) then raise exception 'kept, but still hidden from the group'; end if;
+  if public.active_strikes('56000000-0000-0000-0000-000000000001') <> 0 then raise exception 'a strike from keeping it up'; end if;
+
+  -- Reported again, by two people: one card, both closed by one decision.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values
+    ('56000000-0000-0000-0000-000000000001', 'post', 5601, 56, 'harassment'); r2 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000005', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values
+    ('56000000-0000-0000-0000-000000000001', 'post', 5601, 56, 'harassment'); r3 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.mod_reports('open');
+  if jsonb_array_length(x) <> 1 or (x->0->>'n')::int <> 2 then raise exception 'two reports on one post are not one card: %', x; end if;
+  x := public.moderate_report(r2, 'removed', 'its rude', 'Your post was rude.', false);
+  if (x->>'strike_no')::int <> 1 or (x->>'suspended')::boolean then raise exception 'first take-down should be strike 1: %', x; end if;
+  if jsonb_array_length(x->'reporters') <> 2 then raise exception 'both reporters should be thanked: %', x; end if;
+  if exists (select 1 from public.reports where id in (r2, r3) and resolution is distinct from 'removed') then raise exception 'not every report on it closed'; end if;
+  if (select polished_reason from public.reports where id = r3) <> 'Your post was rude.' then raise exception 'reason not kept'; end if;
+  x := public.mod_reports('done');
+  if (select count(*) from jsonb_array_elements(x) e where e->>'resolution' = 'removed' and e->>'decided_by_name' = 'Ari') <> 1 then raise exception 'done list wrong: %', x; end if;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000001', true);
+  if exists (select 1 from public.posts where id = 5601) then raise exception 'the owner can still see a post that was taken down'; end if;
+  if exists (select 1 from public.held_posts() where id = 5601) then raise exception 'a removed post still counts'; end if;
+
+  -- The comment, then a self-harm report: taken down, no strike.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values
+    ('56000000-0000-0000-0000-000000000001', 'comment', 5601, 56, 'self_harm'); r1 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000003', true);
+  if exists (select 1 from public.comments where id = 5601) then raise exception 'a reported comment is still visible'; end if;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.moderate_report(r1, 'removed', null, null, true);
+  if (x->>'strike_no') is not null or (x->>'suspended')::boolean or not (x->>'self_harm')::boolean then raise exception 'self-harm struck or suspended: %', x; end if;
+  if public.active_strikes('56000000-0000-0000-0000-000000000001') <> 1 then raise exception 'self-harm added a strike'; end if;
+
+  -- Two more take-downs: a final warning, then a suspension.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values ('56000000-0000-0000-0000-000000000001', 'post', 5602, 56, 'spam'); r1 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values ('56000000-0000-0000-0000-000000000001', 'post', 5603, 56, 'spam'); r2 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.moderate_report(r1, 'removed', 'x', 'X.', false);
+  if (x->>'strike_no')::int <> 2 or (x->>'suspended')::boolean then raise exception 'second take-down should be strike 2: %', x; end if;
+  x := public.moderate_report(r2, 'removed', 'x', 'X.', false);
+  if (x->>'strike_no')::int <> 3 or not (x->>'suspended')::boolean then raise exception 'third take-down should suspend: %', x; end if;
+  if not public.is_suspended('56000000-0000-0000-0000-000000000001') then raise exception 'not suspended'; end if;
+
+  -- Suspended: nothing new, enforced here rather than in the app.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000001', true);
+  begin
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day) values (56, auth.uid(), 'pushups', 5, '56/p/9.mp4', current_date);
+    raise exception 'a suspended account posted';
+  exception when insufficient_privilege then null; end;
+  begin insert into public.comments (post_id, user_id, body) values (5604, auth.uid(), 'hi'); raise exception 'a suspended account commented';
+  exception when insufficient_privilege then null; end;
+  begin insert into public.messages (group_id, user_id, body) values (56, auth.uid(), 'hi'); raise exception 'a suspended account messaged';
+  exception when insufficient_privilege then null; end;
+  begin insert into public.stories (user_id, kind, body) values (auth.uid(), 'text', 'hi'); raise exception 'a suspended account posted a story';
+  exception when insufficient_privilege then null; end;
+  -- ...and cannot lift it themselves.
+  update public.profiles set suspended_at = null where id = auth.uid();
+  if not public.is_suspended(auth.uid()) then raise exception 'a suspended account lifted its own suspension'; end if;
+  begin perform public.lift_suspension(auth.uid()); raise exception 'lift_suspension ran for a non-moderator';
+  exception when sqlstate '42501' then null; end;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  perform public.lift_suspension('56000000-0000-0000-0000-000000000001');
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000001', true);
+  insert into public.comments (post_id, user_id, body) values (5604, auth.uid(), 'back');
+
+  -- Serious skips the count.
+  reset role;
+  delete from public.strikes where user_id = '56000000-0000-0000-0000-000000000001';
+  set role app;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values ('56000000-0000-0000-0000-000000000001', 'post', 5604, 56, 'sexual'); r1 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.moderate_report(r1, 'removed', 'x', 'X.', true);
+  if (x->>'strike_no')::int <> 1 or not (x->>'suspended')::boolean then raise exception 'serious should suspend on the first strike: %', x; end if;
+
+  -- A report on somebody else's post, by its number, hides nothing.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000003', true);
+  insert into public.reports (user_id, what, thing_id, reason) values ('aaaaaaaa-0000-0000-0000-000000000001', 'post', 900, 'spam');
+end $$;
+
+-- The rules for what a strike leads to, on their own.
+do $$
+begin
+  if (select (x.strike, x.strike_no, x.suspend)::text from public.strike_outcome(0, false, false) x) <> '(t,1,f)' then raise exception 'strike 1 wrong'; end if;
+  if (select (x.strike, x.strike_no, x.suspend)::text from public.strike_outcome(1, false, false) x) <> '(t,2,f)' then raise exception 'strike 2 wrong'; end if;
+  if (select (x.strike, x.strike_no, x.suspend)::text from public.strike_outcome(2, false, false) x) <> '(t,3,t)' then raise exception 'strike 3 should suspend'; end if;
+  if (select (x.strike, x.strike_no, x.suspend)::text from public.strike_outcome(0, true, false) x) <> '(t,1,t)' then raise exception 'serious should suspend'; end if;
+  if (select (x.strike, x.strike_no, x.suspend)::text from public.strike_outcome(2, true, true) x) <> '(f,,f)' then raise exception 'self-harm should never strike'; end if;
+end $$;
+
+-- Ten reports a day, and the eleventh says so in words.
+do $$
+declare i int;
+begin
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000005', true);
+  -- One already from earlier in this file.
+  for i in 1..9 loop
+    insert into public.reports (user_id, what, reason) values ('56000000-0000-0000-0000-000000000003', 'user', 'spam');
+  end loop;
+  begin
+    insert into public.reports (user_id, what, reason) values ('56000000-0000-0000-0000-000000000003', 'user', 'spam');
+    raise exception 'an eleventh report went through';
+  exception when sqlstate 'P0001' then
+    if sqlerrm not like 'You''ve sent a lot of reports today%' then raise; end if;
+  end;
+end $$;
+reset role;
+do $$
+begin
+  if exists (select 1 from public.posts where id = 900 and hidden_at is not null) then
+    raise exception 'a report by number hid a post the reporter cannot see';
+  end if;
+end $$;
+\echo PASS: moderation

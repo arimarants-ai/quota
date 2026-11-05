@@ -73,6 +73,27 @@
   // table has no select policy; blocks are read back, since they decide what is shown.
   self.__reports = []; self.__blocks = (M().blocks || []).map(user_id => ({ by_user: 'u1', user_id }));
   self.__deletedPosts = []; self.__rpcs = [];
+  // The Reports screen (v56): two open cards and one decided, as mod_reports draws them.
+  const hrs = n => new Date(Date.now() - n * 36e5).toISOString();
+  self.__modOpen = [
+    { id: 41, what: 'post', thing_id: 100, reason: 'harassment', details: 'keeps doing this', body: '', n: 2, reported_at: hrs(3),
+      reporters: [{ id: 41, reason: 'harassment', details: 'keeps doing this', at: hrs(3), name: 'Kim', username: 'kim' },
+                  { id: 42, reason: 'harassment', details: '', at: hrs(2), name: 'Lee', username: 'lee' }],
+      poster_id: 'u2', poster_name: 'Sam', poster_username: 'sam', poster_avatar: null, group_id: 1, group_name: 'Mornings',
+      posted_at: hrs(5), caption: 'big set today', metric: 'pushups', amount: 50, path: 's0.mp4', store: null,
+      hidden: true, removed: false, gone: false, strikes: 1, suspended: false, resolution: null },
+    { id: 43, what: 'comment', thing_id: 9, reason: 'self_harm', details: '', body: 'i cant do this anymore', n: 1, reported_at: hrs(1),
+      reporters: [{ id: 43, reason: 'self_harm', details: '', at: hrs(1), name: 'Kim', username: 'kim' }],
+      poster_id: 'u3', poster_name: 'Jo', poster_username: 'jo', group_id: 1, group_name: 'Mornings', posted_at: hrs(2),
+      caption: 'i cant do this anymore', path: null, hidden: true, strikes: 0, suspended: false, resolution: null },
+  ];
+  self.__modDone = [
+    { id: 30, what: 'post', thing_id: 77, reason: 'spam', n: 1, reported_at: hrs(30), reporters: [{ id: 30, username: 'kim', reason: 'spam', at: hrs(30) }],
+      poster_id: 'u5', poster_name: 'Pat', poster_username: 'pat', group_name: 'Mornings', path: 'x.mp4', strikes: 3, suspended: true,
+      resolution: 'removed', resolved_at: hrs(20), decided_by_name: 'Justin', polished_reason: 'Your post advertised a product, which is not allowed on Quota.',
+      strike_no: 3, did_suspend: true, email_sent_at: null, email_error: 'Resend 500' },
+  ];
+  self.__decisions = [];
   self.__signups = []; self.__logins = []; self.__sessions = []; self.__resends = []; self.__resets = []; self.__userEdits = []; self.__otps = [];
 
   // Two members so the leaderboard has something to rank, and a group old enough for the
@@ -81,7 +102,8 @@
     // tour_seen_at is only on the row once v55 is run, so it is only here when a case says
     // so; every other case is a project that has not run it yet.
     profiles: [{ id: 'u1', username: M().noUsername ? null : 'ari', display_name: M().noUsername ? null : 'Ari',
-      ...('tourSeen' in M() ? { tour_seen_at: M().tourSeen } : {}) }, { id: 'u2', username: 'sam', display_name: 'Sam' },
+      ...('tourSeen' in M() ? { tour_seen_at: M().tourSeen } : {}), ...(M().suspended ? { suspended_at: new Date().toISOString() } : {}) },
+      { id: 'u2', username: 'sam', display_name: 'Sam' },
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     // Made by whoever the case says, and carrying a forfeit when the case gives one — read
     // back through whatever the page last saved, the way a group's picture is.
@@ -100,7 +122,10 @@
     posts: [...(M().samToday ? [] : [M().noCaption ? { ...POST, caption: '' } : POST]), ...SAM_TODAY, ...(M().photos ? [SHOT] : []), ...HISTORY, ...EXTRA, ...self.__posts]
       .map(p => ({ on_profile: false, ...p, ...(p.id in self.__onprofile ? { on_profile: self.__onprofile[p.id] } : {}) }))
       // Proof already on R2 (schema v50), for the cases about where a file is signed.
-      .map(p => (M().r2 && !p.video_store ? { ...p, video_store: 'r2' } : p)),
+      .map(p => (M().r2 && !p.video_store ? { ...p, video_store: 'r2' } : p))
+      // Under review, or taken down (v56), for the cases about who still sees what.
+      .map(p => ((M().hidden || []).includes(p.id) ? { ...p, hidden_at: new Date().toISOString() } : p))
+      .map(p => ((M().removed || []).includes(p.id) ? { ...p, hidden_at: new Date().toISOString(), removed_at: new Date().toISOString() } : p)),
     wheels: M().wheel === false ? [] : [WHEEL],
     wheel_stages: M().wheel === false ? [] : STAGES,
     spins: self.__spins,
@@ -380,6 +405,16 @@
       self.__seenAsked = (self.__seenAsked || 0) + 1;
       return { data: ((self.__chatSeen || M().chatSeen || {})[args.p_chat]) || [], error: null };
     }
+    // Moderation (v56). The cards, the badge, the other moderator's name, and the numbers of
+    // somebody else's post that is waiting on a decision.
+    if (fn === 'mod_reports') {
+      if (!M().mod) return { data: null, error: { code: '42501', message: 'only a moderator can see this' } };
+      return { data: JSON.parse(JSON.stringify(args.status === 'done' ? self.__modDone : self.__modOpen)), error: null };
+    }
+    if (fn === 'mod_open_count') return { data: M().mod ? self.__modOpen.length : 0, error: null };
+    if (fn === 'mod_names') return { data: M().mod ? ['Justin'] : [], error: null };
+    if (fn === 'held_posts') return { data: M().held || [], error: null };
+    if (fn === 'lift_suspension') { self.__lifted = args.p_user; return { data: null, error: null }; }
     if (fn === 'record_consent') { self.__consents = [...(self.__consents || []), args]; return { data: new Date().toISOString(), error: null }; }
     if (fn === 'my_files') return { data: [{ bucket: 'proof', path: '1/u1/p.mp4' }, { bucket: 'proof', path: '9/u1/left.mp4' }], error: null };
     if (fn === 'delete_account') return M().deleteFails ? { data: null, error: err('network is down') } : { data: null, error: null };
@@ -472,6 +507,24 @@
       functions: { invoke: async (name, opts) => {
         (self.__invokes = self.__invokes || []).push({ name, ...(opts || {}) });
         const b = (opts && opts.body) || {};
+        if (name === 'moderation') {
+          if (b.action === 'polish') {
+            // Out of credit, or anything else: the function itself falls back, but a call that
+            // fails outright must be just as quiet.
+            if (M().polishDown) return { data: null, error: Object.assign(new Error('Edge Function returned a non-2xx status code'),
+              { name: 'FunctionsHttpError', context: { status: 500, json: async () => ({ error: 'something went wrong' }) } }) };
+            return { data: { polished: `Polished: ${b.raw}` }, error: null };
+          }
+          if (b.action === 'decide') {
+            self.__decisions.push(b);
+            const i = self.__modOpen.findIndex(r => r.id === b.report_id);
+            if (i >= 0) self.__modDone.unshift({ ...self.__modOpen.splice(i, 1)[0], resolution: b.decision, resolved_at: new Date().toISOString(),
+              decided_by_name: 'Ari', polished_reason: b.polished || null, email_sent_at: b.decision === 'removed' ? new Date().toISOString() : null });
+            return { data: { result: { strike_no: 2 }, email: { sent: b.decision === 'removed', error: null }, pushed: 1 }, error: null };
+          }
+          if (b.action === 'retry_email') { self.__retried = b.report_id; return { data: { sent: true, error: null }, error: null }; }
+          return { data: null, error: null };
+        }
         if (name !== 'media') return { data: null, error: null };
         if (M().mediaDown) return { data: null, error: Object.assign(new Error('Failed to send a request to the Edge Function'), { name: 'FunctionsFetchError' }) };
         if (b.action === 'sign-view') {

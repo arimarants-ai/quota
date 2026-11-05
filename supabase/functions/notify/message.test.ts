@@ -112,3 +112,21 @@ eq(forfeitPaidFor('Ari'), 'Ari marked your forfeit paid', '  and reads properly 
   const g = socialFor('joined_group', 'Sam', 'Mornings');
   ok(/sam/i.test(g) && /mornings/i.test(g), 'and joining a group says which one', g);
 }
+
+// ---- reports
+{
+  const { reportFor, reportDecidedFor, reasonLabel, thingWord } = await import('./message.ts');
+  eq(reasonLabel('self_harm'), 'self-harm', 'self_harm reads as self-harm');
+  eq(reasonLabel('fake'), 'fake proof', 'fake reads as fake proof');
+  eq(reasonLabel('sexual'), 'sexual content', 'sexual reads as sexual content');
+  eq(reasonLabel('spam'), 'spam', 'spam stays spam');
+  eq(thingWord('post', '1/u/2.mp4'), 'video', 'a post with a clip is a video');
+  eq(thingWord('post', '1/u/2.jpg'), 'photo', 'a post with a picture is a photo');
+  eq(thingWord('comment'), 'comment', 'a comment is a comment');
+  eq(reportFor('Sam', 'video', 'Mornings', 'self_harm'),
+     "Sam's video in Mornings was reported for self-harm. Tap to review.", 'the report push says who, what, where and why');
+  eq(reportFor('Sam', 'message', null, 'fake'),
+     "Sam's message was reported for fake proof. Tap to review.", 'a private message has no group to name');
+  eq(reportDecidedFor(true), 'Thanks for reporting. We took it down.', 'the reporter hears it came down');
+  eq(reportDecidedFor(false), "Thanks for reporting. We looked into it and it's staying up.", 'the reporter hears it stayed up');
+}

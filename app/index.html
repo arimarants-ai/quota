@@ -1687,6 +1687,72 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .pill.ok{background:var(--mktint);color:var(--mkt)}
 .pill.warn{background:#fff3d6;color:#8a5a00}
 .pill.bad{background:#ffe1e1;color:#a01818}
+/* Reports (moderators, v56) */
+.rsub{margin:2px 0 0;font-size:13px}
+.rtabs{display:flex;gap:6px;margin:4px 12px 10px}
+.rtabs .chip{font-size:13px;padding:7px 12px}
+.rtabs .chip.on{background:var(--mk);border-color:var(--mk);color:#fff}
+.rlist{margin:0 12px 24px;border:1px solid var(--line);background:var(--card)}
+.rcard{display:flex;align-items:flex-start;gap:12px;width:100%;padding:12px 14px;background:none;text-align:left;font-weight:400;white-space:normal;color:var(--text)}
+.rcard + .rcard{border-top:1px solid var(--line)}
+.rthumb{flex:none;width:52px;height:68px;background:var(--soft);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.rthumb img{width:100%;height:100%;object-fit:cover}
+.rthumb svg{width:24px;height:24px;fill:none;stroke:var(--muted);stroke-width:1.8}
+.rthumb.av{background:none}
+.rbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.rbody b{font-size:15px;font-weight:800}
+.rbody em,.rline em{font-style:normal;font-size:12.5px;color:var(--muted)}
+.rline{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.rchip{display:inline-block;padding:2px 8px;font-size:11.5px;font-weight:800;background:#ffe1e1;color:#a01818}
+.rchip.sh{background:#e8eefc;color:#2a4a9a}
+.rstk{flex:none;font-size:12px;font-weight:800;color:var(--muted)}
+.rstk.on{color:#d1344f}
+.rwhy{font-size:13.5px;color:var(--text);font-style:italic}
+.rerr{font-size:12.5px;font-weight:700;color:#d1344f}
+.racts{display:flex;gap:8px;flex-wrap:wrap}
+.racts:empty{display:none}
+.rtop{display:flex;align-items:center;justify-content:space-between;padding-right:16px}
+.rrev{display:flex;flex-direction:column;gap:12px}
+.rmedia{display:block;width:100%;max-height:62vh;background:#000;object-fit:contain}
+.rwords{padding:16px;background:var(--soft);font-size:16px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.ramber{padding:10px 12px;background:#fff3d6;color:#8a5a00;font-weight:800;font-size:13.5px}
+.rwho{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rwho .grow{min-width:0;display:flex;flex-direction:column}
+.rwho em{font-style:normal;font-size:12.5px;color:var(--muted)}
+.rcap{margin:0;font-size:15px;white-space:pre-wrap}
+.rbox{background:var(--soft);padding:2px 12px}
+.rrep{padding:10px 0}
+.rrep + .rrep{border-top:1px solid var(--line)}
+.rrep p{margin:6px 0 0;font-size:14px;white-space:pre-wrap}
+.rdecide{display:flex;gap:10px;margin:0 12px 24px}
+.rdecide button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 10px}
+.rdecide em{font-style:normal;font-size:12px;font-weight:600;opacity:.8}
+.rdecide .keep{background:none;border:2px solid var(--mk);color:var(--mkt)}
+.rdecide .down{background:#d1344f;color:#fff}
+.tdsays{margin-top:14px;border:1px solid var(--line);padding:10px 12px}
+.tdh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tdh b{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tdh span{flex:1;font-size:12.5px}
+.tdout{font-size:14.5px;line-height:1.45;white-space:pre-wrap}
+textarea.tdout{width:100%}
+.tdm{margin-top:14px}
+.tdm .bars{display:flex;gap:4px;margin-bottom:6px}
+.tdm .bars i{flex:1;height:6px;background:var(--line)}
+.tdm .bars i.was{background:#f0a2b0}
+.tdm .bars i.now{background:#d1344f}
+.tdm .bars i.sus{background:#8f1022}
+.tdm p{margin:2px 0 0;font-size:13px}
+.tdsh{margin:14px 0 0;padding:10px 12px;background:#e8eefc;color:#2a4a9a;font-weight:700;font-size:13.5px}
+.tdser span{font-weight:500}
+button.tdgo{background:#d1344f;color:#fff}
+.tdnote{text-align:center;font-size:12px;margin:10px 0 0}
+.rbadge{display:inline-block;min-width:20px;padding:1px 6px;margin-right:6px;background:var(--mk);color:#fff;font-size:12px;font-weight:800;text-align:center}
+.review{display:inline-block;margin:0 0 0 6px;padding:2px 7px;background:#fff3d6;color:#8a5a00;font-size:11px;font-weight:800;font-style:normal;letter-spacing:.02em}
+.rvline{margin:0 16px 10px;padding:8px 10px;background:#fff3d6;color:#8a5a00;font-size:13px;font-weight:600}
+.susp{position:sticky;top:0;z-index:20;padding:10px 16px;background:#ffe1e1;color:#a01818;font-size:13.5px;line-height:1.4}
+:root[data-theme=dark] .ramber,:root[data-theme=dark] .review,:root[data-theme=dark] .rvline{background:#3a2c0a;color:#ffd27a}
+:root[data-theme=dark] .rchip,:root[data-theme=dark] .susp{background:#3d1418;color:#ff9aa8}
+:root[data-theme=dark] .rchip.sh,:root[data-theme=dark] .tdsh{background:#16223f;color:#9db6ff}
 .arow .hist{padding:0 14px 12px}
 .arow .h{padding:8px 0;border-top:1px dashed var(--line);font-size:13px;display:flex;flex-direction:column;gap:2px}
 .arow .h em{font-style:normal;color:var(--muted);font-size:12px}
@@ -1823,7 +1889,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v162';
+const BUILD = 'quota-v163';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -1860,7 +1926,29 @@ const buzz = (kind = 'tap') => { const h = plug('Haptics'); if (!h) return;
 let quiet = 0;
 // A request that never reached the server, as opposed to one the server said no to.
 const netErr = e => /failed to fetch|load failed|networkerror|network request failed|fetch failed|aborted|abort/i.test(String((e && (e.message || e.name)) || e || ''));
-const q = async p => { const {data, error} = await p; if (error) { if (!quiet) { alert(friendlyError(error)); error.shown = true; } throw error; } return data; };
+const q = async p => { const {data, error} = await p; if (error) { if (!quiet) { alert(friendlyError(error)); error.shown = true; } throw error; } return unhide(data); };
+// ---- what a report took out of sight (schema v56)
+// A reported post, story, comment or message is hidden at once from everybody but whoever
+// made it, and one taken down is gone for good. The database already does this for
+// everybody else; the two moderators can read those rows too, for the Reports screen, and
+// their own feed must not fill up with them. So every row that says either thing is
+// dropped here, on the way in, unless it is your own one still waiting: that one stays,
+// marked Under review, and counts for your day like any other.
+let VIEWER = null;
+// A suspended account can sign in and look, and nothing else: the database refuses a new
+// post, story, comment or message (v56), and the app says so before it gets that far.
+const SUSPENDED_LINE = 'Your account is suspended. Reply to the email we sent if you think this is a mistake.';
+const isSuspended = () => !!(typeof S !== 'undefined' && S.me && S.me.suspended_at);
+const suspendedBar = () => isSuspended() ? `<div class="susp" role="status"><b>Your account is suspended.</b> Reply to the email we sent if you think this is a mistake.</div>` : '';
+function suspendedStop() {
+  if (!isSuspended()) return false;
+  dlg(`<h2>Your account is suspended</h2><p class="muted">You can still look around, but you can't post, comment or message while it is. Reply to the email we sent if you think this is a mistake.</p>
+    <button type="button" style="width:100%;margin-top:18px" onclick="dlg()">OK</button>`);
+  return true;
+}
+const shownRow = r => !r || typeof r !== 'object' || !('removed_at' in r || 'hidden_at' in r)
+  || (!r.removed_at && (!r.hidden_at || r.user_id === VIEWER));
+const unhide = d => Array.isArray(d) ? d.filter(shownRow) : d;
 // Everything that goes wrong is said in Quota's words, with what to do next. What actually
 // happened goes to the console for whoever is debugging; nobody using the app should ever
 // read a database message, a table name or a stack. Every catch that shows something to a
@@ -1881,6 +1969,8 @@ function friendlyError(err, fallback) {
   if (status === 413 || /maximum allowed size|payload too large|entity too large|^too big$/i.test(m)) return "That's too big to upload. Record a shorter clip and try again.";
   if (/no content provided|upload (failed|interrupted)|aborted|interrupted/i.test(m)) return "The upload didn't finish. Try again.";
   if (['42703', '42P01', '42883', 'PGRST202', 'PGRST204', 'PGRST205'].includes(code) || /does not exist|schema cache|could not find the/i.test(m)) return "This isn't available yet.";
+  if (/sent a lot of reports today/i.test(m)) return m;
+  if (typeof S !== 'undefined' && S.me && S.me.suspended_at && (code === '42501' || /row-level security/i.test(m))) return SUSPENDED_LINE;
   if (code === '42501' || /row-level security|permission denied|not a member of that group/i.test(m)) return "You can't do that here.";
   if (status === 401 || /jwt expired|not authenticated/i.test(m)) return 'You were signed out. Log in again.';
   return fallback || "Something's off on our side. Try again, and if it keeps happening, reopen the app.";
@@ -2006,7 +2096,7 @@ const onR2 = x => x && x.store === 'r2';
 // One shape for a post, from whichever query it came out of.
 const asPost = p => ({id: p.id, groupId: p.group_id, userId: p.user_id, metric: p.metric, amount: p.amount,
   caption: p.caption, path: p.video_path, store: storeOf(p), day: p.day, ts: Date.parse(p.created_at), at: p.created_at,
-  challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile});
+  challenge: p.challenge, spinId: p.spin_id, onProfile: !!p.on_profile, review: !!p.hidden_at});
 // R2 has no policies of its own, so the `media` function holds the bucket's rules and
 // hands out URLs. An error comes back the way a database one does, so q() and
 // friendlyError() say the same things about it.
@@ -2433,12 +2523,13 @@ async function restoreSnap() {
 
 // A query whose table may not be there yet. null means the feature is not switched on, and
 // the app draws itself without it rather than refusing to draw at all.
-const soft = async p => { const {data, error} = await p; return error ? null : data; };
+const soft = async p => { const {data, error} = await p; return error ? null : unhide(data); };
 
 async function fetchAll() {
   const {data: {session}} = await sb.auth.getSession();
   if (!session) { S.me = null; return; }
   const uid = session.user.id;
+  VIEWER = uid;
   // Anything whose time is up is closed before it is read, so nobody is shown a dead clock
   // or asked to vote on something that is over. Cron does the same every ten minutes for
   // the sake of people who are not looking, and this does nothing at all on a project where
@@ -2448,7 +2539,7 @@ async function fetchAll() {
   // of the load, which takes the whole app with it. A missing function comes back as
   // {error} rather than a rejection anyway; the catch is for the network failing.
   try { await sb.rpc('close_due_flags'); } catch (e) {}
-  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads, settle, blocks] = await Promise.all([
+  const [fr, inv, gm, groups, posts, totals, wheels, stages, spins, ticks, likes, reacts, stories, seen, slikes, sreacts, badges, clikes, flags, fvotes, msgs, mreacts, reads, settle, blocks, held] = await Promise.all([
     q(sb.from('friendships').select('a,b')),
     q(sb.from('invites').select('*')),
     q(sb.from('group_members').select('*')),
@@ -2490,6 +2581,9 @@ async function fetchAll() {
     soft(sb.from('forfeit_settlements').select('*')),
     // Softly, like the rest: until v46 is run nobody has blocked anybody.
     soft(sb.from('blocks').select('user_id')),
+    // Somebody else's post waiting on a report: hidden from you, but its numbers still count
+    // for their day, so the group's chips and streaks do not change while it waits (v56).
+    soft(sb.rpc('held_posts')),
   ]);
   // Somebody you blocked is gone from everything you see, on this load and every one after:
   // what they posted, their stories, comments, messages, likes and invites. Their numbers
@@ -2514,7 +2608,7 @@ async function fetchAll() {
   S.likes = (likes || []).map(l => ({p: l.post_id, u: l.user_id}));
   S.reacts = (reacts || []).map(r => ({p: r.post_id, u: r.user_id, e: r.emoji}));
   S.stories = (stories || []).map(x => ({id: x.id, u: x.user_id, kind: x.kind, path: x.media_path, store: storeOf(x),
-    body: x.body, style: (x.style && typeof x.style === 'object') ? x.style : {}, ts: Date.parse(x.created_at)}));
+    review: !!x.hidden_at, body: x.body, style: (x.style && typeof x.style === 'object') ? x.style : {}, ts: Date.parse(x.created_at)}));
   // Yours say what you have watched; the rest are who watched yours, which is all the
   // policy lets through.
   S.views = (seen || []).map(v => ({s: v.story_id, u: v.user_id, ts: Date.parse(v.seen_at)}));
@@ -2557,7 +2651,7 @@ async function fetchAll() {
   // Oldest first, which is the order a conversation is read in. The query asks for the
   // newest so the limit takes the right end of a long one.
   S.msgs = (msgs || []).map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
-    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null, edited: !!x.edited_at})).sort((x, y) => x.ts - y.ts);
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null, edited: !!x.edited_at, review: !!x.hidden_at})).sort((x, y) => x.ts - y.ts);
   S.mreacts = (mreacts || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
   S.reads = (reads || []).map(r => ({k: r.chat, ts: Date.parse(r.seen_at)}));
   // A post the group decided did not count is left out of the day it was posted on, which
@@ -2566,7 +2660,8 @@ async function fetchAll() {
   // completion rate, whether a challenge is finished — follows on its own without knowing
   // flags exist at all.
   const gone = voidedPosts();
-  S.totals = totals.filter(t => !gone.has(t.id)).map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
+  const have = new Set(totals.map(t => t.id));
+  S.totals = [...totals, ...(Array.isArray(held) ? held : []).filter(t => !have.has(t.id))].filter(t => !gone.has(t.id)).map(t => ({g: t.group_id, u: t.user_id, d: t.day, m: t.metric, n: t.amount, sp: t.spin_id, ch: t.challenge}));
   // Every post as a name and a date, for looking back over months. Kept apart from S.posts,
   // which is what the feed has fetched in full, so paging the feed never skips anything.
   // Whatever the recaps already signed is kept, so a reload does not empty their cards.
@@ -2609,7 +2704,7 @@ async function fetchAll() {
     storySigned,
     S.posts.length ? sb.from('comments').select('*').in('post_id', S.posts.map(p => p.id)).order('created_at') : {data: []},
   ]);
-  S.noComments = !!ce; S.comments = (cm || []).map(asComment);
+  S.noComments = !!ce; S.comments = unhide(cm || []).map(asComment);
   hideBlocked();
   const ids = [...new Set([uid, ...S.blocked, ...S.friends, ...S.invites.flatMap(i => [i.from, i.to]), ...gm.map(m => m.user_id), ...S.posts.map(p => p.userId), ...Object.values(S.spost).map(p => p.userId), ...S.comments.map(c => c.userId), ...S.stories.map(x => x.u), ...S.views.map(v => v.u), ...S.slikes.map(l => l.u), ...S.sreacts.map(r => r.u)])];
   // Everybody's public side, and your own row in full. A birthday, a time zone and the like
@@ -2645,11 +2740,13 @@ async function firstPage() {
 // costs the app a feature, never the whole load.
 const HIST_COLS = 'id,group_id,user_id,day,metric,amount,spin_id,challenge,video_path,created_at';
 async function historyRows() {
-  const r = await sb.from('posts').select(HIST_COLS + ',video_store');
-  return r.error && (r.error.code === '42703' || /video_store/.test(r.error.message || '')) ? sb.from('posts').select(HIST_COLS) : r;
+  // hidden_at and removed_at (v56) are what unhide() reads; without them a moderator's
+  // history would count posts that were taken down.
+  const r = await sb.from('posts').select(HIST_COLS + ',video_store,hidden_at,removed_at');
+  return r.error && (r.error.code === '42703' || /video_store|hidden_at|removed_at/.test(r.error.message || '')) ? sb.from('posts').select(HIST_COLS) : r;
 }
 
-const asComment = c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at});
+const asComment = c => ({id: c.id, postId: c.post_id, userId: c.user_id, body: c.body, ts: Date.parse(c.created_at), replyTo: c.reply_to ?? null, edited: !!c.edited_at, review: !!c.hidden_at});
 
 // Posts fetched after the first load — an older page, or a day opened from the month —
 // arrive with what the feed draws beside them: their comments and the names of whoever
@@ -2661,7 +2758,7 @@ async function bringIn(list) {
   if (open.length) await signProof(open);
   const {data: cm} = await sb.from('comments').select('*').in('post_id', list.map(p => p.id)).order('created_at');
   const have = new Set(S.comments.map(c => c.id));
-  S.comments.push(...(cm || []).map(asComment).filter(c => !have.has(c.id) && !S.blocked.has(c.userId)));
+  S.comments.push(...unhide(cm || []).map(asComment).filter(c => !have.has(c.id) && !S.blocked.has(c.userId)));
   const need = [...new Set([...list.map(p => p.userId), ...(cm || []).map(c => c.user_id)])].filter(id => !S.profiles[id]);
   if (need.length) for (const u of await q(sb.from('profiles').select(PROFILE_COLS).in('id', need))) S.profiles[u.id] = u;
   return list;
@@ -2840,7 +2937,8 @@ async function runLoad() {
     // the database refuses that screen's data to anybody else whatever the app thinks.
     if (me() && S.fresh && !takeOffered) { takeOffered = true; offerTake(); }
     pingOpen();
-    if (me() && S.isMod === undefined) { S.isMod = false; Promise.resolve(sb.rpc('am_moderator')).then(({data}) => { S.isMod = data === true; if (S.isMod && S.settings) render(); }, () => {}); }
+    if (me() && S.isMod === undefined) { S.isMod = false; Promise.resolve(sb.rpc('am_moderator')).then(({data}) => { S.isMod = data === true; if (S.isMod) refreshModCount(); if (S.isMod && S.settings) render(); }, () => {}); }
+    else if (me() && S.isMod) refreshModCount();
     if (me()) { goLive(); noteForfeits(); } else dropLive();
     syncPhone();
     if (recordWanted) recordFromPhone();
@@ -2874,14 +2972,16 @@ function screenHTML() {
   if (!myGroups().length && !S.settings) return needGroupView();
   if (S.installAfter) return installView(S.installAfter);
   const g = S.open && S.groups.find(x => x.id === S.open && x.members.includes(m.id));
-  return S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
+  return suspendedBar() + (S.chat ? (S.chat === 'list' ? chatsView() : chatView(S.chat))
     : S.flag ? (S.flag === 'all' ? flagsView() : flagView(S.flag))
+    : S.report ? reportView(S.report)
+    : S.reports ? reportsView()
     : S.admin ? adminView()
     : S.settings ? settingsView()
     : S.sub ? subScreen(S.sub)
     : S.who ? personView(S.who)
     : g ? groupView(g)
-    : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]();
+    : {feed: feedView, groups: groupsView, friends: friendsView, profile: profileView}[S.tab]());
 }
 
 // Bring a container up to date without rebuilding it. The page is rendered as a string, and
@@ -3978,7 +4078,7 @@ function paneHTML(uid, all, at, live) {
   const st = all[at], u = user(st.uid || uid), mine = st.u === me().id, likes = storyLikes(st.id).length;
   return `<div class="pane">
     <div class="bars">${all.map((x, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}">${i === at ? '<b></b>' : ''}</i>`).join('')}</div>
-    <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>
+    <div class="who">${av(u)}<b>${esc(name(u))}</b><span>${ago(st.ts)}</span>${st.review ? '<em class="review">Under review</em>' : ''}
       <button type="button" class="bin" onclick="storyMenu(${st.id})" aria-label="More">${DOTS}</button>
       ${live && storyClip(st) ? `<button type="button" class="snd" onclick="toggleStorySound()" aria-label="Sound">${SPEAKER}</button>` : ''}
       <button type="button" class="x" onclick="closeStory()" aria-label="Close">✕</button></div>
@@ -4206,6 +4306,7 @@ function newStory(pre) {
 // Three ways in, and the camera is the same one proof uses — capped at ten seconds when
 // it is opened from here.
 function storyKind() {
+  if (suspendedStop()) return;
   dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
     <div class="row" style="margin-top:16px"><button type="button" class="teal grow" onclick="dlg();openCam('story')">Record</button>
       <button type="button" class="grow" onclick="dlg();openCam('story',true)">Photo</button></div>
@@ -4436,6 +4537,7 @@ function dragify(el, set, onTap) {
 async function postStory() {
   const d = S.draft, m = me();
   if (!d) return;
+  if (suspendedStop()) return;
   // The editor is a contenteditable, not a form, so the submit guard never sees it.
   const bad = badWords(d.body || '');
   if (bad.length) return refuse(bad, null);
@@ -5284,9 +5386,10 @@ function feed(ps, showGroup, bare, scope) {
     // The header sits on the card above the clip, so the clip is only the clip. The
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
-      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}</div></div>
+      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${p.review ? '<em class="review">Under review</em>' : ''}</div></div>
         ${showGroup && g.id ? `<button type="button" class="gtag" onclick="openGroup(${g.id})" aria-label="Open ${esc(g.name)}">${GROUP_ICON}<span>${esc(g.name)}</span></button>` : ''}
         <button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button></div>
+      ${p.review ? `<p class="rvline">Someone reported this, so it's hidden from your group while we take a look. It still counts for your day.</p>` : ''}
       ${locked(p) ? lockedReel(p) : `<div class="reel">
       ${isPhoto(p)
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="likeTap(this,${p.id})" onerror="clipBust(this,${p.id})">`
@@ -5824,7 +5927,7 @@ async function refreshChat() {
   ]);
   if (!rows) return;
   const msgs = rows.map(x => ({id: x.id, groupId: x.group_id, a: x.a, b: x.b,
-    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null, edited: !!x.edited_at})).sort((x, y) => x.ts - y.ts);
+    userId: x.user_id, body: x.body, ts: Date.parse(x.created_at), replyTo: x.reply_to ?? null, edited: !!x.edited_at, review: !!x.hidden_at})).sort((x, y) => x.ts - y.ts);
   const mreacts = (rx || []).map(r => ({m: r.message_id, u: r.user_id, e: r.emoji}));
   const same = msgs.length === S.msgs.length && mreacts.length === S.mreacts.length
     && msgs.every((x, i) => x.id === S.msgs[i].id && x.body === S.msgs[i].body);
@@ -5951,7 +6054,7 @@ function chatBody(key) {
     const quote = to ? `<button type="button" class="cquote ${mine ? 'me' : 'them'}" onclick="jumpToMsg(${to.id})"><b>${
       mine ? 'You' : esc(name(user(msg.userId)))} replied to ${whoTo}</b><span>${esc(clip(to.body, 90))}</span></button>` : '';
     return head + nameLine + quote + `<div class="m ${mine ? 'me' : 'them'}${msg.pending ? ' pending' : ''}" data-msg="${msg.id}">
-      <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}${msg.edited ? '<em class="ed">Edited</em>' : ''}</button>
+      <button type="button" class="say"${msg.pending ? '' : ` onclick="pickMsgReact(event,${msg.id})"`}>${esc(msg.body)}${msg.edited ? '<em class="ed">Edited</em>' : ''}${msg.review ? '<em class="ed">Under review</em>' : ''}</button>
       ${grouped.length ? `<div class="mrx">${grouped.map(r => `<button type="button" class="${r.mine ? 'mine' : ''}"
         onclick="pickMsgReact(event,${msg.id})">${r.e}${r.n > 1 ? `<b>${r.n}</b>` : ''}</button>`).join('')}</div>` : ''}
 </div>` + (seen && seen.id === msg.id ? seen.html : '');
@@ -6048,6 +6151,7 @@ function chatView(key) {
 async function sendMessage(f, key) {
   const body = f.body.value.trim();
   if (!body) return;
+  if (suspendedStop()) return;
   if (S.medit && S.medit.key === key) return saveEdit('message', S.medit.id, body, f);
   f.body.value = '';                       // before the redraw, the same as a comment
   const m = me(), isGroup = key.startsWith('g:');
@@ -6393,7 +6497,7 @@ function commentsFor(p, cs) {
       // does not need to, because that is the one right above it.
       const at = to && to.replyTo ? `<em class="at">@${esc(user(to.userId).username || '')}</em> ` : '';
       return `<div class="c${c.pending ? ' pending' : ''}${to ? ' reply' : ''}" data-cmt="${c.id}" data-cpost="${p.id}">${av(user(c.userId), 'sm')}<div class="grow"><b>${esc(name(user(c.userId)))}</b>
-      <span>${at}${esc(c.body)}${c.edited ? ' <em class="ed">Edited</em>' : ''}</span>${c.pending ? '' : `<button type="button" class="creply" onclick="replyComment(${p.id},${c.id})">Reply</button>`}</div>${
+      <span>${at}${esc(c.body)}${c.edited ? ' <em class="ed">Edited</em>' : ''}${c.review ? ' <em class="review">Under review</em>' : ''}</span>${c.pending ? '' : `<button type="button" class="creply" onclick="replyComment(${p.id},${c.id})">Reply</button>`}</div>${
         c.pending ? '' : `<button type="button" class="clk${iLikeComment(c.id) ? ' on' : ''}" onclick="toggleCommentLike(${c.id})" aria-label="${iLikeComment(c.id) ? 'Unlike' : 'Like'} this comment">${HEART}${
         commentLikes(c.id).length ? `<i>${num(commentLikes(c.id).length)}</i>` : ''}</button>`}</div>`;
     }).join('')}</div>` : ''}
@@ -6825,6 +6929,8 @@ function settingsView() {
     <div class="list">
       ${srow('help', 'Support', 'Help and FAQ', '<span class="go">\u203a</span>', 'supportDlg()')}
       ${srow('mail', 'Contact us', CONTACT, '<span class="go">\u203a</span>', `location.href='mailto:${CONTACT}'`)}
+      ${S.isMod ? srow('flag', 'Reports', S.modCount ? `${plural(S.modCount, 'thing')} waiting for a decision` : 'Nothing waiting',
+        `${S.modCount ? `<span class="rbadge">${S.modCount}</span>` : ''}<span class="go">\u203a</span>`, 'openReports()') : ''}
       ${S.isMod ? srow('doc', 'Users & agreements', 'Who has agreed to the terms, and when', '<span class="go">\u203a</span>', 'openAdmin()') : ''}
       ${srow('block', 'Blocked', S.blocked.size ? (S.blocked.size === 1 ? '1 person' : `${S.blocked.size} people`) : 'Nobody', '<span class="go">\u203a</span>', 'blockedDlg()')}
     </div>
@@ -8796,6 +8902,289 @@ function adminCsv() {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+// ---- reports (moderators, schema v56)
+// Everything somebody reported, for the two people in `moderators`, and the one decision
+// each needs: keep it up, or take it down. A report hides the thing the moment it is filed,
+// so nothing here is urgent in the sense of still being seen; it is urgent in the sense
+// that somebody's post is hidden from their group until one of you looks.
+//
+// The database decides who may see any of this (mod_reports refuses everybody else), and
+// the decision itself is moderate_report() through the moderation function, which also
+// sends the email and thanks whoever reported it. The poster's address never comes here.
+const REASON_LABEL = {spam: 'Spam', harassment: 'Harassment', hate: 'Hate', sexual: 'Sexual content',
+  violence: 'Violence', self_harm: 'Self-harm', fake: 'Fake proof', other: 'Something else'};
+const reasonChip = r => `<span class="rchip${r === 'self_harm' ? ' sh' : ''}">${esc(REASON_LABEL[r] || r)}</span>`;
+const IMG_PATH = /\.(jpe?g|png|webp|heic|heif|gif|avif)$/i;
+const thingOf = r => r.what === 'post' ? (IMG_PATH.test(r.path || '') ? 'photo' : 'video')
+  : r.what === 'user' ? 'profile' : r.what;
+const whoseThing = r => `${r.poster_name || 'Someone'}’s ${thingOf(r)}`;
+// The poster as av() wants them, without needing them to be in S.profiles.
+const posterOf = r => ({id: r.poster_id, username: r.poster_username || '', display_name: r.poster_name || '', avatar_path: r.poster_avatar});
+const rStore = r => r.store === 'r2' ? 'r2' : 'sb';
+async function modCall(action, body) {
+  const {data, error} = await sb.functions.invoke('moderation', {body: {action, ...body}});
+  if (error && error.name === 'FunctionsFetchError') throw Object.assign(new Error('Failed to fetch'), {offline: true});
+  if (error) {
+    let m = error.message || 'moderation';
+    try { const j = await error.context.json(); m = j.error || m; } catch (e) {}
+    throw Object.assign(new Error(m), {status: error.context && error.context.status});
+  }
+  return data;
+}
+// The badge on the Settings row. Zero for anybody who is not a moderator, from the database.
+async function refreshModCount() {
+  try { const {data} = await sb.rpc('mod_open_count'); S.modCount = +data || 0; } catch (e) {}
+  if (S.settings || S.reports) render();
+}
+function openReports(tab = 'open') {
+  const was = !!(S.reports || S.report);
+  S.report = null;
+  S.reports = {tab, open: S.reports ? S.reports.open : null, done: S.reports ? S.reports.done : null, err: '', others: S.reports ? S.reports.others : null};
+  if (!was) stackOn(); else render();
+  loadReports();
+}
+function closeReports() { S.reports = null; S.report = null; stackOff(); }
+async function loadReports() {
+  const [open, done, others] = await Promise.all([sb.rpc('mod_reports', {status: 'open'}), sb.rpc('mod_reports', {status: 'done'}),
+    S.reports && S.reports.others ? {data: S.reports.others} : sb.rpc('mod_names')]);
+  if (!S.reports) return;
+  const err = open.error || done.error;
+  if (err) S.reports.err = /moderator|42501|permission/i.test(`${err.code} ${err.message}`) ? 'Only a moderator can see this.' : friendlyError(err);
+  else { S.reports.err = ''; S.reports.open = open.data || []; S.reports.done = done.data || []; }
+  S.reports.others = Array.isArray(others.data) ? others.data : [];
+  S.modCount = (S.reports.open || []).length;
+  render();
+  signReports([...(S.reports.open || []), ...(S.reports.done || [])]);
+}
+// Stills for the list, the clip itself for whatever is open. Signed by the media function,
+// which lets a moderator watch reported proof in any group.
+async function signReports(rows, full = false) {
+  const files = rows.filter(r => r.path && (r.what === 'post' || r.what === 'story') && (rStore(r) === 'r2' || r.what === 'post'));
+  const want = files.flatMap(r => [...(IMG_PATH.test(r.path) ? [] : [{store: rStore(r), path: POSTER(r.path)}]),
+    ...(full || IMG_PATH.test(r.path) ? [{store: rStore(r), path: r.path}] : [])]);
+  // A story still in the old stories bucket is signed there.
+  const old = rows.filter(r => r.path && r.what === 'story' && rStore(r) !== 'r2');
+  try {
+    await Promise.all([want.length ? signFiles(want) : null,
+      ...old.map(r => sb.storage.from('stories').createSignedUrl(r.path, 3600).then(({data}) => { r.url = data && data.signedUrl || ''; }, () => {}))]);
+  } catch (e) {}
+  for (const r of files) {
+    const still = signedFor(rStore(r), IMG_PATH.test(r.path) ? r.path : POSTER(r.path)), clip = signedFor(rStore(r), r.path);
+    r.thumb = still ? still.url : ''; if (clip) r.url = clip.url;
+  }
+  for (const r of old) r.thumb = r.thumb || (IMG_PATH.test(r.path) ? r.url : '');
+  if (S.reports || S.report) render();
+}
+const CHAT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>';
+const rThumb = r => r.what === 'user' ? `<span class="rthumb av">${av(posterOf(r))}</span>`
+  : r.what === 'comment' || r.what === 'message' || (r.what === 'story' && !r.path) ? `<span class="rthumb chat">${CHAT_ICON}</span>`
+  : `<span class="rthumb">${r.thumb ? `<img alt="" src="${esc(r.thumb)}">` : ''}</span>`;
+const strikeText = n => n ? `${n} strike${n === 1 ? '' : 's'}` : 'No strikes';
+const byLine = r => `${r.n > 1 ? `Reported by ${r.n} people` : `Reported by @${esc((r.reporters[0] || {}).username || '?')}`}${r.group_name ? ` · ${esc(r.group_name)}` : ''}`;
+const decisionOf = r => r.resolution === 'kept' ? ['Kept up', 'ok'] : r.did_suspend ? ['Suspended', 'bad'] : ['Taken down', 'bad'];
+function reportsView() {
+  const R = S.reports, others = (R.others || []).filter(Boolean);
+  const head = `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div>${helpBtn()}</div><h1>Reports</h1>
+      <p class="muted rsub">${others.length ? `Only you and ${esc(others.join(' and '))} can see this` : 'Only moderators can see this'}</p></div>
+    <button class="ghost back" onclick="closeReports()">‹ ${S.settings ? 'Settings' : 'Back'}</button>`;
+  if (R.err) return head + `<div class="card empty"><b>Couldn't load this</b><p class="muted">${esc(R.err)}</p></div>`;
+  if (!R.open) return head + `<div class="card empty"><span class="spin" aria-hidden="true"></span><p class="muted">Loading…</p></div>`;
+  const tab = (k, l) => `<button type="button" class="chip${R.tab === k ? ' on' : ''}" onclick="S.reports.tab='${k}';render()">${l}</button>`;
+  const list = R.tab === 'done' ? R.done : R.open;
+  const card = r => R.tab === 'done' ? doneCard(r) : `<button type="button" class="rcard" onclick="openReport(${r.id})">
+      ${rThumb(r)}<span class="rbody"><b>${esc(whoseThing(r))}</b>
+        <span class="rline">${reasonChip(r.reason)}<em>${esc(ago(Date.parse(r.reported_at)))} waiting</em></span>
+        <em>${byLine(r)}</em></span>
+      <span class="rstk${r.strikes ? ' on' : ''}">${strikeText(r.strikes)}</span></button>`;
+  return head + `<div class="chips rtabs">${tab('open', `Open · ${R.open.length}`)}${tab('done', 'Done')}</div>
+    ${list.length ? `<div class="rlist">${list.map(card).join('')}</div>`
+      : `<div class="card empty"><b>${R.tab === 'done' ? 'Nothing decided yet' : 'Nothing to review'}</b><p class="muted">${R.tab === 'done' ? 'Decisions show up here.' : 'New reports land here, and you both get a push.'}</p></div>`}`;
+}
+function doneCard(r) {
+  const [label, cls] = decisionOf(r);
+  const emailed = r.resolution === 'removed';
+  return `<div class="rcard done">${rThumb(r)}<span class="rbody"><b>${esc(whoseThing(r))}</b>
+      <span class="rline"><span class="pill ${cls}">${label}</span>${reasonChip(r.reason)}</span>
+      <em>${r.decided_by_name ? `${esc(r.decided_by_name)} · ` : ''}${esc(stamp(r.resolved_at))}</em>
+      ${emailed && r.polished_reason ? `<span class="rwhy">“${esc(r.polished_reason)}”</span>` : ''}
+      ${emailed ? (r.email_error ? `<span class="rerr">The email didn't go out.</span>` : r.email_sent_at ? `<em>Emailed ${esc(stamp(r.email_sent_at))}</em>` : '') : ''}
+      <span class="racts">${emailed && r.email_error ? `<button type="button" class="small" onclick="retryEmail(this,${r.id})">Retry email</button>` : ''}
+        ${r.suspended ? `<button type="button" class="small" onclick="liftAsk('${esc(r.poster_id)}')">Lift suspension</button>` : ''}</span></span></div>`;
+}
+function openReport(id) {
+  const fresh = !S.reports && !S.report;
+  if (!S.reports) S.reports = {tab: 'open', open: null, done: null, err: '', others: null};
+  S.report = id;
+  if (fresh) stackOn(); else { render(); scrollTo(0, 0); }
+  if (!S.reports.open) loadReports().then(() => { const r = reportRow(id); if (r) signReports([r], true); });
+  else { const r = reportRow(id); if (r) signReports([r], true); }
+}
+const reportRow = id => [...(S.reports && S.reports.open || []), ...(S.reports && S.reports.done || [])].find(r => r.id === id
+  || (r.reporters || []).some(x => x.id === id));
+function backToReports() { S.report = null; render(); scrollTo(0, 0); }
+function reportView(id) {
+  const R = S.reports, r = reportRow(id);
+  const head = `<div class="rtop"><button class="ghost back" onclick="backToReports()">‹ Reports</button>`;
+  if (R && R.err) return head + `</div><div class="card empty"><b>Couldn't load this</b><p class="muted">${esc(R.err)}</p></div>`;
+  if (!R || !R.open) return head + `</div><div class="card empty"><span class="spin" aria-hidden="true"></span><p class="muted">Loading…</p></div>`;
+  if (!r) return head + `</div><div class="card empty"><b>That report isn't here</b><p class="muted">It may have been deleted along with the account.</p></div>`;
+  const open = !r.resolution, at = R.open.indexOf(r);
+  const u = posterOf(r), thing = thingOf(r);
+  const where = r.group_name ? esc(r.group_name) : r.what === 'message' ? 'the chat' : r.what === 'story' ? 'their friends' : 'everyone';
+  const media = r.what === 'post' || (r.what === 'story' && r.path)
+    ? (IMG_PATH.test(r.path || '') ? `<img class="rmedia" alt=""${r.url ? ` src="${esc(r.url)}"` : ''}>`
+      : `<video class="rmedia" controls playsinline preload="metadata"${r.thumb ? ` poster="${esc(r.thumb)}"` : ''}${r.url ? ` src="${esc(r.url)}"` : ''}></video>`)
+    : r.what === 'user' ? '' : `<div class="rwords">${esc(r.caption || r.body || '')}</div>`;
+  const reps = (r.reporters || []).map(x => `<div class="rrep"><div class="rline"><b>@${esc(x.username || '?')}</b><em>${esc(ago(Date.parse(x.at)))} ago</em>${reasonChip(x.reason)}</div>
+      ${x.details ? `<p>${esc(x.details)}</p>` : ''}</div>`).join('');
+  const strikes = `<span class="pill ${r.strikes ? 'bad' : ''}">${r.strikes ? `${r.strikes} of 3 strikes` : 'No strikes'}</span>`;
+  return head + `${open && at >= 0 ? `<span class="muted">${at + 1} of ${R.open.length}</span>` : ''}</div>
+    <div class="card rrev">
+      ${media}${r.gone ? `<p class="muted">The ${esc(thing)} itself has been deleted. This is what was on screen when it was reported.</p>` : ''}
+      ${open && r.hidden ? `<div class="ramber">Hidden from ${where} while you decide</div>` : ''}
+      <div class="rwho">${av(u)}<div class="grow"><b>${esc(r.poster_name || 'Deleted account')}</b>
+        <em>${r.poster_username ? `@${esc(r.poster_username)}` : ''}${r.group_name ? ` · ${esc(r.group_name)}` : ''}${r.posted_at ? ` · ${esc(stamp(r.posted_at))}` : ''}</em></div>
+        ${strikes}${r.suspended ? '<span class="pill bad">Suspended</span>' : ''}</div>
+      ${r.what === 'post' && r.caption ? `<p class="rcap">${esc(r.caption)}</p>` : ''}
+      ${r.what === 'post' && r.amount ? `<p class="muted">${esc(`${r.amount} ${r.challenge ? r.challenge + ' ' : ''}${r.metric || ''}`)}</p>` : ''}
+      <div class="rbox">${reps}</div>
+      ${r.suspended ? `<button type="button" class="small" onclick="liftAsk('${esc(r.poster_id)}')">Lift suspension</button>` : ''}
+    </div>
+    ${open ? `<div class="rdecide">
+      <button type="button" class="keep" onclick="keepIt(this,${r.id})"><b>Keep it up</b><em>Back up · no strike</em></button>
+      <button type="button" class="down" onclick="takeDownDlg(${r.id})"><b>Take it down</b><em>${r.reason === 'self_harm' ? 'Supportive email' : 'Strike + email'}</em></button></div>`
+    : `<div class="card"><span class="pill ${decisionOf(r)[1]}">${decisionOf(r)[0]}</span> <span class="muted">${r.decided_by_name ? `by ${esc(r.decided_by_name)} · ` : ''}${esc(stamp(r.resolved_at))}</span>
+      ${r.polished_reason ? `<p class="rwhy">“${esc(r.polished_reason)}”</p>` : ''}</div>`}`;
+}
+// After a decision: the next one waiting, or the list when there are none.
+function afterDecision(id) {
+  const R = S.reports, i = R.open.findIndex(r => r.id === id);
+  if (i >= 0) R.open.splice(i, 1);
+  S.modCount = R.open.length;
+  const next = R.open[Math.min(Math.max(i, 0), R.open.length - 1)];
+  if (next) openReport(next.id); else backToReports();
+  loadReports();
+}
+async function keepIt(btn, id) {
+  btn.disabled = true; btn.querySelector('b').textContent = 'Keeping…';
+  try { await modCall('decide', {report_id: id, decision: 'kept'}); }
+  catch (e) { btn.disabled = false; btn.querySelector('b').textContent = 'Keep it up'; return alert(friendlyError(e, String(e.message || e))); }
+  buzz(); toast('Kept up. It’s back for everyone.');
+  afterDecision(id);
+}
+// ---- the take-down sheet
+// What the moderator types is for the moderator; what the poster reads is rewritten from
+// it, politely, and shown here before it goes. The rewrite never stands in the way: if it
+// cannot be had, the note itself, tidied, is what the box says, and nobody is told.
+let TD = null;
+const tidyReason = s => { s = String(s || '').replace(/\s+/g, ' ').trim(); if (!s) return ''; s = s[0].toUpperCase() + s.slice(1); return /[.!?]["')\]]?$/.test(s) ? s : s + '.'; };
+function takeDownDlg(id) {
+  const r = reportRow(id); if (!r) return;
+  const first = String(r.poster_name || 'them').trim().split(/\s+/)[0];
+  TD = {id, raw: '', polished: '', edited: false, busy: 0, seq: 0, timer: null, serious: false, selfHarm: r.reason === 'self_harm', strikes: r.strikes || 0, first};
+  const thing = thingOf(r);
+  dlg(`<h2>Take down ${esc(whoseThing(r))}</h2>
+    <p class="muted">It comes down for good. The ${esc(thing === 'photo' ? 'photo' : thing === 'video' ? 'video' : thing)} is kept privately in case you need it later.</p>
+    <form id="td" onsubmit="event.preventDefault();takeDown(this)">
+      <label for="tdraw">Why? <span class="muted">${esc(first)} sees this in their email</span></label>
+      <textarea id="tdraw" class="autogrow" rows="2" name="raw" data-raw maxlength="1000" autocomplete="off" placeholder="What was wrong with it"
+        oninput="tdTyped()" onblur="tdPolish()"></textarea>
+      <div class="tdsays"><div class="tdh"><b>Email will say</b><span id="tdst" class="muted"></span>
+        <button type="button" class="small" id="tdedit" onclick="tdEdit()">Edit</button></div>
+        <div id="tdout" class="tdout muted">Type a reason above.</div></div>
+      <div id="tdmeter">${tdMeter()}</div>
+      ${TD.selfHarm ? '' : `<label class="check tdser"><input type="checkbox" name="serious" onchange="TD.serious=this.checked;$('#tdmeter').innerHTML=tdMeter()"><span><b>Serious</b> (nudity, threats, hate). Skip the strikes and suspend ${esc(first)} now.</span></label>`}
+      <button class="primary danger grow tdgo" style="width:100%;margin-top:16px">Take down &amp; email ${esc(first)}</button>
+      <button type="button" style="width:100%;margin-top:8px" onclick="dlg()">Cancel</button>
+      <p class="muted tdnote">The reporter gets a thank-you push.</p>
+    </form>`);
+}
+function tdMeter() {
+  if (TD.selfHarm) return `<p class="tdsh">No strike. They’ll get a supportive email with crisis resources instead.</p>`;
+  const next = Math.min(3, TD.strikes + 1), sus = TD.serious || next >= 3;
+  const line = TD.serious ? `Serious: ${esc(TD.first)} is suspended now, whatever the count.`
+    : next === 1 ? 'A warning email. Strikes clear after 6 months without a new one.'
+    : next === 2 ? 'A final warning. One more within 6 months suspends the account.'
+    : `This suspends ${esc(TD.first)}’s account.`;
+  return `<div class="tdm"><div class="bars">${[1, 2, 3].map(i => `<i class="${i < next ? 'was' : i === next ? 'now' : ''}${sus && i === next ? ' sus' : ''}"></i>`).join('')}</div>
+    <b>Strike ${next} of 3</b><p class="muted">${line}</p></div>`;
+}
+function tdTyped() {
+  TD.raw = $('#tdraw').value;
+  clearTimeout(TD.timer);
+  TD.timer = setTimeout(tdPolish, 900);
+  if (!TD.edited) tdShow(TD.raw.trim() ? 'Polishing…' : '');
+}
+function tdShow(status) {
+  const st = $('#tdst'), out = $('#tdout');
+  if (st) st.textContent = status;
+  if (out && !TD.editing) { out.textContent = TD.polished || (TD.raw.trim() ? tidyReason(TD.raw) : 'Type a reason above.'); out.classList.toggle('muted', !TD.polished && !TD.raw.trim()); }
+}
+async function tdPolish() {
+  if (!TD) return;
+  clearTimeout(TD.timer);
+  const raw = ($('#tdraw') || {}).value || TD.raw;
+  TD.raw = raw;
+  if (TD.edited || !raw.trim() || raw === TD.lastRaw) return tdShow(TD.edited ? 'Edited' : '');
+  TD.lastRaw = raw;
+  const seq = ++TD.seq;
+  tdShow('Polishing…');
+  let polished = '';
+  try { polished = String((await modCall('polish', {report_id: TD.id, raw})).polished || ''); } catch (e) {}
+  if (!TD || seq !== TD.seq || TD.edited) return;
+  TD.polished = polished.trim() || tidyReason(raw);
+  tdShow('');
+}
+function tdEdit() {
+  const out = $('#tdout'); if (!out || TD.editing) return;
+  TD.editing = true; TD.edited = true;
+  const now = TD.polished || tidyReason(TD.raw);
+  out.outerHTML = `<textarea id="tdout" class="tdout autogrow" rows="3" maxlength="1000" oninput="TD.polished=this.value">${esc(now)}</textarea>`;
+  TD.polished = now;
+  $('#tdst').textContent = 'Edited'; $('#tdedit').hidden = true;
+  $('#tdout').focus();
+}
+async function takeDown(f) {
+  if (!TD) return;
+  clearTimeout(TD.timer);
+  const raw = ($('#tdraw').value || '').trim();
+  const polished = String(TD.editing ? $('#tdout').value : TD.polished || tidyReason(raw)).trim();
+  if (!TD.selfHarm && !polished) { $('#tdraw').focus(); return alert(`Say why, so ${TD.first} knows what was wrong.`); }
+  const id = TD.id, serious = !!TD.serious;
+  working(f, 'Taking it down…');
+  let res;
+  try { res = await modCall('decide', {report_id: id, decision: 'removed', raw, polished, serious}); }
+  catch (e) {
+    f.querySelectorAll('button').forEach(b => b.disabled = false);
+    f.querySelector('button.primary').textContent = `Take down & email ${TD.first}`;
+    return alert(friendlyError(e, String(e.message || e)));
+  }
+  TD = null; dlg(); buzz();
+  toast(res && res.email && res.email.sent ? 'Taken down. Email sent.' : 'Taken down. The email didn’t go out: retry it from Done.');
+  afterDecision(id);
+}
+async function retryEmail(btn, id) {
+  btn.disabled = true; btn.textContent = 'Sending…';
+  let res = null;
+  try { res = await modCall('retry_email', {report_id: id}); } catch (e) {}
+  toast(res && res.sent ? 'Email sent.' : 'Still didn’t go out. Try again later.');
+  loadReports();
+}
+function liftAsk(uid) {
+  const r = [...(S.reports.open || []), ...(S.reports.done || [])].find(x => x.poster_id === uid);
+  const nm = r ? r.poster_name : 'them';
+  dlg(`<h2>Lift ${esc(nm)}’s suspension?</h2><p class="muted">They can post, comment and message again straight away. Their strikes stay on record.</p>
+    <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button>
+      <button type="button" class="primary grow" onclick="liftIt(this,'${esc(uid)}')">Lift suspension</button></div>`);
+}
+async function liftIt(btn, uid) {
+  btn.disabled = true;
+  const {error} = await sb.rpc('lift_suspension', {p_user: uid});
+  if (error) { btn.disabled = false; return alert(friendlyError(error)); }
+  dlg(); toast('Suspension lifted.');
+  loadReports();
+}
+
 // ---- being here
 // What "active" counts on the private numbers page (site/n/): the app says it is open
 // when it loads and every couple of minutes while it is in front. The database keeps one
@@ -9231,7 +9620,7 @@ async function confirmEmail(f) {
 }
 // Where you were goes with you. Settings was left open behind the welcome screen, so the
 // next account to sign in on this phone opened on it, before it even had a group.
-async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.isMod = undefined; S.admin = null; S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
+async function logout() { try { await sb.auth.signOut({scope: 'local'}); } catch (e) {} SIGNED.clear(); dropSnap(); S.isMod = undefined; S.admin = null; S.reports = S.report = null; S.modCount = 0; VIEWER = null; S.me = null; S.auth = 'welcome'; clearTo('feed'); scrollTo(0, 0); syncPhone(); } // local scope: clears this device even if the server call fails
 // ---- finding somebody to add
 // Typing a username into a box and pressing Invite meant guessing: a name with a letter
 // out of place looked exactly like a name that was not there, and with more than a
@@ -9768,6 +10157,7 @@ const camSaveFacing = f => { try { localStorage.setItem('quota.facing', f); } ca
 const fmtClock = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 function openCam(what = 'post', photo = false) {
+  if (what !== 'avatar' && suspendedStop()) return;
   if (NATIVE && camPerm === 'denied') return permDlg('camera');
   camFor = what;
   camAt = Date.now();
@@ -11292,6 +11682,13 @@ async function sendReport(f, what, id, uid) {
   try { await q(sb.from('reports').insert(row)); }
   catch (e) { f.querySelectorAll('button').forEach(b => b.disabled = false); f.querySelector('button.primary').textContent = 'Send'; return; }
   buzz();
+  // The database hides what was reported from everybody but its owner straight away (v56),
+  // so it leaves this screen now rather than at the next load.
+  if (what === 'post') S.posts = S.posts.filter(x => x.id !== id);
+  if (what === 'comment') S.comments = S.comments.filter(x => x.id !== id);
+  if (what === 'message') S.msgs = S.msgs.filter(x => x.id !== id);
+  if (what === 'story') S.stories = S.stories.filter(x => x.id !== id);
+  if (what !== 'user') render();
   const u = user(uid);
   dlg(`<h2>Report sent</h2><p class="muted">Thank you. Somebody who runs Quota will look at it within 24 hours, and anything that breaks the rules comes down.${S.blocked.has(uid) ? '' : ` If you would rather not see ${esc(name(u))} again in the meantime, you can block them.`}</p>
     <div class="menu">${S.blocked.has(uid) ? '' : `<button type="button" class="bad" onclick="blockAsk('${esc(uid)}')">Block @${esc(u.username || '')}</button>`}
@@ -11435,6 +11832,7 @@ async function toggleCommentLike(id) {
 async function addComment(f, postId) {
   const body = f.body.value.trim(); if (!body) return;
   if (S.cedit && S.cedit.post === postId) return saveEdit('comment', S.cedit.id, body, f);
+  if (suspendedStop()) return;
   working(f, '…');
   // Emptied before the redraw, not after. render() carries half-typed replies across a
   // rebuild so a like somewhere else on the page cannot eat what you were in the middle
@@ -11968,7 +12366,7 @@ function goToHash() {
 }
 // Out of whatever is open first, then in, so the way back out lands where it should.
 function clearTo(tab = 'feed') {
-  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = S.admin = null; S.settings = false;
+  S.tab = tab; S.open = S.who = S.flag = S.flagFrom = S.chat = S.sub = S.admin = S.reports = S.report = null; S.settings = false;
   backY.length = 0;
   closePost(); closeStory();
   render();
@@ -11985,6 +12383,10 @@ function goTarget(hash) {
     if (S.me) takePendingJoin(); else peekInvite();
     return;
   }
+  // A report, from the moderators' push, or the list of them.
+  if (/^#reports$/.test(hash || '')) { clearTo(); openReports(); return; }
+  const rm = /^#report-(\d+)$/.exec(hash || '');
+  if (rm) { clearTo(); openReport(+rm[1]); return; }
   const m = /^#post-(\d+)$/.exec(hash || '');
   if (m) {
     const id = +m[1];

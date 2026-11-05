@@ -64,5 +64,12 @@ const t = Date.parse('2026-10-13T20:47:12Z'), w = viewWindow(t), w2 = viewWindow
 ok(w.signedAt.getTime() === w2.signedAt.getTime(), 'two asks a minute apart sign the same moment, so the URL is the same');
 ok(w.until - t >= VIEW_SECONDS * 1000, 'and it lasts at least an hour from when it was asked for', { left: (w.until - t) / 1000 });
 
+// A moderator watches reported proof from any group, and a story whatever its owner allows;
+// but still only keys that are proof or stories at all.
+ok(canView('99/someone/1.mp4', new Set(), new Set(), true), 'a moderator can watch proof in a group they are not in');
+ok(canView('stories/someone/1.mp4', new Set(), new Set(), true), 'and a story they could not otherwise see');
+ok(!canView('99/someone/1.mp4', new Set(), new Set()), 'nobody else can');
+ok(!canView('../etc/passwd', new Set(), new Set(), true), 'and a moderator still cannot sign a key that is not a file of ours');
+
 if (failed) { console.error(`FAIL: ${failed} media rule check(s)`); process.exit(1); }
 console.log('PASS: R2 is guarded by the rules the buckets had');

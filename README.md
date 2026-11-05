@@ -66,7 +66,8 @@ page knows it is inside it through `NATIVE` in `index.html`, and every native br
 Android's back button) falls straight through in a browser. Push tokens go in
 `push_subscriptions` as `apns:<token>` / `fcm:<token>`, and `send()` in `notify/push.ts`
 delivers them. How to build, sign and submit it is in `STORE_SUBMISSION.md`; reporting,
-blocking and deleting an account (schema v46) are in `MODERATION.md`.
+blocking and deleting an account (schema v46), and the moderators' Reports screen, strikes,
+suspensions and take-down emails (schema v56, the `moderation` function) are in `MODERATION.md`.
 
 After changing anything in `app/`, run `npx cap sync` in `native/` before building.
 

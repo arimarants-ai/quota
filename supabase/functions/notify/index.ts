@@ -1,7 +1,7 @@
 // Fan out a push notification to a group when someone posts proof.
 // Called by the posts_notify trigger in schema.sql (v4).
 import { send, type Subscription } from './push.ts';
-import { chatFor, flagFor, forfeitFor, forfeitPaidFor, messageFor, socialFor, verdictFor, who } from './message.ts';
+import { chatFor, flagFor, forfeitFor, forfeitPaidFor, messageFor, reportFor, socialFor, thingWord, verdictFor, who } from './message.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -70,16 +70,29 @@ Deno.serve(async (req) => {
   const atPost = (id: number) => `${SITE_URL}/#post-${id}`;
   const atComment = (id: number) => `${SITE_URL}/#comment-${id}`;
 
-  // A report. Only the people in `moderators` hear about it, and the words say what kind so
-  // it can be judged from the lock screen whether it waits until morning. The report itself
-  // is read in private.open_reports; MODERATION.md says what to do with it.
+  // A report. Only the people in `moderators` hear about it: whose it is, what it is, where,
+  // and why, in words — never who reported it. The tap opens that report in the app.
+  // The tag is the report's own, so two reports never replace each other on a lock screen.
   if (kind === 'report') {
-    const { what, reason } = record ?? {};
-    const mods: { user_id: string }[] = await rest('moderators?select=user_id');
+    const { id, what, reason, user_id: owner, thing_id, media_path } = record ?? {};
+    let gid: number | null = record?.group_id ?? null;
+    // Where it was said, read off the thing itself when the report did not say.
+    if (!gid && thing_id && (what === 'comment' || what === 'message')) {
+      if (what === 'message') gid = (await rest(`messages?id=eq.${thing_id}&select=group_id`).catch(() => []))[0]?.group_id ?? null;
+      else {
+        const [c] = await rest(`comments?id=eq.${thing_id}&select=post_id`).catch(() => []);
+        if (c) gid = (await rest(`posts?id=eq.${c.post_id}&select=group_id`).catch(() => []))[0]?.group_id ?? null;
+      }
+    }
+    const [mods, [poster], group] = await Promise.all([
+      rest('moderators?select=user_id') as Promise<{ user_id: string }[]>,
+      owner ? rest(`profiles?id=eq.${owner}&select=username,display_name`).catch(() => []) : Promise.resolve([]),
+      gid ? rest(`groups?id=eq.${gid}&select=name`).catch(() => []) : Promise.resolve([]),
+    ]);
     return blast(mods.map(m => m.user_id), JSON.stringify({
       title: 'Quota: new report',
-      body: `A ${what ?? 'thing'} was reported for ${String(reason ?? 'something').replace('_', '-')}. Open reports: private.open_reports.`,
-      url: `${SITE_URL}/`, tag: `report-${record?.id ?? Date.now()}`,
+      body: reportFor(poster ? who(poster) : null, thingWord(what, media_path), group?.[0]?.name ?? null, reason),
+      url: `${SITE_URL}/#report-${id ?? ''}`, tag: `report-${id ?? Date.now()}`,
     }));
   }
 
@@ -253,7 +266,7 @@ Deno.serve(async (req) => {
     const { id, post_id, by_user, outcome } = record ?? {};
     if (!post_id) return new Response('ignored', { status: 200 });
     const [[post], [raiser]] = await Promise.all([
-      rest(`posts?id=eq.${post_id}&select=user_id,group_id,metric,amount,challenge`),
+      rest(`posts?id=eq.${post_id}&removed_at=is.null&select=user_id,group_id,metric,amount,challenge`),
       by_user ? rest(`profiles?id=eq.${by_user}&select=username,display_name`) : Promise.resolve([{}]),
     ]);
     if (!post) return new Response('ignored', { status: 200 });
@@ -278,7 +291,7 @@ Deno.serve(async (req) => {
     const { id, post_id, user_id: actor, reply_to } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
     const [[post], [from], [answered]] = await Promise.all([
-      rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
+      rest(`posts?id=eq.${post_id}&removed_at=is.null&select=user_id,group_id`),
       rest(`profiles?id=eq.${actor}&select=username,display_name`),
       reply_to ? rest(`comments?id=eq.${reply_to}&select=user_id`) : Promise.resolve([]),
     ]);
@@ -300,7 +313,7 @@ Deno.serve(async (req) => {
     const { post_id, user_id: actor, emoji } = record ?? {};
     if (!post_id || !actor) return new Response('ignored', { status: 200 });
     const [[post], [from]] = await Promise.all([
-      rest(`posts?id=eq.${post_id}&select=user_id,group_id`),
+      rest(`posts?id=eq.${post_id}&removed_at=is.null&select=user_id,group_id`),
       rest(`profiles?id=eq.${actor}&select=username,display_name`),
     ]);
     // Nobody needs telling about their own.
@@ -322,7 +335,7 @@ Deno.serve(async (req) => {
     rest(`groups?id=eq.${group_id}&select=name,quotas`),
     rest(`profiles?id=eq.${user_id}&select=username,display_name`),
     rest(`group_members?group_id=eq.${group_id}&user_id=neq.${user_id}&muted=is.false&select=user_id`),
-    rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=eq.${day}&select=metric,amount`),
+    rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=eq.${day}&removed_at=is.null&select=metric,amount`),
   ]);
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });
 

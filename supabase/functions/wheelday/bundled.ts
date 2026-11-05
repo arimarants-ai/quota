@@ -575,10 +575,11 @@ Deno.serve(async (req) => {
 
   // And the third thing on this beat: yesterday's stories. It is here rather than in
   // pg_cron because deleting a file is the storage API's job and SQL is no longer allowed
-  // to do it — see sweep.ts.
+  // to do it — see sweep.ts. One under review, or taken down, is kept for the moderators
+  // (hidden_at is set on both), so the sweep leaves it alone.
   const swept = await sweepStories({
     list: (cutoff, limit) =>
-      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&select=*&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
+      rest(`stories?created_at=lt.${encodeURIComponent(cutoff)}&hidden_at=is.null&select=*&order=created_at.asc&limit=${limit}`) as Promise<StoryRow[]>,
     removeFiles: async (paths) => {
       const res = await fetch(`${SUPABASE_URL}/storage/v1/object/stories`, {
         method: 'DELETE',

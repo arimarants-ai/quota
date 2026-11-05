@@ -76,9 +76,13 @@ export function kindOf(key: string): Kind | null {
 // "members watch proof" for proof; for a story, the row has to be one the person can read,
 // which the stories table's own policy decides (can_see_user and the 24 hours) — the
 // caller asks it as them and passes in which keys came back.
-export function canView(key: string, groups: Set<number>, visibleStories: Set<string>): boolean {
+//
+// A moderator may watch anything somebody could report, in any group: a report has to be
+// judged on what was actually posted, by people who are not in that group.
+export function canView(key: string, groups: Set<number>, visibleStories: Set<string>, moderator = false): boolean {
   const k = kindOf(key);
   if (!k) return false;
+  if (moderator) return true;
   return k.bucket === 'proof' ? groups.has(k.group) : visibleStories.has(key);
 }
 
@@ -203,6 +207,10 @@ const rest = async (path: string) => {
 const groupsOf = async (uid: string) =>
   new Set<number>((await rest(`group_members?select=group_id&user_id=eq.${uid}`) as { group_id: number }[]).map(r => Number(r.group_id)));
 
+// Whether this person is one of the moderators, who watch reported proof wherever it is.
+const isModerator = async (uid: string) =>
+  ((await rest(`moderators?select=user_id&user_id=eq.${uid}`).catch(() => [])) as unknown[]).length > 0;
+
 // Which of these story files the person may watch, decided by the stories table's own
 // policy: the query runs as them, so a row comes back exactly when the bucket policy would
 // have said yes.
@@ -247,13 +255,14 @@ Deno.serve(async req => {
       const keys = paths(body.paths);
       const proof = keys.filter(k => kindOf(k)?.bucket === 'proof');
       const stories = keys.filter(k => k.startsWith(STORY_PREFIX));
-      const [groups, seen] = await Promise.all([
+      const [groups, seen, moderator] = await Promise.all([
         proof.length ? groupsOf(uid) : Promise.resolve(new Set<number>()),
         visibleStories(auth, stories),
+        isModerator(uid),
       ]);
       const w = viewWindow(Date.now());
       const urls: Record<string, string | null> = {};
-      for (const k of keys) urls[k] = canView(k, groups, seen) ? await presign('GET', k, w.expires, {}, w.signedAt) : null;
+      for (const k of keys) urls[k] = canView(k, groups, seen, moderator) ? await presign('GET', k, w.expires, {}, w.signedAt) : null;
       return json({ urls, until: w.until });
     }
 
