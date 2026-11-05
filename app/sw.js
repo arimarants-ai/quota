@@ -3,7 +3,7 @@
 // signed video URLs) is deliberately left alone so it always hits the network, and so is
 // every clip and still on R2.
 // Bump on every change to a precached file, or installed apps keep serving the old one from cache.
-const VERSION = 'quota-v163';
+const VERSION = 'quota-v164';
 // supabase.js is in here on purpose: every line of the app depends on it, so if it is
 // missing on a cold launch the page cannot start at all. Precached, that cannot happen.
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
@@ -127,10 +127,12 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  // Keep only the path. The sender names one site, but the app can be installed from
-  // any of its origins, and sending iOS to a different one opens a signed-out browser view.
+  // Keep the path and the hash, on this origin. The sender names one site, but the app can
+  // be installed from any of its origins, and sending iOS to a different one opens a
+  // signed-out browser view. The hash is where the notification is about (#post-12,
+  // #report-7): the page's hashchange listener opens it, the same way the native app does.
   const sent = new URL(e.notification.data?.url || '/', self.location.origin);
-  const url = self.location.origin + sent.pathname + sent.search;
+  const url = self.location.origin + sent.pathname + sent.search + sent.hash;
   e.waitUntil((async () => {
     // Focus whatever window is already open, whichever tab it happens to be showing.
     for (const c of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) {

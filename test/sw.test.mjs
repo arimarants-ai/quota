@@ -191,5 +191,23 @@ function browser({ refuse = [], net = async () => ({ ok: true }) } = {}) {
   check('an update clears the clips the old worker kept', gone.includes('quota-media') && gone.includes('quota-v1'), gone.join(', '));
 }
 
+// 6. A tapped notification lands on what it is about. The address is the hash (#post-12,
+// #report-7), and the page's hashchange listener opens it; a worker that kept only the path
+// opened the app on its feed, every time, for every kind of notification.
+{
+  const handlers = {};
+  const went = [];
+  const win = { url: 'https://app.example.test/', focus: async () => {}, navigate: async u => { went.push(u); } };
+  const self = { addEventListener: (t, fn) => { (handlers[t] ||= []).push(fn); }, skipWaiting() {},
+    clients: { async claim() {}, async matchAll() { return [win]; }, async openWindow(u) { went.push(u); } },
+    location: { origin: 'https://app.example.test' }, registration: {} };
+  const ctx = vm.createContext({ self, caches: {}, fetch: async () => { throw new Error('no network'); }, console, URL, Response, Blob, navigator: { userAgent: '' } });
+  vm.runInContext(SRC, ctx);
+  const waits = [];
+  for (const fn of handlers.notificationclick) fn({ notification: { close() {}, data: { url: 'https://other.example.test/#report-7' } }, waitUntil: p => waits.push(p) });
+  await Promise.all(waits);
+  check('a tapped notification keeps where it was going, on this origin', went[0] === 'https://app.example.test/#report-7', went.join(', '));
+}
+
 console.log(failed ? `\nFAIL: ${failed} check(s)` : '\nPASS: the worker never leaves an app with nothing to start from');
 process.exit(failed ? 1 : 0);
