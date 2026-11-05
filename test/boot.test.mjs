@@ -2667,6 +2667,22 @@ await withPage({ ...SIGNED_IN, keepDeletes: ['posts', 'comments', 'messages', 's
   await page.evaluate(() => { dlg(); S.msgs = [{id: 77, groupId: 1, userId: 'u1', body: 'hi', ts: Date.now()}]; delMessage(77); }); await page.waitForTimeout(300);
   check('  and the same for a message, which stays', /under review/.test(await page.innerText('#dlg')) && await page.evaluate(() => S.msgs.some(m => m.id === 77)));
 });
+// A report whose comment went with its post: the saved copy, marked as such, and both
+// decisions still there (v58).
+await withPage({ ...SIGNED_IN, mod: true, goneCard: true, polishDown: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => goTarget('#report-44')); await page.waitForTimeout(700);
+  const txt = await page.innerText('#app');
+  check('a report on something deleted shows the copy saved when it was reported',
+    /The original was deleted\. This is the copy saved when it was reported\./.test(txt) && /the saved words/.test(txt), txt.slice(0, 400));
+  check('  and is not said to be hidden from anybody', !/Hidden from/.test(txt));
+  check('  and can still be kept up or taken down', /Keep it up/.test(txt) && /Take it down/.test(txt));
+  await page.locator('.rdecide .down').click(); await page.waitForTimeout(300);
+  await page.locator('#tdraw').fill('abusive words'); await page.locator('#tdraw').blur(); await page.waitForTimeout(400);
+  await page.locator('#dlg button.tdgo').click(); await page.waitForTimeout(700);
+  const dec = await page.evaluate(() => self.__decisions);
+  check('  taking it down sends the decision like any other', dec.length === 1 && dec[0].report_id === 44 && dec[0].decision === 'removed', JSON.stringify(dec));
+});
 // The moderators are named by their moderator names, from the database.
 await withPage({ ...SIGNED_IN, mod: true }, async page => {
   await settle(page);

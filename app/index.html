@@ -1714,6 +1714,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .rtop{display:flex;align-items:center;justify-content:space-between;padding-right:16px}
 .rrev{display:flex;flex-direction:column;gap:12px}
 .rmedia{display:block;width:100%;max-height:62vh;background:#000;object-fit:contain}
+.rgone{margin:0;padding:10px 12px;background:var(--soft);color:var(--muted);font-size:13.5px;font-weight:600}
 .rwords{padding:16px;background:var(--soft);font-size:16px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
 .ramber{padding:10px 12px;background:#fff3d6;color:#8a5a00;font-weight:800;font-size:13.5px}
 .rwho{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1889,7 +1890,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v165';
+const BUILD = 'quota-v166';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8997,7 +8998,7 @@ async function signReports(rows, full = false) {
 const CHAT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>';
 const rThumb = r => r.what === 'user' ? `<span class="rthumb av">${av(posterOf(r))}</span>`
   : r.what === 'comment' || r.what === 'message' || (r.what === 'story' && !r.path) ? `<span class="rthumb chat">${CHAT_ICON}</span>`
-  : `<span class="rthumb">${r.thumb ? `<img alt="" src="${esc(r.thumb)}">` : ''}</span>`;
+  : `<span class="rthumb">${r.thumb ? `<img alt="" src="${esc(r.thumb)}" onerror="this.remove()">` : ''}</span>`;
 const strikeText = n => n ? `${n} strike${n === 1 ? '' : 's'}` : 'No strikes';
 const byLine = r => `${r.n > 1 ? `Reported by ${r.n} people` : `Reported by @${esc((r.reporters[0] || {}).username || '?')}`}${r.group_name ? ` · ${esc(r.group_name)}` : ''}`;
 const decisionOf = r => r.resolution === 'kept' ? ['Kept up', 'ok'] : r.did_suspend ? ['Suspended', 'bad'] : ['Taken down', 'bad'];
@@ -9051,15 +9052,18 @@ function reportView(id) {
   const u = posterOf(r), thing = thingOf(r);
   const where = r.group_name ? esc(r.group_name) : r.what === 'message' ? 'the chat' : r.what === 'story' ? 'their friends' : 'everyone';
   const media = r.what === 'post' || (r.what === 'story' && r.path)
-    ? (IMG_PATH.test(r.path || '') ? `<img class="rmedia" alt=""${r.url ? ` src="${esc(r.url)}"` : ''}>`
-      : `<video class="rmedia" controls playsinline preload="metadata"${r.thumb ? ` poster="${esc(r.thumb)}"` : ''}${r.url ? ` src="${esc(r.url)}"` : ''}></video>`)
+    // The saved copy of something deleted: its file may have gone with it (an account deleted,
+    // say), and one that will not load takes itself off the screen rather than sitting there
+    // black, with the saved words still below it. A live clip keeps its player whatever happens.
+    ? (IMG_PATH.test(r.path || '') ? `<img class="rmedia" alt=""${r.gone ? ' onerror="this.remove()"' : ''}${r.url ? ` src="${esc(r.url)}"` : ''}>`
+      : `<video class="rmedia" controls playsinline preload="metadata"${r.gone ? ' onerror="this.remove()"' : ''}${r.thumb ? ` poster="${esc(r.thumb)}"` : ''}${r.url ? ` src="${esc(r.url)}"` : ''}></video>`)
     : r.what === 'user' ? '' : `<div class="rwords">${esc(r.caption || r.body || '')}</div>`;
   const reps = (r.reporters || []).map(x => `<div class="rrep"><div class="rline"><b>@${esc(x.username || '?')}</b><em>${esc(ago(Date.parse(x.at)))} ago</em>${reasonChip(x.reason)}</div>
       ${x.details ? `<p>${esc(x.details)}</p>` : ''}</div>`).join('');
   const strikes = `<span class="pill ${r.strikes ? 'bad' : ''}">${r.strikes ? `${r.strikes} of 3 strikes` : 'No strikes'}</span>`;
   return head + `${open && at >= 0 ? `<span class="muted">${at + 1} of ${R.open.length}</span>` : ''}</div>
     <div class="card rrev">
-      ${media}${r.gone ? `<p class="muted">The ${esc(thing)} itself has been deleted. This is what was on screen when it was reported.</p>` : ''}
+      ${r.gone ? `<p class="rgone">The original was deleted. This is the copy saved when it was reported.</p>` : ''}${media}
       ${open && r.hidden ? `<div class="ramber">Hidden from ${where} while you decide</div>` : ''}
       <div class="rwho">${av(u)}<div class="grow"><b>${esc(r.poster_name || 'Deleted account')}</b>
         <em>${r.poster_username ? `@${esc(r.poster_username)}` : ''}${r.group_name ? ` · ${esc(r.group_name)}` : ''}${r.posted_at ? ` · ${esc(stamp(r.posted_at))}` : ''}</em></div>

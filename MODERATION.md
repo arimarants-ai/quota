@@ -73,6 +73,13 @@ While a report is open, whoever posted the thing can't delete it ("This is under
 can't be deleted right now"), so the evidence is still there when you look. The database
 enforces it in the delete policies (v57); once you decide either way, the usual rules apply.
 
+Deleting a post still deletes the comments under it (and a reply goes with the comment it
+answers). A report on any of those stays open anyway (v58): nothing deletes a report along
+with what it is about. Reports shows the copy the database saved when it was filed (the words,
+and the clip if the file is still there) under "The original was deleted. This is the copy
+saved when it was reported." Take it down still strikes, emails and thanks the reporter;
+Keep it up just closes it.
+
 Dates in the emails are on the poster's own calendar (their `profiles.tz`), or US Central if
 the app has never seen their time zone.
 
