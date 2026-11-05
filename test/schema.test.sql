@@ -1411,3 +1411,75 @@ begin
   end if;
 end $$;
 \echo PASS: moderation
+
+-- ---- v57: a moderator's own name, and nothing under review can be deleted by its owner.
+reset role;
+update public.moderators set name = 'Ari' where user_id = '56000000-0000-0000-0000-000000000004';
+insert into auth.users (id) values ('57000000-0000-0000-0000-000000000006');
+insert into public.profiles (id, username, display_name) values ('57000000-0000-0000-0000-000000000006', 'm_mod2', 'JDoesPushups');
+insert into public.moderators (user_id, name) values ('57000000-0000-0000-0000-000000000006', 'Justin');
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, day) overriding system value values
+  (5701, 56, '56000000-0000-0000-0000-000000000001', 'pushups', 10, '56/p/71.mp4', current_date);
+insert into public.comments (id, post_id, user_id, body) overriding system value
+  values (5701, 5701, '56000000-0000-0000-0000-000000000001', 'a comment to report');
+insert into public.messages (id, group_id, user_id, body) overriding system value
+  values (5701, 56, '56000000-0000-0000-0000-000000000001', 'a message to report');
+insert into public.stories (id, user_id, kind, body) overriding system value
+  values (5701, '56000000-0000-0000-0000-000000000001', 'text', 'a story to report');
+set role app;
+
+do $$
+declare x jsonb; r bigint; n int;
+begin
+  -- Named as the moderators are named, not by whatever display name they post under.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  if public.mod_names() <> array['Justin'] then raise exception 'Ari should see "Justin", saw %', public.mod_names(); end if;
+  perform set_config('test.uid', '57000000-0000-0000-0000-000000000006', true);
+  if public.mod_names() <> array['Ari'] then raise exception 'Justin should see "Ari", saw %', public.mod_names(); end if;
+
+  -- Reported: the owner can delete none of the four while it waits.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values
+    ('56000000-0000-0000-0000-000000000001', 'post', 5701, 56, 'spam'),
+    ('56000000-0000-0000-0000-000000000001', 'comment', 5701, 56, 'spam'),
+    ('56000000-0000-0000-0000-000000000001', 'message', 5701, 56, 'spam'),
+    ('56000000-0000-0000-0000-000000000001', 'story', 5701, null, 'spam');
+  r := currval(pg_get_serial_sequence('public.reports', 'id')) - 3;   -- the post's
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000001', true);
+  delete from public.comments where id = 5701;
+  delete from public.messages where id = 5701;
+  delete from public.stories where id = 5701;
+  delete from public.posts where id = 5701;
+  reset role;
+  select (select count(*) from public.posts where id = 5701) + (select count(*) from public.comments where id = 5701)
+       + (select count(*) from public.messages where id = 5701) + (select count(*) from public.stories where id = 5701) into n;
+  set role app;
+  if n <> 4 then raise exception 'an owner deleted something under review (% of 4 left)', n; end if;
+
+  -- Decided by Justin, and Done says so by his moderator name.
+  perform set_config('test.uid', '57000000-0000-0000-0000-000000000006', true);
+  perform public.moderate_report(r, 'kept');
+  x := public.mod_reports('done');
+  if not exists (select 1 from jsonb_array_elements(x) e where (e->>'id')::bigint = r and e->>'decided_by_name' = 'Justin') then
+    raise exception 'Done should say Justin decided it, saw %', x;
+  end if;
+
+  -- Decided, so the normal rules are back: the owner can delete it.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000001', true);
+  delete from public.posts where id = 5701;
+  reset role;
+  if exists (select 1 from public.posts where id = 5701) then raise exception 'kept, but its owner still cannot delete it'; end if;
+  set role app;
+  -- And a comment nobody has reported is the owner's to delete as always.
+  reset role;
+  insert into public.posts (id, group_id, user_id, metric, amount, video_path, day) overriding system value values
+    (5702, 56, '56000000-0000-0000-0000-000000000003', 'pushups', 10, '56/m/72.mp4', current_date);
+  set role app;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000003', true);
+  insert into public.comments (post_id, user_id, body) values (5702, auth.uid(), 'nobody minds this one');
+  delete from public.comments where body = 'nobody minds this one';
+  reset role;
+  if exists (select 1 from public.comments where body = 'nobody minds this one') then raise exception 'an ordinary comment could not be deleted'; end if;
+end $$;
+reset role;
+\echo PASS: moderation follow-ups

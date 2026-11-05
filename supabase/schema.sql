@@ -3951,3 +3951,117 @@ create view private.open_reports as
     left join public.groups g on g.id = r.group_id
    where r.resolved_at is null
    order by r.created_at;
+
+-- ============================================================
+-- v57 (moderation, three follow-ups): safe to run on an existing project, and safe to run
+-- twice. Redeploy `moderation` after it (the email dates).
+--
+-- A moderator has a name of their own, which is what the Reports screen calls them: "Only
+-- you and Justin can see this", and who decided something on Done. A display name is
+-- whatever somebody picked for their posts, which is not the same thing.
+--
+-- And something under review can't be deleted by whoever posted it until it is decided: a
+-- report has to be judged on what was posted, and a delete was a way to make the evidence
+-- go away. Decided either way, the usual rules are back.
+-- ============================================================
+
+alter table public.moderators add column if not exists name text;
+update public.moderators m set name = 'Ari'
+  from public.profiles p where p.id = m.user_id and p.username = 'amarants' and m.name is distinct from 'Ari';
+update public.moderators m set name = 'Justin'
+  from public.profiles p where p.id = m.user_id and p.username = 'jsmith' and m.name is distinct from 'Justin';
+
+create or replace function public.mod_names() returns text[]
+language sql stable security definer set search_path = public as $$
+  select case when public.am_moderator()
+    then coalesce(array_agg(coalesce(nullif(m.name, ''), nullif(p.display_name, ''), p.username) order by p.created_at), '{}')
+    else '{}' end
+    from public.moderators m join public.profiles p on p.id = m.user_id where m.user_id <> auth.uid();
+$$;
+revoke all on function public.mod_names() from public, anon, authenticated;
+grant execute on function public.mod_names() to authenticated;
+
+create or replace function public.mod_reports(status text default 'open') returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare out jsonb;
+begin
+  if not public.am_moderator() then
+    raise exception 'only a moderator can see this' using errcode = '42501';
+  end if;
+  with base as (
+    select r.*, r.what || ':' || coalesce(r.thing_id::text, r.user_id::text) as k, public.report_thing(r) as t
+      from public.reports r
+     where case when status = 'done' then r.resolved_at is not null else r.resolved_at is null end
+  ), grouped as (
+    select b.k,
+           case when status = 'done' then b.resolved_at else null end as decided_at,
+           (array_agg(b.id order by b.created_at))[1] as id,
+           count(*)::int as n,
+           min(b.created_at) as first_at,
+           jsonb_agg(jsonb_build_object('id', b.id, 'reason', b.reason, 'details', b.details, 'at', b.created_at,
+             'name', coalesce(nullif(rp.display_name, ''), rp.username), 'username', rp.username) order by b.created_at) as reporters
+      from base b left join public.profiles rp on rp.id = b.by_user
+     group by b.k, case when status = 'done' then b.resolved_at else null end
+  ), cards as (
+    select g.*, r.what, r.thing_id, r.reason, r.details, r.body, r.media_path, r.resolution, r.resolved_at,
+           r.polished_reason, r.strike_no, r.suspended as did_suspend, r.email_sent_at, r.email_error,
+           r.t, coalesce((r.t->>'owner')::uuid, r.user_id) as owner,
+           coalesce((r.t->>'group_id')::bigint, r.group_id) as gid, r.decided_by
+      from grouped g join base r on r.id = g.id
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', c.id, 'what', c.what, 'thing_id', c.thing_id, 'reason', c.reason, 'details', c.details,
+           'body', c.body, 'n', c.n, 'reported_at', c.first_at, 'reporters', c.reporters,
+           'poster_id', c.owner, 'poster_name', coalesce(nullif(po.display_name, ''), po.username),
+           'poster_username', po.username, 'poster_avatar', po.avatar_path,
+           'group_id', c.gid, 'group_name', gr.name,
+           'posted_at', c.t->'posted_at', 'caption', coalesce(c.t->>'caption', c.body), 'metric', c.t->>'metric',
+           'amount', c.t->'amount', 'challenge', c.t->>'challenge', 'kind', c.t->>'kind', 'post_id', c.t->'post_id',
+           'path', coalesce(c.t->>'path', c.media_path), 'store', c.t->>'store', 'gone', coalesce((c.t->>'gone')::boolean, false),
+           'hidden', c.t->>'hidden_at' is not null, 'removed', c.t->>'removed_at' is not null,
+           'strikes', public.active_strikes(c.owner), 'suspended', po.suspended_at is not null,
+           'resolution', c.resolution, 'resolved_at', c.resolved_at,
+           'decided_by_name', coalesce(nullif(dm.name, ''), nullif(dp.display_name, ''), dp.username),
+           'polished_reason', c.polished_reason, 'strike_no', c.strike_no, 'did_suspend', c.did_suspend,
+           'email_sent_at', c.email_sent_at, 'email_error', c.email_error)
+         order by c.sort), '[]'::jsonb)
+    into out
+    from (select cards.*, case when status = 'done' then -extract(epoch from cards.resolved_at)
+                               else extract(epoch from cards.first_at) end as sort
+            from cards order by sort limit 200) c
+    left join public.profiles po on po.id = c.owner
+    left join public.profiles dp on dp.id = c.decided_by
+    left join public.moderators dm on dm.user_id = c.decided_by
+    left join public.groups gr on gr.id = c.gid;
+  return out;
+end $$;
+revoke all on function public.mod_reports(text) from public, anon, authenticated;
+grant execute on function public.mod_reports(text) to authenticated;
+
+-- Whether something has a report still waiting on it. Security definer because nobody but a
+-- moderator can read reports; the answer is only ever yes or no.
+create or replace function public.under_review(p_what text, p_id bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.reports r where r.what = p_what and r.thing_id = p_id and r.resolved_at is null);
+$$;
+revoke all on function public.under_review(text, bigint) from public, anon, authenticated;
+grant execute on function public.under_review(text, bigint) to authenticated;
+
+-- The delete policies, each with the one condition added. hidden_at is checked first so the
+-- report lookup only runs for the rare row that is hidden at all.
+drop policy if exists "delete own posts" on public.posts;
+create policy "delete own posts" on public.posts for delete
+  using (user_id = auth.uid() and not (hidden_at is not null and public.under_review('post', id)));
+drop policy if exists "the group's maker removes posts" on public.posts;
+create policy "the group's maker removes posts" on public.posts for delete
+  using (exists (select 1 from public.groups g where g.id = posts.group_id and g.created_by = auth.uid())
+    and not (hidden_at is not null and public.under_review('post', id)));
+drop policy if exists "take down your own story" on public.stories;
+create policy "take down your own story" on public.stories for delete
+  using (user_id = auth.uid() and not (hidden_at is not null and public.under_review('story', id)));
+drop policy if exists "delete own comments" on public.comments;
+create policy "delete own comments" on public.comments for delete
+  using (user_id = auth.uid() and not (hidden_at is not null and public.under_review('comment', id)));
+drop policy if exists "take back your own message" on public.messages;
+create policy "take back your own message" on public.messages for delete
+  using (user_id = auth.uid() and not (hidden_at is not null and public.under_review('message', id)));
