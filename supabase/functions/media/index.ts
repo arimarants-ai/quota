@@ -37,6 +37,10 @@ const rest = async (path: string) => {
 const groupsOf = async (uid: string) =>
   new Set<number>((await rest(`group_members?select=group_id&user_id=eq.${uid}`) as { group_id: number }[]).map(r => Number(r.group_id)));
 
+// Whether this person is one of the moderators, who watch reported proof wherever it is.
+const isModerator = async (uid: string) =>
+  ((await rest(`moderators?select=user_id&user_id=eq.${uid}`).catch(() => [])) as unknown[]).length > 0;
+
 // Which of these story files the person may watch, decided by the stories table's own
 // policy: the query runs as them, so a row comes back exactly when the bucket policy would
 // have said yes.
@@ -81,13 +85,14 @@ Deno.serve(async req => {
       const keys = paths(body.paths);
       const proof = keys.filter(k => kindOf(k)?.bucket === 'proof');
       const stories = keys.filter(k => k.startsWith(STORY_PREFIX));
-      const [groups, seen] = await Promise.all([
+      const [groups, seen, moderator] = await Promise.all([
         proof.length ? groupsOf(uid) : Promise.resolve(new Set<number>()),
         visibleStories(auth, stories),
+        isModerator(uid),
       ]);
       const w = viewWindow(Date.now());
       const urls: Record<string, string | null> = {};
-      for (const k of keys) urls[k] = canView(k, groups, seen) ? await presign('GET', k, w.expires, {}, w.signedAt) : null;
+      for (const k of keys) urls[k] = canView(k, groups, seen, moderator) ? await presign('GET', k, w.expires, {}, w.signedAt) : null;
       return json({ urls, until: w.until });
     }
 

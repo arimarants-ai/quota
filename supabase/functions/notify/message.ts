@@ -95,3 +95,35 @@ export function forfeitFor(name: string, forfeit: string): string {
 export function forfeitPaidFor(name: string, forfeit?: string | null): string {
   return forfeit ? `${name} marked your forfeit paid: ${forfeit}` : `${name} marked your forfeit paid`;
 }
+
+/**
+ * Reports. What a reason is called when a person reads it: the database's own words are
+ * for the database. Shared with the moderation function, so the push and the email and the
+ * app never call the same thing two different names.
+ */
+export const REASON_LABEL: Record<string, string> = {
+  spam: 'spam', harassment: 'harassment', hate: 'hate', sexual: 'sexual content',
+  violence: 'violence', self_harm: 'self-harm', fake: 'fake proof', other: 'something else',
+};
+export const reasonLabel = (r: string | null | undefined) => REASON_LABEL[String(r ?? '')] ?? String(r ?? 'something').replace(/_/g, '-');
+
+const IMAGE = /\.(jpe?g|png|webp|heic|heif|gif|avif)$/i;
+/** What the reported thing is, in a word: a post is a video unless its file is a picture. */
+export function thingWord(what: string | null | undefined, path?: string | null): string {
+  if (what === 'post') return path && IMAGE.test(path) ? 'photo' : 'video';
+  if (what === 'story' || what === 'comment' || what === 'message') return what;
+  if (what === 'user') return 'profile';
+  return 'post';
+}
+
+/** The moderators' push for a new report. Who, what, where and why, and nothing about who reported it. */
+export function reportFor(name: string | null | undefined, thing: string, group: string | null | undefined, reason: string | null | undefined): string {
+  const who = name ? `${name}'s` : 'A';
+  const what = name ? thing : thing.toLowerCase();
+  return `${who} ${what}${group ? ` in ${group}` : ''} was reported for ${reasonLabel(reason)}. Tap to review.`;
+}
+
+/** The thank-you the person who reported something hears, once it has been decided. */
+export function reportDecidedFor(removed: boolean): string {
+  return removed ? 'Thanks for reporting. We took it down.' : "Thanks for reporting. We looked into it and it's staying up.";
+}

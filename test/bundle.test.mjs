@@ -19,7 +19,9 @@ const MUST = {
              'storage/v1/object/stories', 'async function sweepStories',
              'rpc/cron_health', 'function cronAlertBody', 'removeR2', 'async function removeObject'],
   media: ['Deno.serve', 'function planUpload', 'function canView', 'function canDelete',
-          'async function presign', "action === 'sign-upload'", "action === 'sign-view'"],
+          'async function presign', "action === 'sign-upload'", "action === 'sign-view'", 'isModerator'],
+  moderation: ['Deno.serve', 'async function send', 'function takedownEmail', 'async function polish',
+               'function reportDecidedFor', 'rpc/${fn}', "action === 'decide'", "action === 'retry_email'"],
 };
 
 for (const name of Object.keys(BUNDLES)) {

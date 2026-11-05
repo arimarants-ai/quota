@@ -17,79 +17,81 @@ objectionable content **within 24 hours**. This is how Quota does that.
 
 A report stores who reported, who was reported, the reason, an optional note, and a copy
 of the words and the file path that were on screen, since the original may be deleted
-before anyone looks. Nobody can read reports through the app or the API.
+before anyone looks. Only the accounts in `public.moderators` can read reports, through
+Settings → Reports in the app. Anybody can file at most 10 reports in 24 hours.
 
 ## Setup, once
 
-1. Run the v46 block of `supabase/schema.sql`, and redeploy `notify` (it gains the `report` kind).
-2. Make yourselves moderators so each report sends a push notification to your phones:
+1. Run the v56 block of `supabase/schema.sql` (after v46), then deploy `moderation` and
+   redeploy `notify`, `media` and `wheelday`.
+2. Secrets the `moderation` function reads: `RESEND_API_KEY` (already there for the welcome
+   email), `ANTHROPIC_API_KEY` (for polishing the reason; without it, or without credit, the
+   moderator's own words are used, tidied, and nothing complains), and the push keys `notify`
+   already has.
+3. Moderators are the rows in `public.moderators`:
 
    ```sql
-   insert into public.moderators select id from public.profiles where username in ('ari', 'justin');
+   insert into public.moderators select id from public.profiles where username in ('amarants', 'jsmith');
    ```
 
-   (Use your real usernames. Notifications must be on in the app on that phone.)
-3. Put a daily reminder in your calendar to check the queue anyway. A push that doesn't
+   Notifications must be on in the app on that phone for the report push to arrive.
+4. Put a daily reminder in your calendar to open Reports anyway. A push that doesn't
    arrive fails silently, and the 24-hour promise doesn't depend on it.
 
-## The 24-hour process
+## The 24-hour process, in the app (v56)
 
-**Every day, and whenever a report notification arrives:**
+**Settings → Reports**, or tap the push ("Sam's video in Mornings was reported for
+harassment. Tap to review.").
 
-1. Open the Supabase dashboard → SQL Editor and run:
+- **The moment somebody reports a post, story, comment or message it is hidden** from
+  everybody but whoever posted it (who sees it marked *Under review*) and the moderators.
+  While it waits it still counts for the poster's day and streak.
+- **Open** lists what is waiting, oldest first, one card per thing however many people
+  reported it, with the poster's active strikes. **Done** is the record.
+- **Keep it up** puts it back for everybody and closes every open report on it. No strike,
+  no email to the poster. The reporters get "Thanks for reporting. We looked into it and
+  it's staying up."
+- **Take it down** removes it for good (the file is kept, privately), gives the poster a
+  strike and emails them from safety@hitquota.app with the reason. Type the reason the way
+  you would say it; the box underneath shows what the email will say, rewritten politely,
+  and **Edit** changes it by hand. The reporters get "Thanks for reporting. We took it down."
 
-   ```sql
-   select * from private.open_reports;
-   ```
+| Strikes in the last 180 days | What happens |
+|---|---|
+| 1 | Warning email |
+| 2 | Final warning email |
+| 3 | Account suspended |
+| **Serious** ticked (nudity, threats, hate) | Suspended now, whatever the count |
+| Reported for self-harm | No strike. A supportive email with crisis resources instead |
 
-   Oldest first. `waiting` is how long it has been open. Anything near 24 hours comes first.
+A suspended account can still sign in and look, and sees a banner saying so. It cannot
+post, story, comment or message: the database refuses it. **Lift suspension** is on the
+report and on the Done item. If an email failed to send, **Retry email** is on the Done item.
 
-2. **Look at it.** `body` is the text as reported. For a post or story, `media_path` is the
-   file: Storage → `proof` (posts) or `stories` → that path. For the live row, use
-   `thing_id` in `posts`, `stories`, `comments` or `messages`.
+Anything involving a minor: take it down with Serious ticked, report it to NCMEC
+(CyberTipline, report.cybertip.org), and keep the evidence. Don't delete the account until
+that's done; removed posts and their files are kept for exactly this.
 
-3. **Decide** against the Terms of Use and community guidelines (in the app, and at
-   hitquota.app/terms):
+A report filed by email gets the same treatment within the same 24 hours.
 
-   | Finding | Action |
-   |---|---|
-   | Doesn't break the rules | Resolve as `no action`. |
-   | Breaks them, first time, not severe | Remove the content. Resolve as `removed`. |
-   | Repeated, or harassment of a person | Remove the content and **ban** the account. |
-   | Slurs, threats, sexual content, anything sexual involving a minor | Remove it and ban on the first time. For anything involving a minor, also report it to NCMEC (CyberTipline, report.cybertip.org) and keep the evidence. Don't delete the account until that's done. |
+## The same, by hand (if the app is unavailable)
 
-4. **Remove content** (this is the database; the file is removed in Storage):
+Everything above is `public.moderate_report()` underneath, and the SQL editor is still there:
 
-   ```sql
-   delete from public.posts where id = <thing_id>;        -- then delete media_path in Storage → proof
-   delete from public.stories where id = <thing_id>;      -- then delete media_path in Storage → stories
-   delete from public.comments where id = <thing_id>;
-   delete from public.messages where id = <thing_id>;
-   ```
+```sql
+select * from private.open_reports;   -- what is waiting, oldest first
+```
 
-5. **Ban an account** (they can't sign in again, and their session stops working when it next refreshes):
+Taking something down by hand is `update public.posts set removed_at = now() where id = <thing_id>;`
+(likewise `stories`, `comments`, `messages`) and closing the report with
+`update public.reports set resolved_at = now(), resolution = 'removed' where id = <id>;`.
+That sends no email and gives no strike, so prefer the app.
 
-   ```sql
-   update auth.users set banned_until = 'infinity' where id = '<reported_id>';
-   -- and hide everything they made from everyone:
-   delete from public.posts where user_id = '<reported_id>';
-   delete from public.stories where user_id = '<reported_id>';
-   delete from public.comments where user_id = '<reported_id>';
-   ```
+To ban an account outright (they can't sign in again):
 
-   Their files stay in Storage until the account is deleted. To delete the account too,
-   remove their folders in Storage first (`proof/*/<id>/`, `stories/<id>/`, `avatars/<id>/`),
-   then Authentication → Users → delete.
-
-6. **Close the report:**
-
-   ```sql
-   update public.reports set resolved_at = now(), resolution = 'removed, banned'   -- or 'no action'
-    where id = <id>;
-   ```
-
-7. If the reporter emailed as well, reply from hello@hitquota.app to say it was dealt with.
-   Don't name what was done to the other person.
+```sql
+update auth.users set banned_until = 'infinity' where id = '<reported_id>';
+```
 
 ## Reports by email
 
@@ -99,8 +101,10 @@ the email doesn't identify, ask for a username and a screenshot.
 
 ## Records
 
-Resolved reports stay in `public.reports` with `resolved_at` and `resolution`. That's the
-record if Apple or Google ever ask how a report was handled. To look back:
+Resolved reports stay in `public.reports` with `resolved_at`, `resolution` (`kept` or
+`removed`), who decided (`decided_by`), the reason that was emailed (`polished_reason`), the
+strike it was, and whether the email went (`email_sent_at` / `email_error`). Strikes are in
+`public.strikes`. That's the record if Apple or Google ever ask how a report was handled. To look back:
 
 ```sql
 select * from public.reports where resolved_at is not null order by resolved_at desc;

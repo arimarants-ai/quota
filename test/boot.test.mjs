@@ -2544,6 +2544,136 @@ await withPage(SIGNED_IN, async page => {
   check('  nobody else has it', await page.locator('#app button:has-text("Users & agreements")').count() === 0);
 });
 
+// ---- Reports (v56): moderators only, a list, a review, and the two decisions.
+await withPage({ ...SIGNED_IN, mod: true, polishDown: true }, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => openSettings()); await page.waitForTimeout(600);
+  const row = page.locator('#app button.li:has-text("Reports")');
+  check('a moderator has Reports in Settings', await row.count() === 1);
+  check('  with a green badge saying how many are open', (await row.locator('.rbadge').innerText()).trim() === '2');
+  await row.click(); await page.waitForTimeout(600);
+  let txt = await page.innerText('#app');
+  check('  the screen is called Reports, and says who else can see it', /Reports/i.test(txt) && /Only you and Justin can see this/.test(txt), txt.slice(0, 300));
+  check('  with Open · 2 and Done tabs', /Open · 2/.test(txt) && /Done/.test(txt));
+  check('  and a card for each thing reported', await page.locator('.rlist .rcard').count() === 2);
+  const first = await page.locator('.rlist .rcard').first().innerText();
+  check('  which says whose and what, why, how long it has waited, by whom and where',
+    /Sam’s video/.test(first) && /Harassment/.test(first) && /waiting/.test(first) && /Reported by 2 people · Mornings/.test(first), first);
+  check('  and their active strikes, in red when there are any', await page.locator('.rlist .rcard').first().locator('.rstk.on').count() === 1
+    && /1 strike/.test(first));
+  check('  a comment shows a chat icon rather than a picture', await page.locator('.rlist .rcard').nth(1).locator('.rthumb.chat').count() === 1);
+
+  await page.locator('.rlist .rcard').first().click(); await page.waitForTimeout(500);
+  txt = await page.innerText('#app');
+  check('the review says where it is in the queue', /1 of 2/.test(txt), txt.slice(0, 200));
+  check('  plays the clip itself', await page.locator('video.rmedia').count() === 1);
+  check('  says it is hidden from the group while you decide', /Hidden from Mornings while you decide/.test(txt));
+  check('  names the poster, their username, and their strikes', /@sam/.test(txt) && /1 of 3 strikes/.test(txt));
+  check('  shows the caption and every report, with what they said', /big set today/.test(txt) && /@kim/.test(txt) && /@lee/.test(txt) && /keeps doing this/.test(txt));
+  check('  and the two decisions', /Keep it up/.test(txt) && /Back up · no strike/.test(txt) && /Take it down/.test(txt) && /Strike \+ email/.test(txt));
+
+  // Take it down: the sheet.
+  await page.locator('.rdecide .down').click(); await page.waitForTimeout(300);
+  let d = await page.innerText('#dlg');
+  check('taking it down asks why, and says the poster reads it', /Take down Sam’s video/.test(d) && /It comes down for good\. The video is kept privately in case you need it later\./.test(d)
+    && /Sam sees this in their email/.test(d), d);
+  check('  shows the strike it would be, and what it leads to', /Strike 2 of 3/.test(d) && await page.locator('#dlg .tdm .bars i.now').count() === 1);
+  check('  offers Serious, to suspend now', /Serious/.test(d) && /Skip the strikes and suspend Sam now/.test(d));
+  check('  and says the reporter is thanked', /The reporter gets a thank-you push/.test(d));
+  await page.locator('#tdraw').fill('caption was abusive to kim');
+  await page.locator('#tdraw').blur(); await page.waitForTimeout(500);
+  const says = await page.innerText('#tdout');
+  check('  with the polish out of reach, the email says the note itself, tidied, and nothing complains',
+    says === 'Caption was abusive to kim.' && !alerts.length && !/polishing/i.test(await page.innerText('#tdst')), `${says} | ${alerts.join(' | ')}`);
+  await page.locator('#tdedit').click(); await page.locator('textarea#tdout').fill('Your caption was abusive, which is not allowed on Quota.');
+  await page.locator('#dlg input[name=serious]').check(); await page.waitForTimeout(100);
+  check('  serious says it suspends', /suspended now/.test(await page.innerText('#tdmeter')));
+  await page.locator('#dlg button.tdgo').click(); await page.waitForTimeout(700);
+  let dec = await page.evaluate(() => self.__decisions);
+  check('  and sends the decision with the edited words and serious', dec.length === 1 && dec[0].decision === 'removed' && dec[0].report_id === 41
+    && dec[0].polished === 'Your caption was abusive, which is not allowed on Quota.' && dec[0].serious === true && dec[0].raw === 'caption was abusive to kim', JSON.stringify(dec));
+  txt = await page.innerText('#app');
+  check('  then moves on to the next one', /Jo’s comment/.test(txt) || /i cant do this anymore/.test(txt), txt.slice(0, 300));
+
+  // Self-harm: no strike, no Serious.
+  await page.locator('.rdecide .down').click(); await page.waitForTimeout(300);
+  d = await page.innerText('#dlg');
+  check('a self-harm report has no strike, and says what they get instead', /No strike\. They’ll get a supportive email with crisis resources instead/.test(d)
+    && !/Strike \d of 3/.test(d) && await page.locator('#dlg input[name=serious]').count() === 0, d);
+  await page.locator('#dlg button:text-is("Cancel")').click(); await page.waitForTimeout(300);
+  await page.locator('.rdecide .keep').click(); await page.waitForTimeout(700);
+  dec = await page.evaluate(() => self.__decisions);
+  check('keeping it up sends kept, and nothing else', dec.length === 2 && dec[1].decision === 'kept' && dec[1].report_id === 43 && !dec[1].polished, JSON.stringify(dec));
+  txt = await page.innerText('#app');
+  check('  and with nothing left, back to the list, which says so', /Nothing to review/.test(txt) && /Open · 0/.test(txt), txt.slice(0, 300));
+
+  await page.locator('.rtabs .chip:has-text("Done")').click(); await page.waitForTimeout(300);
+  txt = await page.innerText('#app');
+  check('Done lists what was decided, by whom, and what was emailed', /Taken down|Suspended/.test(txt) && /Kept up/.test(txt) && /Justin/.test(txt)
+    && /advertised a product/.test(txt), txt.slice(0, 600));
+  const retry = page.locator('.rcard.done button:has-text("Retry email")');
+  check('  an email that failed can be sent again', await retry.count() === 1);
+  await retry.click(); await page.waitForTimeout(400);
+  check('    and is', await page.evaluate(() => self.__retried) === 30);
+  check('  a suspension can be lifted', await page.locator('.rcard.done button:has-text("Lift suspension")').count() >= 1);
+  await page.locator('.rcard.done button:has-text("Lift suspension")').first().click(); await page.waitForTimeout(200);
+  await page.locator('#dlg button.primary:has-text("Lift suspension")').click(); await page.waitForTimeout(400);
+  check('    and is', await page.evaluate(() => self.__lifted) === 'u5');
+});
+// A push lands on the report it is about.
+await withPage({ ...SIGNED_IN, mod: true }, async page => {
+  await settle(page);
+  await page.evaluate(() => goTarget('#report-42')); await page.waitForTimeout(800);
+  const txt = await page.innerText('#app');
+  check("a report's push opens that report, even when it is the second on the same thing", /Hidden from Mornings while you decide/.test(txt) && /@lee/.test(txt), txt.slice(0, 300));
+});
+// Hidden and taken-down rows never reach a moderator's own feed.
+await withPage({ ...SIGNED_IN, mod: true, hidden: [100], removed: [101] }, async page => {
+  await settle(page);
+  check("a moderator's feed leaves out somebody else's post under review, and one taken down",
+    await page.locator('.post[data-post="100"]').count() === 0 && await page.locator('.post[data-post="101"]').count() === 0
+    && await page.locator('.post[data-post="102"]').count() === 1);
+  check('  and a taken-down post counts for nothing', await page.evaluate(() => !S.hist.some(h => h.id === 101) && !S.posts.some(p => p.id === 101)));
+});
+// Your own post under review: still there for you, marked, and still counting.
+await withPage({ ...SIGNED_IN, hidden: [1], held: [] }, async page => {
+  await settle(page);
+  const txt = await page.innerText('.post[data-post="1"]');
+  check('your own post under review is still yours to see, marked Under review', /Under review/.test(txt) && /hidden from your group/.test(txt), txt.slice(0, 300));
+  check('  and it still counts for your day', await page.evaluate(() => S.totals.some(t => t.u === 'u1' && t.d === today())));
+});
+// Somebody else's waiting post still counts for their day, without being shown.
+await withPage({ ...SIGNED_IN, hidden: [100], held: [{ id: 100, group_id: 1, user_id: 'u2', day: new Date(Date.now() - 864e5).toLocaleDateString('en-CA'), metric: 'pushups', amount: 50, spin_id: null, challenge: null, created_at: new Date(Date.now() - 864e5).toISOString() }] }, async page => {
+  await settle(page);
+  check("somebody else's post under review is not shown", await page.locator('.post[data-post="100"]').count() === 0);
+  check('  but its numbers still count for their day', await page.evaluate(() => S.totals.some(t => t.u === 'u2' && t.n === 50 && t.d === ymd(new Date(Date.now() - 864e5)))));
+});
+// Nobody else gets Reports, and the database says no if they try.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => openSettings()); await page.waitForTimeout(500);
+  check('nobody but a moderator has Reports in Settings', await page.locator('#app button.li:has-text("Reports")').count() === 0);
+  await page.evaluate(() => goTarget('#reports')); await page.waitForTimeout(500);
+  check('  and opening it anyway says only a moderator can see it', /Only a moderator can see this/.test(await page.innerText('#app')));
+});
+// Suspended: a banner, and nothing new.
+await withPage({ ...SIGNED_IN, suspended: true }, async page => {
+  await settle(page);
+  check('a suspended account sees a banner saying so', /Your account is suspended\. Reply to the email we sent if you think this is a mistake\./.test(await page.innerText('#app')));
+  await page.evaluate(() => storyKind()); await page.waitForTimeout(250);
+  check('  and is told, rather than asked what kind of story', /Your account is suspended/.test(await page.innerText('#dlg')) && !/New story/.test(await page.innerText('#dlg')));
+  await page.evaluate(() => { dlg(); openCam('post'); }); await page.waitForTimeout(250);
+  check('  and cannot open the camera to post', /Your account is suspended/.test(await page.innerText('#dlg')));
+});
+// Reporting something takes it off your screen at once, since the database has hidden it.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => reportDlg('post', 100, 'u2')); await page.waitForTimeout(150);
+  await page.locator('#dlg input[value=spam]').check();
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(400);
+  check('a post you report leaves your screen straight away', await page.locator('.post[data-post="100"]').count() === 0);
+});
+
 // The private numbers page counts who is active from the app saying it is open.
 await withPage(SIGNED_IN, async page => {
   await settle(page);

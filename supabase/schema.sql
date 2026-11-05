@@ -3342,3 +3342,612 @@ begin
     update public.profiles set tour_seen_at = now();
   end if;
 end $$;
+
+-- ============================================================
+-- v56 (moderation from the app): safe to run on an existing project, and safe to run twice.
+-- Deploy the `moderation` function and redeploy `notify`, `media` and `wheelday` after it.
+-- MODERATION.md says how it is used.
+--
+-- A report hides what it is about at once, from everybody but whoever posted it and the
+-- moderators. A moderator then keeps it up (it comes back, nothing else happens) or takes
+-- it down (it stays out of sight for good, the poster gets a strike and an email). Three
+-- strikes in six months, or one serious one, suspends the account: it can still sign in and
+-- look, but cannot post, story, comment or message until a moderator lifts it.
+--
+-- Hidden is not removed. While a report waits, the post still counts for its owner's day
+-- and streak; once it is taken down it counts for nothing, anywhere.
+-- ============================================================
+
+alter table public.posts    add column if not exists hidden_at timestamptz, add column if not exists removed_at timestamptz;
+alter table public.stories  add column if not exists hidden_at timestamptz, add column if not exists removed_at timestamptz;
+alter table public.comments add column if not exists hidden_at timestamptz, add column if not exists removed_at timestamptz;
+alter table public.messages add column if not exists hidden_at timestamptz, add column if not exists removed_at timestamptz;
+
+alter table public.profiles add column if not exists suspended_at timestamptz;
+alter table public.profiles add column if not exists suspended_by uuid references public.profiles on delete set null;
+
+alter table public.reports add column if not exists raw_reason text;
+alter table public.reports add column if not exists polished_reason text;
+alter table public.reports add column if not exists decided_by uuid references public.profiles on delete set null;
+alter table public.reports add column if not exists strike_no int;
+alter table public.reports add column if not exists suspended boolean not null default false;
+alter table public.reports add column if not exists email_sent_at timestamptz;
+alter table public.reports add column if not exists email_error text;
+alter table public.reports drop constraint if exists reports_resolution;
+alter table public.reports add constraint reports_resolution check (resolution is null or resolution in ('kept', 'removed'));
+create index if not exists reports_open on public.reports (what, thing_id) where resolved_at is null;
+create index if not exists reports_by_recent on public.reports (by_user, created_at desc);
+
+-- A strike is one take-down. Only take-downs make them, and only the last 180 days count.
+create table if not exists public.strikes (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles on delete cascade,
+  report_id bigint references public.reports on delete set null,
+  created_at timestamptz not null default now(),
+  created_by uuid references public.profiles on delete set null
+);
+create index if not exists strikes_user on public.strikes (user_id, created_at desc);
+alter table public.strikes enable row level security;
+drop policy if exists "moderators read strikes" on public.strikes;
+create policy "moderators read strikes" on public.strikes for select using ((select public.am_moderator()));
+
+-- Whether an account is suspended. Security definer because suspended_at is not in the
+-- column grant other people's profiles are read through (v49).
+create or replace function public.is_suspended(uid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select suspended_at is not null from public.profiles where id = uid), false);
+$$;
+revoke all on function public.is_suspended(uuid) from public, anon, authenticated;
+grant execute on function public.is_suspended(uuid) to authenticated;
+
+-- Who is acting as a moderator right now. Set, for the rest of one transaction, by the
+-- functions below and nothing else: there is no way to set it through the API. The guards
+-- read it to decide whether hidden_at, removed_at and a suspension may change.
+create or replace function public.moderating() returns boolean
+language sql stable set search_path = public as $$
+  select coalesce(current_setting('quota.moderating', true), '') = 'on' or public.via_service_role();
+$$;
+
+-- Your own post is yours to edit, but whether it is hidden or taken down is not.
+create or replace function public.moderation_guard() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if not public.moderating() then
+    new.hidden_at := old.hidden_at; new.removed_at := old.removed_at;
+  end if;
+  return new;
+end $$;
+drop trigger if exists posts_moderation_guard on public.posts;
+create trigger posts_moderation_guard before update on public.posts for each row execute function public.moderation_guard();
+drop trigger if exists stories_moderation_guard on public.stories;
+create trigger stories_moderation_guard before update on public.stories for each row execute function public.moderation_guard();
+drop trigger if exists comments_moderation_guard on public.comments;
+create trigger comments_moderation_guard before update on public.comments for each row execute function public.moderation_guard();
+drop trigger if exists messages_moderation_guard on public.messages;
+create trigger messages_moderation_guard before update on public.messages for each row execute function public.moderation_guard();
+-- Nor is coming out of a suspension. Nor, for that matter, going into one.
+create or replace function public.suspension_guard() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if not public.moderating() then
+    new.suspended_at := old.suspended_at; new.suspended_by := old.suspended_by;
+  end if;
+  return new;
+end $$;
+drop trigger if exists profiles_suspension_guard on public.profiles;
+create trigger profiles_suspension_guard before update on public.profiles for each row execute function public.suspension_guard();
+create or replace function public.suspension_insert_guard() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if not public.moderating() then new.suspended_at := null; new.suspended_by := null; end if;
+  return new;
+end $$;
+drop trigger if exists profiles_suspension_insert_guard on public.profiles;
+create trigger profiles_suspension_insert_guard before insert on public.profiles for each row execute function public.suspension_insert_guard();
+
+-- Who can see what. A hidden row is its owner's and the moderators' until somebody
+-- decides; a removed row is the moderators' alone. Everything else is as it was.
+-- Moderators reach a hidden or removed row because of what it is, not because they are in
+-- the group: the rest of the group's rows stay the group's.
+drop policy if exists "members see posts" on public.posts;
+create policy "members see posts" on public.posts for select
+  using ((removed_at is null and (hidden_at is null or user_id = auth.uid())
+          and (user_id = auth.uid() or public.is_member(group_id) or (on_profile and public.can_see_user(user_id))))
+      or ((hidden_at is not null or removed_at is not null) and (select public.am_moderator())));
+drop policy if exists "see stories from people you know" on public.stories;
+create policy "see stories from people you know" on public.stories for select
+  using ((removed_at is null and (hidden_at is null or user_id = auth.uid())
+          and public.can_see_user(user_id) and created_at > now() - interval '24 hours')
+      or ((hidden_at is not null or removed_at is not null) and (select public.am_moderator())));
+drop policy if exists "members see comments" on public.comments;
+create policy "members see comments" on public.comments for select
+  using ((removed_at is null and (hidden_at is null or user_id = auth.uid())
+          and public.is_member((select posts.group_id from public.posts where posts.id = comments.post_id)))
+      or ((hidden_at is not null or removed_at is not null) and (select public.am_moderator())));
+drop policy if exists "read the chats you are in" on public.messages;
+create policy "read the chats you are in" on public.messages for select
+  using ((removed_at is null and (hidden_at is null or user_id = auth.uid())
+          and ((group_id is not null and public.is_member(group_id)) or (a is not null and auth.uid() in (a, b))))
+      or ((hidden_at is not null or removed_at is not null) and (select public.am_moderator())));
+
+-- A suspended account makes nothing new. In the policies, not just the app.
+drop policy if exists "members post" on public.posts;
+create policy "members post" on public.posts for insert
+  with check (user_id = auth.uid() and public.is_member(group_id) and not public.is_suspended(auth.uid())
+    and (spin_id is null or exists (select 1 from public.spins s where s.id = posts.spin_id and s.user_id = auth.uid())));
+drop policy if exists "post your own stories" on public.stories;
+create policy "post your own stories" on public.stories for insert
+  with check (user_id = auth.uid() and not public.is_suspended(auth.uid()));
+drop policy if exists "members comment" on public.comments;
+create policy "members comment" on public.comments for insert
+  with check (user_id = auth.uid() and not public.is_suspended(auth.uid())
+    and public.is_member((select posts.group_id from public.posts where posts.id = comments.post_id)));
+drop policy if exists "say something where you can read" on public.messages;
+create policy "say something where you can read" on public.messages for insert
+  with check (user_id = auth.uid() and not public.is_suspended(auth.uid())
+    and ((group_id is not null and public.is_member(group_id))
+      or (a is not null and (auth.uid() = a or auth.uid() = b) and public.are_friends(a, b))));
+
+-- Files still in Supabase Storage (proof from before R2) are watched by moderators too.
+drop policy if exists "moderators watch reported files" on storage.objects;
+create policy "moderators watch reported files" on storage.objects for select
+  using (bucket_id in ('proof', 'stories') and (select public.am_moderator()));
+
+-- Moderators read reports. Nobody else does, still.
+drop policy if exists "moderators read reports" on public.reports;
+create policy "moderators read reports" on public.reports for select using ((select public.am_moderator()));
+
+-- Ten reports a day is plenty for anybody acting in good faith, and a ceiling on how much
+-- one person can hide by reporting it.
+create or replace function public.report_limit() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.reports where by_user = new.by_user and created_at > now() - interval '24 hours') >= 10 then
+    raise exception 'You''ve sent a lot of reports today. Try again tomorrow, or write to safety@hitquota.app.'
+      using errcode = 'P0001', hint = 'report_limit';
+  end if;
+  return new;
+end $$;
+drop trigger if exists reports_limit on public.reports;
+create trigger reports_limit before insert on public.reports for each row execute function public.report_limit();
+
+-- A report hides what it is about, straight away. Only something the reporter could
+-- actually see, and only if it belongs to whoever they say it does: the id in a report is
+-- the reporter's word, and a report must not be a way to hide anybody's post by number.
+create or replace function public.report_hide() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.what = 'user' or new.thing_id is null then return new; end if;
+  perform set_config('quota.moderating', 'on', true);
+  if new.what = 'post' then
+    update public.posts p set hidden_at = coalesce(p.hidden_at, now())
+     where p.id = new.thing_id and p.user_id = new.user_id and p.removed_at is null
+       and (public.is_member(p.group_id) or (p.on_profile and public.can_see_user(p.user_id)));
+  elsif new.what = 'story' then
+    update public.stories s set hidden_at = coalesce(s.hidden_at, now())
+     where s.id = new.thing_id and s.user_id = new.user_id and s.removed_at is null and public.can_see_story(s.id);
+  elsif new.what = 'comment' then
+    update public.comments c set hidden_at = coalesce(c.hidden_at, now())
+     where c.id = new.thing_id and c.user_id = new.user_id and c.removed_at is null and public.can_see_comment(c.id);
+  elsif new.what = 'message' then
+    update public.messages m set hidden_at = coalesce(m.hidden_at, now())
+     where m.id = new.thing_id and m.user_id = new.user_id and m.removed_at is null and public.can_see_message(m.id);
+  end if;
+  perform set_config('quota.moderating', 'off', true);
+  return new;
+end $$;
+drop trigger if exists reports_hide on public.reports;
+create trigger reports_hide after insert on public.reports for each row execute function public.report_hide();
+-- Trigger functions are not something to call over the API. A trigger still fires whatever
+-- the grants say: EXECUTE is checked when the trigger is made, not each time it runs.
+revoke all on function public.report_hide() from public, anon, authenticated;
+revoke all on function public.report_limit() from public, anon, authenticated;
+revoke all on function public.moderation_guard() from public, anon, authenticated;
+revoke all on function public.suspension_guard() from public, anon, authenticated;
+revoke all on function public.suspension_insert_guard() from public, anon, authenticated;
+
+-- Active strikes: the last 180 days.
+create or replace function public.active_strikes(uid uuid) returns int
+language sql stable security definer set search_path = public as $$
+  select count(*)::int from public.strikes where user_id = uid and created_at > now() - interval '180 days';
+$$;
+revoke all on function public.active_strikes(uuid) from public, anon, authenticated;
+
+-- What a strike leads to. Kept apart so the rule is one place, and testable on its own:
+-- the first is a warning, the second a final warning, the third suspends. Serious skips
+-- the count. A self-harm report never strikes anybody.
+create or replace function public.strike_outcome(prior int, serious boolean, self_harm boolean,
+  out strike boolean, out strike_no int, out suspend boolean)
+language sql immutable as $$
+  select not self_harm,
+         case when self_harm then null else prior + 1 end,
+         (not self_harm) and (serious or prior + 1 >= 3);
+$$;
+revoke all on function public.strike_outcome(int, boolean, boolean) from public, anon, authenticated;
+alter function public.strike_outcome(int, boolean, boolean) set search_path = public;
+
+-- The row a report is about, as a moderator needs it: who made it, where, when, and what it
+-- said or showed. Reads the live row if it is still there and falls back on what the report
+-- kept, because a deleted post is still a report.
+create or replace function public.report_thing(r public.reports) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare out jsonb;
+begin
+  if r.what = 'post' then
+    select jsonb_build_object('owner', p.user_id, 'group_id', p.group_id, 'posted_at', p.created_at,
+             'caption', p.caption, 'metric', p.metric, 'amount', p.amount, 'challenge', p.challenge,
+             'path', p.video_path, 'store', p.video_store, 'hidden_at', p.hidden_at, 'removed_at', p.removed_at)
+      into out from public.posts p where p.id = r.thing_id;
+  elsif r.what = 'story' then
+    select jsonb_build_object('owner', s.user_id, 'group_id', null, 'posted_at', s.created_at, 'caption', coalesce(s.body, ''),
+             'kind', s.kind, 'path', s.media_path, 'store', s.media_store, 'hidden_at', s.hidden_at, 'removed_at', s.removed_at)
+      into out from public.stories s where s.id = r.thing_id;
+  elsif r.what = 'comment' then
+    select jsonb_build_object('owner', c.user_id, 'group_id', p.group_id, 'posted_at', c.created_at, 'caption', c.body,
+             'post_id', c.post_id, 'hidden_at', c.hidden_at, 'removed_at', c.removed_at)
+      into out from public.comments c left join public.posts p on p.id = c.post_id where c.id = r.thing_id;
+  elsif r.what = 'message' then
+    select jsonb_build_object('owner', m.user_id, 'group_id', m.group_id, 'posted_at', m.created_at, 'caption', m.body,
+             'hidden_at', m.hidden_at, 'removed_at', m.removed_at)
+      into out from public.messages m where m.id = r.thing_id;
+  end if;
+  return coalesce(out, jsonb_build_object('owner', r.user_id, 'group_id', r.group_id, 'posted_at', null,
+    'caption', r.body, 'path', r.media_path, 'gone', r.what <> 'user'));
+end $$;
+revoke all on function public.report_thing(public.reports) from public, anon, authenticated;
+
+-- What the Reports screen draws: one card per thing, with every open report on it folded in.
+-- Names, never emails. 'open' is oldest first, 'done' newest first.
+create or replace function public.mod_reports(status text default 'open') returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare out jsonb;
+begin
+  if not public.am_moderator() then
+    raise exception 'only a moderator can see this' using errcode = '42501';
+  end if;
+  with base as (
+    select r.*, r.what || ':' || coalesce(r.thing_id::text, r.user_id::text) as k, public.report_thing(r) as t
+      from public.reports r
+     where case when status = 'done' then r.resolved_at is not null else r.resolved_at is null end
+  ), grouped as (
+    select b.k,
+           case when status = 'done' then b.resolved_at else null end as decided_at,
+           (array_agg(b.id order by b.created_at))[1] as id,
+           count(*)::int as n,
+           min(b.created_at) as first_at,
+           jsonb_agg(jsonb_build_object('id', b.id, 'reason', b.reason, 'details', b.details, 'at', b.created_at,
+             'name', coalesce(nullif(rp.display_name, ''), rp.username), 'username', rp.username) order by b.created_at) as reporters
+      from base b left join public.profiles rp on rp.id = b.by_user
+     group by b.k, case when status = 'done' then b.resolved_at else null end
+  ), cards as (
+    select g.*, r.what, r.thing_id, r.reason, r.details, r.body, r.media_path, r.resolution, r.resolved_at,
+           r.polished_reason, r.strike_no, r.suspended as did_suspend, r.email_sent_at, r.email_error,
+           r.t, coalesce((r.t->>'owner')::uuid, r.user_id) as owner,
+           coalesce((r.t->>'group_id')::bigint, r.group_id) as gid, r.decided_by
+      from grouped g join base r on r.id = g.id
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', c.id, 'what', c.what, 'thing_id', c.thing_id, 'reason', c.reason, 'details', c.details,
+           'body', c.body, 'n', c.n, 'reported_at', c.first_at, 'reporters', c.reporters,
+           'poster_id', c.owner, 'poster_name', coalesce(nullif(po.display_name, ''), po.username),
+           'poster_username', po.username, 'poster_avatar', po.avatar_path,
+           'group_id', c.gid, 'group_name', gr.name,
+           'posted_at', c.t->'posted_at', 'caption', coalesce(c.t->>'caption', c.body), 'metric', c.t->>'metric',
+           'amount', c.t->'amount', 'challenge', c.t->>'challenge', 'kind', c.t->>'kind', 'post_id', c.t->'post_id',
+           'path', coalesce(c.t->>'path', c.media_path), 'store', c.t->>'store', 'gone', coalesce((c.t->>'gone')::boolean, false),
+           'hidden', c.t->>'hidden_at' is not null, 'removed', c.t->>'removed_at' is not null,
+           'strikes', public.active_strikes(c.owner), 'suspended', po.suspended_at is not null,
+           'resolution', c.resolution, 'resolved_at', c.resolved_at,
+           'decided_by_name', coalesce(nullif(dp.display_name, ''), dp.username),
+           'polished_reason', c.polished_reason, 'strike_no', c.strike_no, 'did_suspend', c.did_suspend,
+           'email_sent_at', c.email_sent_at, 'email_error', c.email_error)
+         order by c.sort), '[]'::jsonb)
+    into out
+    from (select cards.*, case when status = 'done' then -extract(epoch from cards.resolved_at)
+                               else extract(epoch from cards.first_at) end as sort
+            from cards order by sort limit 200) c
+    left join public.profiles po on po.id = c.owner
+    left join public.profiles dp on dp.id = c.decided_by
+    left join public.groups gr on gr.id = c.gid;
+  return out;
+end $$;
+revoke all on function public.mod_reports(text) from public, anon, authenticated;
+grant execute on function public.mod_reports(text) to authenticated;
+
+-- How many things are waiting, for the badge. Zero for anybody who is not a moderator.
+create or replace function public.mod_open_count() returns int
+language sql stable security definer set search_path = public as $$
+  select case when public.am_moderator()
+    then (select count(distinct what || ':' || coalesce(thing_id::text, user_id::text))::int
+            from public.reports where resolved_at is null)
+    else 0 end;
+$$;
+revoke all on function public.mod_open_count() from public, anon, authenticated;
+grant execute on function public.mod_open_count() to authenticated;
+
+-- The other moderators, by name, for "Only you and Justin can see this".
+create or replace function public.mod_names() returns text[]
+language sql stable security definer set search_path = public as $$
+  select case when public.am_moderator() then coalesce(array_agg(coalesce(nullif(p.display_name, ''), p.username) order by p.created_at), '{}')
+    else '{}' end
+    from public.moderators m join public.profiles p on p.id = m.user_id where m.user_id <> auth.uid();
+$$;
+revoke all on function public.mod_names() from public, anon, authenticated;
+grant execute on function public.mod_names() to authenticated;
+
+-- The decision, all of it in one transaction: every open report on the same thing closes
+-- together, the thing comes back or goes for good, the strike and any suspension are
+-- written, and who decided is recorded. Returns what the email needs.
+create or replace function public.moderate_report(p_report_id bigint, p_decision text, p_raw text default null,
+  p_polished text default null, p_serious boolean default false) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.reports;
+  t jsonb;
+  owner uuid;
+  gname text;
+  self_harm boolean;
+  v_strike boolean := false;
+  v_no int;
+  v_suspend boolean := false;
+  prior int;
+  -- The real time, not the transaction's: two decisions on one thing are two rows in Done.
+  v_now timestamptz := clock_timestamp();
+  ids bigint[];
+  reporters uuid[];
+  sid bigint;
+begin
+  if not public.am_moderator() then raise exception 'only a moderator can do this' using errcode = '42501'; end if;
+  if p_decision not in ('kept', 'removed') then raise exception 'decision must be kept or removed'; end if;
+  select * into r from public.reports where id = p_report_id for update;
+  if not found then raise exception 'no such report'; end if;
+  if r.resolved_at is not null then raise exception 'that report has already been decided' using errcode = 'P0001', hint = 'decided'; end if;
+
+  t := public.report_thing(r);
+  owner := coalesce((t->>'owner')::uuid, r.user_id);
+  select name into gname from public.groups where id = coalesce((t->>'group_id')::bigint, r.group_id);
+  self_harm := r.reason = 'self_harm';
+
+  -- Every open report on the same thing, decided once.
+  select array_agg(id), array_agg(distinct by_user) into ids, reporters
+    from public.reports
+   where resolved_at is null and what = r.what
+     and (case when r.what = 'user' then thing_id is null and user_id = r.user_id else thing_id = r.thing_id end);
+
+  perform set_config('quota.moderating', 'on', true);
+  if r.thing_id is not null then
+    if p_decision = 'kept' then
+      if r.what = 'post' then update public.posts set hidden_at = null where id = r.thing_id and removed_at is null;
+      elsif r.what = 'story' then update public.stories set hidden_at = null where id = r.thing_id and removed_at is null;
+      elsif r.what = 'comment' then update public.comments set hidden_at = null where id = r.thing_id and removed_at is null;
+      elsif r.what = 'message' then update public.messages set hidden_at = null where id = r.thing_id and removed_at is null;
+      end if;
+    else
+      if r.what = 'post' then update public.posts set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      elsif r.what = 'story' then update public.stories set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      elsif r.what = 'comment' then update public.comments set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      elsif r.what = 'message' then update public.messages set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      end if;
+    end if;
+  end if;
+
+  if p_decision = 'removed' then
+    prior := public.active_strikes(owner);
+    select x.strike, x.strike_no, x.suspend into v_strike, v_no, v_suspend
+      from public.strike_outcome(prior, coalesce(p_serious, false), self_harm) x;
+    if v_strike then
+      insert into public.strikes (user_id, report_id, created_by) values (owner, r.id, auth.uid()) returning id into sid;
+    end if;
+    if v_suspend then
+      update public.profiles set suspended_at = coalesce(suspended_at, now()), suspended_by = auth.uid() where id = owner;
+    end if;
+  end if;
+
+  update public.reports
+     set resolved_at = v_now, resolution = p_decision, decided_by = auth.uid(),
+         raw_reason = case when p_decision = 'removed' then nullif(trim(coalesce(p_raw, '')), '') end,
+         polished_reason = case when p_decision = 'removed' then nullif(trim(coalesce(p_polished, '')), '') end,
+         strike_no = v_no,
+         suspended = v_suspend
+   where id = any (ids);
+  perform set_config('quota.moderating', 'off', true);
+
+  return jsonb_build_object('report_id', r.id, 'report_ids', to_jsonb(ids), 'decision', p_decision,
+    'what', r.what, 'thing_id', r.thing_id, 'poster_id', owner, 'group_name', gname,
+    'posted_at', t->'posted_at', 'self_harm', self_harm,
+    'strike_no', v_no, 'suspended', v_suspend,
+    'reporters', to_jsonb(reporters));
+end $$;
+revoke all on function public.moderate_report(bigint, text, text, text, boolean) from public, anon, authenticated;
+grant execute on function public.moderate_report(bigint, text, text, text, boolean) to authenticated;
+
+create or replace function public.lift_suspension(p_user uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.am_moderator() then raise exception 'only a moderator can do this' using errcode = '42501'; end if;
+  perform set_config('quota.moderating', 'on', true);
+  update public.profiles set suspended_at = null, suspended_by = null where id = p_user;
+  perform set_config('quota.moderating', 'off', true);
+end $$;
+revoke all on function public.lift_suspension(uuid) from public, anon, authenticated;
+grant execute on function public.lift_suspension(uuid) to authenticated;
+
+-- A post waiting on a decision is hidden from the group, but it still counts for its owner's
+-- day and streak, and the group counts days too. So the group gets the numbers and nothing
+-- else: no file, no caption, only what the totals are made of.
+create or replace function public.held_posts()
+returns table (id bigint, group_id bigint, user_id uuid, day date, metric text, amount int, spin_id bigint, challenge text, created_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.group_id, p.user_id, p.day, p.metric, p.amount, p.spin_id, p.challenge, p.created_at
+    from public.posts p
+   where p.hidden_at is not null and p.removed_at is null and p.user_id <> auth.uid() and public.is_member(p.group_id);
+$$;
+revoke all on function public.held_posts() from public, anon, authenticated;
+grant execute on function public.held_posts() to authenticated;
+
+-- Taken down counts for nothing: not the evening reminder, not a challenge's days, not the
+-- numbers page. These are the same functions as before with that one line added.
+create or replace function public.challenge_day_count(p_spin bigint, p_today date)
+returns int language sql stable set search_path = public as $$
+  with s as (
+    select sp.id, sp.user_id, sp.cycle, w.every_days, w.starts_on, g.quotas
+      from public.spins sp
+      join public.wheels w on w.id = sp.wheel_id
+      join public.groups g on g.id = w.group_id
+     where sp.id = p_spin
+  ), span as (
+    select s.*, (s.starts_on + (s.cycle * s.every_days))::date as c0,
+                least((s.starts_on + ((s.cycle + 1) * s.every_days - 1))::date, p_today) as c1
+      from s
+  ), d as (
+    select span.*, gs::date as day
+      from span, lateral generate_series(span.c0, span.c1, interval '1 day') gs
+     where span.c1 >= span.c0
+  )
+  select count(*)::int from d
+   where jsonb_array_length(coalesce(d.quotas, '[]'::jsonb)) > 0
+     and not exists (
+       select 1 from jsonb_array_elements(d.quotas) q
+        where coalesce((
+                select sum(po.amount) from public.posts po
+                 where po.spin_id = d.id and po.user_id = d.user_id and po.day = d.day
+                   and po.metric = q->>'metric' and po.removed_at is null
+                   and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld')
+              ), 0) < (q->>'target')::numeric);
+$$;
+revoke all on function public.challenge_day_count(bigint, date) from public, anon, authenticated;
+
+create or replace function public.notices_due_now()
+returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int,
+               line text, done int, needs int)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone, p.created_at
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+       and exists (select 1 from public.group_members gm where gm.user_id = p.id)
+  ), whenIs as (
+    select id, zone, created_at,
+           (now() at time zone zone)::date as day,
+           extract(hour from (now() at time zone zone))::int as hr
+      from folk
+  ), plan as (
+    select w.*,
+           public.slot_hour(w.id, w.day) as slot,
+           public.lastcall_hour(public.slot_hour(w.id, w.day)) as lc,
+           (w.created_at < now() - interval '3 days'
+            and not exists (select 1 from public.posts po
+                             where po.user_id = w.id and po.day > w.day - 3 and po.removed_at is null)) as lapsed
+      from whenIs w
+  ), short as (
+    select pl.id as uid, pl.day, g.id as gid, g.name as gname,
+           q->>'metric' as metric,
+           ((q->>'target')::numeric - coalesce((
+              select sum(po.amount) from public.posts po
+               where po.group_id = g.id and po.user_id = pl.id and po.day = pl.day
+                 and po.metric = q->>'metric' and po.removed_at is null
+                 and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld')
+            ), 0))::bigint as owed
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral jsonb_array_elements(coalesce(g.quotas, '[]'::jsonb)) q
+     where (g.active_days is null or array_length(g.active_days, 1) is null
+            or extract(dow from pl.day)::int = any (g.active_days))
+  ), behind as (
+    select uid, day, string_agg(distinct owed::text || ' ' || metric, ', ') as line
+      from short where owed > 0 group by uid, day
+  ), closing as (
+    select pl.id as uid, pl.day, w.name as wname,
+           public.challenge_day_count(sp.id, pl.day) as done,
+           public.challenge_required(sp.id) as needs
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.wheels w on w.group_id = gm.group_id and w.active
+      join public.spins sp on sp.wheel_id = w.id and sp.user_id = pl.id
+                          and sp.cycle = public.wheel_cycle(w, pl.day)
+     where not sp.sat_out
+       and (w.starts_on + ((sp.cycle + 1) * w.every_days - 1))::date = pl.day
+  ), closingNow as (
+    select distinct on (uid) uid, day, wname, done, needs
+      from closing where done < needs order by uid, needs - done desc, wname
+  ), want as (
+    select id, day, 'lapsed'::text as kind, 0 as hours from plan where hr = slot and lapsed
+    union all
+    select id, day, 'open'::text, 24 - slot from plan where hr = slot and not lapsed
+    union all
+    select pl.id, pl.day, 'challenge'::text, 24 - pl.hr from plan pl
+      join closingNow c on c.uid = pl.id where pl.hr = pl.lc and not pl.lapsed
+    union all
+    select pl.id, pl.day, 'lastcall'::text, 24 - pl.hr from plan pl
+      join behind b on b.uid = pl.id
+     where pl.hr = pl.lc and not pl.lapsed
+       and not exists (select 1 from closingNow c where c.uid = pl.id)
+  ), pick as (
+    select w.id, w.day, w.kind, w.hours, x.gname, x.others, x.mates,
+           b.line, c.done, c.needs, c.wname
+      from want w
+      left join behind b on b.uid = w.id and b.day = w.day
+      left join closingNow c on c.uid = w.id and c.day = w.day
+      left join lateral (
+        select g.name as gname,
+               count(*) filter (where exists (
+                 select 1 from public.posts po
+                  where po.group_id = g.id and po.user_id = gm2.user_id and po.day = w.day and po.removed_at is null)) as others,
+               count(*) as mates
+          from public.group_members gm
+          join public.groups g on g.id = gm.group_id
+          join public.group_members gm2 on gm2.group_id = g.id and gm2.user_id <> w.id
+         where gm.user_id = w.id
+         group by g.id, g.name
+         order by 2 desc, g.id
+         limit 1
+      ) x on true
+  ), claimed as (
+    insert into public.day_reminders (user_id, day, kind)
+    select id, day, kind from pick
+    on conflict do nothing
+    returning day_reminders.user_id as uid, day_reminders.kind as k
+  )
+  select p.id, p.kind, p.hours,
+         coalesce(nullif(p.wname, ''), p.gname, ''), coalesce(p.others, 0)::int, coalesce(p.mates, 0)::int,
+         coalesce(p.line, ''), coalesce(p.done, 0)::int, coalesce(p.needs, 0)::int
+    from pick p join claimed c on c.uid = p.id and c.k = p.kind;
+$$;
+revoke all on function public.notices_due_now() from public, anon, authenticated;
+grant execute on function public.notices_due_now() to service_role;
+
+create or replace function public.quota_numbers(p_since timestamptz default null)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare since timestamptz := p_since;
+begin
+  if since is null or since > now() or since < now() - interval '36 hours' then
+    since := date_trunc('day', now());
+  end if;
+  return jsonb_build_object(
+    'posts_total',    (select count(*) from public.posts where removed_at is null),
+    'posts_today',    (select count(*) from public.posts where created_at >= since and removed_at is null),
+    'posters_today',  (select count(distinct user_id) from public.posts where created_at >= since and removed_at is null),
+    'users_total',    (select count(*) from public.profiles),
+    'users_new_today',(select count(*) from public.profiles where created_at >= since),
+    'active_today',   (select count(*) from public.last_seen where at >= since),
+    'active_now',     (select count(*) from public.last_seen where at >= now() - interval '5 minutes'),
+    'at', now());
+end $$;
+revoke all on function public.quota_numbers(timestamptz) from public;
+grant execute on function public.quota_numbers(timestamptz) to anon, authenticated;
+
+-- The dashboard view, unchanged, recreated here so it is known to still build on top of the
+-- new columns. Settings → Reports in the app is the way in now; this stays for the SQL editor.
+drop view if exists private.open_reports;
+create view private.open_reports as
+  select r.id, now() - r.created_at as waiting, r.what, r.reason, r.details,
+         who.username as reported, who.email as reported_email, r.user_id as reported_id,
+         r.body, r.media_path, r.thing_id, g.name as group_name,
+         by_.username as reported_by, r.created_at
+    from public.reports r
+    left join private.people who on who.id = r.user_id
+    left join private.people by_ on by_.id = r.by_user
+    left join public.groups g on g.id = r.group_id
+   where r.resolved_at is null
+   order by r.created_at;
