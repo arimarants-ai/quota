@@ -1580,3 +1580,96 @@ begin
 end $$;
 reset role;
 \echo PASS: a report outlives what it is about
+
+-- ---- v59: a report outlives its reporter.
+do $$
+begin
+  if (select confdeltype from pg_constraint where conname = 'reports_by_user_fkey') <> 'n' then
+    raise exception 'deleting a reporter''s account would delete their reports (by_user is not ON DELETE SET NULL)';
+  end if;
+  if exists (select 1 from pg_constraint c where c.confrelid = 'public.profiles'::regclass and c.conrelid = 'public.reports'::regclass
+              and c.confdeltype = 'c') then
+    raise exception 'a key on reports still cascades from an account';
+  end if;
+end $$;
+
+reset role;
+insert into auth.users (id) values ('59000000-0000-0000-0000-000000000001'), ('59000000-0000-0000-0000-000000000002'),
+  ('59000000-0000-0000-0000-000000000003'), ('59000000-0000-0000-0000-000000000004');
+insert into public.profiles (id, username, display_name) values
+  ('59000000-0000-0000-0000-000000000001', 'v_poster', 'Val'),
+  ('59000000-0000-0000-0000-000000000002', 'v_leaver', 'Lee'),     -- reports, then deletes their account
+  ('59000000-0000-0000-0000-000000000003', 'v_leaver2', 'Lou'),    -- the same, for the take-down
+  ('59000000-0000-0000-0000-000000000004', 'v_stays', 'Sty');      -- reports, and keeps their account
+insert into public.groups (id, name, quotas) overriding system value values (59, 'Leavers', '[{"metric":"pushups","target":10}]');
+insert into public.group_members (group_id, user_id) values (59, '59000000-0000-0000-0000-000000000001'),
+  (59, '59000000-0000-0000-0000-000000000002'), (59, '59000000-0000-0000-0000-000000000003'), (59, '59000000-0000-0000-0000-000000000004');
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, day, caption) overriding system value values
+  (5901, 59, '59000000-0000-0000-0000-000000000001', 'pushups', 10, '59/v/1.mp4', current_date, 'first'),
+  (5902, 59, '59000000-0000-0000-0000-000000000001', 'pushups', 10, '59/v/2.mp4', current_date, 'second');
+set role app;
+
+do $$
+declare r1 bigint; r2 bigint; r3 bigint; x jsonb; card jsonb; n int;
+begin
+  perform set_config('test.uid', '59000000-0000-0000-0000-000000000002', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values ('59000000-0000-0000-0000-000000000001', 'post', 5901, 59, 'spam');
+  r1 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  perform set_config('test.uid', '59000000-0000-0000-0000-000000000003', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values ('59000000-0000-0000-0000-000000000001', 'post', 5902, 59, 'hate');
+  r2 := currval(pg_get_serial_sequence('public.reports', 'id'));
+  -- A second reporter on the same post, who keeps their account and should still be thanked.
+  perform set_config('test.uid', '59000000-0000-0000-0000-000000000004', true);
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values ('59000000-0000-0000-0000-000000000001', 'post', 5902, 59, 'hate');
+  r3 := currval(pg_get_serial_sequence('public.reports', 'id'));
+
+  -- Both of the first two reporters delete their accounts.
+  reset role;
+  delete from auth.users where id in ('59000000-0000-0000-0000-000000000002', '59000000-0000-0000-0000-000000000003');
+  if exists (select 1 from public.profiles where id in ('59000000-0000-0000-0000-000000000002', '59000000-0000-0000-0000-000000000003')) then
+    raise exception 'the accounts were not deleted';
+  end if;
+  select count(*) into n from public.reports where id in (r1, r2) and resolved_at is null and by_user is null;
+  if n <> 2 then raise exception 'reports went with their reporter''s account (% of 2 left open)', n; end if;
+  if (select hidden_at from public.posts where id = 5901) is null then raise exception 'the post came back out of hiding on its own'; end if;
+  set role app;
+
+  -- The card is still there, with no reporter's name to show.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.mod_reports('open');
+  select e into card from jsonb_array_elements(x) e where (e->>'id')::bigint = r1;
+  if card is null then raise exception 'the report of a deleted account is not on Reports'; end if;
+  if card->'reporters'->0->>'username' is not null or card->>'poster_name' <> 'Val' or card->>'group_name' <> 'Leavers' then
+    raise exception 'the card should have no reporter and everything else: %', card;
+  end if;
+
+  -- Keep it up: closes it, puts the post back, thanks nobody.
+  x := public.moderate_report(r1, 'kept');
+  if jsonb_array_length(x->'reporters') <> 0 then raise exception 'keeping it up tried to thank a deleted account: %', x; end if;
+  if (select resolution from public.reports where id = r1) <> 'kept' then raise exception 'not closed as kept'; end if;
+  reset role;
+  if (select hidden_at from public.posts where id = 5901) is not null then raise exception 'kept, but the post is still hidden'; end if;
+  set role app;
+
+  -- Take it down: strikes the poster, closes both reports on it, thanks only the reporter who is still here.
+  x := public.moderate_report(r2, 'removed', 'x', 'X.', false);
+  if (x->>'strike_no')::int <> 1 or x->'reporters' <> to_jsonb(array['59000000-0000-0000-0000-000000000004'::uuid]) then
+    raise exception 'taking it down should strike the poster and thank only the reporter who is still here: %', x;
+  end if;
+  if exists (select 1 from public.reports where id in (r2, r3) and resolution is distinct from 'removed') then raise exception 'not every report on it closed'; end if;
+  if public.active_strikes('59000000-0000-0000-0000-000000000001') <> 1 then raise exception 'no strike recorded'; end if;
+
+  -- And a live account still has the ten-a-day limit, counted as before.
+  perform set_config('test.uid', '59000000-0000-0000-0000-000000000004', true);
+  for n in 1..9 loop
+    insert into public.reports (user_id, what, reason) values ('59000000-0000-0000-0000-000000000001', 'user', 'spam');
+  end loop;
+  begin
+    insert into public.reports (user_id, what, reason) values ('59000000-0000-0000-0000-000000000001', 'user', 'spam');
+    raise exception 'an eleventh report went through';
+  exception when sqlstate 'P0001' then
+    if sqlerrm not like 'You''ve sent a lot of reports today%' then raise; end if;
+  end;
+end $$;
+reset role;
+\echo PASS: a report outlives its reporter

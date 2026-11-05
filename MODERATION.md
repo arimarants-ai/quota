@@ -80,6 +80,10 @@ and the clip if the file is still there) under "The original was deleted. This i
 saved when it was reported." Take it down still strikes, emails and thanks the reporter;
 Keep it up just closes it.
 
+A report also outlives its reporter (v59): if whoever filed it deletes their account, the
+report stays open and Reports says "Reporter deleted their account" where their name would
+be. Deciding it works the same; there is just nobody left to thank.
+
 Dates in the emails are on the poster's own calendar (their `profiles.tz`), or US Central if
 the app has never seen their time zone.
 

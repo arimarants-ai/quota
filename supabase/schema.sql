@@ -4142,3 +4142,105 @@ begin
     'caption', r.body, 'path', r.media_path, 'store', r.media_store, 'gone', r.what <> 'user'));
 end $$;
 revoke all on function public.report_thing(public.reports) from public, anon, authenticated;
+
+-- ============================================================
+-- v59 (a report outlives its reporter too): safe to run on an existing project, and safe to
+-- run twice. No redeploy needed.
+--
+-- Deleting an account used to delete the reports it had filed. Whatever they were about
+-- stayed hidden from its group, with no card left for anybody to decide. Now the report keeps
+-- going without a reporter: by_user is let go of rather than taking the report with it,
+-- Reports says "Reporter deleted their account" where the name would be, and the decision
+-- thanks nobody. Filing still needs a live account (the insert policy is unchanged: by_user
+-- has to be you), so the ten-a-day limit counts exactly what it counted before.
+-- ============================================================
+
+alter table public.reports alter column by_user drop not null;
+alter table public.reports drop constraint if exists reports_by_user_fkey;
+alter table public.reports add constraint reports_by_user_fkey
+  foreign key (by_user) references public.profiles on delete set null;
+
+create or replace function public.moderate_report(p_report_id bigint, p_decision text, p_raw text default null,
+  p_polished text default null, p_serious boolean default false) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.reports;
+  t jsonb;
+  owner uuid;
+  gname text;
+  self_harm boolean;
+  v_strike boolean := false;
+  v_no int;
+  v_suspend boolean := false;
+  prior int;
+  -- The real time, not the transaction's: two decisions on one thing are two rows in Done.
+  v_now timestamptz := clock_timestamp();
+  ids bigint[];
+  reporters uuid[];
+  sid bigint;
+begin
+  if not public.am_moderator() then raise exception 'only a moderator can do this' using errcode = '42501'; end if;
+  if p_decision not in ('kept', 'removed') then raise exception 'decision must be kept or removed'; end if;
+  select * into r from public.reports where id = p_report_id for update;
+  if not found then raise exception 'no such report'; end if;
+  if r.resolved_at is not null then raise exception 'that report has already been decided' using errcode = 'P0001', hint = 'decided'; end if;
+
+  t := public.report_thing(r);
+  owner := coalesce((t->>'owner')::uuid, r.user_id);
+  select name into gname from public.groups where id = coalesce((t->>'group_id')::bigint, r.group_id);
+  self_harm := r.reason = 'self_harm';
+
+  -- Every open report on the same thing, decided once.
+  -- Who to thank: everybody who reported it and still has an account. A report whose
+  -- reporter has since deleted theirs is decided like any other, and thanks nobody.
+  select array_agg(id), coalesce(array_agg(distinct by_user) filter (where by_user is not null), '{}') into ids, reporters
+    from public.reports
+   where resolved_at is null and what = r.what
+     and (case when r.what = 'user' then thing_id is null and user_id = r.user_id else thing_id = r.thing_id end);
+
+  perform set_config('quota.moderating', 'on', true);
+  if r.thing_id is not null then
+    if p_decision = 'kept' then
+      if r.what = 'post' then update public.posts set hidden_at = null where id = r.thing_id and removed_at is null;
+      elsif r.what = 'story' then update public.stories set hidden_at = null where id = r.thing_id and removed_at is null;
+      elsif r.what = 'comment' then update public.comments set hidden_at = null where id = r.thing_id and removed_at is null;
+      elsif r.what = 'message' then update public.messages set hidden_at = null where id = r.thing_id and removed_at is null;
+      end if;
+    else
+      if r.what = 'post' then update public.posts set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      elsif r.what = 'story' then update public.stories set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      elsif r.what = 'comment' then update public.comments set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      elsif r.what = 'message' then update public.messages set removed_at = coalesce(removed_at, now()), hidden_at = coalesce(hidden_at, now()) where id = r.thing_id;
+      end if;
+    end if;
+  end if;
+
+  if p_decision = 'removed' then
+    prior := public.active_strikes(owner);
+    select x.strike, x.strike_no, x.suspend into v_strike, v_no, v_suspend
+      from public.strike_outcome(prior, coalesce(p_serious, false), self_harm) x;
+    if v_strike then
+      insert into public.strikes (user_id, report_id, created_by) values (owner, r.id, auth.uid()) returning id into sid;
+    end if;
+    if v_suspend then
+      update public.profiles set suspended_at = coalesce(suspended_at, now()), suspended_by = auth.uid() where id = owner;
+    end if;
+  end if;
+
+  update public.reports
+     set resolved_at = v_now, resolution = p_decision, decided_by = auth.uid(),
+         raw_reason = case when p_decision = 'removed' then nullif(trim(coalesce(p_raw, '')), '') end,
+         polished_reason = case when p_decision = 'removed' then nullif(trim(coalesce(p_polished, '')), '') end,
+         strike_no = v_no,
+         suspended = v_suspend
+   where id = any (ids);
+  perform set_config('quota.moderating', 'off', true);
+
+  return jsonb_build_object('report_id', r.id, 'report_ids', to_jsonb(ids), 'decision', p_decision,
+    'what', r.what, 'thing_id', r.thing_id, 'poster_id', owner, 'group_name', gname,
+    'posted_at', t->'posted_at', 'self_harm', self_harm,
+    'strike_no', v_no, 'suspended', v_suspend,
+    'reporters', to_jsonb(reporters));
+end $$;
+revoke all on function public.moderate_report(bigint, text, text, text, boolean) from public, anon, authenticated;
+grant execute on function public.moderate_report(bigint, text, text, text, boolean) to authenticated;
