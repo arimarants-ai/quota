@@ -87,6 +87,11 @@
       poster_id: 'u3', poster_name: 'Jo', poster_username: 'jo', group_id: 1, group_name: 'Mornings', posted_at: hrs(2),
       caption: 'i cant do this anymore', path: null, hidden: true, strikes: 0, suspended: false, resolution: null },
   ];
+  // A comment that went with the post it was under (v58): only the report's saved copy is left.
+  if (M().goneCard) self.__modOpen.push({ id: 44, what: 'comment', thing_id: 12, reason: 'harassment', details: '', body: 'the saved words', n: 1,
+    reported_at: hrs(1), reporters: [{ id: 44, reason: 'harassment', details: '', at: hrs(1), name: 'Kim', username: 'kim' }],
+    poster_id: 'u3', poster_name: 'Jo', poster_username: 'jo', group_id: 1, group_name: 'Mornings', posted_at: hrs(2),
+    caption: 'the saved words', path: null, hidden: false, removed: false, gone: true, strikes: 0, suspended: false, resolution: null });
   self.__modDone = [
     { id: 30, what: 'post', thing_id: 77, reason: 'spam', n: 1, reported_at: hrs(30), reporters: [{ id: 30, username: 'kim', reason: 'spam', at: hrs(30) }],
       poster_id: 'u5', poster_name: 'Pat', poster_username: 'pat', group_name: 'Mornings', path: 'x.mp4', strikes: 3, suspended: true,

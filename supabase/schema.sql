@@ -4065,3 +4065,80 @@ create policy "delete own comments" on public.comments for delete
 drop policy if exists "take back your own message" on public.messages;
 create policy "take back your own message" on public.messages for delete
   using (user_id = auth.uid() and not (hidden_at is not null and public.under_review('message', id)));
+
+-- ============================================================
+-- v58 (a report outlives what it is about): safe to run on an existing project, and safe to
+-- run twice. Redeploy `moderation` after it.
+--
+-- Deleting a post deletes the comments under it, and a reply goes with the comment it
+-- answers. That is left as it is. A report has no key to what it is about, so it is never
+-- deleted along with it: it stays open, and the Reports screen shows the copy it saved.
+-- Taking it down still strikes, emails and thanks the reporter; there is just no row left
+-- to remove.
+--
+-- So the copy has to be worth keeping. It used to be whatever the reporter's app said was
+-- on screen; now the database takes it from the row itself as the report goes in, when the
+-- row is there and belongs to whoever is being reported.
+-- ============================================================
+
+alter table public.reports add column if not exists media_store text;
+alter table public.reports add column if not exists thing_posted_at timestamptz;
+
+create or replace function public.report_snapshot() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare t record;
+begin
+  if new.what = 'user' or new.thing_id is null then return new; end if;
+  if new.what = 'post' then
+    select p.user_id, p.group_id, p.created_at, p.caption as body, p.video_path as path, p.video_store as store
+      into t from public.posts p where p.id = new.thing_id;
+  elsif new.what = 'story' then
+    select s.user_id, null::bigint as group_id, s.created_at, coalesce(s.body, '') as body, s.media_path as path, s.media_store as store
+      into t from public.stories s where s.id = new.thing_id;
+  elsif new.what = 'comment' then
+    select c.user_id, p.group_id, c.created_at, c.body, null::text as path, null::text as store
+      into t from public.comments c left join public.posts p on p.id = c.post_id where c.id = new.thing_id;
+  elsif new.what = 'message' then
+    select m.user_id, m.group_id, m.created_at, m.body, null::text as path, null::text as store
+      into t from public.messages m where m.id = new.thing_id;
+  end if;
+  if t.user_id is not null and t.user_id = new.user_id then
+    new.body := left(coalesce(t.body, ''), 1000);
+    new.media_path := t.path;
+    new.media_store := t.store;
+    new.thing_posted_at := t.created_at;
+    new.group_id := coalesce(t.group_id, new.group_id);
+  end if;
+  return new;
+end $$;
+drop trigger if exists reports_snapshot on public.reports;
+create trigger reports_snapshot before insert on public.reports for each row execute function public.report_snapshot();
+revoke all on function public.report_snapshot() from public, anon, authenticated;
+
+create or replace function public.report_thing(r public.reports) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare out jsonb;
+begin
+  if r.what = 'post' then
+    select jsonb_build_object('owner', p.user_id, 'group_id', p.group_id, 'posted_at', p.created_at,
+             'caption', p.caption, 'metric', p.metric, 'amount', p.amount, 'challenge', p.challenge,
+             'path', p.video_path, 'store', p.video_store, 'hidden_at', p.hidden_at, 'removed_at', p.removed_at)
+      into out from public.posts p where p.id = r.thing_id;
+  elsif r.what = 'story' then
+    select jsonb_build_object('owner', s.user_id, 'group_id', null, 'posted_at', s.created_at, 'caption', coalesce(s.body, ''),
+             'kind', s.kind, 'path', s.media_path, 'store', s.media_store, 'hidden_at', s.hidden_at, 'removed_at', s.removed_at)
+      into out from public.stories s where s.id = r.thing_id;
+  elsif r.what = 'comment' then
+    select jsonb_build_object('owner', c.user_id, 'group_id', p.group_id, 'posted_at', c.created_at, 'caption', c.body,
+             'post_id', c.post_id, 'hidden_at', c.hidden_at, 'removed_at', c.removed_at)
+      into out from public.comments c left join public.posts p on p.id = c.post_id where c.id = r.thing_id;
+  elsif r.what = 'message' then
+    select jsonb_build_object('owner', m.user_id, 'group_id', m.group_id, 'posted_at', m.created_at, 'caption', m.body,
+             'hidden_at', m.hidden_at, 'removed_at', m.removed_at)
+      into out from public.messages m where m.id = r.thing_id;
+  end if;
+  -- Gone (deleted, or taken with the post it was under): the copy the report saved.
+  return coalesce(out, jsonb_build_object('owner', r.user_id, 'group_id', r.group_id, 'posted_at', r.thing_posted_at,
+    'caption', r.body, 'path', r.media_path, 'store', r.media_store, 'gone', r.what <> 'user'));
+end $$;
+revoke all on function public.report_thing(public.reports) from public, anon, authenticated;

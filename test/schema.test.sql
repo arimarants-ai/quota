@@ -1483,3 +1483,100 @@ begin
 end $$;
 reset role;
 \echo PASS: moderation follow-ups
+
+-- ---- v58: a report outlives what it is about.
+-- Nothing ties a report to the thing it is about, so nothing can take it away with it.
+do $$
+begin
+  if exists (select 1 from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+              where c.conrelid = 'public.reports'::regclass and c.contype = 'f'
+                and a.attname not in ('by_user', 'decided_by')) then
+    raise exception 'a foreign key on reports could delete it along with what it is about';
+  end if;
+end $$;
+
+reset role;
+insert into auth.users (id) values ('58000000-0000-0000-0000-000000000001'), ('58000000-0000-0000-0000-000000000002'), ('58000000-0000-0000-0000-000000000003');
+insert into public.profiles (id, username, display_name) values
+  ('58000000-0000-0000-0000-000000000001', 'g_poster', 'Gil'),      -- posts, then deletes the post
+  ('58000000-0000-0000-0000-000000000002', 'g_commenter', 'Cam'),   -- whose comment is reported
+  ('58000000-0000-0000-0000-000000000003', 'g_reporter', 'Rex');
+insert into public.groups (id, name, quotas) overriding system value values (58, 'Gone Crew', '[{"metric":"pushups","target":10}]');
+insert into public.group_members (group_id, user_id) values (58, '58000000-0000-0000-0000-000000000001'),
+  (58, '58000000-0000-0000-0000-000000000002'), (58, '58000000-0000-0000-0000-000000000003');
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, video_store, day, caption) overriding system value values
+  (5801, 58, '58000000-0000-0000-0000-000000000001', 'pushups', 10, '58/g/1.mp4', 'r2', current_date, 'the real caption'),
+  (5802, 58, '58000000-0000-0000-0000-000000000001', 'pushups', 10, '58/g/2.mp4', 'r2', current_date, 'another one');
+insert into public.comments (id, post_id, user_id, body) overriding system value values
+  (5801, 5801, '58000000-0000-0000-0000-000000000002', 'the words that were reported'),
+  (5802, 5802, '58000000-0000-0000-0000-000000000002', 'and these, on the other post');
+set role app;
+
+do $$
+declare rc bigint; rp bigint; rk bigint; x jsonb; card jsonb; n int;
+begin
+  perform set_config('test.uid', '58000000-0000-0000-0000-000000000003', true);
+  -- The reporter's app says one thing was on screen; the report keeps what was really there.
+  insert into public.reports (user_id, what, thing_id, group_id, reason, body) values
+    ('58000000-0000-0000-0000-000000000002', 'comment', 5801, null, 'harassment', 'something else entirely');
+  rc := currval(pg_get_serial_sequence('public.reports', 'id'));
+  insert into public.reports (user_id, what, thing_id, group_id, reason, body, media_path) values
+    ('58000000-0000-0000-0000-000000000001', 'post', 5802, 58, 'spam', 'not the caption', 'not/the/file.mp4');
+  rp := currval(pg_get_serial_sequence('public.reports', 'id'));
+  insert into public.reports (user_id, what, thing_id, group_id, reason) values
+    ('58000000-0000-0000-0000-000000000002', 'comment', 5802, 58, 'spam');
+  rk := currval(pg_get_serial_sequence('public.reports', 'id'));
+
+  -- The poster deletes the post the reported comment is under. Their post is not under
+  -- review, so that is theirs to do, and the comment goes with it.
+  perform set_config('test.uid', '58000000-0000-0000-0000-000000000001', true);
+  delete from public.posts where id = 5801;
+  reset role;
+  if exists (select 1 from public.posts where id = 5801) then raise exception 'the poster could not delete their own post'; end if;
+  if exists (select 1 from public.comments where id = 5801) then raise exception 'the comment did not go with its post'; end if;
+  -- The comment's report survives, still open, with the copy it saved.
+  select count(*) into n from public.reports where id = rc and resolved_at is null;
+  if n <> 1 then raise exception 'the comment''s report went with the comment'; end if;
+  if (select body from public.reports where id = rc) <> 'the words that were reported' then
+    raise exception 'the saved copy is not what was posted: %', (select body from public.reports where id = rc);
+  end if;
+  if (select group_id from public.reports where id = rc) <> 58 then raise exception 'the saved copy lost which group it was in'; end if;
+  if (select media_path || '|' || media_store from public.reports where id = rp) <> '58/g/2.mp4|r2'
+     or (select body from public.reports where id = rp) <> 'another one' then
+    raise exception 'a post''s report should keep its real caption and file, saw %', (select row(body, media_path, media_store) from public.reports where id = rp);
+  end if;
+  set role app;
+
+  -- It shows on Reports as the saved copy, marked as gone.
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.mod_reports('open');
+  select e into card from jsonb_array_elements(x) e where (e->>'id')::bigint = rc;
+  if card is null then raise exception 'the report on a deleted comment is not on Reports'; end if;
+  if not (card->>'gone')::boolean or card->>'caption' <> 'the words that were reported' or card->>'poster_name' <> 'Cam'
+     or card->>'group_name' <> 'Gone Crew' or card->>'posted_at' is null then
+    raise exception 'the card for a deleted comment is wrong: %', card;
+  end if;
+
+  -- Taking it down still strikes whoever wrote it, with nothing left to remove.
+  x := public.moderate_report(rc, 'removed', 'abusive', 'Your comment was abusive, which is not allowed on Quota.', false);
+  if (x->>'strike_no')::int <> 1 or x->>'poster_id' <> '58000000-0000-0000-0000-000000000002'
+     or jsonb_array_length(x->'reporters') <> 1 or x->>'group_name' <> 'Gone Crew' then
+    raise exception 'taking down a deleted comment should strike its writer and thank the reporter: %', x;
+  end if;
+  if public.active_strikes('58000000-0000-0000-0000-000000000002') <> 1 then raise exception 'no strike recorded'; end if;
+  if (select resolution from public.reports where id = rc) <> 'removed' then raise exception 'not closed as removed'; end if;
+
+  -- Keeping one up just closes it.
+  perform set_config('test.uid', '58000000-0000-0000-0000-000000000001', true);
+  reset role;
+  delete from public.posts where id = 5802;   -- by hand: a post under review is not its owner's to delete
+  set role app;
+  perform set_config('test.uid', '56000000-0000-0000-0000-000000000004', true);
+  x := public.moderate_report(rk, 'kept');
+  if (x->>'strike_no') is not null or (select resolution from public.reports where id = rk) <> 'kept' then
+    raise exception 'keeping up a deleted comment should just close it: %', x;
+  end if;
+  if public.active_strikes('58000000-0000-0000-0000-000000000002') <> 1 then raise exception 'keeping it up added a strike'; end if;
+end $$;
+reset role;
+\echo PASS: a report outlives what it is about

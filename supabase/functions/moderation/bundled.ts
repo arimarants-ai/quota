@@ -570,10 +570,11 @@ const asUser = (auth: string) => async (fn: string, args: unknown) => {
   return res.ok ? { data: body, error: null } : { data: null, error: body?.message || `${fn} -> ${res.status}` };
 };
 
-// Who posted it, where and when, read off the thing if it is still there and off the
-// report if it is not.
+// Who posted it, where and when, read off the thing if it is still there and off the copy
+// the report saved if it is not (v58): a comment can go with the post it was under, and the
+// email still has to say when it was posted.
 async function factsOf(r: any) {
-  let owner = r.user_id, gid = r.group_id, at = r.created_at, path = r.media_path;
+  let owner = r.user_id, gid = r.group_id, at = r.thing_posted_at || r.created_at, path = r.media_path;
   try {
     if (r.what === 'post') {
       const p = await one(`posts?id=eq.${r.thing_id}&select=user_id,group_id,created_at,video_path`);
