@@ -92,6 +92,11 @@
     reported_at: hrs(1), reporters: [{ id: 44, reason: 'harassment', details: '', at: hrs(1), name: 'Kim', username: 'kim' }],
     poster_id: 'u3', poster_name: 'Jo', poster_username: 'jo', group_id: 1, group_name: 'Mornings', posted_at: hrs(2),
     caption: 'the saved words', path: null, hidden: false, removed: false, gone: true, strikes: 0, suspended: false, resolution: null });
+  // A report whose reporter has since deleted their account (v59): no name on it at all.
+  if (M().goneReporter) self.__modOpen.push({ id: 45, what: 'post', thing_id: 101, reason: 'spam', details: 'they posted the same clip twice', body: '', n: 1,
+    reported_at: hrs(1), reporters: [{ id: 45, reason: 'spam', details: 'they posted the same clip twice', at: hrs(1), name: null, username: null }],
+    poster_id: 'u2', poster_name: 'Sam', poster_username: 'sam', group_id: 1, group_name: 'Mornings', posted_at: hrs(30),
+    caption: '', metric: 'pushups', amount: 50, path: 's1.mp4', store: null, hidden: true, removed: false, gone: false, strikes: 0, suspended: false, resolution: null });
   self.__modDone = [
     { id: 30, what: 'post', thing_id: 77, reason: 'spam', n: 1, reported_at: hrs(30), reporters: [{ id: 30, username: 'kim', reason: 'spam', at: hrs(30) }],
       poster_id: 'u5', poster_name: 'Pat', poster_username: 'pat', group_name: 'Mornings', path: 'x.mp4', strikes: 3, suspended: true,

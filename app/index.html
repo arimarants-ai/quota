@@ -1890,7 +1890,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v166';
+const BUILD = 'quota-v167';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -9000,7 +9000,11 @@ const rThumb = r => r.what === 'user' ? `<span class="rthumb av">${av(posterOf(r
   : r.what === 'comment' || r.what === 'message' || (r.what === 'story' && !r.path) ? `<span class="rthumb chat">${CHAT_ICON}</span>`
   : `<span class="rthumb">${r.thumb ? `<img alt="" src="${esc(r.thumb)}" onerror="this.remove()">` : ''}</span>`;
 const strikeText = n => n ? `${n} strike${n === 1 ? '' : 's'}` : 'No strikes';
-const byLine = r => `${r.n > 1 ? `Reported by ${r.n} people` : `Reported by @${esc((r.reporters[0] || {}).username || '?')}`}${r.group_name ? ` · ${esc(r.group_name)}` : ''}`;
+// A reporter who has since deleted their account leaves the report behind with nobody on it
+// (v59), and is said to have gone rather than drawn as a blank.
+const GONE_REPORTER = 'Reporter deleted their account';
+const reporterName = x => x && x.username ? `@${esc(x.username)}` : GONE_REPORTER;
+const byLine = r => `${r.n > 1 ? `Reported by ${r.n} people` : (r.reporters[0] || {}).username ? `Reported by ${reporterName(r.reporters[0])}` : GONE_REPORTER}${r.group_name ? ` · ${esc(r.group_name)}` : ''}`;
 const decisionOf = r => r.resolution === 'kept' ? ['Kept up', 'ok'] : r.did_suspend ? ['Suspended', 'bad'] : ['Taken down', 'bad'];
 function reportsView() {
   const R = S.reports, others = (R.others || []).filter(Boolean);
@@ -9058,7 +9062,7 @@ function reportView(id) {
     ? (IMG_PATH.test(r.path || '') ? `<img class="rmedia" alt=""${r.gone ? ' onerror="this.remove()"' : ''}${r.url ? ` src="${esc(r.url)}"` : ''}>`
       : `<video class="rmedia" controls playsinline preload="metadata"${r.gone ? ' onerror="this.remove()"' : ''}${r.thumb ? ` poster="${esc(r.thumb)}"` : ''}${r.url ? ` src="${esc(r.url)}"` : ''}></video>`)
     : r.what === 'user' ? '' : `<div class="rwords">${esc(r.caption || r.body || '')}</div>`;
-  const reps = (r.reporters || []).map(x => `<div class="rrep"><div class="rline"><b>@${esc(x.username || '?')}</b><em>${esc(ago(Date.parse(x.at)))} ago</em>${reasonChip(x.reason)}</div>
+  const reps = (r.reporters || []).map(x => `<div class="rrep"><div class="rline"><b>${reporterName(x)}</b><em>${esc(ago(Date.parse(x.at)))} ago</em>${reasonChip(x.reason)}</div>
       ${x.details ? `<p>${esc(x.details)}</p>` : ''}</div>`).join('');
   const strikes = `<span class="pill ${r.strikes ? 'bad' : ''}">${r.strikes ? `${r.strikes} of 3 strikes` : 'No strikes'}</span>`;
   return head + `${open && at >= 0 ? `<span class="muted">${at + 1} of ${R.open.length}</span>` : ''}</div>

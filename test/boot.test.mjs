@@ -2683,6 +2683,31 @@ await withPage({ ...SIGNED_IN, mod: true, goneCard: true, polishDown: true }, as
   const dec = await page.evaluate(() => self.__decisions);
   check('  taking it down sends the decision like any other', dec.length === 1 && dec[0].report_id === 44 && dec[0].decision === 'removed', JSON.stringify(dec));
 });
+// A report from somebody who has since deleted their account: still there, said so where the
+// name would be, and both decisions still work (v59).
+for (const decision of ['kept', 'removed']) {
+  await withPage({ ...SIGNED_IN, mod: true, goneReporter: true, polishDown: true }, async page => {
+    await settle(page);
+    await page.evaluate(() => openReports()); await page.waitForTimeout(600);
+    const card = page.locator('.rlist .rcard', { hasText: 'Reporter deleted their account' }).first();
+    if (decision === 'kept') {
+      check('a report from a deleted account is still on Reports, saying so where the name would be',
+        await card.count() === 1 && /Reporter deleted their account · Mornings/.test(await card.innerText()), await page.innerText('#app'));
+    }
+    await card.click(); await page.waitForTimeout(500);
+    if (decision === 'kept') {
+      const txt = await page.innerText('#app');
+      check('  and its review says so too, with what they wrote', /Reporter deleted their account/.test(txt) && /posted the same clip twice/.test(txt), txt.slice(0, 500));
+      await page.locator('.rdecide .keep').click(); await page.waitForTimeout(700);
+    } else {
+      await page.locator('.rdecide .down').click(); await page.waitForTimeout(300);
+      await page.locator('#tdraw').fill('duplicate'); await page.locator('#tdraw').blur(); await page.waitForTimeout(400);
+      await page.locator('#dlg button.tdgo').click(); await page.waitForTimeout(700);
+    }
+    const dec = await page.evaluate(() => self.__decisions);
+    check(`  and ${decision === 'kept' ? 'Keep it up' : 'Take it down'} works on it`, dec.length === 1 && dec[0].report_id === 45 && dec[0].decision === decision, JSON.stringify(dec));
+  });
+}
 // The moderators are named by their moderator names, from the database.
 await withPage({ ...SIGNED_IN, mod: true }, async page => {
   await settle(page);
