@@ -7139,6 +7139,7 @@ await withPage(null, async page => {
 // Upload was, front-and-back up top for a picture, and a pill saying what it is.
 await withPage({ ...NO_WHEEL }, async (page, alerts) => {
   await settle(page);
+  await camSpy(page);                    // two cameras, as a phone has, so flip and front-and-back have something to switch
   await page.evaluate(() => localStorage.removeItem('quota.storyMode'));
   await page.locator('.stories .s.me').click();
   await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
@@ -7198,7 +7199,8 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 // The proof camera keeps its own layout: front-and-back beside the shutter, no gallery, no Text.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.evaluate(() => { localStorage.setItem('quota.storyMode', 'photo'); openCam('post'); });
+  await camSpy(page);
+  await page.evaluate(() => { localStorage.setItem('quota.storyMode', 'photo'); startPost(1); });
   await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
   const p = await page.evaluate(() => ({mode: CAM.mode, inRow: !!$('#camdual').closest('.camrow'), gal: $('#camgal').hidden,
     text: document.querySelector('#cammodes [data-m=text]').hidden, pill: $('#campill').textContent}));
