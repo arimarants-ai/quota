@@ -167,6 +167,7 @@ async function withPage(mode, body, using = browser) {
     // Which of Apple and Google are switched on is Supabase's answer, so it is the test's.
     await page.route('**/auth/v1/settings', r => r.fulfill({ json: { external: (mode && mode.providers) || {} } }));
     await page.addInitScript(m => { self.__MODE = m; }, mode);
+    if (mode.initScript) await page.addInitScript({ content: mode.initScript });
     await page.goto(`${base}/?local`, { waitUntil: 'domcontentloaded' });
   }
   try { await body(page, alerts); } finally { await ctx.close(); }
@@ -5557,6 +5558,36 @@ await withPage(SIGNED_IN, async page => {
     /Settings/.test(denied) && !/Turn off/.test(denied));
 });
 
+// Somebody with notifications on was shown the card for as long as it took to find that
+// out. It waits for the answer now, so it never shows for them at all.
+const PUSH_ON = `
+  self.__nudged = false;
+  try { Object.defineProperty(Notification, 'permission', { get: () => 'granted' }); } catch (e) {}
+  if (!self.PushManager) self.PushManager = function () {};
+  const slow = () => new Promise(r => setTimeout(() => r({ endpoint: 'https://push.example/1' }), 900));
+  try { Object.defineProperty(navigator.serviceWorker, 'ready', { get: () => Promise.resolve({ pushManager: { getSubscription: slow } }) }); } catch (e) {}
+  addEventListener('DOMContentLoaded', () => new MutationObserver(() => {
+    if (/Turn on notifications/.test(document.body.innerText)) self.__nudged = true;
+  }).observe(document.body, { subtree: true, childList: true, characterData: true }));
+`;
+await withPage({ ...SIGNED_IN, initScript: PUSH_ON }, async page => {
+  await settle(page);
+  await page.waitForFunction(() => S.push === 'on', null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  check('with notifications on, the card asking to turn them on never appears', await page.evaluate(() => S.push === 'on' && !self.__nudged),
+    await page.evaluate(() => S.push));
+});
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => { S.push = 'checking'; render(); });
+  check('  nor while the check is still out', !/Turn on notifications/i.test(await page.innerText('#app')));
+  await page.evaluate(() => { S.tab = 'profile'; S.open = null; S.settings = true; render(); });
+  await page.waitForTimeout(200);
+  const row = page.locator('#app .li:has-text("Notifications")');
+  check('  and Settings says "Checking…" rather than showing the switch off', /Checking…/.test(await row.innerText())
+    && await row.locator('.sw').count() === 0 && !(await row.getAttribute('onclick')) && await page.locator('#app .pushabout').count() === 0);
+});
+
 // ---- a clip before it is played
 // It shows its still and nothing else: no source, nothing fetched, until somebody taps it.
 // Every clip on the way past used to load its opening and decode a frame of it, which is
@@ -7413,7 +7444,7 @@ await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 6, name: 'S
     && $('#gplist').getBoundingClientRect().top >= $('#dlg .gpill').getBoundingClientRect().bottom), JSON.stringify(rows));
   check('  every group, each with its goal in a line below its name and a tick box', rows.map(r => r.name).join() === 'Mornings,Push Club,Readers,Strong,Spinners'
     && rows.every(r => r.box) && rows[1].goal === '100 Push-ups a day' && rows[2].goal === '20 pages a day' && rows[0].nameColor !== rows[0].goalColor, JSON.stringify(rows));
-  check('  the first already ticked, and not to be unticked', rows[0].on && rows[0].dis);
+  check('  the first already ticked, and free to be unticked like the rest', rows[0].on && !rows[0].dis);
   check('  one with its wheel still to spin says so, and cannot be ticked', rows[4].goal === 'Spin its wheel first' && rows[4].dis && await page.locator('#gplist .gprow.off input').count() === 0, JSON.stringify(rows[4]));
   const box = async n => page.locator('#gplist .gprow').nth(n).boundingBox();
   check('  rows all the same height, none stretched', new Set((await Promise.all([0, 1, 2, 3, 4].map(box))).map(b => Math.round(b.height))).size === 1);
@@ -7422,15 +7453,96 @@ await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 6, name: 'S
     && (await pill.innerText()).trim() === 'Mornings + Push Club · 50 pushups');
   await page.locator('#gplist .gprow:has-text("Strong")').click();
   check('    and past two it counts the rest', (await pill.innerText()).trim() === 'Mornings + 2 more · 50 pushups', await pill.innerText());
-  // A tap like a finger's: Playwright will not click a label whose box is disabled, which is
-  // the point of it, so the tap is forced and the box is checked to have stayed ticked.
-  await page.locator('#gplist .gprow.main').click({ force: true });
-  check('    the first stays ticked when tapped', await page.locator('#gplist .gprow.main input').isChecked());
   await pill.click();
   check('  tapping the pill again closes the list', await page.locator('#gplist').isHidden() && await pill.getAttribute('aria-expanded') === 'false');
   await pill.click(); await page.locator('#dlg h2').click();
   check('  and so does tapping anywhere else', await page.locator('#gplist').isHidden());
   check('  what is ticked goes as "also", the way addPost reads it', await page.evaluate(() => new FormData($('#dlg form')).getAll('also').join()) === '2,4');
+});
+// Any group can be unticked, the first too. The next one ticked takes the post over; with
+// none ticked the pill says so, and Post opens the list rather than posting nowhere.
+await withPage(MULTI, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => { recorded = new File([new Uint8Array(4096)], 'c.mp4', {type: 'video/mp4'}); submitDlg(1, 1); });
+  await page.waitForTimeout(200);
+  await page.locator('#dlg input[name=amount]').fill('33');
+  await page.locator('#dlg textarea[name=caption]').fill('hold');
+  const pill = page.locator('#dlg .gpill');
+  await pill.click();
+  await page.locator('#gplist .gprow:has-text("Push Club")').click();
+  await page.locator('#gplist .gprow.main').click(); await page.waitForTimeout(200);
+  const over = await page.evaluate(() => ({postFor, pill: $('#dlg .gpill').innerText.trim(), open: !$('#gplist').hidden,
+    ticked: [...document.querySelectorAll('#gplist input:checked')].map(i => i.closest('.gprow').querySelector('b').textContent).join(),
+    amount: $('#dlg form').amount.value, caption: $('#dlg form').caption.value, take: !!recorded}));
+  check('unticking the first group hands the post to the next one ticked', over.postFor === 2 && over.pill === 'Push Club · 100 Push-ups'
+    && over.ticked === 'Push Club' && over.open, JSON.stringify(over));
+  check('  keeping the take, the number and the caption', over.take && over.amount === '33' && over.caption === 'hold', JSON.stringify(over));
+  await page.locator('#gplist .gprow.main').click(); await page.waitForTimeout(150);
+  check('  and the last one can be unticked too: the pill says "Pick a group"', (await pill.innerText()).trim() === 'Pick a group'
+    && await page.locator('#gplist input:checked').count() === 0);
+  const n = await page.evaluate(() => self.__posts.length);
+  await page.locator('#dlg button.postbtn').click(); await page.waitForTimeout(400);
+  const after = await page.evaluate(() => ({posts: self.__posts.length, open: $('#dlg').open, why: !$('#gpwhy').hidden && $('#gpwhy').textContent,
+    list: !$('#gplist').hidden, amount: $('#dlg form').amount.value, caption: $('#dlg form').caption.value, take: !!recorded && !!$('#takeprev video')}));
+  check('  then Post posts nothing, and opens the list with "Pick a group to post to" over it', after.posts === n && after.open && after.list
+    && after.why === 'Pick a group to post to', JSON.stringify(after));
+  check('    with the clip, the number and the caption all still there', after.take && after.amount === '33' && after.caption === 'hold', JSON.stringify(after));
+  check('    the line above the list', await page.evaluate(() => $('#gpwhy').getBoundingClientRect().bottom <= $('#gplist').getBoundingClientRect().top));
+  await page.locator('#gplist .gprow:has-text("Mornings")').click(); await page.waitForTimeout(200);
+  const back = await page.evaluate(() => ({postFor, pill: $('#dlg .gpill').innerText.trim(), amount: $('#dlg form').amount.value,
+    caption: $('#dlg form').caption.value, take: !!recorded}));
+  check('  ticking one again makes it the post\'s, with everything kept', back.postFor === 1 && back.pill === 'Mornings · 50 pushups'
+    && back.amount === '33' && back.caption === 'hold' && back.take, JSON.stringify(back));
+  await page.locator('#dlg button.postbtn').click();
+  await page.waitForFunction(k => self.__posts.length > k, n, {timeout: 8000}).catch(() => {});
+  const sent = await page.evaluate(() => self.__posts.at(-1));
+  check('    and Post sends it there', sent && sent.group_id === 1 && sent.amount === 33 && sent.caption === 'hold', JSON.stringify(sent));
+  check('  with nothing said along the way', alerts.length === 0, alerts.join(' | '));
+});
+// The camera's list too, and the camera carries on while nothing is ticked.
+await withPage(MULTI, async page => {
+  await settle(page);
+  await page.evaluate(() => startPost(1)); await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  await page.waitForFunction(() => !$('#campill').disabled, null, { timeout: 4000 }).catch(() => {});
+  await page.locator('#campill').click();
+  await page.locator('#camgpick .gprow:has-text("Strong")').click();
+  await page.locator('#camgpick .gprow.main').click(); await page.waitForTimeout(150);
+  check('the camera\'s list lets the first group go too, handing over to the next one ticked', await page.evaluate(() => postFor) === 4
+    && /^Strong · /.test(await page.locator('#campill').innerText()) && await page.locator('#camgpick').isVisible());
+  await page.locator('#camgpick .gprow.main').click(); await page.waitForTimeout(150);
+  const cam = await page.evaluate(() => ({pill: $('#campill').innerText.trim(), ticked: document.querySelectorAll('#camgpick input:checked').length,
+    go: !$('#camgo').disabled, open: $('#cam').open, step: CAM.step}));
+  check('  and with none ticked it reads "Pick a group" and the camera keeps going', cam.pill === 'Pick a group' && cam.ticked === 0
+    && cam.open && cam.go && cam.step === 'ready', JSON.stringify(cam));
+  await page.locator('#camgpick .gprow:has-text("Push Club")').click(); await page.waitForTimeout(150);
+  check('  and tapping a group after that makes it the post\'s', await page.evaluate(() => postFor) === 2
+    && (await page.locator('#campill').innerText()).trim() === 'Push Club · 100 Push-ups');
+  await page.evaluate(() => camClose());
+});
+// A clip that has been posted is gone: the next + is a new post, so it opens the camera.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await submitProof(page);
+  await page.waitForFunction(() => self.__posts.length >= 1 && !posting, null, {timeout: 8000}).catch(() => {});
+  check('posting a clip lets go of it', await page.evaluate(() => !recorded && !camAt && !document.querySelector('#takeprev video')));
+  await page.locator('.bar .add').click();
+  await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  check('  so the next + opens the camera, fresh', await page.evaluate(() => $('#cam').open && CAM.for === 'post' && !recorded));
+  await page.evaluate(() => camClose()); await page.waitForTimeout(300);
+  await page.evaluate(() => submitDlg(1)); await page.waitForTimeout(500);
+  check('  and the Post screen has no take on it', await page.evaluate(() => !recorded && $('#takeprev').hidden && $('#recbtn').textContent === 'Record'));
+  check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
+});
+// A save of the form still waiting on its timer does not put a posted clip back.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { recorded = new File([new Uint8Array(4096)], 'c.mp4', {type: 'video/mp4'}); keepTake(recorded); submitDlg(1, 1); });
+  await page.waitForTimeout(300);
+  await page.locator('#dlg textarea[name=caption]').fill('quick');      // starts the 300ms save
+  await page.locator('#dlg button.postbtn').click();
+  await page.waitForFunction(() => self.__posts.length >= 1 && !posting, null, {timeout: 8000}).catch(() => {});
+  await page.waitForTimeout(600);
+  check('  and a save of the form that was still waiting does not bring it back', await page.evaluate(async () => !recorded && !(await keptTake())));
 });
 await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 5, name: 'Two things', quotas: [{ metric: 'pushups', target: 10 }, { metric: 'squats', target: 10 }] }] }, async page => {
   await settle(page);
