@@ -3110,6 +3110,24 @@ await withPage(SIGNED_IN, async page => {
   check('  carrying everything the profile used to', /Edit profile/i.test(set) && /Profile groups/i.test(set)
     && /Dark mode/i.test(set) && /Notifications/i.test(set) && /Change password/i.test(set)
     && /Email/.test(set) && /ari@example\.com/.test(set) && /Log out/i.test(set), set);
+  // Follow Quota sits straight after Support and before Log out: three logos, each its own link
+  // out of the app to the exact profile, and nothing behind the words themselves.
+  const follow = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#app .li')], at = t => rows.findIndex(r => r.querySelector('.t b')?.textContent === t);
+    const row = rows[at('Follow Quota')];
+    return {support: at('Support'), follow: at('Follow Quota'), out: at('Log out'), tag: row && row.tagName, click: row && row.getAttribute('onclick'),
+      links: row ? [...row.querySelectorAll('a')].map(a => [a.getAttribute('href'), a.target, a.rel, a.getAttribute('aria-label')].join(' ')) : []};
+  });
+  check('  Follow Quota comes straight after Support, and before Log out',
+    follow.support >= 0 && follow.follow === follow.support + 1 && follow.out > follow.follow, JSON.stringify(follow));
+  check('    with TikTok, Instagram and Facebook, each its own link out of the app', JSON.stringify(follow.links) === JSON.stringify([
+    'https://www.tiktok.com/@quota.app _blank noopener noreferrer Quota on TikTok',
+    'https://www.instagram.com/thequota_app/ _blank noopener noreferrer Quota on Instagram',
+    'https://www.facebook.com/profile.php?id=61594829766331 _blank noopener noreferrer Quota on Facebook']), JSON.stringify(follow.links));
+  await page.locator('.li.follow .t').click();
+  await page.waitForTimeout(300);
+  check('    and the words beside them go nowhere', follow.tag === 'DIV' && !follow.click
+    && await page.evaluate(() => S.settings && !S.legal) && await page.locator('#dlg[open]').count() === 0 && page.context().pages().length === 1);
   // Whatever somebody agreed to at signup has to stay readable afterwards, or agreeing to
   // it was a box they ticked once and can never look at again.
   check('  and the documents, which have to stay reachable', /Privacy policy/i.test(set)

@@ -35,6 +35,8 @@ jobs:
       # site-src/. A page edited by hand, or a source edited without regenerating, would
       # quietly drift from what search and answer engines are told.
       - run: node test/site-pages.mjs
+      # The app's copy of Quota's social links has to match the website's (site-src/social.mjs).
+      - run: node test/social.test.mjs
 
       - run: node test/language.test.mjs
 
