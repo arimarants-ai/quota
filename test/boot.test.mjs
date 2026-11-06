@@ -478,14 +478,16 @@ await withPage(MULTI, async page => {
   await settle(page);
   await page.evaluate(() => submitDlg(1));
   await page.waitForTimeout(200);
-  const offered = await page.locator('#alsobox input[name=also]').evaluateAll(xs => xs.map(x => ({id: +x.value, on: x.checked})));
+  const offered = await page.locator('#gplist input[name=also]').evaluateAll(xs => xs.map(x => ({id: +x.value, on: x.checked})));
   check('posting offers your other groups with the same thing in their quota', offered.map(x => x.id).join() === '2,4', JSON.stringify(offered));
   check('  however each one spells it, and not the ones without it', !offered.some(x => x.id === 3));
   check('  none of them ticked until you tick them', offered.every(x => !x.on));
-  const said = await page.locator('#alsobox').innerText();
+  await page.locator('#dlg .gpill').click();          // the list is under the pill
+  const said = await page.locator('#gplist').innerText();
   check('  each saying what it asks for', /Push Club/.test(said) && /100 Push-ups a day/.test(said) && /25 pushup a day/.test(said), said);
-  await page.locator('#alsobox input[value="2"]').check();
-  await page.locator('#alsobox input[value="4"]').check();
+  await page.locator('#gplist input[value="2"]').check();
+  await page.locator('#gplist input[value="4"]').check();
+  await page.locator('#dlg h2').click();             // anywhere else puts the list away
   await page.locator('#dlg input[name=amount]').fill('25');
   await page.locator('#dlg textarea[name=caption]').fill('two for one');
   await page.locator('#dlg details.pmore summary').click();   // the profile tick is under More
@@ -521,7 +523,7 @@ await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 5, name: 'T
   await settle(page);
   await page.evaluate(() => submitDlg(5));
   await page.waitForTimeout(200);
-  const ids = () => page.locator('#alsobox input[name=also]').evaluateAll(xs => xs.map(x => +x.value).join());
+  const ids = () => page.locator('#gplist input[name=also]').evaluateAll(xs => xs.map(x => +x.value).join());
   check('the groups offered follow what is being posted', await ids() === '1,2,4', await ids());
   await page.locator('#dlg select[name=metric]').selectOption('squats');
   check('  and change when it changes', await ids() === '', await ids());
@@ -7287,7 +7289,8 @@ await withPage({ ...NO_WHEEL, quotas: [{ metric: 'pushups', target: 80 }] }, asy
     && await page.evaluate(() => { const b = $('#dlg .postbtn'), f = $('#dlg form'); return b.getBoundingClientRect().width >= f.getBoundingClientRect().width - 1; }));
   check('  no group dropdown, and no "also post to" list', await page.locator('#dlg select[name=group]').count() === 0
     && !/Also post to/i.test(await page.locator('#dlg').innerText()));
-  check('  with only one group, no Counts for row at all', await page.locator('#dlg .cfor').count() === 0 && !/Counts for/.test(await page.locator('#dlg').innerText()));
+  check('  with only one group, no picker at all, and no Counts for row', await page.locator('#dlg #gpick, #dlg .gpill').count() === 0
+    && /Mornings · 80 pushups/.test(await page.locator('#dlg .postfor').innerText()) && !/Counts for/.test(await page.locator('#dlg').innerText()));
   check('  one metric, so no metric picker', await page.locator('#dlg select[name=metric]').count() === 0
     && await page.evaluate(() => $('#dlg form').metric.value) === 'pushups');
   check('  and nothing said about the file\'s size when it fits', await page.locator('#vsize').isHidden()
@@ -7304,38 +7307,74 @@ await withPage({ ...NO_WHEEL, quotas: [{ metric: 'pushups', target: 80 }] }, asy
   check('  and Post sends it', sent && sent.amount === 31 && sent.group_id === 1 && sent.metric === 'pushups', JSON.stringify(sent));
   check('  with nothing said along the way', alerts.length === 0, alerts.join(' | '));
 });
-// The camera's pill moves to the next group, and the Post screen follows it.
+// The camera's pill opens the same list as the Post screen's, and the Post screen follows it.
 await withPage({ ...NO_WHEEL, extraGroups: [{ id: 3, name: 'Readers', quotas: [{ metric: 'pages', target: 20 }] }] }, async page => {
   await settle(page);
   await page.evaluate(() => startPost(1)); await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
   await page.waitForFunction(() => !$('#campill').disabled, null, { timeout: 4000 }).catch(() => {});
   await page.locator('#campill').click();
-  check('tapping the pill moves the take to the next group', await page.locator('#campill').innerText() === 'Readers · 20 pages');
+  const rows = await page.locator('#camgpick .gprow').allInnerTexts();
+  check('tapping the camera\'s pill opens the group list under it', await page.locator('#camgpick').isVisible()
+    && rows.length === 2 && /Mornings/.test(rows[0]) && /Readers\s+20 pages a day/.test(rows[1])
+    && await page.evaluate(() => postFor === 1 && $('#campill').getAttribute('aria-expanded') === 'true'), rows.join(' | '));
+  await page.locator('#camgpick .gprow:has-text("Readers")').click();
+  check('  and a group with a different exercise moves the take there', await page.locator('#camgpick').isHidden()
+    && await page.locator('#campill').innerText() === 'Readers · 20 pages' && await page.evaluate(() => postFor === 3));
   const chooser = page.waitForEvent('filechooser');
   await page.evaluate(() => camToPhone());
   await (await chooser).setFiles({ name: 'c.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(2048, 1) });
   await page.waitForFunction(() => $('#dlg').open, null, { timeout: 4000 }).catch(() => {});
   check('  and the Post screen is for that group', /Readers/.test(await page.locator('#dlg .postfor').innerText())
     && await page.evaluate(() => $('#dlg form').amount.value) === '20');
-  await page.locator('#dlg .postfor .gpill').click(); await page.waitForTimeout(200);
-  check('  switching group on the Post screen keeps the take', /Mornings/.test(await page.locator('#dlg .postfor').innerText())
-    && await page.evaluate(() => !!recorded && !!document.querySelector('#takeprev img')));
+  await page.locator('#dlg textarea[name=caption]').fill('kept');
+  await page.locator('#dlg .gpill').click();
+  await page.locator('#gplist .gprow:has-text("Mornings")').click(); await page.waitForTimeout(200);
+  check('  switching group on the Post screen keeps the take, and what was typed', /Mornings/.test(await page.locator('#dlg .postfor').innerText())
+    && await page.evaluate(() => !!recorded && !!document.querySelector('#takeprev img') && $('#dlg form').caption.value === 'kept'));
+  check('    with How many and its hint redone for it', await page.evaluate(() => $('#dlg form').metric.value === 'pushups' && /pushups/.test($('#amthint').textContent)));
 });
 // The default group is the first that still needs something; the wheel still comes first.
 await withPage({ ...NO_WHEEL, extraGroups: [{ id: 3, name: 'Readers', quotas: [{ metric: 'pages', target: 20 }] }] }, async page => {
   await settle(page);
   check('the camera is for the first group that has not hit its quota today', await page.evaluate(() => postTarget().id) === 3);
 });
-// Counts for: a chip for each group with the same metric, the camera's own already on.
-await withPage(MULTI, async page => {
+// One group picker: the pill names where the post is going, and its list ticks more of them.
+await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 6, name: 'Spinners', quotas: [{ metric: 'pushups', target: 10 }] }],
+  wheel: true, wheelGroup: 6 }, async page => {
   await settle(page);
   await page.evaluate(() => submitDlg(1)); await page.waitForTimeout(200);
-  const chips = await page.locator('#dlg .cfor .cchip').allInnerTexts();
-  check('Counts for has a chip per group with the same thing in its quota', chips.length === 3 && /Mornings/.test(chips[0]), chips.join(' | '));
-  check('  the camera\'s group already on, and the others off until tapped',
-    await page.locator('#dlg .cfor .cchip.main input').isChecked() && await page.locator('#dlg .cfor input[name=also]:checked').count() === 0);
-  await page.locator('#dlg .cfor .cchip:has(input[value="2"])').click();
-  check('  a tap adds one', await page.locator('#dlg .cfor input[value="2"]').isChecked());
+  check('there is no Counts for row any more', await page.locator('#dlg .cfor, #dlg .cchip, #alsobox').count() === 0 && !/Counts for/.test(await page.locator('#dlg').innerText()));
+  const pill = page.locator('#dlg .gpill');
+  check('the pill names the group and its goal, with a chevron pointing down', (await pill.innerText()).trim() === 'Mornings · 50 pushups'
+    && await pill.getAttribute('aria-expanded') === 'false' && await page.locator('#gplist').isHidden()
+    && await page.evaluate(() => getComputedStyle($('#dlg .gpill .chev')).transform === 'none'));
+  await pill.click();
+  const rows = await page.locator('#gplist .gprow').evaluateAll(rs => rs.map(r => ({name: r.querySelector('b').textContent, goal: r.querySelector('em').textContent,
+    box: !!r.querySelector('.gtick'), on: !!r.querySelector('input:checked'), dis: !!r.querySelector('input:disabled') || r.classList.contains('off'),
+    nameColor: getComputedStyle(r.querySelector('b')).color, goalColor: getComputedStyle(r.querySelector('em')).color})));
+  check('  tapping it opens a list under it, not a new sheet, with the chevron pointing up', await page.locator('#gplist').isVisible()
+    && await pill.getAttribute('aria-expanded') === 'true' && await page.evaluate(() => getComputedStyle($('#dlg .gpill .chev')).transform !== 'none'
+    && $('#gplist').getBoundingClientRect().top >= $('#dlg .gpill').getBoundingClientRect().bottom), JSON.stringify(rows));
+  check('  every group, each with its goal in a line below its name and a tick box', rows.map(r => r.name).join() === 'Mornings,Push Club,Readers,Strong,Spinners'
+    && rows.every(r => r.box) && rows[1].goal === '100 Push-ups a day' && rows[2].goal === '20 pages a day' && rows[0].nameColor !== rows[0].goalColor, JSON.stringify(rows));
+  check('  the first already ticked, and not to be unticked', rows[0].on && rows[0].dis);
+  check('  one with its wheel still to spin says so, and cannot be ticked', rows[4].goal === 'Spin its wheel first' && rows[4].dis && await page.locator('#gplist .gprow.off input').count() === 0, JSON.stringify(rows[4]));
+  const box = async n => page.locator('#gplist .gprow').nth(n).boundingBox();
+  check('  rows all the same height, none stretched', new Set((await Promise.all([0, 1, 2, 3, 4].map(box))).map(b => Math.round(b.height))).size === 1);
+  await page.locator('#gplist .gprow:has-text("Push Club")').click();
+  check('  ticking a group with the same exercise adds it, and the pill says so', await page.locator('#gplist input[value="2"]').isChecked()
+    && (await pill.innerText()).trim() === 'Mornings + Push Club · 50 pushups');
+  await page.locator('#gplist .gprow:has-text("Strong")').click();
+  check('    and past two it counts the rest', (await pill.innerText()).trim() === 'Mornings + 2 more · 50 pushups', await pill.innerText());
+  // A tap like a finger's: Playwright will not click a label whose box is disabled, which is
+  // the point of it, so the tap is forced and the box is checked to have stayed ticked.
+  await page.locator('#gplist .gprow.main').click({ force: true });
+  check('    the first stays ticked when tapped', await page.locator('#gplist .gprow.main input').isChecked());
+  await pill.click();
+  check('  tapping the pill again closes the list', await page.locator('#gplist').isHidden() && await pill.getAttribute('aria-expanded') === 'false');
+  await pill.click(); await page.locator('#dlg h2').click();
+  check('  and so does tapping anywhere else', await page.locator('#gplist').isHidden());
+  check('  what is ticked goes as "also", the way addPost reads it', await page.evaluate(() => new FormData($('#dlg form')).getAll('also').join()) === '2,4');
 });
 await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 5, name: 'Two things', quotas: [{ metric: 'pushups', target: 10 }, { metric: 'squats', target: 10 }] }] }, async page => {
   await settle(page);
