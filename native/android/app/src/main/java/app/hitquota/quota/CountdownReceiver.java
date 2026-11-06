@@ -11,7 +11,7 @@ public class CountdownReceiver extends BroadcastReceiver {
     public void onReceive(Context c, Intent intent) {
         Today t = Today.read(c);
         if ("lastCall".equals(intent.getStringExtra("what"))) {
-            if (t.owing()) Countdown.show(c, t.streak, t.left, t.crew, Today.midnightAfter(System.currentTimeMillis()));
+            if (t.owing()) Countdown.show(c, t.streak, t.unit, t.left, t.crew, Today.midnightAfter(System.currentTimeMillis()));
         } else {
             Countdown.cancel(c);
         }

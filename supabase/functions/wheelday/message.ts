@@ -38,7 +38,7 @@ export function remindersFor(due: Due[]): Map<string, string> {
 // What notices_due_now() hands back, per person per kind.
 export type Notice = {
   user_id: string;
-  kind: 'open' | 'lastcall' | 'lapsed' | 'challenge';
+  kind: 'open' | 'lastcall' | 'lapsed' | 'challenge' | 'period';
   hours: number;
   group_name: string;              // the group, or for a challenge the wheel
   others: number;                  // other people in that group who have posted today
@@ -46,6 +46,8 @@ export type Notice = {
   line: string;                    // what is still owed today: "40 pushups, 20 situps"
   done: number;                    // challenge days done
   needs: number;                   // challenge days required
+  unit?: string;                   // 'month' or 'year', for a period reminder (schema v60)
+  days_left?: number;              // and how many days of it are left, today included
 };
 
 const hrs = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
@@ -101,6 +103,18 @@ export function challengeFor(n: Notice): string {
 }
 
 /**
+ * A month's or a year's total that is still short in its last three days (schema v60). The
+ * only thing those groups are ever told: a total is not something to chase every day, so it
+ * is said once, near the end, with what is left and how long there is.
+ */
+export function periodFor(n: Notice): string {
+  const unit = n.unit || 'month', left = Math.max(1, Math.round(n.days_left ?? 1));
+  const owed = (n.line ?? '').trim();
+  const what = owed ? `${owed} to go${n.group_name ? ` in ${n.group_name}` : ''}.` : `${n.group_name || 'Your group'} isn't in yet.`;
+  return `${what} ${left === 1 ? `Last day of the ${unit}.` : `${left} days left this ${unit}.`}`;
+}
+
+/**
  * For somebody who has not opened the app in three days. It replaces the window one rather
  * than arriving beside it: two notifications in a day is what somebody who has stopped
  * caring uninstalls over.
@@ -119,11 +133,13 @@ export const NOTICE_META: Record<Notice['kind'], { title: string; tag: string }>
   lastcall: { title: 'Last call', tag: 'day-last' },
   lapsed: { title: 'Quota', tag: 'day-open' },     // the one it stands in for
   challenge: { title: 'Last call', tag: 'day-last' },   // likewise: it takes last call's place
+  period: { title: 'Nearly there', tag: 'day-open' },   // it stands in for the window that day
 };
 
 export function noticeBody(n: Notice): string {
   return n.kind === 'open' ? windowFor(n)
     : n.kind === 'challenge' ? challengeFor(n)
     : n.kind === 'lastcall' ? lastCallFor(n)
+    : n.kind === 'period' ? periodFor(n)
     : lapsedFor(n);
 }

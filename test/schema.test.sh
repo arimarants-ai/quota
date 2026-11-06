@@ -140,8 +140,11 @@ while CRON in body:
         end = close + len('$cron$);')
     body = body[:cut] + body[end:]
 open(f'{w}/v6.sql', 'w').write(body)
+# The schedules block on its own as well, so the test can run it a second time over a project
+# that already has it — "safe to run twice" is a promise, and this is where it is checked.
+open(f'{w}/v60.sql', 'w').write(s[s.index('-- v60 (how often'):])
 EOF
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "set client_min_messages = warning" -f "$WORK/shim.sql" -f "$WORK/base.sql" -f "$WORK/v6.sql" >/dev/null
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f test/policies.test.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f test/schema.test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -v v60="$WORK/v60.sql" -f test/schema.test.sql

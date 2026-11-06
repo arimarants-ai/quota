@@ -72,7 +72,7 @@ struct StreakWidgetView: View {
                 .font(.system(size: 46, weight: .bold, design: .rounded))
                 .foregroundStyle(entry.done ? quotaGreen : Color.primary)
                 .minimumScaleFactor(0.5).lineLimit(1)
-            Text("day streak").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+            Text("\(entry.snap.unit) streak").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             Spacer(minLength: 6)
             if entry.late {
                 HStack(spacing: 4) {
@@ -107,7 +107,7 @@ struct StreakWidgetView: View {
 
     var rectangular: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("\(entry.snap.streak) day streak").font(.system(size: 15, weight: .bold))
+            Text("\(entry.snap.streak) \(entry.snap.unit) streak").font(.system(size: 15, weight: .bold))
             if entry.late {
                 HStack(spacing: 3) {
                     Text(timerInterval: entry.date...entry.end, countsDown: true).monospacedDigit()
@@ -126,7 +126,7 @@ struct StreakWidgetView: View {
     }
 
     var inline: some View {
-        Text(entry.done ? "\(entry.snap.streak) day streak · done" : "\(entry.snap.streak) day streak · \(entry.status.lowercased())")
+        Text(entry.done ? "\(entry.snap.streak) \(entry.snap.unit) streak · done" : "\(entry.snap.streak) \(entry.snap.unit) streak · \(entry.status.lowercased())")
             .widgetBackground(.clear)
     }
 }

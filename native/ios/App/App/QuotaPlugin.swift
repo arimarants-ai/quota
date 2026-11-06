@@ -64,7 +64,7 @@ public class QuotaPlugin: CAPPlugin, CAPBridgedPlugin {
         let deadline = call.getDouble("deadline") ?? 0
         let state = QuotaActivityAttributes.ContentState(
             streak: call.getInt("streak") ?? 0, left: call.getString("left") ?? "",
-            crew: call.getString("crew") ?? "", done: false)
+            crew: call.getString("crew") ?? "", done: false, unit: call.getString("unit") ?? "day")
         let content = ActivityContent(state: state, staleDate: Date(timeIntervalSince1970: deadline))
         Task {
             let running = Activity<QuotaActivityAttributes>.activities

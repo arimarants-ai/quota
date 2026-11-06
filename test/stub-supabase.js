@@ -69,6 +69,8 @@
   self.__gpic = {};
   // Forfeits: what a group set, and what was noted or paid.
   self.__gforfeit = {}; self.__settle = [];
+  // How often a group is, read back the same way once the page has saved one.
+  self.__gsched = {};
   // Reporting and blocking. A report is written and never read back, the way the real
   // table has no select policy; blocks are read back, since they decide what is shown.
   self.__reports = []; self.__blocks = (M().blocks || []).map(user_id => ({ by_user: 'u1', user_id }));
@@ -117,12 +119,15 @@
       { id: 'u3', username: 'samwise', display_name: 'Sam Gamgee' }, { id: 'u4', username: 'rosie', display_name: 'Rosie Cotton' }],
     // Made by whoever the case says, and carrying a forfeit when the case gives one — read
     // back through whatever the page last saved, the way a group's picture is.
-    groups: [{ id: 1, name: 'Mornings', quotas: [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString(),
-        created_by: M().groupBy || 'u1', forfeit: M().forfeit || null, forfeit_since: M().forfeit ? new Date(Date.now() - (M().forfeitDays || 10) * 864e5).toISOString() : null }]
+    groups: [{ id: 1, name: 'Mornings', quotas: M().quotas || [{ metric: 'pushups', target: 50 }], created_at: new Date(Date.now() - 40 * 864e5).toISOString(),
+        created_by: M().groupBy || 'u1', forfeit: M().forfeit || null, forfeit_since: M().forfeit ? new Date(Date.now() - (M().forfeitDays || 10) * 864e5).toISOString() : null,
+        // How often (v60), only when a case says: every other case is a project from before it.
+        ...(M().schedule ? { schedule: M().schedule, per_week: M().perWeek || null } : {}) }]
       // More groups of the signed-in person's, when a case needs them.
       .concat((M().extraGroups || []).map(g => ({ created_at: new Date(Date.now() - 20 * 864e5).toISOString(), created_by: 'u1', ...g })))
       .map(g => (g.id in self.__gpic ? { ...g, avatar_path: self.__gpic[g.id] } : g))
-      .map(g => (g.id in self.__gforfeit ? { ...g, ...self.__gforfeit[g.id] } : g)),
+      .map(g => (g.id in self.__gforfeit ? { ...g, ...self.__gforfeit[g.id] } : g))
+      .map(g => (g.id in self.__gsched ? { ...g, ...self.__gsched[g.id] } : g)),
     group_members: (M().noGroup && !self.__joined ? [] : [{ group_id: 1, user_id: 'u1' }])
       .concat([{ group_id: 1, user_id: 'u2' }])
       .concat((M().extraGroups || []).map(g => ({ group_id: g.id, user_id: 'u1' })))
@@ -229,6 +234,9 @@
       }
       if (st.op === 'update' && t === 'groups' && st.row && 'avatar_path' in st.row && st.filters.id != null) {
         self.__gpic[st.filters.id] = st.row.avatar_path;
+      }
+      if (st.op === 'update' && t === 'groups' && st.row && 'schedule' in st.row && st.filters.id != null) {
+        self.__gsched[st.filters.id] = { schedule: st.row.schedule, per_week: st.row.per_week };
       }
       // The same rule the database has: it starts counting when it is first set.
       if (st.op === 'update' && t === 'groups' && st.row && 'forfeit' in st.row && st.filters.id != null) {

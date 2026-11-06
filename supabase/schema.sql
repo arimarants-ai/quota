@@ -4244,3 +4244,322 @@ begin
 end $$;
 revoke all on function public.moderate_report(bigint, text, text, text, boolean) from public, anon, authenticated;
 grant execute on function public.moderate_report(bigint, text, text, text, boolean) to authenticated;
+
+-- ============================================================
+-- v60 (how often: days a week, a monthly total, a yearly total): safe to run on an existing
+-- project, and safe to run twice. Run it BEFORE the app that uses it goes out, then redeploy
+-- `notify` and `wheelday` (paste their bundled.ts, or deploy with the CLI).
+--
+-- A group could already be every day or only on certain days (v13). Now there are five:
+--
+--   daily    every day, as it always was
+--   days     only on the days in active_days; any other day leaves a streak alone
+--   weekly   any per_week days (1 to 6) of each Monday-to-Sunday week. The quota is per day,
+--            and a week counts once it has that many days that met it
+--   monthly  the quota is a total for the calendar month: every post's amount adds up
+--   yearly   the same, for the calendar year
+--
+-- Streaks are still worked out on the phone, from posts; nothing here stores one. What the
+-- server has to know is when to nag, and that is what changes below: a week is only chased
+-- once the days left in it are only just enough, and a month or a year never daily, just
+-- once in its last three days if the total is still short.
+-- ============================================================
+
+alter table public.groups add column if not exists schedule text not null default 'daily';
+alter table public.groups add column if not exists per_week smallint;
+alter table public.groups drop constraint if exists groups_schedule_known;
+alter table public.groups add constraint groups_schedule_known
+  check (schedule in ('daily', 'days', 'weekly', 'monthly', 'yearly'));
+-- Only a week has a number of days, and it is never all seven: that is every day.
+alter table public.groups drop constraint if exists groups_per_week_sane;
+alter table public.groups add constraint groups_per_week_sane
+  check ((per_week is null or per_week between 1 and 6) and (schedule <> 'weekly' or per_week is not null));
+
+-- Every group that already has fewer than seven days set has always meant "only on certain
+-- days", and is called that now. Only a group still on the default is touched, so running
+-- this twice changes nothing, and neither does a group somebody has since set to a week.
+update public.groups set schedule = 'days'
+ where schedule = 'daily' and coalesce(array_length(active_days, 1), 0) between 1 and 6;
+
+-- The stretch a day falls in, named by its first and last days. A week is ISO, Monday to
+-- Sunday, which is how the app draws one. Cast to timestamp rather than left to become a
+-- timestamptz, so the answer cannot depend on the session's time zone.
+create or replace function public.period_start(p_schedule text, p_day date) returns date
+language sql immutable set search_path = public as $$
+  select case p_schedule
+    when 'weekly' then date_trunc('week', p_day::timestamp)::date
+    when 'monthly' then date_trunc('month', p_day::timestamp)::date
+    when 'yearly' then date_trunc('year', p_day::timestamp)::date
+    else p_day end;
+$$;
+create or replace function public.period_end(p_schedule text, p_day date) returns date
+language sql immutable set search_path = public as $$
+  select case p_schedule
+    when 'weekly' then (date_trunc('week', p_day::timestamp) + interval '6 days')::date
+    when 'monthly' then (date_trunc('month', p_day::timestamp) + interval '1 month' - interval '1 day')::date
+    when 'yearly' then (date_trunc('year', p_day::timestamp) + interval '1 year' - interval '1 day')::date
+    else p_day end;
+$$;
+
+-- What somebody has put in towards one metric between two days. A post the group voided,
+-- or one taken down, never counted, exactly as the app leaves it out.
+create or replace function public.done_between(p_group bigint, p_user uuid, p_metric text, p_from date, p_to date)
+returns numeric language sql stable set search_path = public as $$
+  select coalesce(sum(po.amount), 0) from public.posts po
+   where po.group_id = p_group and po.user_id = p_user and po.metric = p_metric
+     and po.day between p_from and p_to and po.removed_at is null
+     and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld');
+$$;
+
+-- The days of a week before p_day on which the whole daily quota was met.
+create or replace function public.week_hits_before(p_group bigint, p_user uuid, p_day date)
+returns int language sql stable set search_path = public as $$
+  select count(*)::int
+    from public.groups g, generate_series(public.period_start('weekly', p_day), p_day - 1, interval '1 day') d
+   where g.id = p_group and jsonb_array_length(coalesce(g.quotas, '[]'::jsonb)) > 0
+     and not exists (select 1 from jsonb_array_elements(g.quotas) q
+                      where public.done_between(p_group, p_user, q->>'metric', d::date, d::date) < (q->>'target')::numeric);
+$$;
+
+-- Whether today is a day this group needs something from this person at all: every day, a
+-- set day, or a day a week can no longer do without because the days left in it are only
+-- just enough for the days still needed. Never for a month or a year: those are a total,
+-- and nobody is told every day that a total is not in yet.
+create or replace function public.goal_due(p_group bigint, p_user uuid, p_day date)
+returns boolean language plpgsql stable set search_path = public as $$
+declare g public.groups; need int;
+begin
+  select * into g from public.groups where id = p_group;
+  if not found then return false; end if;
+  if g.schedule = 'days' then
+    return g.active_days is null or array_length(g.active_days, 1) is null or extract(dow from p_day)::int = any (g.active_days);
+  elsif g.schedule = 'weekly' then
+    need := coalesce(g.per_week, 3) - public.week_hits_before(p_group, p_user, p_day);
+    return need > 0 and (public.period_end('weekly', p_day) - p_day + 1) <= need;
+  elsif g.schedule in ('monthly', 'yearly') then
+    return false;
+  end if;
+  return true;
+end $$;
+
+-- What is still owed, per metric, and what kind of nag it is worth. 'day' is today's quota
+-- on a day that needs it. 'period' is a month's or a year's total that is still short in
+-- its last three days. Nothing at all for anything else, which is how a week on a Monday and
+-- a month on the 10th stay quiet.
+create or replace function public.quota_owed(p_group bigint, p_user uuid, p_day date)
+returns table (metric text, owed bigint, nag text)
+language plpgsql stable set search_path = public as $$
+declare g public.groups;
+begin
+  select * into g from public.groups where id = p_group;
+  if not found then return; end if;
+  if g.schedule in ('monthly', 'yearly') then
+    if p_day < public.period_end(g.schedule, p_day) - 2 then return; end if;
+    return query
+      select x.m, x.left_to_do::bigint, 'period'::text from (
+        select q->>'metric' as m, (q->>'target')::numeric
+               - public.done_between(p_group, p_user, q->>'metric', public.period_start(g.schedule, p_day), p_day) as left_to_do
+          from jsonb_array_elements(coalesce(g.quotas, '[]'::jsonb)) q) x
+       where x.left_to_do > 0;
+    return;
+  end if;
+  if not public.goal_due(p_group, p_user, p_day) then return; end if;
+  return query
+    select x.m, x.left_to_do::bigint, 'day'::text from (
+      select q->>'metric' as m, (q->>'target')::numeric - public.done_between(p_group, p_user, q->>'metric', p_day, p_day) as left_to_do
+        from jsonb_array_elements(coalesce(g.quotas, '[]'::jsonb)) q) x
+     where x.left_to_do > 0;
+end $$;
+
+-- A challenge day is a day the posts marked with it meet the day's quota on their own. A
+-- month's or a year's quota is a total that no one day is meant to meet, so in those groups a
+-- day of the challenge is a day anything at all went in with it — the rule the app draws.
+create or replace function public.challenge_day_count(p_spin bigint, p_today date)
+returns int language sql stable set search_path = public as $$
+  with s as (
+    select sp.id, sp.user_id, sp.cycle, w.every_days, w.starts_on, g.quotas, g.schedule
+      from public.spins sp
+      join public.wheels w on w.id = sp.wheel_id
+      join public.groups g on g.id = w.group_id
+     where sp.id = p_spin
+  ), span as (
+    select s.*, (s.starts_on + (s.cycle * s.every_days))::date as c0,
+                least((s.starts_on + ((s.cycle + 1) * s.every_days - 1))::date, p_today) as c1
+      from s
+  ), d as (
+    select span.*, gs::date as day
+      from span, lateral generate_series(span.c0, span.c1, interval '1 day') gs
+     where span.c1 >= span.c0
+  )
+  select count(*)::int from d
+   where jsonb_array_length(coalesce(d.quotas, '[]'::jsonb)) > 0
+     and not exists (
+       select 1 from jsonb_array_elements(d.quotas) q
+        where coalesce((
+                select sum(po.amount) from public.posts po
+                 where po.spin_id = d.id and po.user_id = d.user_id and po.day = d.day
+                   and po.metric = q->>'metric' and po.removed_at is null
+                   and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld')
+              ), 0) < case when d.schedule in ('monthly', 'yearly') then 1 else (q->>'target')::numeric end);
+$$;
+revoke all on function public.challenge_day_count(bigint, date) from public, anon, authenticated;
+
+-- The day's one decision, as v56 left it, asking quota_owed() instead of reading every quota
+-- as a day's. Two columns more, so it is dropped rather than replaced: the unit and the days
+-- left, for the one new kind, 'period' — a month's or a year's total still short in its
+-- last three days, said once per stretch at the hour the window would have opened. On that
+-- day it stands in for the window message, so nobody gets two at once. Somebody with nothing
+-- due today (a week with days to spare, a month mid-way) gets no window and is not lapsed:
+-- not posting for three days is what a week of three days looks like.
+--
+-- It takes the moment to decide for, which is now unless something says otherwise. The cron
+-- passes nothing; the tests pass a fixed one, because "the last three days of the month" and
+-- "a Sunday" are not things a test can wait for.
+drop function if exists public.notices_due_now();
+drop function if exists public.notices_due_now(timestamptz);
+create function public.notices_due_now(p_now timestamptz default now())
+returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int,
+               line text, done int, needs int, unit text, days_left int)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone, p.created_at
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+       and exists (select 1 from public.group_members gm where gm.user_id = p.id)
+  ), whenIs as (
+    select id, zone, created_at,
+           (p_now at time zone zone)::date as day,
+           extract(hour from (p_now at time zone zone))::int as hr
+      from folk
+  ), plan0 as (
+    select w.*,
+           public.slot_hour(w.id, w.day) as slot,
+           public.lastcall_hour(public.slot_hour(w.id, w.day)) as lc,
+           (w.created_at < p_now - interval '3 days'
+            and not exists (select 1 from public.posts po
+                             where po.user_id = w.id and po.day > w.day - 3 and po.removed_at is null)) as lapsed
+      from whenIs w
+  ), plan as (
+    select p.*, exists (select 1 from public.group_members gm
+                         where gm.user_id = p.id and public.goal_due(gm.group_id, p.id, p.day)) as daydue
+      from plan0 p
+  ), owed as (
+    select pl.id as uid, pl.day, g.id as gid, g.name as gname, g.schedule, o.metric, o.owed, o.nag
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral public.quota_owed(g.id, pl.id, pl.day) o
+  ), behind as (
+    select uid, day, string_agg(distinct owed::text || ' ' || metric, ', ') as line
+      from owed where nag = 'day' group by uid, day
+  ), periodic as (
+    -- One a stretch: not again if one went in the last three days, whichever group it named.
+    select distinct on (o.uid) o.uid, o.day, o.gname,
+           case o.schedule when 'yearly' then 'year' else 'month' end as unit,
+           (public.period_end(o.schedule, o.day) - o.day + 1)::int as days_left,
+           (select string_agg(o2.owed::text || ' ' || o2.metric, ', ' order by o2.metric)
+              from owed o2 where o2.uid = o.uid and o2.gid = o.gid and o2.nag = 'period') as line
+      from owed o
+     where o.nag = 'period'
+       and not exists (select 1 from public.day_reminders r
+                        where r.user_id = o.uid and r.kind = 'period' and r.day > o.day - 3)
+     order by o.uid, public.period_end(o.schedule, o.day), o.gname
+  ), closing as (
+    select pl.id as uid, pl.day, w.name as wname,
+           public.challenge_day_count(sp.id, pl.day) as done,
+           public.challenge_required(sp.id) as needs
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.wheels w on w.group_id = gm.group_id and w.active
+      join public.spins sp on sp.wheel_id = w.id and sp.user_id = pl.id
+                          and sp.cycle = public.wheel_cycle(w, pl.day)
+     where not sp.sat_out
+       and (w.starts_on + ((sp.cycle + 1) * w.every_days - 1))::date = pl.day
+  ), closingNow as (
+    select distinct on (uid) uid, day, wname, done, needs
+      from closing where done < needs order by uid, needs - done desc, wname
+  ), want as (
+    select id, day, 'lapsed'::text as kind, 0 as hours from plan where hr = slot and lapsed and daydue
+    union all
+    select pl.id, pl.day, 'period'::text, 24 - pl.slot from plan pl
+      join periodic pe on pe.uid = pl.id
+     where pl.hr = pl.slot and not (pl.lapsed and pl.daydue)
+    union all
+    select pl.id, pl.day, 'open'::text, 24 - pl.slot from plan pl
+     where pl.hr = pl.slot and pl.daydue and not pl.lapsed
+       and not exists (select 1 from periodic pe where pe.uid = pl.id)
+    union all
+    select pl.id, pl.day, 'challenge'::text, 24 - pl.hr from plan pl
+      join closingNow c on c.uid = pl.id where pl.hr = pl.lc and not pl.lapsed
+    union all
+    select pl.id, pl.day, 'lastcall'::text, 24 - pl.hr from plan pl
+      join behind b on b.uid = pl.id
+     where pl.hr = pl.lc and not pl.lapsed
+       and not exists (select 1 from closingNow c where c.uid = pl.id)
+  ), pick as (
+    select w.id, w.day, w.kind, w.hours, x.gname, x.others, x.mates,
+           case when w.kind = 'period' then pe.line else b.line end as line,
+           c.done, c.needs, c.wname, pe.gname as pgname, pe.unit, pe.days_left
+      from want w
+      left join behind b on b.uid = w.id and b.day = w.day
+      left join closingNow c on c.uid = w.id and c.day = w.day
+      left join periodic pe on pe.uid = w.id and w.kind = 'period'
+      -- The group a message names is one that needs something today.
+      left join lateral (
+        select g.name as gname,
+               count(*) filter (where exists (
+                 select 1 from public.posts po
+                  where po.group_id = g.id and po.user_id = gm2.user_id and po.day = w.day and po.removed_at is null)) as others,
+               count(*) as mates
+          from public.group_members gm
+          join public.groups g on g.id = gm.group_id
+          join public.group_members gm2 on gm2.group_id = g.id and gm2.user_id <> w.id
+         where gm.user_id = w.id and public.goal_due(g.id, w.id, w.day)
+         group by g.id, g.name
+         order by 2 desc, g.id
+         limit 1
+      ) x on true
+  ), claimed as (
+    insert into public.day_reminders (user_id, day, kind)
+    select id, day, kind from pick
+    on conflict do nothing
+    returning day_reminders.user_id as uid, day_reminders.kind as k
+  )
+  select p.id, p.kind, p.hours,
+         coalesce(nullif(p.wname, ''), case when p.kind = 'period' then p.pgname end, p.gname, ''),
+         coalesce(p.others, 0)::int, coalesce(p.mates, 0)::int,
+         coalesce(p.line, ''), coalesce(p.done, 0)::int, coalesce(p.needs, 0)::int,
+         coalesce(p.unit, ''), coalesce(p.days_left, 0)::int
+    from pick p join claimed c on c.uid = p.id and c.k = p.kind;
+$$;
+
+revoke all on function public.period_start(text, date) from public, anon, authenticated;
+revoke all on function public.period_end(text, date) from public, anon, authenticated;
+revoke all on function public.done_between(bigint, uuid, text, date, date) from public, anon, authenticated;
+revoke all on function public.week_hits_before(bigint, uuid, date) from public, anon, authenticated;
+revoke all on function public.goal_due(bigint, uuid, date) from public, anon, authenticated;
+revoke all on function public.quota_owed(bigint, uuid, date) from public, anon, authenticated;
+revoke all on function public.notices_due_now(timestamptz) from public, anon, authenticated;
+grant execute on function public.notices_due_now(timestamptz) to service_role;
+
+-- The invite page says what the group does before anybody has an account, and "50 pushups a
+-- day" is wrong for a group that does 10 lb a month. Two columns more, so dropped and made
+-- again, the same as v45 did.
+drop function if exists public.code_group(text);
+create function public.code_group(code text)
+returns table (id bigint, name text, inviter text, quotas jsonb, members int, forfeit text, schedule text, per_week smallint)
+language sql security definer stable set search_path = public as $$
+  select g.id, g.name,
+         coalesce(p.display_name, p.username),
+         coalesce(g.quotas, '[]'::jsonb),
+         (select count(*)::int from public.group_members gm where gm.group_id = g.id),
+         g.forfeit, g.schedule, g.per_week
+    from public.groups g
+    left join public.invite_links l on l.code = code_group.code and l.group_id = g.id
+    left join public.profiles p on p.id = l.inviter_id
+   where g.id = coalesce(
+           (select l2.group_id from public.invite_links l2 where l2.code = code_group.code),
+           (select g2.id from public.groups g2 where g2.join_code = code_group.code));
+$$;
+revoke all on function public.code_group(text) from public;
+grant execute on function public.code_group(text) to anon, authenticated;

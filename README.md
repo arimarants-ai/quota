@@ -30,7 +30,7 @@ Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it b
 
 ## Updating the database
 
-`schema.sql` is the base schema followed by numbered blocks, `v2` through `v38`, each
+`schema.sql` is the base schema followed by numbered blocks, `v2` through `v60`, each
 appended when the change that needed it landed. Running the whole file is step 2 above,
 and that is only for a project with nothing in it yet. On a project that already has
 data, run the blocks it has not seen, oldest first; every block is written to be safe
@@ -842,6 +842,34 @@ person who owed. The database refuses anyone marking their own.
 | `schema.sql` v45 | `groups.forfeit`, `forfeit_since`, `group_members.joined_at`, `forfeit_settlements` with its policies, and the two notify triggers |
 | `supabase/functions/notify/` | `forfeit` and `forfeit_paid`, muted groups respected |
 | `app/index.html` | `personalRun`, `owedIn`, `noteForfeits`, `markPaid`, the Owed card and the home banner |
+
+## How often: every day, set days, days a week, per month, per year
+
+A group has one of five schedules (`groups.schedule`, schema v60). Streaks are counted in
+the schedule's own unit, still worked out on the phone from posts (`personalRun`, which hands
+anything that is not a day to `periodRun`).
+
+| Schedule | The quota is | A unit counts when | Pass |
+| -------- | ------------ | ------------------ | ---- |
+| `daily` | a day's | the day's quota is hit | one a month |
+| `days` | a day's, on `active_days` | the day's quota is hit; other days are stepped over | one a month |
+| `weekly` | a day's | the day's quota is hit on `per_week` (1 to 6) days of a Monday-to-Sunday week | none |
+| `monthly` | a month's total | every post's amount, added up, reaches it by the month's end | none |
+| `yearly` | a year's total | the same, by 31 December | none |
+
+The stretch still running never breaks a streak: it counts as soon as it is done. A forfeit
+is owed for a whole week, month or year that closed short (kept under its last day), within
+the same fourteen days as a day. The server only has to know when to nag: `quota_owed()` and
+`goal_due()` make a week quiet until the days left are only just enough, and a month or a year
+quiet until one reminder (`period`) in its last three days if the total is short. A group from
+before v60 with fewer than seven days set is moved to `days`; the app reads the same thing
+off `active_days` until the block is run.
+
+**Posting is camera first.** + opens Quota's camera for the first group that still needs
+something (a pill at the top says which, and a tap moves it on); the shot lands on one Post
+screen: how many (filled with what is left today, blank for a total), a "Counts for" chip per
+group with the same metric, a caption, and the profile tick under More. The group page has
+one Crew list, and History holds This month and Recaps.
 
 ## What a person sees when something goes wrong
 

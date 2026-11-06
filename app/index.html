@@ -132,6 +132,38 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .mrow .pst b{display:block;font-family:Oswald,system-ui,sans-serif;font-size:28px;font-weight:600;color:var(--mk)}
 .mrow .pst small{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .mrow .qchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+/* The Crew list: one row per person, their streak first, how they are doing this stretch,
+   and how typical that is of them, small. */
+.mrow .rate{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:4px}
+/* A week's seven days under its number, filled on the days the quota was hit. */
+.hdr .wdots{display:flex;gap:6px;margin:12px 0 0;padding-bottom:12px}
+.hdr .wdots span{display:grid;justify-items:center;gap:4px;font-size:10px;font-weight:800;color:var(--muted)}
+.hdr .wdots i{display:block;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line)}
+.hdr .wdots i.on{background:var(--mk);box-shadow:none}
+.hdr .wdots .now{color:var(--text)}
+/* A month's or a year's total, filling towards its target. */
+.hdr .pbar{margin:12px 0 0;padding-bottom:12px}
+.hdr .pbar i{display:block;height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.hdr .pbar i::after{content:"";display:block;height:100%;width:var(--w);background:var(--mk);border-radius:inherit}
+.hdr .pbar p{margin:6px 0 0;font-size:12.5px;font-weight:700;color:var(--muted)}
+/* The home screen's weeks, months and years: one small chip each, under the day streak. */
+.hdr .schips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
+.hdr .schips button{padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:none;font-size:12px;font-weight:800;color:var(--text)}
+.hdr .schips button b{color:var(--mkt)}
+/* History's two tabs. */
+.sched{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stile{position:relative;display:block;padding:11px 12px;border:1px solid var(--line);cursor:pointer}
+.stile b{display:block;font-size:14px;font-weight:800}
+.stile em{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.35}
+.stile:has(input:checked){border-color:var(--mk);background:var(--soft)}
+.stile:has(input:focus-visible){outline:2px solid var(--mk);outline-offset:2px}
+.stepper{display:flex;align-items:center;gap:10px;margin-top:10px}
+.stepper button{width:40px;height:40px;padding:0;font-size:20px;font-weight:700}
+.stepper b{min-width:22px;text-align:center;font-size:24px}
+.stepper span{font-size:13px;font-weight:600}
+.htabs{display:flex;gap:6px;margin:14px 18px 4px}
+.htabs button{flex:1;padding:9px 0;font-size:13px;font-weight:800}
+.htabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
 .owed .row{align-items:center}
 .owed .paidline{margin:10px 0 0}
 /* One line on the home screen, kind rather than loud. */
@@ -1091,6 +1123,39 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
    is four answers and a cut edge. Everything behind the + scrolls sideways in place. */
 /* Portrait, because that is how a phone films, and capped so the rest of the form is still
    on the screen behind it. */
+/* The Post screen: what was shot, with Retake beside it, then how many, where it counts and
+   the rest. Post is the whole width: it is the one thing the screen is for. */
+#dlg .dlgx{position:absolute;right:12px;top:12px;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:var(--soft);font-size:15px;font-weight:800;line-height:1;z-index:2}
+#dlg .postfor{margin:2px 0 6px}
+.gpill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:none;font-size:12.5px;font-weight:800;color:var(--text)}
+.gpill svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+.take{position:relative}
+.take #takeprev{margin-top:4px}
+.take #recbtn.retake{display:block;margin:6px 0 0 auto;padding:4px 0;border:0;background:none;color:var(--mkt);font-weight:800;font-size:13.5px}
+.howmany{display:flex;align-items:stretch;gap:8px}
+.howmany button{flex:none;width:52px;font-size:22px;font-weight:700;padding:0}
+.howmany input{flex:1;min-width:0;text-align:center;font-family:Oswald,system-ui,sans-serif;font-size:30px;font-weight:600;padding:8px 6px}
+.amthint{margin:6px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
+.cfor{display:flex;flex-wrap:wrap;gap:8px}
+.cchip{position:relative;display:inline-flex;flex-direction:column;gap:1px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;cursor:pointer}
+/* The box itself covers the chip, unseen, so a tap anywhere on it is a tap on the box. */
+.cchip input,.stile input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer}
+.cchip b{font-size:13px;font-weight:800;color:var(--text)}
+.cchip em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted)}
+.cchip:has(input:checked){border-color:var(--mk);background:var(--soft)}
+.cchip:has(input:checked) b::before{content:"\2713  ";color:var(--mkt)}
+.cchip:has(input:disabled){opacity:.55;cursor:default}
+.cchip.main{cursor:default}
+details.pmore{margin-top:14px}
+details.pmore summary{cursor:pointer;font-weight:800;font-size:13.5px;color:var(--muted);list-style:none}
+details.pmore summary::-webkit-details-marker{display:none}
+details.pmore summary::after{content:" \203A";display:inline-block;transition:transform .2s}
+details.pmore[open] summary::after{transform:rotate(90deg)}
+#dlg .postbtn{width:100%;margin-top:18px}
+/* The group a take is for, at the top of the camera. Tapping it moves to the next one. */
+.campill{max-width:58vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 13px;border:0;border-radius:999px;
+  background:rgba(0,0,0,.5);color:#fff;font-size:13px;font-weight:800}
+.campill[hidden]{display:none}
 #takeprev{margin-top:10px;position:relative}
 /* Something to aim at, since the controls underneath cannot be trusted on a phone. It goes
    as soon as the clip is running, and comes back when it is not. */
@@ -1837,6 +1902,7 @@ button.tdgo{background:#d1344f;color:#fff}
     <button type="button" class="cbtn" id="camx" onclick="camX()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <span class="sp"></span>
     <span class="camclock" id="camclock" hidden></span>
+    <button type="button" class="campill" id="campill" hidden onclick="camNextGroup()"></button>
     <span class="sp"></span>
     <button type="button" class="cbtn" id="cammic" aria-label="No sound" hidden disabled><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M4 3l16 18"/></svg></button>
     <button type="button" class="cbtn" id="camflash" onclick="camFlashTap()" aria-label="Flash" hidden><svg viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 8-11h-6z"/></svg></button>
@@ -1890,7 +1956,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v167';
+const BUILD = 'quota-v168';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2024,8 +2090,7 @@ const ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132"><def
 // of the ramp the run is on, and drops back to a short dark arc when a run breaks.
 const RING = 289, CAP = 21;
 const stageOf = d => d >= CAP ? 4 : d >= 10 ? 3 : d >= 5 ? 2 : 1;
-const myStreak = () => { const m = S.me; if (!m) return 0; const gs = myGroups();
-  return gs.length ? Math.max(0, ...gs.map(g => streak(g, m.id))) : 0; };
+const myStreak = () => { const m = S.me; if (!m) return 0; return headStreak(m.id).n; };
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2177,15 +2242,92 @@ async function signProof(list) {
 }
 // Whether a post's URL is still good to hand to a player.
 const urlFresh = p => !!(p && p.url && (p.until || 0) - Date.now() > SIGN_SLACK);
-const hit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
 // Which days of the week the quota is actually expected on. Nothing set, or all seven,
 // means every day — which is what every group had before this existed.
 const ALLDAYS = [0, 1, 2, 3, 4, 5, 6];
 const DAYNAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const activeDays = g => Array.isArray(g.active_days) && g.active_days.length ? g.active_days : ALLDAYS;
 const everyDay = g => activeDays(g).length >= 7;
-const onDay = (g, d = today()) => activeDays(g).includes(new Date(`${d}T00:00`).getDay());
-const restText = g => everyDay(g) ? '' : activeDays(g).slice().sort().map(n => DAYNAMES[n]).join(', ');
+// ---- how often (schema v60)
+// A group's goal is due every day, on set days, on any N days of each week, or as a total
+// by the end of each month or year. Everything that counts a streak, a pass, a forfeit or a
+// reminder asks this first. A group from before v60 has no schedule at all: one with fewer
+// than seven days set always meant set days, and every other one every day, which is
+// exactly what the migration writes for them.
+const SCHEDULES = ['daily', 'days', 'weekly', 'monthly', 'yearly'];
+const schedOf = g => SCHEDULES.includes(g && g.schedule) ? g.schedule : everyDay(g || {}) ? 'daily' : 'days';
+const perWeek = g => Math.min(6, Math.max(1, Math.round(+(g && g.per_week) || 3)));
+// Judged a day at a time (every day, set days), or as a stretch (a week, a month, a year).
+// The month's pass is only for the first kind: a stretch already has slack in it.
+const byDay = g => ['daily', 'days'].includes(schedOf(g));
+// A month or a year is a total: every post's amount adds up towards the target.
+const isTotal = g => ['monthly', 'yearly'].includes(schedOf(g));
+const UNIT = {daily: 'day', days: 'day', weekly: 'week', monthly: 'month', yearly: 'year'};
+const unitOf = g => UNIT[schedOf(g)];
+// Only set days have days off. A week, a month or a year can be done on any day of it.
+const onDay = (g, d = today()) => schedOf(g) !== 'days' || activeDays(g).includes(new Date(`${d}T00:00`).getDay());
+const restText = g => schedOf(g) !== 'days' || everyDay(g) ? '' : activeDays(g).slice().sort().map(n => DAYNAMES[n]).join(', ');
+// Which stretch a day is in, named by its first day: the day itself, the Monday of its
+// week, the 1st of its month, or the 1st of January. Weeks run Monday to Sunday, the same
+// as the month grid and the recaps.
+function periodStart(g, d) {
+  const s = schedOf(g);
+  return s === 'weekly' ? weekStart(d) : s === 'monthly' ? `${d.slice(0, 7)}-01` : s === 'yearly' ? `${d.slice(0, 4)}-01-01` : d;
+}
+function periodEnd(g, d) {
+  const s = schedOf(g), y = +d.slice(0, 4), m = +d.slice(5, 7) - 1;
+  return s === 'weekly' ? fromDayNo(dayNo(weekStart(d)) + 6) : s === 'monthly' ? ymdOf(y, m, monthDays(y, m))
+    : s === 'yearly' ? `${y}-12-31` : d;
+}
+const prevPeriod = (g, d) => periodStart(g, fromDayNo(dayNo(periodStart(g, d)) - 1));
+// The moment the stretch today is in closes, on this phone's clock: midnight after its last day.
+const periodClose = (g, d = today()) => { const x = new Date(`${periodEnd(g, d)}T00:00`); x.setDate(x.getDate() + 1); return x.getTime(); };
+// "this week", "this month": how a stretch is spoken of while it is running.
+const thisUnit = g => `this ${unitOf(g)}`;
+// How much went in towards one metric. For a month or a year that is the running total of
+// the stretch up to `day`; for everything else it is the day itself.
+function doneIn(g, uid, metric, day = today()) {
+  if (!isTotal(g)) return done(g, uid, metric, day);
+  const from = periodStart(g, day);
+  let n = 0;
+  for (const d of totalsIndex().days.get(`${g.id}|${uid}`) || NO_DAYS) if (d >= from && d <= day) n += done(g, uid, metric, d);
+  return n;
+}
+// The day's quota, met on that day.
+const dayHit = (g, uid, day = today()) => g.quotas.every(qq => done(g, uid, qq.metric, day) >= qq.target);
+// Done for whatever `day` is judged in: the day itself, or for a month or a year, the total
+// reached by then. A week is still a day at a time here — "is today's in?" — and weekHits
+// below is what says whether the week has counted.
+const hit = (g, uid, day = today()) => isTotal(g) ? g.quotas.every(qq => doneIn(g, uid, qq.metric, day) >= qq.target) : dayHit(g, uid, day);
+// The days of a week the daily quota was hit, up to `day`.
+function weekHits(g, uid, day = today()) {
+  const from = dayNo(weekStart(day));
+  return Array.from({length: 7}, (_, i) => fromDayNo(from + i)).filter(d => d <= day && dayHit(g, uid, d));
+}
+// Whether the stretch starting `p` counts: the day hit, N days of the week hit, or the total reached.
+function periodHit(g, uid, p) {
+  const s = schedOf(g), end = periodEnd(g, p);
+  return s === 'weekly' ? weekHits(g, uid, end).length >= perWeek(g) : isTotal(g) ? hit(g, uid, end) : hit(g, uid, p);
+}
+// What is still owed this stretch, in words: "2 more days", "4 lb", "30 pushups".
+function shortOf(g, uid, day = today()) {
+  if (schedOf(g) === 'weekly') { const n = perWeek(g) - weekHits(g, uid, day).length; return n > 0 ? [plural(n, 'more day')] : []; }
+  return g.quotas.map(qq => ({n: qq.target - doneIn(g, uid, qq.metric, day), m: qq.metric})).filter(x => x.n > 0).map(x => `${x.n} ${x.m}`);
+}
+// Somebody's progress this stretch, as a chip says it: "30/50", "2/3 this week", "6/10 lb".
+function progressChips(g, uid, day = today()) {
+  if (schedOf(g) === 'weekly') { const n = weekHits(g, uid, day).length, of = perWeek(g);
+    return [{t: `${Math.min(n, of)}/${of} this week`, ok: n >= of}]; }
+  return g.quotas.map(qq => { const d = doneIn(g, uid, qq.metric, day);
+    return {t: isTotal(g) ? `${d}/${qq.target} ${qq.metric}` : `${d}/${qq.target}`, ok: d >= qq.target}; });
+}
+// A stretch, named the way a person would: "Sun, Nov 1", "the week of Mon, Oct 26", "October", "2026".
+function periodLabel(g, d) {
+  const s = schedOf(g), p = periodStart(g, d);
+  return s === 'weekly' ? `the week of ${dayLabel(p)}`
+    : s === 'monthly' ? new Date(`${p}T00:00`).toLocaleDateString(undefined, {month: 'long', year: p.slice(0, 4) === today().slice(0, 4) ? undefined : 'numeric'})
+    : s === 'yearly' ? p.slice(0, 4) : dayLabel(d);
+}
 // ---- today's proof is behind your own
 // You do not get to watch the group's day until you have put something into it. One proof
 // is the price, not the whole quota: the lock is there to stop someone reading the group
@@ -2203,7 +2345,10 @@ function locked(p, uid = S.me ? me().id : null) {
   return !!g && (g.members.includes(uid) || !!S.demo) && !postedIn(g, uid);
 }
 // streak: consecutive hit days ending today (or yesterday, since today may still be in progress)
-const hitDays = (g, uid) => new Set([...(totalsIndex().days.get(`${g.id}|${uid}`) || NO_DAYS)].filter(d => hit(g, uid, d)));
+// The days the day's quota was met. For a month or a year, which has no day's quota, the
+// days anything went in towards the total: that is what the month grid draws for them.
+const hitDays = (g, uid) => new Set([...(totalsIndex().days.get(`${g.id}|${uid}`) || NO_DAYS)]
+  .filter(d => isTotal(g) ? g.quotas.some(qq => done(g, uid, qq.metric, d) > 0) : dayHit(g, uid, d)));
 // A wheel set to break the streak does it on the day its cycle closes, not on the day it
 // was spun: you had the whole cycle to finish, so the day it runs out is the day it counts
 // against you. A cycle still running is never judged, and neither is one that ends today.
@@ -2220,6 +2365,36 @@ function brokeStreak(g, uid, day) {
 // hit() itself stays about the quota alone, so the chips and the completion rate keep
 // meaning what they say.
 const goodDays = (g, uid) => { const d = hitDays(g, uid); for (const x of [...d]) if (brokeStreak(g, uid, x)) d.delete(x); return d; };
+// The same for a week, a month or a year: the stretches (by their first day) that counted,
+// and that no challenge left unfinished inside them spoiled. Only stretches somebody posted
+// in can have counted, so only those are looked at.
+function goodPeriods(g, uid) {
+  const out = new Set(), wheels = wheelsOf(g).some(w => w.breaks_streak);
+  for (const p of new Set([...(totalsIndex().days.get(`${g.id}|${uid}`) || NO_DAYS)].map(d => periodStart(g, d)))) {
+    if (!periodHit(g, uid, p)) continue;
+    let broke = false;
+    if (wheels) for (let x = dayNo(p), e = dayNo(periodEnd(g, p)); x <= e && !broke; x++) broke = brokeStreak(g, uid, fromDayNo(x));
+    if (!broke) out.add(p);
+  }
+  return out;
+}
+// A streak of weeks, months or years: the stretches in a row that counted, back from the
+// one today is in. That one counts as soon as it is done, and until then it is still in
+// progress and never breaks anything. A stretch before somebody joined is not one they could
+// have missed, and the one they joined in counts only if they did it. No pass: there is
+// slack in a week already, and more in a month.
+function periodRun(g, uid, from = today()) {
+  const good = goodPeriods(g, uid), start = joinedDay(g, uid);
+  let n = 0, since = null, p = periodStart(g, from);
+  if (!good.has(p)) p = prevPeriod(g, p);
+  for (let guard = 0; guard < 400; guard++) {
+    if (!good.has(p)) break;
+    n++; since = p;
+    if (start && p <= start) break;
+    p = prevPeriod(g, p);
+  }
+  return {n, covered: new Set(), since, carried: [], passLeft: 0};
+}
 // ---- your own streak, and your own month's pass
 // Your streak is the number that matters: the days in a row you did it. The group's run is
 // a bonus on top (groupRun, below), and one person missing a day only ends the bonus.
@@ -2245,6 +2420,7 @@ function joinedDay(g, uid) {
 // joining and before `from`, that did not count.
 function passDays(g, uid, from = today(), good = goodDays(g, uid)) {
   const start = joinedDay(g, uid), to = dayNo(from), covered = new Set(), used = new Set();
+  if (!byDay(g)) return covered;           // the pass is for groups judged a day at a time
   for (let x = Math.max(start ? dayNo(start) + 1 : -Infinity, to - 400); x < to; x++) {
     const d = fromDayNo(x);
     if (!onDay(g, d) || good.has(d)) continue;
@@ -2254,6 +2430,7 @@ function passDays(g, uid, from = today(), good = goodDays(g, uid)) {
   return covered;
 }
 function personalRun(g, uid, from = today()) {
+  if (!byDay(g)) return periodRun(g, uid, from);
   const good = goodDays(g, uid), covered = passDays(g, uid, from, good), start = joinedDay(g, uid);
   let n = 0, kept = 0, since = null, i = good.has(from) ? 0 : 1;
   for (let guard = 0; guard < 400; guard++) {
@@ -2271,11 +2448,37 @@ function personalRun(g, uid, from = today()) {
   return {n: kept, covered, since, carried: since ? [...covered].filter(d => d > since).sort() : [], passLeft: [...covered].some(d => d.startsWith(mo)) ? 0 : 1};
 }
 const streak = (g, uid) => personalRun(g, uid).n;
+// "6 day streak", "1 week streak": a streak is counted in its group's own unit.
+const streakText = (g, n) => `${n} ${unitOf(g)} streak`;
+// The number at the top of the home screen is the day streak, from the groups judged a day
+// at a time. Somebody with none of those gets their most common schedule's instead, in its
+// own unit, so a run club of weeks still has a number to keep. Ties go to the shorter unit.
+function headGroups(gs) {
+  const daily = gs.filter(byDay);
+  if (daily.length || !gs.length) return daily;
+  const n = {};
+  for (const g of gs) n[unitOf(g)] = (n[unitOf(g)] || 0) + 1;
+  const u = ['week', 'month', 'year'].sort((a, b) => (n[b] || 0) - (n[a] || 0))[0];
+  return gs.filter(g => unitOf(g) === u);
+}
+function headStreak(uid = me().id, gs = myGroups().filter(g => g.members.includes(uid))) {
+  const use = headGroups(gs);
+  return {n: Math.max(0, ...use.map(g => streak(g, uid))), best: Math.max(0, ...use.map(g => best(g, uid))),
+    unit: use.length ? unitOf(use[0]) : 'day', groups: use};
+}
 // The longest run, counted the same way as the current one: over rest days, and over each
 // month's covered day once something had been done.
 // `from` is today everywhere in the app, the same as personalRun's, and for the same reason:
 // the self-check has to be able to stand on fixed dates.
 const best = (g, uid, from = today()) => {
+  if (!byDay(g)) {
+    // Stretches in a row, by their first days: a run goes on while each one's previous
+    // stretch is the one before it in the list.
+    const ps = [...goodPeriods(g, uid)].filter(p => p <= from).sort();
+    let b = 0, n = 0, prev = null;
+    for (const p of ps) { n = prev && prevPeriod(g, p) === prev ? n + 1 : 1; prev = p; b = Math.max(b, n); }
+    return Math.max(b, periodRun(g, uid, from).n);
+  }
   const good = goodDays(g, uid), covered = passDays(g, uid, from, good);
   const days = [...good].sort();
   if (!days.length) return 0;
@@ -2303,6 +2506,22 @@ function owedIn(g, from = today()) {
   if (S.noForfeits || !g.forfeit || !g.forfeit_since) return [];
   const since = ymd(new Date(Date.parse(g.forfeit_since)));
   const out = [];
+  // A week, a month or a year is owed for as a whole, once it has closed, and the row is
+  // kept under its last day. Only one that began after the forfeit was set and after they
+  // joined: a stretch already under way when either happened was never fully under the deal.
+  if (!byDay(g)) {
+    for (const uid of g.members) {
+      const good = goodPeriods(g, uid), start = joinedDay(g, uid), mine = [];
+      for (let p = prevPeriod(g, from), guard = 0; guard < 60 && dayNo(periodEnd(g, p)) >= dayNo(from) - FORFEIT_DAYS; guard++, p = prevPeriod(g, p)) {
+        const end = periodEnd(g, p);
+        if (p <= since || (start && p <= start)) continue;
+        if (good.has(p) || settledOn(g.id, uid, end)) continue;
+        mine.unshift({g: g.id, u: uid, d: end});
+      }
+      out.push(...mine);
+    }
+    return out;
+  }
   for (const uid of g.members) {
     const good = goodDays(g, uid), covered = passDays(g, uid, from, good), start = joinedDay(g, uid);
     for (let i = FORFEIT_DAYS; i >= 1; i--) {
@@ -2364,9 +2583,21 @@ async function markPaid(gid, uid) {
 // the self-check hands it a fixed date, because a rule about calendar months tested on
 // relative days tests something different on the 1st than it does on the 15th.
 function groupRun(g, from = today()) {
+  const began = g.created_at ? Date.parse(g.created_at) : 0;
+  // A week, a month or a year the whole crew made, in a row. No pass, the same as for one
+  // person, and the one still running counts once everyone has made it.
+  if (!byDay(g)) {
+    const all = p => !!g.members.length && g.members.every(id => periodHit(g, id, p));
+    let n = 0, p = periodStart(g, from);
+    if (!all(p)) p = prevPeriod(g, p);
+    for (let guard = 0; guard < 400; guard++) {
+      if (Date.parse(`${periodEnd(g, p)}T23:59`) < began || !all(p)) break;
+      n++; p = prevPeriod(g, p);
+    }
+    return {n, covered: new Set(), passLeft: 0};
+  }
   const sets = g.members.map(id => hitDays(g, id));
   const all = d => !!g.members.length && sets.every(x => x.has(d));
-  const began = g.created_at ? Date.parse(g.created_at) : 0;
   const spent = new Set(), covered = new Set();
   let n = 0, i = all(from) ? 0 : 1;
   for (let guard = 0; guard < 400; guard++) {
@@ -2411,7 +2642,10 @@ const satOut = sp => !!sp && sp.sat_out;
 function challengeDays(g, sp) {
   const w = S.wheels.find(x => x.id === sp.wheel_id);
   if (!w || !g.quotas.length) return [];
-  return cycleDays(w, sp.cycle).filter(d => g.quotas.every(qq => doneWith(g, sp.user_id, qq.metric, sp, d) >= qq.target));
+  // A month's or a year's quota is a total, not something a day can meet on its own, so
+  // there a day of the challenge is a day anything went in with it.
+  const need = qq => isTotal(g) ? 1 : qq.target;
+  return cycleDays(w, sp.cycle).filter(d => g.quotas.every(qq => doneWith(g, sp.user_id, qq.metric, sp, d) >= need(qq)));
 }
 // How many days the challenge has to be done on. A wheel with a day wheel on it says so.
 // A wheel without one means every day it is running: the whole stretch until the next
@@ -2450,8 +2684,21 @@ const myWheel = w => !w.created_by || w.created_by === me().id;
 // How often someone actually hits the whole quota, over the last 30 days or since the
 // group started if that is sooner. Today is left out: it is still in progress, and
 // counting it would drag everyone down every morning.
+// A week, a month or a year is the same question asked over closed stretches instead: the
+// last four weeks, six months or three years, or fewer if the group is younger than that.
+const RATE_BACK = {weekly: 4, monthly: 6, yearly: 3};
 function rate(g, uid) {
   const began = g.created_at ? Date.parse(g.created_at) : 0, days = [];
+  if (!byDay(g)) {
+    const ps = [];
+    for (let p = prevPeriod(g, today()); ps.length < RATE_BACK[schedOf(g)]; p = prevPeriod(g, p)) {
+      if (Date.parse(`${periodEnd(g, p)}T23:59`) < began) break;
+      ps.push(p);
+    }
+    if (!ps.length) return null;
+    const n = ps.filter(p => periodHit(g, uid, p)).length;
+    return {n, of: ps.length, pct: Math.round(n / ps.length * 100), unit: unitOf(g)};
+  }
   for (let i = 1; i <= 30; i++) {
     const d = daysAgo(i);
     if (Date.parse(`${d}T23:59`) < began) break;
@@ -2459,7 +2706,7 @@ function rate(g, uid) {
   }
   if (!days.length) return null;
   const n = days.filter(d => hit(g, uid, d)).length;
-  return {n, of: days.length, pct: Math.round(n / days.length * 100)};
+  return {n, of: days.length, pct: Math.round(n / days.length * 100), unit: 'day'};
 }
 // Ranked by current streak, with the rate beside it: the streak says how someone is doing
 // right now, the rate says whether that is typical of them.
@@ -3135,7 +3382,7 @@ function render() {
   keepChatFresh();
   // The bar is only rebuilt when its markup changes; which tab is on is a class and the
   // underline's position, so the underline can slide rather than be redrawn.
-  const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="submitDlg(${g ? g.id : 0})" title="Post proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
+  const bar = $('#bar'), html = tab('feed', 'Feed') + tab('groups', 'Groups') + `<button class="add" onclick="startPost(${g ? g.id : 0})" title="Post proof" ${myGroups().length ? '' : 'disabled'}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>` + tab('friends', 'Friends') + tab('profile', 'Profile');
   if (bar.dataset.html !== html) { bar.innerHTML = html + '<i class="ind"></i>'; bar.dataset.html = html; }
   bar.querySelectorAll('button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab && !S.open && !S.who && !S.settings));
   const on = bar.querySelector('button.on'), ind = bar.querySelector('.ind');
@@ -3372,13 +3619,17 @@ async function takeChallenge(spinId, json) {
   dlg(); await load();
 }
 
-function boardView(g) {
-  return `<div class="card list">${standings(g).map((row, i) => {
-    const u = user(row.id), you = row.id === me().id;
-    return `<div class="row"><span class="rank${i === 0 && row.st ? ' top' : ''}">${i + 1}</span>${av(u)}
-      <div class="grow"><b>${esc(name(u))}${you ? ' <span class="muted">(you)</span>' : ''}</b>
-      <div class="muted">${row.r ? `hit the quota ${row.r.pct}% of the last ${plural(row.r.of, 'day')}` : 'just getting started'}</div></div>
-      <span class="chip${row.st ? ' ok' : ''}">${plural(row.st, 'day')}</span></div>`;
+// The crew, in one list: what used to be today's list and the leaderboard below it, which
+// were the same people twice. A row each, by streak: the number, who, how this stretch is
+// going, and how often they make it, small. The streak is in the group's own unit.
+function crewList(g) {
+  const m = me(), unit = unitOf(g);
+  return `<div class="card list crew">${standings(g).map(row => {
+    const id = row.id, u = user(id), done = schedOf(g) === 'weekly' ? periodHit(g, id, periodStart(g, today())) : hit(g, id);
+    return `<div class="row mrow"><div class="pst"><b class="num">${row.st}</b><small>${row.st === 1 ? unit : unit + 's'}</small></div>${av(u, done ? 'lg' : 'lg todo')}
+      <div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b>
+        <div class="qchips">${progressChips(g, id).map(c => `<span class="chip ${c.ok ? 'ok' : ''}">${esc(c.t)}</span>`).join('')}</div>
+        <div class="rate">${row.r ? `hit the quota ${row.r.pct}% of the last ${plural(row.r.of, row.r.unit || 'day')}` : 'just getting started'}</div></div></div>`;
   }).join('')}</div>`;
 }
 const smallHdr = title => `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="end"><span class="date">${new Date().toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>${helpBtn()}</span></div><h1>${title}</h1></div>`;
@@ -3406,8 +3657,12 @@ function outboxCard() {
 }
 function feedView() {
   const m = me(), gs = myGroups();
-  const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
-  const lines = gs.flatMap(g => g.quotas.map(qq => ({g, qq, d: done(g, m.id, qq.metric)})));
+  // The big number is the day streak. A week, a month or a year is a different count, so
+  // each gets a chip of its own under it rather than being folded into the days.
+  const head = headStreak(m.id), cur = head.n, bst = head.best;
+  const chips = gs.filter(g => !byDay(g)).map(g => ({g, n: streak(g, m.id)}));
+  // What fills up today. A week's day is a day's quota; a month's or a year's is its total.
+  const lines = gs.flatMap(g => g.quotas.map(qq => ({g, qq, d: doneIn(g, m.id, qq.metric)})));
   const doneN = lines.filter(l => l.d >= l.qq.target).length;
   // The challenge sits beside the quota it is being done with: today's reps say whether
   // today is in hand, the days say how the cycle is going, and both belong in one glance.
@@ -3416,8 +3671,9 @@ function feedView() {
     return {g, sp, w, need: requiredDays(w, sp), d: challengeDays(g, sp).length};
   })).filter(c => c.need);
   return `<div class="hdr"><div class="top"><div class="logo">${LOGO(false)}Quota</div><span class="end">${helpBtn()}${chatIcon()}</span></div>
-    <div class="big"><b class="num">${cur}</b><div>day streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done today` : ''}</small></div></div>
-    ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}</b></div>`).join('')
+    <div class="big"><b class="num">${cur}</b><div>${head.unit} streak<small>${bst ? `best ${bst}` : 'no streak yet'}${lines.length ? ` · ${doneN} of ${lines.length} quota${lines.length === 1 ? '' : 's'} done` : ''}</small></div></div>
+    ${chips.length ? `<div class="schips">${chips.map(c => `<button type="button" onclick="openGroup(${c.g.id})"><b>${plural(c.n, unitOf(c.g))}</b> \u00b7 ${esc(c.g.name)}</button>`).join('')}</div>` : ''}
+    ${lines.length || chals.length ? `<div class="mini">${lines.map(l => `<div><span>${esc(l.qq.metric)}${gs.length > 1 ? `<em>${esc(l.g.name)}</em>` : ''}</span><i class="${l.d >= l.qq.target ? 'done' : ''}" style="--w:${Math.min(100, l.d / l.qq.target * 100)}%"></i><b>${l.d}/${l.qq.target}${isTotal(l.g) ? ` ${esc(thisUnit(l.g))}` : ''}</b></div>`).join('')
       }${chals.map(c => `<div><span>${esc(effChallenge(c.sp))}${gs.length > 1 ? `<em>${esc(c.g.name)}</em>` : ''}</span><i class="${c.d >= c.need ? 'done' : ''}" style="--w:${Math.min(100, c.d / c.need * 100)}%"></i><b>${c.d}/${c.need} challenge ${c.need === 1 ? 'day' : 'days'}</b></div>`).join('')}</div>` : ''}</div>`
     + oweBanner()
     + practiceNote()
@@ -4619,7 +4875,7 @@ const dayRows = (g, uid) => {
 function suggestAfterPost(g) {
   const m = me(), st = streak(g, m.id);
   suggest({rows: dayRows(g, m.id), st, seed: `${m.id}|${today()}|${g.id}`,
-    body: st > 1 ? `Day ${st} · ${g.name}` : g.name});
+    body: st > 1 ? `${unitOf(g)[0].toUpperCase() + unitOf(g).slice(1)} ${st} · ${g.name}` : g.name});
 }
 // Every challenge of mine that is finished right now. Compared across a post to find the
 // one that post finished — the wheel gives you a whole cycle to do it in, so the day it
@@ -4652,13 +4908,17 @@ function activityBox() {
 }
 
 function groupCard(g) {
-  const m = me(), doneIds = g.members.filter(id => hit(g, id)), st = streak(g, m.id);
+  // Done means this stretch is in: today's quota, the week's days, or the month's total.
+  const isIn = id => schedOf(g) === 'weekly' ? periodHit(g, id, periodStart(g, today())) : hit(g, id);
+  const m = me(), doneIds = g.members.filter(isIn), st = streak(g, m.id), when = byDay(g) ? '' : ` ${thisUnit(g)}`;
   return `<div class="card" onclick="openGroup(${g.id})" style="cursor:pointer"><div class="ghead">${gav(g, 'lg')}<h2>${esc(g.name)}<span>${
-    onDay(g) ? `${doneIds.length} of ${g.members.length} done` : 'rest day'}${st ? ` · ${st} day streak` : ''}</span></h2></div>
-    ${g.quotas.map(qq => { const d = done(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="--w:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
-    <div class="ppl">${g.members.map(id => av(user(id), hit(g, id) ? '' : 'todo')).join('')}<span class="muted">${
+    onDay(g) ? `${doneIds.length} of ${g.members.length} done${when}` : 'rest day'}${st ? ` · ${esc(streakText(g, st))}` : ''}</span></h2></div>
+    ${schedOf(g) === 'weekly' ? (() => { const n = Math.min(weekHits(g, m.id).length, perWeek(g)), of = perWeek(g);
+      return `<div class="q"><div class="t">days this week<span>${n} / ${of}</span></div><div class="tr"><i class="${n >= of ? 'done' : ''}" style="--w:${n / of * 100}%"></i></div></div>`; })() : ''}
+    ${g.quotas.map(qq => { const d = doneIn(g, m.id, qq.metric), ok = d >= qq.target; return `<div class="q"><div class="t">${esc(qq.metric)}${isTotal(g) ? ` ${esc(thisUnit(g))}` : ''}<span>${d} / ${qq.target}</span></div><div class="tr"><i class="${ok ? 'done' : ''}" style="--w:${Math.min(100, d / qq.target * 100)}%"></i></div></div>`; }).join('')}
+    <div class="ppl">${g.members.map(id => av(user(id), isIn(id) ? '' : 'todo')).join('')}<span class="muted">${
       !onDay(g) ? `rest day · ${esc(restText(g))}`
-      : doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done` : 'nobody is done yet'}</span></div></div>`;
+      : doneIds.length ? `${names(doneIds)} ${doneIds.length === 1 && doneIds[0] !== m.id ? 'is' : 'are'} done${when}` : `nobody is done${when || ' yet'}`}</span></div></div>`;
 }
 function groupsView() {
   const mine = myGroups(), invites = S.invites.filter(i => i.type === 'group' && i.to === me().id && S.groups.some(g => g.id === i.groupId));
@@ -4679,21 +4939,28 @@ const endOfToday = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return
 // Somebody with nothing in has not posted. Somebody part-way has, and saying they have not
 // would be wrong about a real person in front of their friends, so they are counted short
 // instead.
+// A week is out until it has counted; a month or a year until its total is in.
 function stillOut(g) {
-  return g.members.filter(id => !hit(g, id)).map(id => {
-    const short = g.quotas.map(qq => qq.target - done(g, id, qq.metric)).filter(n => n > 0);
-    return {id, posted: postedIn(g, id), short};
+  const weekly = schedOf(g) === 'weekly';
+  return g.members.filter(id => weekly ? !periodHit(g, id, periodStart(g, today())) : !hit(g, id)).map(id => {
+    // A day's shortfall is a bare number, read beside the quota; a stretch's carries its metric.
+    const short = byDay(g) ? g.quotas.map(qq => qq.target - done(g, id, qq.metric)).filter(n => n > 0) : shortOf(g, id);
+    const posted = byDay(g) ? postedIn(g, id) : S.posts.some(p => p.groupId === g.id && p.userId === id && p.day >= periodStart(g, today()));
+    return {id, posted, short};
   });
 }
 function missLine(g) {
   if (!onDay(g)) return `<p class="missline rest">Rest day \u00b7 nothing due${restText(g) ? ` \u00b7 ${esc(restText(g))} only` : ''}</p>`;
-  const out = stillOut(g);
-  if (!out.length) return `<p class="missline in">Everyone is in for today.</p>`;
+  const out = stillOut(g), when = byDay(g) ? 'today' : thisUnit(g), until = byDay(g) ? endOfToday() : periodClose(g);
+  if (!out.length) return `<p class="missline in">${byDay(g) ? 'Everyone is in for today.' : `Everyone is in for ${esc(when)}.`}</p>`;
   const none = out.filter(x => !x.posted), part = out.filter(x => x.posted);
   const bits = [];
-  if (none.length) bits.push(`${esc(names(none.map(x => x.id)))} ${none.length === 1 && none[0].id !== me().id ? "hasn't" : "haven't"} posted`);
-  for (const x of part) bits.push(`${esc(names([x.id]))} ${x.id === me().id ? 'are' : 'is'} ${x.short.join(' and ')} short`);
-  return `<p class="missline">${bits.join(' \u00b7 ')} \u2014 <b class="num" data-until="${endOfToday()}" data-coarse="1">${esc(leftLong(endOfToday()))}</b></p>`;
+  if (none.length) bits.push(`${esc(names(none.map(x => x.id)))} ${none.length === 1 && none[0].id !== me().id ? "hasn't" : "haven't"} posted${byDay(g) ? '' : ` ${esc(when)}`}`);
+  // A week is short in days, and says so as a need rather than a shortfall: "needs 2 more days".
+  for (const x of part) bits.push(schedOf(g) === 'weekly'
+    ? `${esc(names([x.id]))} ${x.id === me().id ? 'need' : 'needs'} ${esc(x.short.join(''))}`
+    : `${esc(names([x.id]))} ${x.id === me().id ? 'are' : 'is'} ${esc(x.short.join(' and '))} short`);
+  return `<p class="missline">${bits.join(' \u00b7 ')} \u2014 <b class="num" data-until="${until}" data-coarse="1">${esc(leftLong(until))}</b></p>`;
 }
 // ---- an invite that travels as a link
 // The first thing that happens to somebody who has never been here is opening a link
@@ -4827,18 +5094,23 @@ async function joinFromBox(f) {
 // there is when the browser has no sheet to offer.
 // What a group does, said the way a person would: "50 pushups a day", or "50 pushups and
 // 20 situps a day". Empty when the group has no quota yet, so nothing is invented for it.
-function doesLine(quotas) {
+// How often comes from the group when there is one: "10 lb a month", "50 pushups a day, 3
+// days a week". The invite page passes the row code_group() sent, which carries the same.
+function doesLine(quotas, g) {
   const qs = (quotas || []).filter(x => x && x.metric && x.target);
   if (!qs.length) return '';
-  const parts = qs.map(x => `${x.target} ${x.metric}`);
-  return (parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`) + ' a day';
+  const parts = qs.map(x => `${x.target} ${x.metric}`), s = g ? schedOf(g) : 'daily';
+  const each = s === 'monthly' ? ' a month' : s === 'yearly' ? ' a year' : ' a day';
+  return (parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`) + each
+    + (s === 'weekly' ? `, ${perWeek(g)} days a week` : '');
 }
 // The text somebody gets. Your name first, because a message from a person gets opened and
 // one from an app does not. It names nothing about who else is in the group.
 const inviteText = (from, g, url) => {
-  const does = doesLine(g && g.quotas), forfeit = g && g.forfeit;
-  return `${from} invited you to ${g ? g.name : 'a group'} on Quota${does ? `: ${does}` : ''}. Post proof before midnight${
-    forfeit ? `, or owe the crew: ${forfeit}` : ', every day'}. Join: ${url}`;
+  const does = doesLine(g && g.quotas, g), forfeit = g && g.forfeit, daily = !g || schedOf(g) === 'daily';
+  // "before midnight, every day" is only true of a group that is every day.
+  return `${from} invited you to ${g ? g.name : 'a group'} on Quota${does ? `: ${does}` : ''}. ${daily ? 'Post proof before midnight' : 'Post proof as you go'}${
+    forfeit ? `, or owe the crew: ${forfeit}` : daily ? ', every day' : ''}. Join: ${url}`;
 };
 // Messages, with the words already written. iOS and Android disagree about the separator
 // after `sms:`; `?&body=` is the form both accept.
@@ -4869,7 +5141,7 @@ function inviteSheet(gid, first) {
     ${code ? `<a class="btn primary textbtn" href="${esc(smsHref(text))}">Text an invite</a>`
       : `<button class="primary textbtn" disabled>Text an invite</button>`}
     <button type="button" class="textalt" onclick="shareInvite(${gid})" ${code ? '' : 'disabled'}>More</button>
-    <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()${first ? `;submitDlg(${gid})` : ''}">${first ? 'Post first, invite later' : 'Close'}</button>`;
+    <button type="button" class="${first ? 'ghost' : ''}" style="width:100%;margin-top:12px" onclick="dlg()${first ? `;startPost(${gid})` : ''}">${first ? 'Post first, invite later' : 'Close'}</button>`;
 }
 async function inviteDlg(gid, first = false) {
   dlg(inviteSheet(gid, first));
@@ -4899,6 +5171,16 @@ function openSub(kind, gid, day) {
   if (kind === 'recaps') signRecaps(gid);
 }
 function closeSub() { S.sub = null; stackOff(); }
+// History is one door with two rooms: this month's grid and the recaps. Moving between them
+// is a tab, not a push, so the way back still goes to the group in one step.
+function histTab(kind, gid) {
+  S.sub = {kind, gid};
+  if (kind === 'recaps') signRecaps(gid);
+  render(); scrollTo(0, 0);
+}
+const histTabs = (g, on) => S.demo ? '' : `<div class="htabs" role="tablist">${[['month', 'This month'], ['recaps', 'Recaps']].map(([k, t]) =>
+  `<button type="button" role="tab" class="small${k === on ? ' on' : ''}" aria-selected="${k === on}" onclick="histTab('${k}',${g.id})">${t}${
+    k === 'recaps' && freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button>`).join('')}</div>`;
 function subScreen(v) {
   const g = S.groups.find(x => x.id === v.gid);
   return v.kind === 'stats' ? statsView()
@@ -4947,7 +5229,8 @@ function monthView(g) {
   const monthName = now.toLocaleDateString(undefined, {month: 'long'});
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
       <span class="end"><span class="date">${esc(monthName)}</span>${helpBtn()}</span></div>
-    <div class="big"><b class="num">${full}</b><div>${full === 1 ? 'day everyone showed up' : 'days everyone showed up'}<small>crew bonus · of ${of} so far · ${plural(g.members.length, 'person').replace('persons', 'people')}</small></div></div></div>
+    <div class="big"><b class="num">${full}</b><div>${isTotal(g) ? (full === 1 ? 'day everyone posted' : 'days everyone posted') : full === 1 ? 'day everyone showed up' : 'days everyone showed up'}<small>${isTotal(g) ? 'this month' : 'crew bonus'} · of ${of} so far · ${plural(g.members.length, 'person').replace('persons', 'people')}</small></div></div></div>
+  ${histTabs(g, 'month')}
   <div class="mlegend">${g.members.map(id => `<span><i style="background:${inkOf(g, id)}"></i>${esc(id === me().id ? 'you' : name(user(id)))}</span>`).join('')}
     <span><i class="none"></i>missed</span>${run.covered.size ? '<span><i class="cov"></i>pass</span>' : ''}</div>
   <div class="mgrid head">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div>
@@ -4969,8 +5252,8 @@ function dayView(g, day) {
 // screen and that is where it stays: this one answers "how am I doing", which is a
 // different question and a worse one to answer with somebody else's number.
 function statsView() {
-  const m = me(), gs = myGroups();
-  const cur = Math.max(0, ...gs.map(g => streak(g, m.id))), bst = Math.max(0, ...gs.map(g => best(g, m.id)));
+  const m = me(), gs = myGroups(), head = headStreak(m.id);
+  const cur = head.n, bst = head.best;
   const mon = today().slice(0, 7);
   // From the whole history rather than the feed's pages, which stop well short of a month.
   const mine = new Set(S.hist.filter(p => p.userId === m.id && p.day.startsWith(mon)).map(p => p.day));
@@ -4979,7 +5262,7 @@ function statsView() {
   const on = dots.filter(x => x.includes('on')).length;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ Profile</button>
       <span class="end"><span class="date">Your numbers</span>${helpBtn()}</span></div>
-    <div class="big"><b class="num">${cur}</b><div>day streak<small>${cur ? 'keep it going' : 'nothing going right now'}</small></div></div></div>
+    <div class="big"><b class="num">${cur}</b><div>${head.unit} streak<small>${cur ? 'keep it going' : 'nothing going right now'}</small></div></div></div>
   <div class="twoup">
     <div class="card"><b class="num big2">${bst}</b><span>longest ever</span></div>
     <div class="card"><b class="num big2">${mine.size}</b><span>days this month</span></div>
@@ -5057,6 +5340,7 @@ function recapsView(g) {
     <button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share</button></div>`;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
       <span class="end"><span class="date">Recaps</span>${helpBtn()}</span></div></div>
+  ${histTabs(g, 'recaps')}
   ${rs.length ? `<h3>Ready to watch</h3><div class="rlist">${rs.map(card).join('')}</div>`
     : `<div class="card empty"><b>Nothing to look back on yet</b><p class="muted">A recap appears on its own the moment a week closes.</p></div>`}
   <h3>Still filling up</h3>
@@ -5172,7 +5456,7 @@ function streakCard(g0, n) {
   g.fillText(String(n), c.width / 2, c.height * 0.52);
   g.fillStyle = ring;
   g.font = `600 ${Math.round(c.width * 0.075)}px Oswald, system-ui, sans-serif`;
-  g.fillText(n === 1 ? 'DAY STREAK' : 'DAY STREAK', c.width / 2, c.height * 0.60);
+  g.fillText(`${unitOf(g0)} streak`.toUpperCase(), c.width / 2, c.height * 0.60);
   g.fillStyle = 'rgba(255,255,255,.82)';
   g.font = `700 ${Math.round(c.width * 0.052)}px "Plus Jakarta Sans", system-ui, sans-serif`;
   g.fillText(g0.name, c.width / 2, c.height * 0.66);
@@ -5314,16 +5598,34 @@ function stepRecap(d) {
 // The group screen leads with your own streak in this crew, at the size the feed gives it.
 // The crew's run sits under it as a bonus: every day everyone showed up. One person missing
 // a day ends the bonus and nothing else — it is never said to be anybody's failure.
+// What this stretch looks like so far, under the number: a week's seven days, or how far
+// the month's or the year's total has got. A day has nothing to add here.
+function periodStrip(g, uid) {
+  if (schedOf(g) === 'weekly') {
+    const t = today(), from = dayNo(weekStart(t)), on = new Set(weekHits(g, uid));
+    return `<div class="wdots" aria-label="This week">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x, i) => { const d = fromDayNo(from + i);
+      return `<span class="${d === t ? 'now' : ''}"><i class="${on.has(d) ? 'on' : ''}"></i>${x}</span>`; }).join('')}</div>`;
+  }
+  if (!isTotal(g)) return '';
+  const qs = g.quotas.map(qq => ({qq, d: doneIn(g, uid, qq.metric)}));
+  const pct = qs.length ? Math.min(100, ...qs.map(x => x.d / x.qq.target * 100)) : 0;
+  return `<div class="pbar"><i style="--w:${pct.toFixed(1)}%"></i><p>${qs.map(x => `${x.d} of ${x.qq.target} ${esc(x.qq.metric)}`).join(' \u00b7 ')} ${esc(thisUnit(g))}</p></div>`;
+}
 function groupHdr(g) {
   const r = personalRun(g, me().id), crew = groupRun(g), mo = new Date().toLocaleDateString(undefined, {month: 'long'});
-  const last = r.carried.at(-1);
+  const last = r.carried.at(-1), unit = unitOf(g);
+  // A week says how this one is going; a month or a year has its bar for that, and the pass
+  // is only ever a day's.
+  const sub = schedOf(g) === 'weekly' ? `This week \u00b7 ${Math.min(weekHits(g, me().id).length, perWeek(g))} of ${perWeek(g)}`
+    : !byDay(g) ? (r.n ? 'yours, in this crew' : `make it ${thisUnit(g)} to start yours`)
+    : `${r.n ? 'yours, in this crew' : 'post today to start yours'} \u00b7 ${r.passLeft ? '1 pass left this ' + esc(mo) : 'pass used this ' + esc(mo)}`;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeGroup()">‹ Groups</button>
       <span class="end"><span class="date">${esc(g.name)}</span>${helpBtn()}</span></div>
-    <div class="big"><b class="num">${r.n}</b><div>day streak<small>${r.n ? 'yours, in this crew' : 'post today to start yours'} · ${
-      r.passLeft ? '1 pass left this ' + esc(mo) : 'pass used this ' + esc(mo)}</small></div></div>
+    <div class="big"><b class="num">${r.n}</b><div>${unit} streak<small>${sub}</small></div></div>
+    ${periodStrip(g, me().id)}
     ${last ? `<p class="passline">Your pass covered ${esc(dayLabel(last))}, so your streak carried on.</p>` : ''}
     <p class="crewline">${g.mark ? `<svg class="gmark" viewBox="0 0 24 24" aria-hidden="true"><path d="${markPath(g.mark)}"/></svg>` : ''}Crew bonus: ${
-      crew.n ? `${plural(crew.n, 'day')} everyone showed up` : 'starts the next day everyone shows up'}</p></div>`;
+      crew.n ? `${plural(crew.n, unit)} everyone ${byDay(g) ? 'showed up' : 'made it'}` : `starts the next ${unit} everyone ${byDay(g) ? 'shows up' : 'makes it'}`}</p></div>`;
 }
 function groupView(g) {
   const m = me(), pending = S.invites.filter(i => i.type === 'group' && i.groupId === g.id), demo = !!S.demo;
@@ -5331,22 +5633,20 @@ function groupView(g) {
       <span class="muted">${g.members.length} ${g.members.length === 1 ? 'person' : 'people'}</span></div></div>
     ${g.goal ? `<p style="font-weight:700;margin-bottom:10px">${esc(g.goal)}</p>` : ''}
     ${g.forfeit && !S.noForfeits ? `<p class="forfeitline">Forfeit: <b>${esc(g.forfeit)}</b></p>` : ''}
-    <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / day</span>`).join('')}${
-      everyDay(g) ? '' : `<span class="chip">${esc(restText(g))} only</span>`}</div>
+    <div class="row wrap">${g.quotas.map(qq => `<span class="chip">${qq.target} ${esc(qq.metric)} / ${isTotal(g) ? unitOf(g) : 'day'}</span>`).join('')}${
+      schedOf(g) === 'weekly' ? `<span class="chip">${perWeek(g)} days a week</span>` : restText(g) ? `<span class="chip">${esc(restText(g))} only</span>` : ''}</div>
     ${S.noChat ? '' : `<div class="row" style="margin-top:14px"><button class="grow chatrow" onclick="openChat('${gKey(g.id)}')">
       <svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>
       Chat${unreadIn(gKey(g.id)) ? `<i class="num">${num(unreadIn(gKey(g.id)))}</i>` : ''}</button></div>`}
     ${demo ? '' : `<div class="row" style="margin-top:8px"><button class="teal grow" onclick="inviteDlg(${g.id})">Invite a friend</button></div>`}
-    <div class="row" style="margin-top:8px"><button class="small grow" onclick="openSub('month',${g.id})">This month</button>
-      ${demo ? '' : `<button class="small grow" onclick="openSub('recaps',${g.id})">Recaps${freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button>`}</div>
+    <div class="row" style="margin-top:8px"><button class="small grow" id="histbtn" onclick="openSub('month',${g.id})">History${!demo && freshRecaps(g) ? `<i class="num dot">${freshRecaps(g)}</i>` : ''}</button></div>
     ${demo ? '' : `<div class="row" style="margin-top:8px"><button class="ghost grow" onclick="manageDlg(${g.id})">Manage${g.muted ? ' \u00b7 muted' : ''}</button></div>`}</div>
-  <h3>Today</h3>
+  <h3>Crew</h3>
   ${missLine(g)}
-  <div class="card list">${g.members.map(id => { const ok = hit(g, id), st = streak(g, id), u = user(id); return `<div class="row mrow"><div class="pst"><b class="num">${st}</b><small>${st === 1 ? 'day' : 'days'}</small></div>${av(u, ok ? 'lg' : 'lg todo')}<div class="grow"><b>${esc(name(u))}${id === m.id ? ' <span class="muted">(you)</span>' : ''}</b><div class="qchips">${g.quotas.map(qq => { const d = done(g, id, qq.metric); return `<span class="chip ${d >= qq.target ? 'ok' : ''}">${d}/${qq.target}</span>`; }).join('')}</div></div></div>`; }).join('')}</div>
+  ${crewList(g)}
   ${owedCard(g)}
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
   ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
-  ${g.members.length > 1 ? `<h3>Leaderboard</h3>${boardView(g)}` : ''}
   <h3>Proof</h3>${flagTip(g)}${feed(S.posts.filter(p => p.groupId === g.id), false, false, g.id)}`;
 }
 // Who owes the crew, kindly: a name, the forfeit in the crew's own words, and which day.
@@ -5357,13 +5657,14 @@ function owedCard(g) {
   const who = [...new Set(list.map(o => o.u))].map(u => ({u, days: list.filter(o => o.u === u).map(o => o.d)}));
   const paid = S.settle.filter(r => r.g === g.id && r.at && r.d >= daysAgo(FORFEIT_DAYS)).sort((a, b) => b.at - a.at).slice(0, 3);
   if (!who.length && !paid.length) return '';
-  const when = days => days.map(d => dayLabel(d).replace(/,.*$/, '')).join(', ').replace(/, ([^,]*)$/, ' and $1');
+  // A day by its date; a week, a month or a year by its own name, since that is what was missed.
+  const when = days => days.map(d => byDay(g) ? dayLabel(d).replace(/,.*$/, '') : periodLabel(g, d)).join(', ').replace(/, ([^,]*)$/, ' and $1');
   return `<h3>Owed</h3><div class="card list owed">${who.length ? who.map(({u: uid, days}) => { const u = user(uid), mine = uid === m.id;
       return `<div class="row">${av(u, 'sm')}<div class="grow"><b>${mine ? 'You owe' : `${esc(name(u))} owes`}: ${esc(g.forfeit)}${days.length > 1 ? ` ×${days.length}` : ''}</b>
         <div class="muted">for ${esc(when(days))}${mine ? ' · a crewmate marks it paid' : ''}</div></div>${
         mine ? '' : `<button type="button" class="small" onclick="markPaid(${g.id},'${esc(uid)}')">Paid</button>`}</div>`; }).join('')
     : `<p class="muted">Nobody owes anything right now.</p>`}
-    ${paid.length ? `<p class="muted small paidline">Paid: ${paid.map(r => `${esc(r.u === m.id ? 'you' : name(user(r.u)))} for ${esc(dayLabel(r.d))}${r.by ? `, marked by ${esc(r.by === m.id ? 'you' : name(user(r.by)))}` : ''}`).join(' · ')}</p>` : ''}</div>`;
+    ${paid.length ? `<p class="muted small paidline">Paid: ${paid.map(r => `${esc(r.u === m.id ? 'you' : name(user(r.u)))} for ${esc(byDay(g) ? dayLabel(r.d) : periodLabel(g, r.d))}${r.by ? `, marked by ${esc(r.by === m.id ? 'you' : name(user(r.by)))}` : ''}`).join(' · ')}</p>` : ''}</div>`;
 }
 // On your own home screen, one line per crew you owe. Not a scolding: a reminder of the
 // deal, and it goes as soon as somebody marks it paid.
@@ -5394,7 +5695,8 @@ const lockedReel = p => `<div class="reel lockedreel">
 const PAGE = 24;
 const GROUP_ICON = '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 13.8c1.9.7 3 2.6 3 5.2"/></svg>';
 function feed(ps, showGroup, bare, scope) {
-  if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p></div>`;
+  if (!ps.length) return `<div class="card empty"><b>No proof yet</b><p class="muted">Tap + to post the first one.</p>${
+    me() && myGroups().length ? `<button type="button" class="small teal" style="margin-top:10px" onclick="startPost(${typeof scope === 'number' ? scope : 0})">Post proof</button>` : ''}</div>`;
   // A single post opened on its own is already one post; there is nothing to page.
   const shown = bare ? ps : ps.slice(0, PAGE * (1 + (S.more || 0)));
   const older = ps.length - shown.length;
@@ -6431,7 +6733,8 @@ const two = n => String(n).padStart(2, '0');
 function leftLong(at) {
   const s = Math.max(0, Math.round((at - Date.now()) / 1000));
   const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
-  return !s ? "today's over" : h ? `${h}h left` : m ? `${m}m left` : 'minutes left';
+  // A week or a month closes days away, and "130h" is a sum nobody should have to do.
+  return !s ? "today's over" : h >= 48 ? `${Math.floor(h / 24)}d left` : h ? `${h}h left` : m ? `${m}m left` : 'minutes left';
 }
 function leftOf(at) {
   const s = Math.max(0, Math.round((at - Date.now()) / 1000));
@@ -6989,7 +7292,7 @@ function supportDlg() {
 // there is one, is the same thing said without anything to point at.
 const BASICS = [
   {icon: 'flame', title: 'Your streak', tour: "Days in a row you hit your goal. Today's goal fills up right here.",
-    line: 'Days in a row you hit your goal. One pass a month covers a miss.'},
+    line: 'Days, weeks or months in a row you hit your goal, depending on your group.'},
   {icon: 'camera', title: 'Post proof', tour: 'Tap + to snap or film it in Quota, before midnight.'},
   {icon: 'eye', title: "Your crew's proof", tour: "Shows up here. Today's posts unlock once you post yours."},
   {icon: 'addfriend', title: 'Add friends', tour: 'Search a name or @username.', line: 'Search a name or @username on the Friends tab.'},
@@ -6998,6 +7301,7 @@ const BASICS = [
 ];
 const MORE_BASICS = [
   {icon: 'star', title: 'Crew bonus', line: 'Days everyone in the crew showed up.'},
+  {icon: 'shield', title: 'Your pass', line: 'One pass a month covers a missed day in an every-day or set-days group.'},
   {icon: 'flag', title: 'Flags', line: 'Flag proof that looks off. The crew votes.'},
   {icon: 'owe', title: 'Forfeits', line: 'What you owe your crew for a missed day.'},
   {icon: 'wheel', title: 'Wheels', line: 'Spin for a bonus challenge on spin day.'},
@@ -7053,7 +7357,7 @@ const tourKey = () => `tour:${me().id}`;
 // is written the moment the walkthrough starts, before the save can have landed.
 function maybeTour() {
   const m = me();
-  if (!m || S.tour || S.tourHold || practiceWaits() || !myGroups().length || $('#dlg').open || $('#app').classList.contains('out')) return;
+  if (!m || S.tour || S.tourHold || practiceWaits() || !myGroups().length || $('#dlg').open || $('#cam').open || $('#app').classList.contains('out')) return;
   const due = 'tour_seen_at' in m ? !m.tour_seen_at : !!S.tourDue, gid = S.tourDue;
   S.tourDue = 0;
   if (!due) return;
@@ -7288,8 +7592,9 @@ function friendButton(uid) {
 function personView(uid) {
   const u = user(uid), own = uid === me().id;
   const mine = seenTogether(uid);
-  const cur = mine.length ? Math.max(0, ...mine.map(g => streak(g, uid))) : null;
-  const bst = mine.length ? Math.max(0, ...mine.map(g => best(g, uid))) : null;
+  // The same number the top of their home screen shows: days, unless nothing is judged by the day.
+  const head = mine.length ? headStreak(uid, mine) : null;
+  const cur = head ? head.n : null, bst = head ? head.best : null;
   const pro = S.pro[uid] || {loading: true, posts: []};
   const grid = pro.posts;
   const shown = grid.filter(p => p.onProfile).length;
@@ -7309,14 +7614,14 @@ function personView(uid) {
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : own ? `<p class="bio muted">No bio yet. Settings puts one here.</p>` : ''}
     ${own ? '' : profileMutuals(uid)}
     ${own || S.blocked.has(uid) ? '' : friendButton(uid)}
-    <div class="stats">${stat(cur, 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
+    <div class="stats">${stat(cur, head && head.unit !== 'day' ? `${head.unit} streak` : 'streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
     ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Stats</button></div>`
       : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,'${esc(uid)}')">Report</button>${S.blocked.has(uid)
         ? `<button class="small grow" onclick="unblockUser('${esc(uid)}')">Unblock</button>` : `<button class="small grow" onclick="blockAsk('${esc(uid)}')">Block</button>`}</div>`}
     ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
       : own ? `<p class="muted pad">Badges start at a 25 day streak.</p>` : ''}
     ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
-      mine.includes(g) && streak(g, uid) ? `<em>${streak(g, uid)} day streak</em>` : ''}</button>`).join('')}</div>` : ''}
+      mine.includes(g) && streak(g, uid) ? `<em>${esc(streakText(g, streak(g, uid)))}</em>` : ''}</button>`).join('')}</div>` : ''}
     <div class="ptabs"><span class="on">Proof${grid.length ? ` · ${grid.length}` : ''}</span></div>
     ${own && grid.length ? `<p class="muted pad small">Everything you have posted is here. The ${shown === 1 ? 'one marked' : `${shown} marked`} ${MARKED} ${shown === 1 ? 'is' : 'are'} on show to anyone who can see you; the rest only you can see. The ⋯ on a post changes that.</p>` : ''}
     ${S.blocked.has(uid) ? `<p class="muted pad">You blocked @${esc(u.username || '')}, so nothing they post shows up for you.</p>`
@@ -7370,7 +7675,7 @@ function welcomeView() {
   // Arriving on somebody's link is a different arrival: the screen says which group, so
   // signing up is joining that rather than signing up for nothing in particular.
   const inv = pendingJoin() ? S.invited : null;
-  const does = inv ? doesLine(inv.quotas) : '';
+  const does = inv ? doesLine(inv.quotas, inv) : '';
   return `<div class="welcome">${!inv && DEMO && S.demoLeft ? authTop('S.demoLeft=false;render();scrollTo(0,0)') : ''}<div class="brand">${LOGO(true)}<span>Quota</span></div>
     <div class="hero">${inv ? `<h1>${inv.inviter ? `${esc(inv.inviter)} invited you to ${esc(inv.name)}` : `You're invited to ${esc(inv.name)}`}</h1>
       <div class="invchips">${does ? `<span>${esc(does)}</span>` : ''}${inv.members ? `<span>${plural(inv.members, 'person').replace('persons', 'people')}</span>` : ''}${inv.forfeit ? `<span>Forfeit: ${esc(inv.forfeit)}</span>` : ''}</div>
@@ -7806,7 +8111,7 @@ async function maybePractice() {
   const g = myGroups().find(y => y.quotas.some(q => q.metric === x.metric));
   if (!g) {
     // Not proof of anything this crew does, so it does not go up as if it were.
-    const goal = doesLine(myGroups()[0].quotas) || 'something else';
+    const goal = doesLine(myGroups()[0].quotas, myGroups()[0]) || 'something else';
     try { localStorage[`practiceNote:${m.id}`] = `Your practice was ${amountText(x)}, and your crew's goal is ${goal}, so it wasn't posted.`; } catch (e) {}
     dropPractice();
     render();
@@ -8225,7 +8530,9 @@ function badgeDlg(uid, n) {
 // before badges existed still counts. The primary key is what stops a second one.
 async function claimBadges() {
   const m = me(); if (!m) return;
-  const bst = Math.max(0, ...myGroups().map(g => best(g, m.id)));
+  // Badges are for days in a row. A week or a month streak of 25 is a different thing, and
+  // a badge that said "25 day streak" for it would be wrong about it.
+  const bst = Math.max(0, ...myGroups().filter(byDay).map(g => best(g, m.id)));
   const have = new Set(badgesOf(m.id).map(b => b.n));
   const due = MILESTONES.filter(d => d <= bst && !have.has(d));
   if (!due.length) return;
@@ -8238,7 +8545,7 @@ async function claimBadges() {
 // counted only in groups where the quota is already done.
 function milestoneDue() {
   const m = me(); if (!m) return 0;
-  const done = myGroups().filter(g => hit(g, m.id));
+  const done = myGroups().filter(g => byDay(g) && hit(g, m.id));
   if (!done.length) return 0;
   const best = Math.max(0, ...done.map(g => streak(g, m.id)));
   let seen = 0; try { seen = +(localStorage.milestone || 0); } catch (e) {}
@@ -8250,7 +8557,7 @@ function milestoneDue() {
 // today — so sharing one is sharing that day: the same card, which already carries the
 // streak. The group is the one whose streak it is.
 function shareMilestone() {
-  const m = me(), g = myGroups().filter(x => hit(x, m.id)).sort((a, b) => streak(b, m.id) - streak(a, m.id))[0];
+  const m = me(), g = myGroups().filter(x => byDay(x) && hit(x, m.id)).sort((a, b) => streak(b, m.id) - streak(a, m.id))[0];
   if (g) suggestAfterPost(g);
 }
 function party(d) {
@@ -8601,14 +8908,23 @@ const alsoFor = (g, metric) => myGroups().filter(x => x.id !== g.id)
   .filter(x => x.qq);
 // A group with its wheel still to spin can't take a post yet (the database says no too).
 const alsoOk = x => !dueIn(x).length;
+// What a group asks for, said short, the way the camera's pill and the chips say it:
+// "50 pushups", "10 lb a month".
+const goalText = g => g.quotas.map(qq => `${qq.target} ${qq.metric}${isTotal(g) ? ` a ${unitOf(g)}` : ''}`).join(' · ');
+// "Counts for": the group the camera was opened for, always, and a chip for each of your other
+// groups with the same thing in their quota, which a tap adds. This is the group dropdown and
+// the "Also post to" list in one row, and the row is not there at all when there is nothing
+// to add. Different groups call the same thing different names, and each gets it under its own.
 function alsoBlock(g, metric, ticked = new Set()) {
   const xs = alsoFor(g, metric);
   if (!xs.length) return '';
-  return `<label>Also post to</label>${xs.map(({g: x, qq}) => {
+  return `<label>Counts for</label><div class="cfor">
+    <span class="cchip main"><input type="checkbox" checked disabled aria-label="${esc(g.name)}"><b>${esc(g.name)}</b></span>
+    ${xs.map(({g: x, qq}) => {
     const ok = alsoOk(x);
-    return `<label class="check chk"><input type="checkbox" name="also" value="${x.id}"${ok ? '' : ' disabled'}${ok && ticked.has(x.id) ? ' checked' : ''}>
-      <span class="t"><b>${esc(x.name)}</b><em>${ok ? `${qq.target} ${esc(qq.metric)} a day · same video and caption` : 'Spin its wheel first'}</em></span></label>`;
-  }).join('')}`;
+    return `<label class="cchip"><input type="checkbox" name="also" value="${x.id}"${ok ? '' : ' disabled'}${ok && ticked.has(x.id) ? ' checked' : ''}>
+      <b>${esc(x.name)}</b><em>${ok ? `${qq.target} ${esc(qq.metric)} ${isTotal(x) ? `a ${unitOf(x)}` : 'a day'}` : 'Spin its wheel first'}</em></label>`;
+  }).join('')}</div>`;
 }
 // Redrawn whenever the thing being posted changes, keeping what was already ticked.
 function paintAlso() {
@@ -8618,7 +8934,73 @@ function paintAlso() {
   const was = new Set([...f.querySelectorAll('[name=also]:checked')].map(i => +i.value));
   box.innerHTML = g ? alsoBlock(g, f.metric.value, was) : '';
 }
-
+// How many, filled in with what is left today so most posts are one tap: the rest of the
+// day's quota, or all of it again once it is in. A month's or a year's total is not a day's
+// work, so that is left for you to say, with what is still to go under it.
+function amountFor(g, metric) {
+  const qq = g.quotas.find(x => x.metric === metric);
+  if (!qq || isTotal(g)) return '';
+  const left = qq.target - done(g, me().id, metric);
+  return left > 0 ? left : qq.target;
+}
+function amountHint(g, metric) {
+  if (!isTotal(g)) return `${metric} · what's left today`;
+  const qq = g.quotas.find(x => x.metric === metric);
+  return qq ? `${Math.max(0, qq.target - doneIn(g, me().id, metric))} ${metric} left ${thisUnit(g)}` : metric;
+}
+// The metric changed: what is left changes with it, unless a number has been typed already.
+function metricTo(sel) {
+  const f = sel.form, g = S.groups.find(x => x.id === postFor);
+  paintAlso();
+  if (!g) return;
+  if (!f.amount.dataset.typed) f.amount.value = amountFor(g, sel.value);
+  const h = $('#amthint'); if (h) h.textContent = amountHint(g, sel.value);
+}
+function bump(btn, d) {
+  const i = btn.closest('.howmany').querySelector('input');
+  i.value = Math.max(1, (Math.round(+i.value) || 0) + d);
+  i.dataset.typed = '1';
+  keepForm(i.form);
+}
+// ---- posting, camera first
+// + is a camera: filming it is what people came to do, so that is what opens. Which group it
+// is for is chosen for them and shown as a pill at the top of the camera; how many, and where
+// else it counts, come after the shot, on one screen.
+//
+// The first group that still needs something today or this stretch; otherwise the one they
+// last posted to.
+function postTarget() {
+  const m = me(), gs = myGroups();
+  if (!m || !gs.length) return null;
+  const open = gs.find(g => onDay(g) && !hit(g, m.id) && !(schedOf(g) === 'weekly' && periodHit(g, m.id, periodStart(g, today()))));
+  if (open) return open;
+  const last = S.posts.filter(p => p.userId === m.id && gs.some(g => g.id === p.groupId)).sort((a, b) => b.ts - a.ts)[0];
+  return (last && gs.find(g => g.id === last.groupId)) || gs[0];
+}
+function startPost(gid) {
+  const gs = myGroups(), g = gs.find(x => x.id === gid) || postTarget();
+  if (!g) return;
+  // The wheel comes first. The database enforces this too, so going around the page only
+  // gets you a rejected insert; this is so you meet the wheel rather than an error.
+  if (dueIn(g).length) return spinDlg(g.id);
+  postFor = g.id;
+  // A take kept from before (the app was reloaded, the sheet put away) goes straight back on
+  // the Post screen rather than being filmed again. So does a phone that cannot run Quota's
+  // own camera: the Post screen has the buttons that hand over to the phone's.
+  if (recorded || !camSupported() || !canRecord()) return submitDlg(g.id, !!recorded);
+  openCam('post');
+}
+// The pill: the next of your groups, round and round, keeping whatever has been shot.
+function camNextGroup() {
+  const gs = myGroups();
+  if (gs.length < 2) return;
+  const i = gs.findIndex(x => x.id === postFor);
+  postFor = gs[(i + 1) % gs.length].id;
+  paintCam();
+}
+function retake() { openCam('post', !!(recorded && isPic(recorded))); }
+// The Post screen. Opened after the camera hands a take back, or on its own (the walkthrough,
+// a kept take, a phone without Quota's camera), when it has the buttons to go and get one.
 function submitDlg(gid, keep) {
   const gs = myGroups(), g = gs.find(x => x.id === gid) || gs[0];
   if (!g) return;
@@ -8626,27 +9008,44 @@ function submitDlg(gid, keep) {
   // group it is for: picking another group used to throw away a clip already recorded.
   if (!keep) { recorded = null; camAt = 0; }
   dropTake();
-  // The wheel comes first. The database enforces this too, so going around the page only
-  // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
-  const pick = gs.length > 1 ? `<label>Group</label><select name="group" onchange="submitDlg(+this.value,1)">${gs.map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '';
   postFor = g.id;
-  dlg(`<h2>Post proof</h2><p class="muted">${esc(g.name)}</p><form onsubmit="event.preventDefault();addPost(this,${g.id})" oninput="keepForm(this)" onchange="keepForm(this)">${pick}
-    <label>How many</label><div class="row"><input name="amount" type="number" min="1" inputmode="numeric" placeholder="20" required><select name="metric" style="width:45%;flex:none" onchange="paintAlso()">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select></div>
-    <div id="alsobox">${alsoBlock(g, g.quotas[0] ? g.quotas[0].metric : '')}</div>
-    <label>Proof <span style="font-weight:500">(recorded now, up to ${MAX_MB} MB)</span></label>
-    <div class="row"><button type="button" class="teal grow" id="recbtn" onclick="openCam()">Record</button><button type="button" class="grow" onclick="openCam('post',true)">Photo</button></div>
-    <div id="takeprev" hidden></div>
-    <p class="muted small" id="kept" hidden style="margin-top:6px">Your clip from before was kept. Post it, or record again.</p>
-    <p class="muted" id="vsize" style="margin-top:6px"></p>
+  const m0 = g.quotas[0] ? g.quotas[0].metric : '', amt = amountFor(g, m0);
+  const metric = g.quotas.length > 1
+    ? `<label>Counting</label><select name="metric" onchange="metricTo(this)">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select>`
+    : `<input type="hidden" name="metric" value="${esc(m0)}">`;
+  const next = gs.length > 1 ? gs[(gs.indexOf(g) + 1) % gs.length] : null;
+  dlg(`<button type="button" class="dlgx" onclick="letGo()&&dlg()" aria-label="Close">✕</button>
+    <h2>Post proof</h2>
+    <p class="postfor">${next ? `<button type="button" class="gpill" onclick="submitDlg(${next.id},1)" title="Switch to ${esc(next.name)}">${esc(g.name)} · ${esc(goalText(g))}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4 4 4-4"/></svg></button>`
+      : `<span class="muted">${esc(g.name)} · ${esc(goalText(g))}</span>`}</p>
+    <form onsubmit="event.preventDefault();addPost(this,${g.id})" oninput="keepForm(this)" onchange="keepForm(this)">
+    <div class="take"><div id="takeprev" hidden></div>
+      <div class="row" id="takebtns"><button type="button" class="teal grow" id="recbtn" onclick="retake()">Record</button><button type="button" class="grow" id="photobtn" onclick="openCam('post',true)">Photo</button></div></div>
+    <p class="muted small" id="kept" hidden style="margin-top:6px">Your clip from before was kept. Post it, or retake it.</p>
+    <p class="warn" id="vsize" hidden style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     <p class="muted small" id="keepopen" hidden style="margin-top:6px">Keep Quota open until this is done. Leaving the app stops the upload.</p>
+    <label>How many</label><div class="howmany"><button type="button" onclick="bump(this,-1)" aria-label="One fewer">−</button><input name="amount" type="number" min="1" inputmode="numeric" placeholder="0" value="${amt}" required oninput="this.dataset.typed='1'"><button type="button" onclick="bump(this,1)" aria-label="One more">+</button></div>
+    <p class="amthint" id="amthint">${esc(amountHint(g, m0))}</p>
+    ${metric}
+    <div id="alsobox">${alsoBlock(g, m0)}</div>
     ${challengeBlock(g)}
-    <label class="check chk" style="margin-top:16px"><input type="checkbox" name="onprofile">
-      <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label>
-    <label>Caption (optional)</label><textarea class="autogrow" rows="1" name="caption" placeholder="20 more in the bag" maxlength="200"></textarea>
-    <div class="row" style="margin-top:18px"><button type="button" onclick="letGo()&&dlg()">Cancel</button><button class="primary grow">Post</button></div></form>`);
+    <label>Caption (optional)</label><textarea class="autogrow" rows="1" name="caption" placeholder="Add a caption" maxlength="200"></textarea>
+    <details class="pmore"><summary>More</summary>
+      <label class="check chk" style="margin-top:10px"><input type="checkbox" name="onprofile">
+        <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label></details>
+    <button class="primary postbtn">Post</button></form>`);
   if (keep && recorded) takeBack(recorded); else if (!keep) restoreTake();
+}
+// With a take on the screen, the buttons that went to get one become one link to do it again.
+function paintTakeBtns() {
+  const r = $('#recbtn'), ph = $('#photobtn');
+  if (!r) return;
+  const have = !!recorded;
+  r.textContent = have ? 'Retake' : 'Record';
+  r.className = have ? 'retake' : 'teal grow';
+  if (ph) ph.hidden = have;
 }
 const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
 // Everything you do to a group rather than in it. These were all on the group screen at
@@ -8675,7 +9074,7 @@ const FORFEITS = ['buys coffee', 'does 20 pushups on camera', 'plans the next ha
 const forfeitField = v => `<label>Forfeit <span class="muted">(optional)</span></label>
   <input name="forfeit" maxlength="60" autocomplete="off" value="${esc(v || '')}" placeholder="e.g. Buys the coffee">
   <div class="row wrap sugg">${FORFEITS.map(x => `<button type="button" class="chip" onclick="this.closest('form').forfeit.value=this.textContent">${esc(x)}</button>`).join('')}</div>
-  <p class="muted small" style="margin-top:6px">Keep it fun: nothing dangerous, humiliating or costly, and never money. Owed for a day someone misses that their monthly pass doesn't cover.</p>`;
+  <p class="muted small" style="margin-top:6px">Keep it fun: nothing dangerous, humiliating or costly, and never money. Owed for a day someone misses that their monthly pass doesn't cover, or for a whole week, month or year missed in a group that counts those.</p>`;
 function forfeitDlg(gid) {
   const g = S.groups.find(x => x.id === gid);
   if (!g) return;
@@ -8693,26 +9092,70 @@ async function saveForfeit(f, gid) {
   if (error) { if (f) working(f, 'Save'); f && f.querySelectorAll('button').forEach(b => b.disabled = false); return alert(friendlyError(error, "Couldn't save the forfeit. Try again in a moment.")); }
   dlg(); await load();
 }
+// ---- how often, on the form
+// Five tiles rather than a quota box and a checkbox: how often is the first decision about a
+// goal, and the quota means something different under each one, so its label and its one
+// line of help follow whichever is picked.
+const SCHED_TILES = [
+  ['daily', 'Every day', 'The quota, every day'],
+  ['days', 'Set days', 'Only on the days you pick'],
+  ['weekly', 'Days a week', 'Any few days of each week'],
+  ['monthly', 'Per month', 'A total by the month’s end'],
+  ['yearly', 'Per year', 'A total by the year’s end'],
+];
+const quotaLabel = s => ({daily: 'Daily quota', days: 'Quota on those days', weekly: 'Daily quota', monthly: 'Monthly total', yearly: 'Yearly total'})[s];
+const quotaHelp = (s, n) => ({
+  daily: 'Your streak counts days: hit it every day and the day counts.',
+  days: 'Your streak counts the days you pick. Any other day leaves it alone.',
+  weekly: `Your streak counts weeks: hit ${n} ${n === 1 ? 'day' : 'days'} and the week counts.`,
+  monthly: 'Your streak counts months: every post adds up, and the month counts once the total is in.',
+  yearly: 'Your streak counts years: every post adds up, and the year counts once the total is in.',
+})[s];
+// Everything that follows the tile picked: which extra control shows, and what the quota is called.
+function paintSched(f) {
+  const s = (f.querySelector('[name=sched]:checked') || {}).value || 'daily', n = +f.per_week.value || 3;
+  f.querySelector('#gdays').hidden = s !== 'days';
+  f.querySelector('#gweek').hidden = s !== 'weekly';
+  f.querySelector('#qlabel').textContent = quotaLabel(s);
+  f.querySelector('#qhelp').textContent = quotaHelp(s, n);
+}
+function perWeekBy(btn, d) {
+  const f = btn.closest('form'), n = Math.min(6, Math.max(1, (+f.per_week.value || 3) + d));
+  f.per_week.value = n;
+  f.querySelector('#gweekn').textContent = n;
+  paintSched(f);
+}
 function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 100}]}) {
   clearAvatar();                           // nothing carried over from the last thing that was cropped
-  dlg(`<h2>${g.id ? 'Edit' : 'New'} group</h2><form onsubmit="event.preventDefault();saveGroup(this,${g.id || 0})">
-    <div class="row" style="margin-bottom:14px"><span id="avprev">${gav(g, 'xl')}</span>
-      <div class="grow">
-        <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
-          <button type="button" class="grow" onclick="pickPhoto(this)">Library</button></div>
-        <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
-    <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
+  const sc = schedOf(g), n = perWeek(g);
+  // The picture and the description are the things a group can do without, so they wait
+  // behind More — open already when the group being edited has either.
+  const more = !!(g.id && (g.avatar_path || g.goal));
+  dlg(`<h2>${g.id ? 'Edit' : 'New'} group</h2><form onsubmit="event.preventDefault();saveGroup(this,${g.id || 0})" onchange="if(event.target.name==='sched')paintSched(this)">
     ${g.id ? '' : `<label>Start from</label><div class="presets mini">${PRESETS.map((x, i) => `<button type="button" onclick="fillPreset(this,${i})">${esc(x.label)}</button>`).join('')}</div>`}
     <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
-    <label>Group goal</label><textarea class="autogrow" rows="1" name="goal" placeholder="e.g. 100 pushups a day for 30 days">${esc(g.goal || '')}</textarea>
-    <label>Daily quota (per person)</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
-    <label class="check" style="margin-top:16px"><input type="checkbox" name="somedays" ${everyDay(g) ? '' : 'checked'}
-      onchange="$('#gdays').hidden=!this.checked"><span>Only on certain days</span></label>
-    <div id="gdays" ${everyDay(g) ? 'hidden' : ''}>
-      <p class="muted" style="margin-bottom:8px">The quota is only expected on these. Missing any other day leaves a streak alone.</p>
-      <div class="days">${DAYNAMES.map((d, n) => `<label><input type="checkbox" name="day" value="${n}" ${activeDays(g).includes(n) ? 'checked' : ''}><span>${d[0]}</span></label>`).join('')}</div>
+    <label>How often</label>
+    <div class="sched">${SCHED_TILES.map(([k, t, line]) => `<label class="stile"><input type="radio" name="sched" value="${k}"${k === sc ? ' checked' : ''}>
+      <b>${t}</b><em>${line}</em></label>`).join('')}</div>
+    <div id="gdays" ${sc === 'days' ? '' : 'hidden'}>
+      <p class="muted" style="margin:10px 0 8px">The quota is only expected on these. Missing any other day leaves a streak alone.</p>
+      <div class="days">${DAYNAMES.map((d, i) => `<label><input type="checkbox" name="day" value="${i}" ${sc !== 'days' || activeDays(g).includes(i) ? 'checked' : ''}><span>${d[0]}</span></label>`).join('')}</div>
     </div>
+    <div id="gweek" class="stepper" ${sc === 'weekly' ? '' : 'hidden'}>
+      <button type="button" onclick="perWeekBy(this,-1)" aria-label="One day fewer">−</button><b id="gweekn" class="num">${n}</b><button type="button" onclick="perWeekBy(this,1)" aria-label="One day more">+</button>
+      <span class="muted">days a week, any days</span><input type="hidden" name="per_week" value="${n}"></div>
+    <label id="qlabel">${quotaLabel(sc)}</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
+    <p class="muted small" id="qhelp" style="margin-top:8px">${esc(quotaHelp(sc, n))}</p>
     ${S.noForfeits || !canForfeit(g) ? '' : forfeitField(g.forfeit)}
+    <details class="pmore gmore"${more ? ' open' : ''}><summary>More</summary>
+      <div class="row" style="margin:12px 0 0"><span id="avprev">${gav(g, 'xl')}</span>
+        <div class="grow">
+          <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
+            <button type="button" class="grow" onclick="pickPhoto(this)">Library</button></div>
+          <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
+      <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
+      <label>Group goal</label><textarea class="autogrow" rows="1" name="goal" placeholder="e.g. 100 pushups a day for 30 days">${esc(g.goal || '')}</textarea>
+    </details>
     ${g.id ? '' : `<p class="muted" style="margin-top:12px">You can invite friends once the group is created.</p>`}
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
 }
@@ -8743,10 +9186,11 @@ function sizeLine(f) {
   const pic = isPic(f);
   const shrinks = pic ? f.size >= PHOTO_OVER : typeof VideoEncoder !== 'undefined';
   const over = f.size > MAX_MB * 1048576;
-  el.className = over && !shrinks ? 'warn' : 'muted';
-  el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).`
-    : pic ? `${mb(f.size)} MB${shrinks ? ' · scaled down before it uploads' : ''}`
-    : shrinks ? `${mb(f.size)} MB · shrunk to 720p before it uploads` : `${mb(f.size)} MB`;
+  // Said only when it will not go. A file that fits, or will once it is shrunk, needs no
+  // sentence about its size: that was a line on every post for nothing.
+  el.className = 'warn';
+  el.hidden = !(over && !shrinks);
+  el.textContent = over && !shrinks ? `${mb(f.size)} MB is too big. Trim the clip, or record at 720p (iPhone: Settings → Camera → Record Video).` : '';
 }
 const working = (f, label) => { f.querySelectorAll('button').forEach(b => b.disabled = true); const b = f.querySelector('button.primary'); if (b) b.textContent = label; };
 // Switching tabs is instant, the way it is in every app on the phone. Going into a group
@@ -9811,10 +10255,30 @@ async function saveGroup(f, id) {
   // A first group is the moment somebody is most likely to bring a person with them, so it
   // goes straight to asking. Decided before the save, while the count still says none.
   const first = !id && !myGroups().length;
-  const picked = fd.get('somedays') ? fd.getAll('day').map(Number).sort() : [];
-  const active_days = picked.length ? picked : [...ALLDAYS];
+  // How often. Set days with all seven picked is every day, and is saved as that; with none
+  // picked it is nothing at all, which is not a goal. Everything but set days expects all seven.
+  let schedule = fd.get('sched') || 'daily';
+  const picked = schedule === 'days' ? fd.getAll('day').map(Number).sort() : [];
+  if (schedule === 'days' && !picked.length) { working(f, 'Save'); f.querySelectorAll('button').forEach(b => b.disabled = false); return alert('Pick at least one day.'); }
+  if (schedule === 'days' && picked.length === 7) schedule = 'daily';
+  const active_days = schedule === 'days' ? picked : [...ALLDAYS];
+  const per_week = schedule === 'weekly' ? Math.min(6, Math.max(1, +fd.get('per_week') || 3)) : null;
+  // A streak is counted from the posts every time it is looked at, so a new schedule recounts
+  // all of it. That can take a long streak away, which is worth a moment's thought first.
+  const was = id && S.groups.find(x => x.id === id);
+  if (was && (schedOf(was) !== schedule || (schedule === 'weekly' && perWeek(was) !== per_week))
+      && !confirm('Streaks will be recounted under the new schedule.')) {
+    f.querySelectorAll('button').forEach(b => b.disabled = false); const b = f.querySelector('button.primary'); if (b) b.textContent = 'Save';
+    return;
+  }
   const gid = id ? (await q(sb.from('groups').update({name: gname, goal, quotas, active_days}).eq('id', id)), id)
                  : await q(sb.rpc('create_group', {p_name: gname, p_goal: goal, p_quotas: quotas}));
+  // Its own write, like the days and the forfeit: the columns are only there once v60 is.
+  // A project without them keeps every group as it was, every day or set days.
+  if (!was || schedOf(was) !== schedule || (was.per_week || null) !== per_week) {
+    const {error} = await sb.from('groups').update({schedule, per_week}).eq('id', gid);
+    if (error) console.error('Could not save how often', error);
+  }
   // Its own write, like the days: a forfeit is only there once v45 is, and only the person
   // who made the group gets the box at all.
   if (f.forfeit) {
@@ -9976,7 +10440,7 @@ function keepForm(f) {
 function takeBack(f) {
   recorded = f;
   showTake(f);
-  const btn = $('#recbtn'); if (btn) btn.textContent = 'Record again';
+  paintTakeBtns();
   sizeLine(f);
 }
 async function restoreTake() {
@@ -9990,8 +10454,9 @@ async function restoreTake() {
   const file = new File([bytes], t.file.name || (isPic(t.file) ? 'take.jpg' : 'take.mp4'), {type: t.file.type || 'video/mp4'});
   if (recorded || !$('#takeprev')) return;
   const v = t.form || {};
-  if (v.amount && f.amount && !f.amount.value) f.amount.value = v.amount;
-  if (v.metric && f.metric && [...f.metric.options].some(o => o.value === v.metric)) { f.metric.value = v.metric; paintAlso(); }
+  if (v.metric && f.metric && f.metric.options && [...f.metric.options].some(o => o.value === v.metric)) { f.metric.value = v.metric; paintAlso(); }
+  // What was typed wins over what was filled in for them.
+  if (v.amount && f.amount) { f.amount.value = v.amount; f.amount.dataset.typed = '1'; }
   if (v.caption && f.caption && !f.caption.value) f.caption.value = v.caption;
   if (v.onprofile && f.onprofile) f.onprofile.checked = true;
   takeBack(file);
@@ -10076,17 +10541,35 @@ if (NATIVE) { checkCam(); plug('App')?.addListener('resume', checkCam); }
 const LAST_CALL = 22 * 60 + 15;
 let phoneSaid = '', countdownSaid = '';
 const tonight = (now = new Date()) => { const d = new Date(now); d.setHours(24, 0, 0, 0); return d.getTime(); };
+// Whether today needs anything from somebody in a group: a day it expects, a day a week can
+// no longer do without (the days left are only just enough), or the last day of a month or
+// a year with the total still short. The countdown, the widget and the reminders on the
+// server all ask the same question, so a week is never nagged on a Monday.
+function dueToday(g, uid = me().id, d = today()) {
+  if (byDay(g)) return onDay(g, d);
+  const before = fromDayNo(dayNo(d) - 1);
+  if (schedOf(g) === 'weekly') {
+    const need = perWeek(g) - weekHits(g, uid, d).filter(x => x < d).length;
+    return need > 0 && dayNo(periodEnd(g, d)) - dayNo(d) + 1 <= need;
+  }
+  return d === periodEnd(g, d) && !(periodStart(g, d) < d && hit(g, uid, before));
+}
 function todayForPhone() {
   const m = me();
   if (!m || !m.username) return {signedIn: false};
-  const gs = myGroups(), due = gs.filter(g => onDay(g)), owing = due.filter(g => !hit(g, m.id)), g = owing[0];
-  const left = g ? g.quotas.map(qq => ({qq, n: done(g, m.id, qq.metric)})).filter(x => x.n < x.qq.target)
-    .map(x => `${x.qq.target - x.n} ${x.qq.metric}`).join(' and ') + (owing.length > 1 ? ` and ${owing.length - 1} more` : '') : '';
+  const gs = myGroups(), due = gs.filter(g => dueToday(g)), owing = due.filter(g => !hit(g, m.id)), g = owing[0];
+  // What is left: today's quota, or for a month or a year, what the total is still short by.
+  const left = g ? (isTotal(g) ? shortOf(g, m.id) : g.quotas.map(qq => ({qq, n: done(g, m.id, qq.metric)})).filter(x => x.n < x.qq.target)
+    .map(x => `${x.qq.target - x.n} ${x.qq.metric}`)).join(' and ') + (owing.length > 1 ? ` and ${owing.length - 1} more` : '') : '';
   const fin = g ? g.members.filter(id => id !== m.id && hit(g, id)) : [];
-  return {signedIn: true, streak: Math.max(0, ...gs.map(x => streak(x, m.id))), day: today(),
+  // The same number, in the same unit, as the top of the home screen.
+  const head = headStreak(m.id);
+  return {signedIn: true, streak: head.n, unit: head.unit, day: today(),
     due: due.length > 0, done: due.length > 0 && !owing.length, left,
-    // The days of the week anything is expected, for a day the app has not been opened on yet.
-    dueDays: [...new Set(gs.flatMap(x => activeDays(x)))].sort(),
+    // The days of the week anything is expected, for a day the app has not been opened on
+    // yet. Only the groups judged a day at a time can say in advance; a week or a month
+    // only knows once the app has looked.
+    dueDays: [...new Set(gs.filter(byDay).flatMap(x => schedOf(x) === 'days' ? activeDays(x) : ALLDAYS))].sort(),
     crew: fin.length ? `${names(fin)} ${fin.length === 1 ? 'is' : 'are'} done` : ''};
 }
 function syncPhone(now = new Date()) {
@@ -10099,7 +10582,7 @@ function syncPhone(now = new Date()) {
   const next = want ? `on ${said}` : t.done ? 'done' : 'off';
   if (next === countdownSaid) return;
   countdownSaid = next;
-  if (want) Q.startCountdown({deadline: tonight(now) / 1000, streak: t.streak, left: t.left, crew: t.crew})
+  if (want) Q.startCountdown({deadline: tonight(now) / 1000, streak: t.streak, unit: t.unit, left: t.left, crew: t.crew})
     .then(r => r && r.started === false && console.error('Countdown not started', r.reason)).catch(e => console.error('Countdown', e));
   else Q.endCountdown({done: !!t.done, streak: t.streak || 0}).catch(e => console.error('Countdown', e));
 }
@@ -10111,8 +10594,8 @@ function recordFromPhone() {
   const m = me();
   if (!m || !m.username || document.hidden) { recordWanted = true; return; }
   recordWanted = false;
-  const g = myGroups().find(x => onDay(x) && !hit(x, m.id)) || myGroups()[0];
-  if (g) { clearTo('feed'); submitDlg(g.id); }
+  const g = postTarget();
+  if (g) { clearTo('feed'); startPost(g.id); }
 }
 if (plug('Quota')) {
   setInterval(() => syncPhone(), 60 * 1000);   // catches 10:15 and midnight with the app open
@@ -10413,6 +10896,10 @@ function paintCam() {
   fl.hidden = st === 'error' || (front && !photo);
   fl.classList.toggle('on', CAM.flash);
   $('#cammic').hidden = !(CAM.noMic && !photo && st !== 'error');
+  // Which group the take is for, until it is being recorded: then the clock has the space.
+  const pill = $('#campill'), pg = CAM.for === 'post' && S.groups.find(x => x.id === postFor);
+  pill.hidden = !pg || rec || st === 'saving';
+  if (pg) { pill.textContent = `${pg.name} \u00b7 ${goalText(pg)}`; pill.disabled = !idle || myGroups().length < 2; }
   const clock = $('#camclock');
   clock.hidden = !(rec || st === 'saving');
   if (st === 'saving') clock.textContent = 'Saving…';
@@ -10847,6 +11334,9 @@ function camClose() {
   if (d.open) d.close();
   dropWake();
   watchClips();                            // the feed gets its clips back
+  // The walkthrough waits out the camera the way it waits out a sheet. Asked a moment later,
+  // because a take that just came back puts the Post screen up straight after this.
+  setTimeout(() => { if (me()) maybeTour(); }, 0);
 }
 // Escape, and Android's back button, are ✕.
 $('#cam').addEventListener('cancel', e => { e.preventDefault(); camX(); });
@@ -10933,6 +11423,9 @@ async function camPicked(input) {
   // brought down to fit when it is posted (convertClip), not turned away here.
   recorded = f;
   keepTake(f);
+  // Straight from the camera to the Post screen: + opened the camera with nothing behind it,
+  // so this is where the screen is put up, take and all. A retake lands on the one already open.
+  if (!$('#dlg').open || !$('#takeprev')) return submitDlg(postFor, 1);
   const kept = $('#kept'); if (kept) kept.hidden = true;
   // Watch it back before it goes anywhere. The phone's review screen is gone by the time
   // you are here, and posting is the one thing on this form you cannot take back.
@@ -10940,8 +11433,7 @@ async function camPicked(input) {
   // The phone's own camera already offers a retake before it hands anything back. This is
   // the one after that: a take you accepted, looked at on this screen, and thought better
   // of. Nothing is uploaded until Post, so replacing it costs nothing.
-  const btn = $('#recbtn');
-  if (btn) btn.textContent = 'Record again';
+  paintTakeBtns();
   // Deliberately not marked as ours. The old camera recorded at the size we asked for and
   // said so, to skip the re-encode; the phone records at whatever it is set to, which can
   // be 4K, so it goes through the same shrink as anything else picked off the device.
@@ -12650,6 +13142,89 @@ if (location.hash === '#test') {
   console.assert(owes('f1') === '', 'a forfeit marked paid is no longer owed');
   console.assert(owedIn({...gf, forfeit: null}, '2026-06-12').length === 0, 'no forfeit, nothing owed');
   S.joined = wasJoined; S.settle = wasSettle; S.noForfeits = wasNoF;
+
+  // ---- how often (v60): every day, set days, N days a week, a monthly total, a yearly
+  // total. On fixed dates, for the same reason as everything above: whether a week has
+  // closed depends on what day it is.
+  {
+    const was = S.totals, wasJ = S.joined, wasS = S.settle, wasN = S.noForfeits;
+    S.totals = []; S.joined = {}; S.settle = []; S.noForfeits = false;
+    const add = (gid, u, d, n, m = 'pushups') => S.totals.push({g: gid, u, d, m, n});
+    // Before v60 a group has no schedule, and its days say which it was. The migration
+    // writes the same thing: fewer than seven days is set days.
+    console.assert(schedOf({active_days: [1, 3, 5]}) === 'days' && schedOf({active_days: ALLDAYS}) === 'daily' && schedOf({}) === 'daily',
+      'a group from before v60 with fewer than seven days is set days, and every other one every day');
+    console.assert(schedOf({schedule: 'weekly', active_days: [1]}) === 'weekly' && schedOf({schedule: 'nonsense', active_days: [2]}) === 'days',
+      'a schedule that is set wins, and one that is not a schedule is ignored');
+    console.assert(onDay({schedule: 'weekly', active_days: [1]}, '2026-11-08') && !onDay({schedule: 'days', active_days: [1]}, '2026-11-08'),
+      'only set days have days off');
+    console.assert(perWeek({per_week: 9}) === 6 && perWeek({per_week: 0}) === 3 && perWeek({per_week: 2}) === 2, 'days a week is 1 to 6');
+
+    // ---- weeks. Monday to Sunday, across the end of a month.
+    const gw = {id: 80, schedule: 'weekly', per_week: 3, quotas: [{metric: 'pushups', target: 10}], members: ['a', 'b'], created_at: '2026-01-01T12:00'};
+    console.assert(periodStart(gw, '2026-11-01') === '2026-10-26' && periodEnd(gw, '2026-10-26') === '2026-11-01'
+      && periodStart(gw, '2026-11-02') === '2026-11-02' && prevPeriod(gw, '2026-11-04') === '2026-10-26', 'a week runs Monday to Sunday, over the end of a month');
+    ['2026-10-12', '2026-10-14', '2026-10-18', '2026-10-20', '2026-10-21', '2026-10-26', '2026-10-27', '2026-11-01',
+      '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-09'].forEach(d => add(80, 'a', d, 10));
+    add(80, 'a', '2026-10-22', 5);         // short of the day's ten: not one of the three
+    console.assert(weekHits(gw, 'a', '2026-10-25').length === 2 && !periodHit(gw, 'a', '2026-10-19'), 'a short day is not one of the N, so two of three is not a week');
+    console.assert(periodHit(gw, 'a', '2026-10-26') && weekHits(gw, 'a', '2026-11-01').join() === '2026-10-26,2026-10-27,2026-11-01', 'three of seven is, whichever three');
+    console.assert(periodHit(gw, 'a', '2026-11-02'), 'and four of seven is still one week');
+    console.assert(personalRun(gw, 'a', '2026-11-10').n === 2, 'the week in progress, one day of three in, breaks nothing', personalRun(gw, 'a', '2026-11-10').n);
+    add(80, 'a', '2026-11-10', 10); add(80, 'a', '2026-11-11', 10);
+    console.assert(personalRun(gw, 'a', '2026-11-11').n === 3, '  and counts the moment it has its three days');
+    console.assert(personalRun(gw, 'a', '2026-11-16').n === 3, '  standing on the Monday after, the week just closed is in the run');
+    console.assert(personalRun(gw, 'a', '2026-11-23').n === 0, 'a week that closed short ends the run');
+    console.assert(personalRun(gw, 'a', '2026-10-25').n === 1, '  and the one before it is where an earlier run started');
+    console.assert(best(gw, 'a', '2026-11-23') === 3, 'the best run of weeks');
+    console.assert(passDays(gw, 'a', '2026-11-23').size === 0 && personalRun(gw, 'a', '2026-11-23').passLeft === 0, 'no pass for a week');
+    console.assert(streakText(gw, 3) === '3 week streak' && unitOf(gw) === 'week', 'a week streak says so');
+    console.assert(progressChips(gw, 'a', '2026-11-10')[0].t === '2/3 this week' && shortOf(gw, 'a', '2026-11-10')[0] === '1 more day', 'this week, so far');
+    // The crew's run is weeks everyone made.
+    ['2026-10-26', '2026-10-28', '2026-10-30', '2026-11-02', '2026-11-04', '2026-11-06'].forEach(d => add(80, 'b', d, 10));
+    console.assert(groupRun(gw, '2026-11-11').n === 2, 'the crew bonus counts weeks the whole crew made');
+    // Only the last day a week could still be saved on is a day it needs anything.
+    console.assert(!dueToday(gw, 'b', '2026-11-19') && dueToday(gw, 'b', '2026-11-20') && !dueToday(gw, 'a', '2026-11-12'),
+      'a week is due only once the days left are only just enough, and never once it has counted');
+    // A forfeit is owed for a week that closed short, under its Sunday.
+    const gwf = {...gw, forfeit: 'buys coffee', forfeit_since: '2026-10-01T09:00'};
+    console.assert(owedIn(gwf, '2026-11-23').filter(o => o.u === 'a').map(o => o.d).join() === '2026-11-22', 'a missed week is owed, under its last day',
+      owedIn(gwf, '2026-11-23').map(o => o.u + o.d).join());
+
+    // ---- months: a total, from every post's amount.
+    const gm = {id: 81, schedule: 'monthly', quotas: [{metric: 'lb', target: 10}], members: ['a'], created_at: '2026-01-01T12:00'};
+    add(81, 'a', '2026-09-03', 2, 'lb'); add(81, 'a', '2026-09-10', 3, 'lb'); add(81, 'a', '2026-09-29', 5, 'lb');
+    add(81, 'a', '2026-10-02', 4, 'lb'); add(81, 'a', '2026-10-02', 4, 'lb'); add(81, 'a', '2026-10-31', 2, 'lb');
+    add(81, 'a', '2026-11-04', 6, 'lb');
+    console.assert(doneIn(gm, 'a', 'lb', '2026-09-10') === 5 && !hit(gm, 'a', '2026-09-28') && hit(gm, 'a', '2026-09-29'),
+      'a month adds its posts up, 2 + 3 + 5, and is hit the day the total gets there');
+    console.assert(doneIn(gm, 'a', 'lb', '2026-11-06') === 6 && progressChips(gm, 'a', '2026-11-06')[0].t === '6/10 lb', 'and starts again on the 1st');
+    console.assert(personalRun(gm, 'a', '2026-11-06').n === 2 && streakText(gm, 2) === '2 month streak', 'November, 6 of 10 so far, breaks nothing: a 2 month streak');
+    console.assert(shortOf(gm, 'a', '2026-11-06')[0] === '4 lb', '  and is 4 lb short');
+    console.assert(personalRun(gm, 'a', '2026-12-01').n === 0, 'a month that closed short ends it');
+    console.assert(periodEnd(gm, '2026-02-10') === '2026-02-28' && periodEnd(gm, '2024-02-10') === '2024-02-29', "a month ends on its own last day, a leap year's too");
+    console.assert(!dueToday(gm, 'a', '2026-11-29') && dueToday(gm, 'a', '2026-11-30') && !dueToday(gm, 'a', '2026-09-30'),
+      'a month is only ever due on its last day, and not even then once the total is in');
+    const gmf = {...gm, forfeit: 'buys coffee', forfeit_since: '2026-08-15T09:00'};
+    console.assert(owedIn(gmf, '2026-12-05').map(o => o.d).join() === '2026-11-30', 'a month that closed short is owed, under its last day');
+    console.assert(owedIn(gmf, '2026-11-05').length === 0, '  and one that was made is not');
+
+    // ---- years, over New Year.
+    const gy = {id: 82, schedule: 'yearly', quotas: [{metric: 'books', target: 3}], members: ['a'], created_at: '2024-01-01T12:00'};
+    add(82, 'a', '2024-05-01', 3, 'books'); add(82, 'a', '2025-02-01', 1, 'books'); add(82, 'a', '2025-12-31', 2, 'books'); add(82, 'a', '2026-01-01', 1, 'books');
+    console.assert(periodStart(gy, '2025-12-31') === '2025-01-01' && periodEnd(gy, '2026-01-01') === '2026-12-31' && prevPeriod(gy, '2026-01-01') === '2025-01-01',
+      'a year runs from the 1st of January to the 31st of December');
+    console.assert(doneIn(gy, 'a', 'books', '2025-12-31') === 3 && doneIn(gy, 'a', 'books', '2026-01-01') === 1,
+      "New Year's Eve counts for the year it ends, and New Year's Day starts the next");
+    console.assert(personalRun(gy, 'a', '2026-06-01').n === 2 && unitOf(gy) === 'year', 'two years in a row, with this one still going');
+
+    // ---- the home screen: the day streak, unless there is nothing judged by the day.
+    const gd = {id: 83, quotas: [{metric: 'pushups', target: 10}], members: ['a'], active_days: ALLDAYS, created_at: '2026-01-01T12:00'};
+    console.assert(headGroups([gw, gd, gm]).length === 1 && headGroups([gw, gd, gm])[0] === gd, 'the big number is the day streak when there is one');
+    console.assert(headGroups([gm, gw, {...gw, id: 84}]).every(x => unitOf(x) === 'week'), "otherwise it is the most common schedule's");
+    console.assert(headGroups([gm, gw]).every(x => unitOf(x) === 'week'), '  and a tie goes to the shorter unit');
+    S.totals = was; S.joined = wasJ; S.settle = wasS; S.noForfeits = wasN;
+  }
 
   // ---- errors are said in Quota's words, never the machine's.
   const was = console.error; console.error = () => {};

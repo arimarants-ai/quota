@@ -17,6 +17,7 @@ struct Snapshot: Codable {
     var left = ""       // "50 pushups"
     var crew = ""       // "Sam and Maya are done"
     var dueDays: [Int] = []   // weekdays anything is expected, 0 is Sunday
+    var unit = "day"    // what the streak counts: "day", or "week", "month" or "year"
 
     init(signedIn: Bool = false, streak: Int = 0, day: String = "") {
         self.signedIn = signedIn; self.streak = streak; self.day = day
@@ -33,6 +34,7 @@ struct Snapshot: Codable {
         left = try c.decodeIfPresent(String.self, forKey: .left) ?? ""
         crew = try c.decodeIfPresent(String.self, forKey: .crew) ?? ""
         dueDays = try c.decodeIfPresent([Int].self, forKey: .dueDays) ?? []
+        unit = try c.decodeIfPresent(String.self, forKey: .unit) ?? "day"
     }
 }
 

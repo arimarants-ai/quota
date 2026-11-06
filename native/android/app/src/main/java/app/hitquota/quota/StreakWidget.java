@@ -32,6 +32,7 @@ public class StreakWidget extends AppWidgetProvider {
         boolean late = t.owing() && now >= Today.lastCall(now);
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_streak);
         v.setTextViewText(R.id.streak, String.valueOf(t.streak));
+        v.setTextViewText(R.id.unit, t.unit + " streak");
         v.setTextColor(R.id.streak, t.done ? 0xFF0B5A34 : 0xFF0B0C0E);
         String status = !t.signedIn ? "Open Quota" : !t.expected ? "Rest day" : t.done ? "Done today" : "Not posted yet";
         v.setTextViewText(R.id.status, status);

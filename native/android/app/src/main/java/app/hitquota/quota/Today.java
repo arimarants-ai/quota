@@ -14,6 +14,7 @@ final class Today {
 
     final boolean signedIn;
     final int streak;
+    final String unit;        // what the streak counts: "day", or "week", "month" or "year"
     final boolean expected;   // a quota is due today
     final boolean done;
     final String left;
@@ -24,6 +25,8 @@ final class Today {
         boolean fresh = today.equals(o.optString("day"));
         signedIn = o.optBoolean("signedIn", false);
         streak = o.optInt("streak", 0);
+        // An older app sends no unit, and every streak it knew was days.
+        unit = o.optString("unit", "day").isEmpty() ? "day" : o.optString("unit", "day");
         if (fresh) {
             expected = o.optBoolean("due", true);
         } else {

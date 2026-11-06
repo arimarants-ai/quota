@@ -213,12 +213,25 @@ export type Quota = { metric: string; target: number };
 export type Post = { metric: string; amount: number };
 
 /**
+ * How often a group's goal is (schema v60). A month's or a year's quota is a total, so the
+ * posts that count towards it are the whole stretch's, not the day's. A week's is still a
+ * day's quota, done on some days of the week, so a post is measured against its day.
+ */
+export type Schedule = 'daily' | 'days' | 'weekly' | 'monthly' | 'yearly';
+export const isTotal = (s?: string | null) => s === 'monthly' || s === 'yearly';
+/** The first day of the stretch `day` (YYYY-MM-DD) falls in, for the posts that add up. */
+export function totalFrom(schedule: string | null | undefined, day: string): string {
+  return schedule === 'monthly' ? `${day.slice(0, 7)}-01` : schedule === 'yearly' ? `${day.slice(0, 4)}-01-01` : day;
+}
+
+/**
  * Text for a new post. `dayPosts` is everything the poster has logged in this
- * group today, including the post that just landed. `challenge` is what the wheel
+ * group today, including the post that just landed — or, for a group whose goal is a
+ * month's or a year's total, everything this stretch. `challenge` is what the wheel
  * gave them, when the post was marked as done with it: "did 25 decline pushups"
  * rather than "did 25 pushups".
  */
-export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null, where?: string | null): string {
+export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null, where?: string | null, schedule?: string | null): string {
   const totals = new Map<string, number>();
   for (const p of dayPosts) totals.set(p.metric, (totals.get(p.metric) ?? 0) + p.amount);
 
@@ -233,7 +246,8 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
   // pushups" reads on a lock screen as something Sam mentioned; what it means is that Sam
   // posted proof, in a group, and there is something there to go and look at.
   const wheresit = where ? ` in ${where}` : '';
-  return justFinished ? `${name} finished the day's goal${wheresit}` : `${name} posted ${what}${wheresit}`;
+  const span = schedule === 'monthly' ? 'month' : schedule === 'yearly' ? 'year' : 'day';
+  return justFinished ? `${name} finished the ${span}'s goal${wheresit}` : `${name} posted ${what}${wheresit}`;
 }
 
 /**
@@ -669,16 +683,20 @@ Deno.serve(async (req) => {
   if (!record?.group_id) return new Response('ignored', { status: 200 });
   const { group_id, user_id, metric, amount, day, challenge } = record;
 
-  const [[group], [poster], members, dayPosts] = await Promise.all([
-    rest(`groups?id=eq.${group_id}&select=name,quotas`),
+  // The whole row rather than named columns: a project that has not run v60 has no schedule
+  // column, and naming one it lacks would fail the request and send nothing at all.
+  const [[group], [poster], members] = await Promise.all([
+    rest(`groups?id=eq.${group_id}&select=*`),
     rest(`profiles?id=eq.${user_id}&select=username,display_name`),
     rest(`group_members?group_id=eq.${group_id}&user_id=neq.${user_id}&muted=is.false&select=user_id`),
-    rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=eq.${day}&removed_at=is.null&select=metric,amount`),
   ]);
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });
+  // A month's or a year's goal is a total, so what counts is the stretch so far; anything
+  // else is measured against the day. Either way it already includes the row that fired this.
+  const from = totalFrom(group.schedule, day);
+  const dayPosts = await rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=gte.${from}&day=lte.${day}&removed_at=is.null&select=metric,amount`);
 
-  // dayPosts already includes the row that fired this trigger.
-  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge, group.name);
+  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge, group.name, group.schedule);
 
   return blast(
     members.map((m: { user_id: string }) => m.user_id),

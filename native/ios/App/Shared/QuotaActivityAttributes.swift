@@ -12,6 +12,10 @@ struct QuotaActivityAttributes: ActivityAttributes {
         var left: String
         var crew: String
         var done: Bool
+        // What the streak counts: "day", or "week", "month" or "year" for a group that is not
+        // judged a day at a time. Last, with a default, so everything that made one before
+        // still makes one the same way.
+        var unit: String = "day"
     }
     // Midnight where the person is, in seconds since 1970.
     var deadline: Double

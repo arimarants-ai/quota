@@ -108,7 +108,18 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
   ok(NOTICE_META.lastcall.tag !== NOTICE_META.open.tag,
     'and last call is its own, because it is allowed to arrive as well');
 
-  for (const kind of ['open', 'lastcall', 'lapsed'] as const) {
+  // A month's or a year's total, once, near the end (schema v60): what is left, where, and
+  // how long. It stands in for the window that day, so it wears the window's tag.
+  const mo = noticeBody(n({ kind: 'period', line: '4 lb', group_name: 'Run club', unit: 'month', days_left: 3 }));
+  assert.equal(mo, '4 lb to go in Run club. 3 days left this month.');
+  ok(true, 'a month still short near its end says what is left and how many days', mo);
+  const last = noticeBody(n({ kind: 'period', line: '2 books', group_name: 'Readers', unit: 'year', days_left: 1 }));
+  ok(/^2 books to go in Readers\. Last day of the year\.$/.test(last), '  and on its last day says so', last);
+  ok(!/hour|streak/.test(mo), '  and is not a countdown or a streak threat', mo);
+  assert.equal(NOTICE_META.period.tag, NOTICE_META.open.tag);
+  ok(true, '  it replaces the window message rather than landing beside it');
+
+  for (const kind of ['open', 'lastcall', 'lapsed', 'period'] as const) {
     const body = noticeBody(n({ kind, group_name: '' }));
     ok(body.length > 0 && !/undefined|null/.test(body),
       `${kind} still reads as a sentence with no group to name`, body);
