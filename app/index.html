@@ -39,6 +39,10 @@
    All three step up as a run grows — see [data-stage] below and stageOf(). --acc and --ok
    are kept as names because the rest of the sheet is written in terms of them. */
 :root{--bg:#fff;--card:#fff;--line:#e8e9ea;--text:#0b0c0e;--muted:#8b8f94;--soft:#f5f6f6;
+  /* Rounded and filled rather than square and outlined: a pill for anything you tap, a box
+     for anything inside a card, a card for a panel. --hair is the only line left, for long
+     lists, and it is fainter than --line. */
+  --r-pill:999px;--r-box:12px;--r-card:18px;--hair:#f0f1f1;
   --teal:#0b0c0e;--onteal:#fff;--teal2:#8b8f94;--todo:#d7d9da;--sheet:#fff;--barbg:rgba(255,255,255,.96);
   --acc:var(--mk);--ok:var(--mk);--okbg:var(--mktint);--mkring:rgba(17,129,74,.22);
   /* stage 1: a run that has only just started */
@@ -52,7 +56,7 @@
   --g1:#0a5230;--g2:#48ec8b;--fill:0%}
 /* Dark is the same design on ink rather than paper. The deep greens vanish against it, so
    anything that has to be read as text takes the bright end of the ramp instead. */
-:root[data-theme=dark]{--bg:#0a0b0c;--card:#121315;--line:#232527;--text:#f2f3f4;--muted:#9ba0a4;--soft:#1a1c1e;
+:root[data-theme=dark]{--bg:#0a0b0c;--card:#121315;--line:#232527;--text:#f2f3f4;--muted:#9ba0a4;--soft:#1a1c1e;--hair:#17191b;
   --teal:#f2f3f4;--onteal:#0a0b0c;--teal2:#6f7478;--todo:#2c2f31;--sheet:#121315;--barbg:rgba(18,19,21,.94);
   --mkring:rgba(63,220,127,.25)}
 :root[data-theme=dark]{--mk:#0f7f45;--mkt:#3fdc7f;--onmk:#fff;--mktint:#11291d;--mkveil:rgba(63,220,127,.12);
@@ -75,7 +79,7 @@ main.out{padding-bottom:0;min-height:0}
 h2{margin:0;font-size:17px;font-weight:800}
 h3{margin:22px 18px 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 p{margin:0}
-button{font:inherit;font-weight:800;border:0;border-radius:0;padding:11px 16px;background:var(--soft);color:var(--text);cursor:pointer;white-space:nowrap}
+button{font:inherit;font-weight:800;border:0;border-radius:var(--r-pill);padding:11px 16px;background:var(--soft);color:var(--text);cursor:pointer;white-space:nowrap}
 /* Pressing: a big button dims the way a native one does; a small icon gives under the
    thumb. Nothing on the page moves because it was tapped, only the thing that was tapped. */
 button{transition:opacity .1s ease,background-color .15s ease,color .15s ease,transform .12s cubic-bezier(.2,.7,.2,1)}
@@ -84,6 +88,10 @@ button:active{opacity:.6}
 button.primary{background:var(--mk);color:var(--onmk)}
 button.teal{background:var(--teal);color:var(--onteal)}
 button.small{padding:7px 12px;font-size:13px}
+/* On a panel that is itself the soft fill, a plain button takes the card's instead, so the
+   depth comes from the fill rather than from a line round it. */
+.card button:where(:not(.primary,.teal,.ghost,.bad,.rg,.who,.pgo,.more,.lk,.react,.flg,.emo,.creply,.clk,.gtag,.top,.d,.rcard,.rshare,.s,.own,.plus)),
+.act button:where(:not(.primary,.teal,.ghost)){background:var(--card)}
 /* A finger needs about 44 points, and these are drawn smaller than that on purpose. The part
    that answers a tap is made bigger than the part that is drawn, so nothing moves. */
 button.small,button.more,button.lk,button.react,button.flg,button.chatbtn,button.gear,button.backx,button.emo,button.gback,button.back{position:relative}
@@ -91,14 +99,20 @@ button.small::after,button.more::after,button.sound::after,button.lk::after,butt
 button.gear::after,button.backx::after,button.emo::after,button.gback::after,button.back::after{content:"";position:absolute;left:50%;top:50%;
   width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
 .reasons{margin-top:6px}
-.reasons .check{margin:0;padding:12px 0;border-bottom:1px solid var(--line);color:var(--text)}
+.reasons .check{margin:0;padding:12px 0;border-bottom:1px solid var(--hair);color:var(--text)}
 .reasons .check:last-child{border-bottom:0}
 button.ghost{background:none;color:var(--muted);padding:6px 4px;font-weight:600}
 button:disabled{opacity:.6}
+/* Keyboard focus is the same 2px ring as a focused field, and it follows each shape's
+   rounding. A row in a list is given the box's rounding for it, so it is not a square. */
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--mk);outline-offset:2px}
+.li:focus-visible,.menu button:focus-visible,.crow:focus-visible,.frow:focus-visible{outline-offset:-2px;border-radius:var(--r-box)}
 /* 16px is not a taste: iOS zooms the whole page into any field smaller than that when
    it is focused, and will not zoom back out. Every field in the app is at least 16. */
-input,select,textarea{font:inherit;font-size:16px;width:100%;padding:12px 14px;border-radius:0;border:1px solid var(--line);background:var(--card);color:var(--text);min-width:0;outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--mk);box-shadow:0 0 0 3px var(--mkring)}
+input,select,textarea{font:inherit;font-size:16px;width:100%;padding:12px 14px;border-radius:var(--r-box);border:0;background:var(--soft);color:var(--text);min-width:0;outline:none}
+input:focus,select:focus,textarea:focus{box-shadow:0 0 0 2px var(--mk)}
+.card input,.card select,.card textarea{background:var(--card)}
+input[type=checkbox],input[type=radio]{border-radius:0;background:none;box-shadow:none}
 textarea{resize:vertical;line-height:1.5}
 /* A box you type a line into, that takes another line when the first is full instead of
    scrolling sideways out of sight. It grows to about six lines and scrolls after that.
@@ -113,7 +127,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .grow{flex:1;min-width:0}
 .muted{color:var(--muted);font-size:13px;font-weight:600}
 /* header block */
-.hdr{background:var(--bg);color:var(--text);padding:calc(16px + env(safe-area-inset-top)) 20px 0;border-bottom:1px solid var(--line)}
+.hdr{background:var(--bg);color:var(--text);padding:calc(16px + env(safe-area-inset-top)) 20px 0;padding-bottom:4px}
 .hdr .top{display:flex;justify-content:space-between;align-items:center}
 .logo{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:17px;letter-spacing:.09em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:8px}
 .logo svg{width:24px;height:24px}
@@ -138,53 +152,52 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 /* A week's seven days under its number, filled on the days the quota was hit. */
 .hdr .wdots{display:flex;gap:6px;margin:12px 0 0;padding-bottom:12px}
 .hdr .wdots span{display:grid;justify-items:center;gap:4px;font-size:10px;font-weight:800;color:var(--muted)}
-.hdr .wdots i{display:block;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line)}
+.hdr .wdots i{display:block;width:22px;height:22px;border-radius:50%;background:var(--soft)}
 .hdr .wdots i.on{background:var(--mk);box-shadow:none}
 .hdr .wdots .now{color:var(--text)}
 /* A month's or a year's total, filling towards its target. */
 .hdr .pbar{margin:12px 0 0;padding-bottom:12px}
-.hdr .pbar i{display:block;height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.hdr .pbar i{display:block;height:5px;border-radius:var(--r-pill);background:var(--line);overflow:hidden}
 .hdr .pbar i::after{content:"";display:block;height:100%;width:var(--w);background:var(--mk);border-radius:inherit}
 .hdr .pbar p{margin:6px 0 0;font-size:12.5px;font-weight:700;color:var(--muted)}
 /* The home screen's weeks, months and years: one small chip each, under the day streak. */
 .hdr .schips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
-.hdr .schips button{padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:none;font-size:12px;font-weight:800;color:var(--text)}
+.hdr .schips button{padding:5px 10px;border-radius:var(--r-pill);background:var(--soft);font-size:12px;font-weight:800;color:var(--text)}
 .hdr .schips button b{color:var(--mkt)}
 /* History's two tabs. */
 .sched{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stile{position:relative;display:block;padding:11px 12px;border:1px solid var(--line);cursor:pointer}
+.stile{position:relative;display:block;padding:11px 12px;cursor:pointer;border-radius:var(--r-box);background:var(--soft);margin:0;color:var(--text)}
 .stile b{display:block;font-size:14px;font-weight:800}
 .stile em{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.35}
-.stile:has(input:checked){border-color:var(--mk);background:var(--soft)}
-.stile:has(input:focus-visible){outline:2px solid var(--mk);outline-offset:2px}
+.stile:has(input:checked){background:var(--mktint);color:var(--mkt)}
+.stile:has(input:focus-visible){outline-offset:2px;box-shadow:0 0 0 2px var(--mk)}
 .stepper{display:flex;align-items:center;gap:10px;margin-top:10px}
 .stepper[hidden]{display:none}
-.stepper button{width:40px;height:40px;padding:0;font-size:20px;font-weight:700}
+.stepper button{width:40px;height:40px;padding:0;font-size:20px;font-weight:700;border-radius:var(--r-box)}
 .stepper b{min-width:22px;text-align:center;font-size:24px}
 .stepper span{font-size:13px;font-weight:600}
 .htabs{display:flex;gap:6px;margin:14px 18px 4px}
 .htabs button{flex:1;padding:9px 0;font-size:13px;font-weight:800}
-.htabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.htabs button.on{background:var(--text);color:var(--bg)}
 .owed .row{align-items:center}
 .owed .paidline{margin:10px 0 0}
 /* One line on the home screen, kind rather than loud. */
 .owe{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(100% - 28px);margin:10px 14px 0;padding:11px 14px;
-  background:var(--mktint);border:1px solid var(--mkveil);color:var(--text);text-align:left;font-size:14px}
+  background:var(--mktint);color:var(--text);text-align:left;font-size:14px;border-radius:var(--r-card)}
 .owe span{font-size:12px;font-weight:700;color:var(--muted);flex:none}
 .sugg{gap:6px;margin-top:8px}
-.sugg .chip{background:var(--soft);border:0;font-size:12.5px;padding:6px 10px}
+.sugg .chip{background:var(--soft);font-size:12.5px;padding:6px 10px;border-radius:var(--r-pill)}
 /* ---- the month's contact sheet, your numbers, and the recap list */
 .mlegend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 18px 0}
 .mlegend span{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted)}
-.mlegend i{width:13px;height:13px;border-radius:3px;display:block}
-.mlegend i.none{background:var(--card);box-shadow:inset 0 0 0 1px var(--todo)}
+.mlegend i{width:13px;height:13px;border-radius:50%;display:block}
+.mlegend i.none{background:var(--soft)}
 .mlegend i.cov{background:var(--soft);box-shadow:inset 0 0 0 1.5px var(--mkt)}
 .mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:8px 18px 0}
 .mgrid.head span{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center}
-.mgrid .d{position:relative;aspect-ratio:1;border-radius:4px;padding:0;overflow:hidden;background:var(--card);
-  box-shadow:inset 0 0 0 1px var(--line);display:block}
+.mgrid .d{position:relative;aspect-ratio:1;border-radius:8px;padding:0;overflow:hidden;background:var(--soft);display:block}
 .mgrid .d.gap{box-shadow:none;background:none}
-.mgrid .d.off,.mgrid .d.rest{background:var(--soft);box-shadow:none}
+.mgrid .d.off,.mgrid .d.rest{background:none}
 .mgrid .d.pass{box-shadow:inset 0 0 0 1.5px var(--mkt)}
 .mgrid .d.now{box-shadow:inset 0 0 0 1.5px var(--text)}
 .mgrid .d .st{position:absolute;inset:0;display:flex;flex-direction:column}
@@ -198,12 +211,12 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .twoup .card span{display:block;margin-top:6px;font-size:12.5px;font-weight:700}
 .num.big2{font-size:34px;line-height:1;letter-spacing:-.01em}
 .dots{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:0 18px}
-.dots i{display:block;aspect-ratio:1;border-radius:4px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
+.dots i{display:block;aspect-ratio:1;border-radius:50%;background:var(--soft)}
 .dots i.on{background:var(--mk);box-shadow:none}
 .card.soft{background:var(--soft);border:0}
 .rlist{display:flex;flex-direction:column;gap:12px;margin:0 18px}
-.rcard{position:relative;display:block;width:100%;padding:0;border-radius:14px;overflow:hidden;
-  background:#0b0c0e;box-shadow:inset 0 0 0 1px var(--line);text-align:left;color:#fff}
+.rcard{position:relative;display:block;width:100%;padding:0;border-radius:var(--r-card);overflow:hidden;
+  background:#0b0c0e;text-align:left;color:#fff}
 .rcard .sheet{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:1fr;gap:2px;height:170px}
 .rcard .sheet{position:relative}
 .rcard .sheet i{display:block;background:var(--mk);opacity:calc(.35 + (var(--n) * .08))}
@@ -216,24 +229,24 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .rcard .meta b{display:block;font-family:Oswald,sans-serif;font-size:17px;font-weight:600;text-transform:uppercase;letter-spacing:.02em}
 .rcard .meta em{display:block;margin-top:3px;font-style:normal;font-size:12px;font-weight:600;color:rgba(255,255,255,.66)}
 .rcard .new{position:absolute;right:12px;top:12px;background:var(--mk);color:var(--onmk);font-family:Oswald,sans-serif;
-  font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;padding:4px 9px}
-.prg2{display:block;margin-top:9px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
-.prg2 i{display:block;height:100%;width:var(--w);background:var(--mk)}
+  font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;padding:4px 9px;border-radius:var(--r-pill)}
+.prg2{display:block;margin-top:9px;height:5px;border-radius:var(--r-pill);background:var(--line);overflow:hidden}
+.prg2 i{display:block;height:100%;width:var(--w);background:var(--mk);border-radius:inherit}
 /* ---- text invites */
 #dlg .kicker{margin:0 0 4px;font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mkt)}
-.smsprev{margin:14px 0;background:var(--soft);border-radius:16px;padding:12px 14px}
+.smsprev{margin:14px 0;background:var(--soft);border-radius:var(--r-card);padding:12px 14px}
 .smsprev span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .smsprev p{margin:10px 0 0 auto;max-width:88%;width:fit-content;background:#1d7cf2;color:#fff;padding:10px 13px;
   border-radius:18px 18px 4px 18px;font-size:14px;line-height:1.4;font-weight:500;overflow-wrap:anywhere}
 /* A link, not a button, because iOS allows a navigation to Messages only straight from the
    tap. So it is given the button's look by hand rather than inheriting button.primary. */
 .textbtn{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;box-sizing:border-box;
-  text-decoration:none;font-weight:800;background:var(--mk);color:var(--onmk);transition:opacity .1s ease}
+  text-decoration:none;font-weight:800;background:var(--mk);color:var(--onmk);transition:opacity .1s ease;border-radius:var(--r-pill)}
 a.textbtn:active{opacity:.6}
 .textbtn[disabled]{opacity:.45}
 .textalt{width:100%;margin-top:8px;min-height:46px}
 .welcome .invchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-.welcome .invchips span{padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:700}
+.welcome .invchips span{padding:7px 12px;border-radius:var(--r-pill);font-size:13px;font-weight:700;background:var(--soft)}
 .welcome .invnext{margin:12px auto 0;text-align:center;font-size:12.5px;max-width:none}
 .welcome.installed .tick{width:56px;height:56px;border-radius:50%;background:var(--mktint);display:grid;place-items:center;margin-top:auto}
 .welcome.installed .tick svg{width:28px;height:28px;fill:none;stroke:var(--mkt);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
@@ -245,16 +258,16 @@ a.textbtn:active{opacity:.6}
 .rshare{position:absolute;right:10px;bottom:10px}
 .hdr .big .gmark{width:34px;height:34px;fill:var(--mk);align-self:center;margin-left:-4px}
 .marks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
-.marks button{aspect-ratio:1;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--card)}
-.marks button.on{border-color:var(--mk);background:var(--mktint)}
+.marks button{aspect-ratio:1;display:grid;place-items:center;border-radius:var(--r-box);background:var(--soft)}
+.marks button.on{background:var(--mktint)}
 .marks svg{width:28px;height:28px;fill:var(--mkt)}
 .rendering{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:6px;text-align:center;
   background:rgba(5,7,6,.92);color:#fff;padding:24px}
 .rendering b{font-family:Oswald,sans-serif;font-weight:600;font-size:17px}
 .rendering .muted{color:rgba(255,255,255,.6);font-size:13px}
-.card.pend{border-color:var(--mk);background:var(--mktint)}
+.card.pend{background:var(--mktint)}
 /* The one-time word on flags: tinted like the pending card, so it reads as the app talking. */
-.card.tip{border-color:var(--mk);background:var(--mktint)}
+.card.tip{background:var(--mktint)}
 .card.tip .tiphead{display:flex;gap:12px;align-items:flex-start}
 .card.tip .tipicon{width:34px;height:34px;flex:none;border-radius:50%;background:var(--card);display:grid;place-items:center}
 .card.tip .tipicon svg{width:18px;height:18px;fill:none;stroke:var(--mkt);stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}
@@ -265,7 +278,7 @@ a.textbtn:active{opacity:.6}
   border-top-color:var(--mk);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.card.pend .spin{animation:none}}
-.dot{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:999px;
+.dot{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:var(--r-pill);
   background:var(--mk);color:var(--onmk);font-size:11px;font-style:normal;vertical-align:middle}
 .row.pad{margin:0 18px}
 /* Who is still out, with the clock on it. Sits between the heading and the list it is
@@ -274,7 +287,7 @@ a.textbtn:active{opacity:.6}
 .missline b{font-weight:700;color:var(--mkt);white-space:nowrap}
 .missline.in,.missline.rest{color:var(--muted);font-weight:600}
 .hdr h1{font-family:Oswald,system-ui,sans-serif;margin:16px 0;font-size:34px;font-weight:600;letter-spacing:0;text-transform:uppercase}
-.hdr .big{display:flex;align-items:flex-end;gap:13px;margin-top:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.hdr .big{display:flex;align-items:flex-end;gap:13px;margin-top:16px;padding-bottom:14px}
 .hdr .big b{font-size:74px;letter-spacing:-.02em;line-height:.8;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em 0;
   background:linear-gradient(to top,var(--g1) 0,var(--g1) var(--fill),var(--g2) 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
@@ -282,8 +295,7 @@ a.textbtn:active{opacity:.6}
 .hdr .big div{font-weight:700;font-size:15px;line-height:1.3}
 .hdr .big div small{display:block;color:var(--muted);font-weight:600;font-size:12.5px}
 .mini{display:block}
-.mini div{display:grid;grid-template-columns:minmax(84px,auto) minmax(34px,1fr) auto;align-items:center;gap:0 12px;padding:11px 0;
-  border-bottom:1px solid var(--line);font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--text)}
+.mini div{display:grid;grid-template-columns:minmax(84px,auto) minmax(34px,1fr) auto;align-items:center;gap:0 12px;padding:9px 0;font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--text)}
 .mini div b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:14px;letter-spacing:0;
   color:var(--text);font-variant-numeric:tabular-nums;text-align:right;min-width:0;overflow-wrap:anywhere}
 .mini div span{min-width:0;line-height:1.25;overflow-wrap:anywhere}
@@ -293,8 +305,7 @@ a.textbtn:active{opacity:.6}
    and not merely that you are along. Drawn as the gradient with the unearned part covered
    rather than as a fill that is coloured, because a fill scales its own gradient and a
    quarter-width fill would then be the whole dark-to-light run squeezed into a quarter. */
-.mini i{display:block;height:2px;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);border-radius:0;overflow:hidden}
-.mini div:last-child{border-bottom:0}
+.mini i{display:block;height:5px;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);border-radius:var(--r-pill);overflow:hidden}
 .mini i::after{content:"";display:block;height:100%;margin-left:var(--w);width:calc(100% - var(--w));
   background:var(--line);transition:margin-left .4s,width .4s}
 /* Only people with something running are in this row, unseen first. A lit ring is a story
@@ -359,7 +370,7 @@ button.rg{border:0;font:inherit}
    this. Above the tap zones, which are z-index 2, or a tap on it would step the story on
    instead of opening what it is a picture of. */
 .face .pcard{position:absolute;transform:translate(-50%,-50%) rotate(-2.4deg);width:68%;max-width:272px;z-index:3;
-  padding:0;border:0;border-radius:14px;overflow:hidden;background:#0b0c0e;color:#fff;text-align:left;
+  padding:0;border:0;border-radius:var(--r-card);overflow:hidden;background:#0b0c0e;color:#fff;text-align:left;
   box-shadow:0 18px 44px -12px rgba(0,0,0,.6),0 0 0 3px rgba(255,255,255,.9);touch-action:none;cursor:pointer}
 .face .pcard .shot{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;background:#0b0c0e}
 /* The speaker on a story with a clip in it, in the viewer and in the editor alike. */
@@ -382,7 +393,7 @@ button.rg{border:0;font:inherit}
 .face .hero .word{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:58px;line-height:1;letter-spacing:-.01em;
   text-transform:uppercase;text-align:center;padding:0 22px;text-shadow:0 8px 40px rgba(0,0,0,.28);overflow-wrap:anywhere}
 .face .hero .tag{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;
-  text-transform:uppercase;margin-top:10px;padding:8px 14px;border:2px solid currentColor;border-radius:999px}
+  text-transform:uppercase;margin-top:10px;padding:8px 14px;border:2px solid currentColor;border-radius:var(--r-pill)}
 .face .hero .tickring{width:64px;height:64px;margin-bottom:8px}
 .face .hero .tickring svg{width:100%;height:100%;display:block}
 .face .hero .stamp{position:absolute;right:8%;top:58%;transform:rotate(-9deg);font-family:Oswald,system-ui,sans-serif;font-weight:600;
@@ -464,7 +475,7 @@ button.rg{border:0;font:inherit}
 /* Stickers: labels slapped on at angles, the figure among them rather than centred. */
 .face .t-sticker{justify-content:center;gap:4px}
 .face .t-sticker .lab{font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:900;font-size:19px;letter-spacing:.08em;
-  text-transform:uppercase;background:#1a1a18;color:#fff;border-radius:999px;padding:11px 20px}
+  text-transform:uppercase;background:#1a1a18;color:#fff;border-radius:var(--r-pill);padding:11px 20px}
 .face .t-sticker .lab.one{transform:rotate(-7deg);align-self:flex-start}
 .face .t-sticker .lab.two{transform:rotate(5deg);align-self:flex-end;background:#0a5c33;margin-top:0}
 .face .t-sticker .fig{transform:rotate(-3deg)}
@@ -527,7 +538,7 @@ button.rg{border:0;font:inherit}
 #story .tap.fwd,#recap .tap.fwd{right:0;width:62%}
 /* Who watched: only on your own, in the corner where the other app keeps it. */
 #story .eye{position:absolute;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3;display:flex;align-items:center;gap:6px;
-  background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:999px}
+  background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:var(--r-pill)}
 #story .eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round}
 #story .seenby{position:absolute;left:0;right:0;bottom:0;max-height:60%;overflow-y:auto;z-index:4;background:#fff;color:var(--ink);
   padding:14px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
@@ -543,7 +554,7 @@ button.rg{border:0;font:inherit}
 #story .seenby .hrt svg{width:100%;height:100%;fill:#ff3b5c;stroke:#ff3b5c;stroke-width:1.6}
 /* A list of things you can do, one per line, the last one the one you cannot undo. */
 .menu{display:flex;flex-direction:column;gap:2px;margin-top:14px}
-.menu button{background:none;text-align:left;padding:14px 4px;font-size:15px;font-weight:700;border-bottom:1px solid var(--line)}
+.menu button{background:none;text-align:left;padding:14px 4px;font-size:15px;font-weight:700;border-bottom:1px solid var(--hair);border-radius:0}
 .menu button:last-child{border-bottom:0}
 .menu button.bad{color:#d1344f}
 #story .seenby b{font-size:14.5px;font-weight:800}
@@ -555,11 +566,11 @@ button.rg{border:0;font:inherit}
   filter:drop-shadow(0 2px 8px rgba(0,0,0,.55))}
 #story .answer .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
 #story .answer .reactpick{bottom:calc(100% + 4px);right:0;left:auto;transform-origin:bottom right;
-  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);border:0;border-radius:999px}
+  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);border:0;border-radius:var(--r-pill)}
 #story .answer .reactpick button{padding:6px 8px;font-size:24px;line-height:1}
 /* What your own story got: beside the eye, in the same quiet pill. */
 #story .tally{position:absolute;left:104px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3;display:flex;align-items:center;gap:6px;
-  background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:999px}
+  background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:var(--r-pill)}
 #story .tally svg{width:17px;height:17px;fill:#ff3b5c;stroke:#ff3b5c;stroke-width:1.6}
 /* Drifting up the left, exactly as they do on a post. */
 #story .reacts{position:absolute;left:14px;bottom:76px;z-index:3;display:flex;flex-direction:column-reverse;
@@ -588,7 +599,7 @@ button.rg{border:0;font:inherit}
 /* One tray at a time over the foot of the card: everything of one kind laid out at once,
    the one in use marked, so choosing is a look and a tap rather than a walk round a loop. */
 #make .tray{position:absolute;left:12px;right:12px;bottom:12px;max-height:60%;overflow-y:auto;overscroll-behavior:contain;z-index:3;color:#fff;
-  padding:12px;background:rgba(0,0,0,.74);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:16px;
+  padding:12px;background:rgba(0,0,0,.74);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:var(--r-card);
   animation:rise .2s cubic-bezier(.2,.7,.2,1);scrollbar-width:none}
 #make .tray::-webkit-scrollbar{display:none}
 #make .trow{display:flex;gap:8px;align-items:center;margin-bottom:12px}
@@ -621,14 +632,14 @@ button.rg{border:0;font:inherit}
 #make .mbar.bottom{padding-bottom:calc(10px + env(safe-area-inset-bottom));min-width:0}
 #make .who{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:#fff;min-width:0}
 #make .go{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--mk);color:var(--onmk);
-  font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:11px 16px;border-radius:999px}
+  font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:11px 16px;border-radius:var(--r-pill)}
 #make .go svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 #make .go:disabled{opacity:.6}
 
 
 /* What happened while you were not looking. Shut, and one line tall: the streak is what
    the top of this screen is for. */
-.act{margin:14px 18px 0;border:1px solid var(--line)}
+.act{margin:14px 18px 0;border-radius:var(--r-card);background:var(--soft);overflow:hidden}
 .act summary{display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer;list-style:none;
   font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .act summary::-webkit-details-marker{display:none}
@@ -637,24 +648,24 @@ button.rg{border:0;font:inherit}
 .act summary .chev{width:15px;height:15px;flex:none;stroke:var(--muted);fill:none;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .18s}
 .act[open] summary .chev{transform:rotate(180deg)}
-.act .e{display:flex;align-items:center;gap:10px;padding:9px 13px;border-top:1px solid var(--line);font-size:13px}
+.act .e{display:flex;align-items:center;gap:10px;padding:9px 13px;font-size:13px}
 .act .e p{color:var(--muted);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .act .e p b{color:var(--text);font-weight:800}
 .act .e .t{margin-left:auto;font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.act summary .chev{transition:none}}
 /* cards */
-.card{margin:14px 18px;border:1px solid var(--line);border-radius:0;padding:16px;background:var(--card)}
+.card{margin:14px 18px;border-radius:var(--r-card);padding:16px;background:var(--soft)}
 .card h2{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .card h2 span{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
 .q{margin-top:14px}
 .q .t{display:flex;justify-content:space-between;font-weight:700;font-size:14px}
 .q .t span{color:var(--muted)}
 /* The same bar in a group card, so the two cannot say different things about one day. */
-.tr{height:3px;border-radius:0;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);margin-top:8px;overflow:hidden}
+.tr{height:5px;border-radius:var(--r-pill);background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);margin-top:8px;overflow:hidden}
 .tr i{display:block;height:100%;border-radius:0;margin-left:var(--w, 0);width:calc(100% - var(--w, 0));
   background:var(--line);transition:margin-left .4s,width .4s}
 .ppl{display:flex;margin-top:14px;align-items:center}
-.ppl .av{border:2px solid var(--card);margin-left:-8px}
+.ppl .av{border:2px solid var(--soft);margin-left:-8px}
 .ppl .av:first-child{margin-left:0}
 .ppl span{margin-left:10px}
 .av{width:30px;height:30px;border-radius:50%;background:var(--teal);color:var(--onteal);display:grid;place-items:center;font-weight:800;font-size:12px;flex:none;text-transform:uppercase;overflow:hidden}
@@ -664,8 +675,9 @@ button.rg{border:0;font:inherit}
 .av.sm{width:24px;height:24px;font-size:11px}
 .av.lg{width:40px;height:40px;font-size:15px}
 .av.xl{width:76px;height:76px;font-size:30px}
-.chip{display:inline-block;padding:5px 10px;border-radius:0;border:1px solid var(--line);background:none;font-size:11.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap}
-.chip.ok{background:none;border-color:var(--mk);color:var(--mkt)}
+.chip{display:inline-block;padding:5px 10px;border-radius:var(--r-pill);background:var(--soft);font-size:11.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap}
+.chip.ok{background:var(--mktint);color:var(--mkt)}
+.card .chip:not(.ok){background:var(--card)}
 .empty{text-align:center;padding:28px 16px}
 .empty b{display:block;font-size:16px;margin-bottom:4px}
 .check{display:flex;align-items:center;gap:9px;margin-top:14px;font-weight:700;font-size:14px}
@@ -673,51 +685,50 @@ button.rg{border:0;font:inherit}
 .check span{font-weight:700}
 /* Big enough to be seen on the way past, and dashed while it is still a question — the
    answer to which is the difference between a challenge day counting and not. */
-.chal{position:relative;display:flex;align-items:center;gap:13px;margin-top:16px;padding:14px;border-radius:0;cursor:pointer;
-  border:2px dashed var(--mk);background:linear-gradient(180deg,var(--mkveil),transparent)}
+.chal{position:relative;display:flex;align-items:center;gap:13px;margin-top:16px;padding:14px;border-radius:var(--r-box);cursor:pointer;background:var(--mktint)}
 /* Invisible but the size of the whole card, so the tap target is the card rather than a
    28px square, and it is still a real focusable checkbox underneath. */
 .chal input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.chal input:focus-visible ~ .box{box-shadow:0 0 0 3px var(--mkring)}
-.chal .box{flex:none;width:28px;height:28px;border-radius:0;border:2px solid var(--mk);background:var(--card);
+.chal input:focus-visible ~ .box{box-shadow:0 0 0 2px var(--mk)}
+.chal .box{flex:none;width:28px;height:28px;border-radius:8px;background:var(--card);
   display:grid;place-items:center}
 .chal .box::after{content:"";width:13px;height:7px;border-left:3px solid var(--onmk);border-bottom:3px solid var(--onmk);
   border-radius:1px;transform:rotate(-45deg) translate(1px,-2px);opacity:0;transition:opacity .12s}
-.chal input:checked ~ .box{background:var(--mk);border-color:var(--mk)}
+.chal input:checked ~ .box{background:var(--mk)}
 .chal input:checked ~ .box::after{opacity:1}
 .chal .txt{font-weight:700;font-size:14px;line-height:1.3;min-width:0}
 .chal .txt b{display:block;font-size:16px;letter-spacing:-.01em}
 .chal .txt small{display:block;color:var(--muted);font-weight:600;font-size:13px;margin-top:1px}
 /* Once answered it stops asking: solid rather than dashed, and the line underneath says
    what it now means instead of what to do. */
-.chal:has(input:checked){border-style:solid;background:linear-gradient(180deg,var(--mkveil),transparent)}
+.chal:has(input:checked){background:var(--mktint)}
 .chal:has(input:checked) .txt small{visibility:hidden}
 .chal:has(input:checked) .txt small::before{content:"Counts towards your challenge";visibility:visible;color:var(--mkt)}
-.about{margin:12px 0 0;padding:12px 0 0 18px;border-top:1px solid var(--line);color:var(--muted);
+.about{margin:12px 0 0;padding:12px 0 0 18px;color:var(--muted);
   font-size:13px;font-weight:600;line-height:1.55}
 .about li{padding-left:2px}
-.nudge{border-color:var(--mk)}
+.nudge{background:var(--mktint)}
 .nudge b{font-family:Oswald,system-ui,sans-serif;font-size:15px}
 .nudge p{margin-top:5px;font-size:13px;line-height:1.4}
 .chalpick{margin-top:8px}
 .chalpick[hidden]{display:none}
 .warn{color:#e5484d;font-size:13px;font-weight:600}
 /* Something the app needs from you before it can do its job. Marked, not alarming. */
-.warn-card{border-left:3px solid var(--mk)}
+.warn-card{background:var(--mktint)}
 .warn-card b{font-size:15px}
 .warn-card p{margin-top:5px;line-height:1.45}
 /* The setup form's two extra fields, which are the only select and date input in the app. */
 .auth select,.auth input[type=date]{font:inherit;font-size:16px}
-.prog{display:block;height:3px;background:var(--line);border-radius:0;overflow:hidden;margin-top:10px}
+.prog{display:block;height:5px;background:var(--soft);border-radius:var(--r-pill);overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--mk);width:var(--w,0%);transition:width .25s}
 .prog[hidden]{display:none}
 .rank{flex:none;width:20px;text-align:center;font-family:Oswald,system-ui,sans-serif;font-weight:800;font-size:13px;color:var(--muted)}
 .rank.top{color:var(--mkt)}
 .list{padding:4px 16px}
-.list .row{padding:10px 0;border-top:1px solid var(--line)}
+.list .row{padding:10px 0}
 .list .row:first-child{border-top:0}
 .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px;text-align:center}
-.stats div{background:none;border:1px solid var(--line);border-radius:0;padding:11px 4px}
+.stats div{background:var(--card);border-radius:var(--r-box);padding:11px 4px}
 .stats b{display:block;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:22px;color:var(--text);font-variant-numeric:tabular-nums}
 .stats div:first-child b{padding:.06em .04em .18em 0;margin-bottom:-.18em;
   background:linear-gradient(to top,var(--g1) 0,var(--g1) var(--fill),var(--g2) 100%);
@@ -755,9 +766,10 @@ button.rg{border:0;font:inherit}
 /* Which group a post is in, said on its own rather than tucked in after the time: a label
    of its own in the header, in ink, not green (green is what was done). Tapping it opens
    the group. */
-.post .head .gtag{display:inline-flex;align-items:center;gap:6px;flex:none;max-width:44%;padding:6px 9px;border-radius:0;
-  background:var(--soft);border:1px solid var(--line);color:var(--text);
+.post .head .gtag{display:inline-flex;align-items:center;gap:6px;flex:none;max-width:44%;padding:6px 9px;border-radius:var(--r-pill);
+  background:var(--soft);color:var(--text);
   font:600 12.5px/1 Oswald,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.05em}
+.card .post .head .gtag,.post .head .gtag{background:var(--card)}
 .post .head .gtag span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .post .head .gtag svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .post .head .grow{min-width:0}
@@ -780,11 +792,11 @@ button.rg{border:0;font:inherit}
 /* "Seen", under your last message. */
 .cseen{align-self:flex-end;display:flex;align-items:center;gap:6px;margin:3px 4px 0 0;padding:0;background:none;border:0;
   font-size:12px;font-weight:600;color:var(--muted)}
-.cseen i{font-style:normal;font-size:11px;font-weight:700;color:var(--text);background:var(--soft);padding:2px 6px;border-radius:9px}
+.cseen i{font-style:normal;font-size:11px;font-weight:700;color:var(--text);background:var(--soft);padding:2px 6px;border-radius:var(--r-pill)}
 .m:has(.mrx) + .cseen{margin-top:14px}
 .post .head .more{margin-left:auto;background:none;color:var(--muted);line-height:0;padding:4px 6px}
 .post .head .more svg{width:20px;height:20px;display:block;fill:currentColor}
-.reel .badge{position:absolute;right:12px;top:12px;z-index:4;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:13px;padding:5px 10px;border-radius:0;text-transform:uppercase;letter-spacing:.02em}
+.reel .badge{position:absolute;right:12px;top:12px;z-index:4;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:13px;padding:5px 10px;border-radius:var(--r-pill);text-transform:uppercase;letter-spacing:.02em}
 /* The player is the clip and one glyph. Tap plays and the pause bars show for a moment
    before getting out of the way; tap again and the triangle is straight back. */
 .reel .play{position:absolute;inset:0;display:grid;place-items:center;z-index:1;pointer-events:none}
@@ -816,7 +828,7 @@ button.rg{border:0;font:inherit}
 /* What the clip is doing right now, said over it: the time while skimming, the speed while
    held or just chosen. */
 .reel .hud{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:5;pointer-events:none;
-  background:rgba(0,0,0,.6);color:#fff;font-weight:800;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;
+  background:rgba(0,0,0,.6);color:#fff;font-weight:800;font-size:13px;line-height:1;padding:8px 12px;border-radius:var(--r-pill);
   font-variant-numeric:tabular-nums;white-space:nowrap;opacity:0;transition:opacity .15s;backdrop-filter:blur(6px)}
 .reel .hud.on{opacity:1}
 .reel .spd{position:absolute;right:50px;bottom:24px;z-index:4;height:30px;min-width:38px;padding:0 9px;border-radius:999px;
@@ -824,7 +836,7 @@ button.rg{border:0;font:inherit}
 .reel.started .spd{opacity:1}
 .reel .spd.set{background:#fff;color:#000}
 .reel .spdm{position:absolute;right:12px;bottom:62px;z-index:6;background:rgba(12,14,13,.88);backdrop-filter:blur(10px);
-  border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  border-radius:var(--r-card);padding:8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .reel .spdm .rates{display:flex;gap:4px}
 .reel .spdm button{background:rgba(255,255,255,.1);color:#fff;border-radius:10px;padding:9px 0;min-width:44px;font-weight:800;font-size:13px}
 .reel .spdm button.on{background:#fff;color:#000}
@@ -872,7 +884,7 @@ button.rg{border:0;font:inherit}
 .bchip:active{opacity:1;transform:scale(.86)}
 .post .head .line{display:flex;align-items:center;gap:0;min-width:0}
 /* Every one they have, on the profile, in the order they were earned. */
-.bshelf{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.bshelf{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px}
 .bshelf button{background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:4px}
 .bshelf .bdg{width:30px;height:30px}
 .bshelf span{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -883,7 +895,7 @@ button.rg{border:0;font:inherit}
 .bwin .days{display:block;font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:6px}
 .bwin h2{font-size:20px;margin-top:14px}
 .bwin p{margin-top:8px;line-height:1.45}
-.bwin .who{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--muted)}
+.bwin .who{margin-top:14px;padding-top:12px;font-size:12.5px;font-weight:700;color:var(--muted)}
 
 /* ---- a profile, which is a page about somebody rather than a settings screen ---- */
 .hdr h1.withgear{display:flex;align-items:center;justify-content:space-between}
@@ -895,20 +907,19 @@ button.rg{border:0;font:inherit}
 .pf .nm b{font-size:20px;font-weight:800;display:flex;align-items:center;line-height:1.2;overflow-wrap:anywhere}
 .pf .nm span{color:var(--muted);font-weight:600;font-size:14px}
 .bio{margin:14px 0 0;font-size:14.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text}
-.pf .stats{margin-top:16px;border:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr)}
-.pf .stats div{padding:11px 4px;text-align:center;border-right:1px solid var(--line);border-bottom:0}
-.pf .stats div:last-child{border-right:0}
+.pf .stats{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pf .stats div{padding:11px 4px;text-align:center;background:var(--soft);border-radius:var(--r-box)}
 .pf .stats b{display:block;font-size:26px;line-height:1}
 .pf .stats div:first-child b{color:var(--mkt)}
 .pf .stats small{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
 .pf .bshelf{margin-top:16px}
 .muted.pad,p.pad{padding:18px 0;font-size:13.5px;line-height:1.5}
 /* The groups somebody is willing to say they are in, each with the run inside it. */
-.gchips{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
-.gchip{background:none;border:1px solid var(--line);padding:6px 11px;display:flex;align-items:baseline;gap:6px;font-size:12.5px;font-weight:700;border-radius:0;white-space:normal;text-align:left}
+.gchips{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px;padding-top:14px}
+.gchip{background:var(--soft);padding:6px 11px;display:flex;align-items:baseline;gap:6px;font-size:12.5px;font-weight:700;border-radius:var(--r-pill);white-space:normal;text-align:left}
 .gchip em{font-style:normal;color:var(--muted);font-weight:600}
-.ptabs{display:flex;margin-top:18px;border-top:1px solid var(--line)}
-.ptabs span{flex:1;text-align:center;padding:11px 0 9px;border-bottom:2px solid var(--mk);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.ptabs{display:flex;margin-top:18px}
+.ptabs span{flex:1;text-align:center;padding:9px 0;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;background:var(--soft);border-radius:var(--r-pill);color:var(--text)}
 /* The grid. Square tiles, hairline gaps, the first frame and what the day was worth. */
 .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px 0 0;margin:0 -18px}
 .tile{position:relative;aspect-ratio:1;background:#0b0c0e;overflow:hidden;padding:0;border-radius:0}
@@ -933,7 +944,7 @@ button.rg{border:0;font:inherit}
 #one{position:fixed;inset:0;z-index:65;background:var(--bg);overflow-y:auto;animation:slidein .28s cubic-bezier(.32,.72,0,1);will-change:transform}
 #one[hidden]{display:none}
 @keyframes slidein{from{opacity:.4;transform:translateX(26px)}}
-.onebar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);
+.onebar{position:sticky;top:0;z-index:2;background:var(--bg);
   padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
 .onebar .backx{margin:0 0 0 6px}           /* the bar already has the padding the screen version needs */
 .onewrap{max-width:600px;margin:0 auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
@@ -941,23 +952,23 @@ button.rg{border:0;font:inherit}
    The icon top right of the feed, where every app that has one puts it. */
 .hdr .top .chatbtn{position:relative;background:none;padding:4px;color:var(--text);line-height:0}
 .hdr .top .chatbtn svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
-.hdr .top .chatbtn i{position:absolute;right:-3px;top:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+.hdr .top .chatbtn i{position:absolute;right:-3px;top:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:var(--r-pill);
   background:var(--mk);color:var(--onmk);font-style:normal;font-size:10.5px;line-height:17px;text-align:center}
 /* ---- the example crews ----
    The real group page, under a dark bar that says it is an example and over a footer that
    says how to make your own. */
 .demo{padding-bottom:calc(128px + env(safe-area-inset-bottom))}
 .demo .dtop{position:sticky;top:0;z-index:20;padding:calc(10px + env(safe-area-inset-top)) 12px 6px;background:var(--bg)}
-.dbar{background:#16181b;color:#fff;border-radius:16px;padding:10px 12px 12px}
+.dbar{background:#16181b;color:#fff;border-radius:var(--r-card);padding:10px 12px 12px}
 .dbar .drow{display:flex;align-items:center;justify-content:space-between}
 .dbar .drow b{font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
 button.dlog{background:none;color:#2fd36f;padding:4px 2px;font-size:14px}
 .dchips{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
-.dchips button{background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px}
+.dchips button{background:rgba(255,255,255,.12);color:#fff;border-radius:var(--r-pill);padding:6px 13px;font-size:12.5px}
 .dchips button.on{background:#fff;color:#16181b}
 .demo .hdr{padding-top:2px}
-.dfoot{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:600px;margin:0 auto;background:var(--bg);border-top:1px solid var(--line);
-  padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+.dfoot{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:600px;margin:0 auto;background:var(--bg);
+  padding:10px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px -18px rgba(0,0,0,.35)}
 .dfoot p{margin:0 0 8px;text-align:center;font-size:12.5px;font-weight:600;color:var(--muted)}
 .dbtns{display:flex;gap:8px}
 .dbtns .primary{flex:1}
@@ -1000,8 +1011,8 @@ button.dlog{background:none;color:#2fd36f;padding:4px 2px;font-size:14px}
 .dkick{margin:0;color:#2fd36f;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
 .dsub{margin:0;opacity:.8;font-weight:600}
 .dpicks{display:grid;gap:8px;margin:6px 0}
-.dpick{display:flex;align-items:center;gap:12px;padding:14px;margin:0;color:#fff;font-size:inherit;border:1.5px solid rgba(255,255,255,.18);border-radius:14px;cursor:pointer}
-.dpick.on{border-color:#2fd36f;background:rgba(47,211,111,.1)}
+.dpick{display:flex;align-items:center;gap:12px;padding:14px;margin:0;color:#fff;font-size:inherit;border-radius:var(--r-box);cursor:pointer;background:rgba(255,255,255,.07)}
+.dpick.on{background:rgba(47,211,111,.16);box-shadow:inset 0 0 0 2px #2fd36f}
 .dpick input{accent-color:#2fd36f;width:20px;height:20px;margin:0;flex:none}
 .dpick b{display:block;font-size:16px}
 .dpick em{display:block;font-style:normal;font-size:13px;opacity:.7;font-weight:600;margin-top:2px}
@@ -1009,23 +1020,23 @@ button.dlog{background:none;color:#2fd36f;padding:4px 2px;font-size:14px}
 .dnot{background:none;color:#fff;opacity:.75;font-size:14px;padding:8px}
 .dwhat{margin:8px 0 0;font-family:Oswald;font-size:44px;font-weight:600;text-transform:uppercase;line-height:1}
 .drec .row{margin-top:10px}
-.dproof{position:relative;aspect-ratio:4/5;max-height:42vh;border-radius:14px;overflow:hidden;background:#111;flex:none}
+.dproof{position:relative;aspect-ratio:4/5;max-height:42vh;border-radius:var(--r-card);overflow:hidden;background:#111;flex:none}
 .dproof .dbadge{position:absolute;right:10px;top:10px;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:14px;padding:5px 10px;text-transform:uppercase}
 .dpop{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:4px}
 .dpop i{font-style:normal;font-size:26px;animation:dpop .5s calc(.5s + var(--i) * .35s) cubic-bezier(.2,.9,.3,1.4) both}
 @keyframes dpop{from{opacity:0;transform:translateY(24px) scale(.4)}}
-.dwill{border:1.5px dashed rgba(47,211,111,.6);background:rgba(47,211,111,.08);border-radius:14px;padding:14px 16px}
+.dwill{background:rgba(47,211,111,.1);border-radius:var(--r-card);padding:14px 16px}
 .dwill b{display:block;font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#2fd36f}
 .dwill ul{margin:8px 0 0;padding-left:18px;font-weight:600;font-size:14px;line-height:1.7}
 .campract{position:absolute;left:0;right:0;top:calc(64px + env(safe-area-inset-top));z-index:3;text-align:center;color:#fff;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.6)}
 .campract b{display:inline-block;background:#2fd36f;color:#06230f;font-family:Oswald;font-weight:600;font-size:15px;padding:5px 12px;text-transform:uppercase;text-shadow:none}
 .campract span{display:block;margin-top:8px;font-size:13px;font-weight:700}
-.start .saved{background:var(--mktint);border-radius:14px;padding:13px 15px;margin-bottom:14px}
+.start .saved{background:var(--mktint);border-radius:var(--r-card);padding:13px 15px;margin-bottom:14px}
 .start .saved b{display:block;font-size:15px}
 .start .saved p{margin:3px 0 0;font-size:13.5px;color:var(--text);opacity:.8}
 .presets button.on{background:var(--mktint);box-shadow:inset 0 0 0 2px var(--mk)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:70;max-width:calc(100vw - 32px);
-  background:#16181b;color:#fff;border-radius:999px;padding:11px 18px;font-weight:700;font-size:14px;box-shadow:0 8px 24px -8px rgba(0,0,0,.4);animation:rise .3s both}
+  background:#16181b;color:#fff;border-radius:var(--r-pill);padding:11px 18px;font-weight:700;font-size:14px;box-shadow:0 8px 24px -8px rgba(0,0,0,.4);animation:rise .3s both}
 /* ---- help ----
    On every screen once you are in, and muted, so it is there when you look for it and
    never competes with the thing the screen is for. */
@@ -1039,9 +1050,9 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
    one thing being talked about. The layer itself is clear and takes every tap, so a tap
    anywhere but the box lands on nothing. */
 .tour{position:fixed;inset:0;z-index:2147483000}
-.tour .ring{position:fixed;border:3px solid #2fd36f;border-radius:16px;pointer-events:none}
+.tour .ring{position:fixed;border:3px solid #2fd36f;border-radius:var(--r-card);pointer-events:none}
 .tour .ring.round{border-radius:50%}
-.tbox{position:fixed;width:calc(100vw - 32px);max-width:320px;background:#2b2e32;color:#fff;border-radius:16px;
+.tbox{position:fixed;width:calc(100vw - 32px);max-width:320px;background:#2b2e32;color:#fff;border-radius:var(--r-card);
   padding:16px 16px 12px;box-shadow:0 12px 32px -8px rgba(0,0,0,.4)}
 .tbox::before{content:"";position:absolute;left:var(--ax,50%);top:-6px;width:14px;height:14px;margin-left:-7px;
   background:#2b2e32;transform:rotate(45deg);border-radius:2px}
@@ -1055,10 +1066,10 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 .tbox .dots{display:flex;gap:5px}
 .tbox .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.28)}
 .tbox .dots i.on{background:#fff}
-.tbox .next{justify-self:end;background:#fff;color:#16181b;border-radius:999px;padding:8px 18px;font-size:13.5px;font-weight:800}
+.tbox .next{justify-self:end;background:#fff;color:#16181b;border-radius:var(--r-pill);padding:8px 18px;font-size:13.5px;font-weight:800}
 /* The list. One line each, and the ones with something waiting read as waiting. */
 .crow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:11px 14px;background:none;
-  color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
+  color:var(--text);border-bottom:1px solid var(--hair);border-radius:0}
 /* gav, not gr: gr is the growing middle of the row, and an avatar given flex:1 is an
    ellipse with a letter in it. */
 /* A group's picture, where a person's would be. The mark colour rather than ink, so the two
@@ -1076,13 +1087,13 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 .crow.un .gr > span{color:var(--text);font-weight:600}
 .crow .rt{flex:none;text-align:right}
 .crow .rt em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-bottom:5px}
-.crow .rt i{display:inline-block;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--mk);
+.crow .rt i{display:inline-block;min-width:20px;height:20px;padding:0 6px;border-radius:var(--r-pill);background:var(--mk);
   color:var(--onmk);font-style:normal;font-size:12px;line-height:20px;text-align:center}
 /* One conversation. */
 /* Padded past the notch like every other header: the status bar is translucent and the page
    runs under it, so a bar at top:0 with 12px of padding puts the name and the way back
    under the clock. Sticky, so it is there however far up the conversation you have read. */
-.cbar{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);
+.cbar{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;
   flex:none;background:var(--bg)}
 .cbar .backx{margin:0}
 
@@ -1117,7 +1128,7 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 .m.them .mrx{left:10px}
 .m.me .mrx{right:10px}
 .m .mrx button{display:flex;align-items:center;gap:2px;background:var(--soft);border:0;
-  border-radius:999px;padding:2px 7px 3px;font-size:12.5px;line-height:1.3;color:var(--text)}
+  border-radius:var(--r-pill);padding:2px 7px 3px;font-size:12.5px;line-height:1.3;color:var(--text)}
 .m .mrx button.mine{background:var(--okbg)}
 .m .mrx button b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:11px;color:var(--muted)}
 /* Wider than the bubble it hangs off, and allowed to be: a tray clipped to a short message
@@ -1128,7 +1139,7 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
    the rest. Post is the whole width: it is the one thing the screen is for. */
 #dlg .dlgx{position:absolute;right:12px;top:12px;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:var(--soft);font-size:15px;font-weight:800;line-height:1;z-index:2}
 #dlg .postfor{margin:2px 0 6px}
-.gpill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:none;font-size:12.5px;font-weight:800;color:var(--text)}
+.gpill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:var(--r-pill);background:var(--soft);font-size:12.5px;font-weight:800;color:var(--text)}
 .gpill svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
 .take{position:relative}
 .take #takeprev{margin-top:4px}
@@ -1138,12 +1149,12 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 .howmany input{flex:1;min-width:0;text-align:center;font-family:Oswald,system-ui,sans-serif;font-size:30px;font-weight:600;padding:8px 6px}
 .amthint{margin:6px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
 .cfor{display:flex;flex-wrap:wrap;gap:8px}
-.cchip{position:relative;display:inline-flex;flex-direction:column;gap:1px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;cursor:pointer}
+.cchip{position:relative;display:inline-flex;flex-direction:column;gap:1px;padding:8px 13px;border-radius:var(--r-pill);cursor:pointer;background:var(--soft)}
 /* The box itself covers the chip, unseen, so a tap anywhere on it is a tap on the box. */
 .cchip input,.stile input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer}
 .cchip b{font-size:13px;font-weight:800;color:var(--text)}
 .cchip em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted)}
-.cchip:has(input:checked){border-color:var(--mk);background:var(--soft)}
+.cchip:has(input:checked){background:var(--mktint)}
 .cchip:has(input:checked) b::before{content:"\2713  ";color:var(--mkt)}
 .cchip:has(input:disabled){opacity:.55;cursor:default}
 .cchip.main{cursor:default}
@@ -1161,14 +1172,14 @@ details.pmore[open] summary::after{transform:rotate(90deg)}
 /* Something to aim at, since the controls underneath cannot be trusted on a phone. It goes
    as soon as the clip is running, and comes back when it is not. */
 #takeprev .takeplay{position:absolute;inset:0;width:100%;background:none;padding:0;
-  display:grid;place-items:center;border-radius:14px}
+  display:grid;place-items:center;border-radius:var(--r-card)}
 #takeprev .takeplay i{width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.45);
   border:1.5px solid rgba(255,255,255,.75);display:grid;place-items:center;backdrop-filter:blur(6px)}
 #takeprev .takeplay i::after{content:"";border-left:15px solid #fff;border-top:10px solid transparent;
   border-bottom:10px solid transparent;margin-left:4px}
 #takeprev.playing .takeplay{display:none}
 #takeprev video,#takeprev img{display:block;width:100%;max-height:46vh;object-fit:contain;
-  background:#000;border-radius:14px}
+  background:#000;border-radius:var(--r-card)}
 .reactpick.all{max-width:min(86vw,320px);overflow-x:auto;overscroll-behavior-x:contain;
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
 .reactpick.all::-webkit-scrollbar{display:none}
@@ -1176,8 +1187,7 @@ details.pmore[open] summary::after{transform:rotate(90deg)}
 /* No paint of its own: a dimmed conversation would be a sheet, and what is being picked
    hangs off the line it belongs to rather than sitting over it. */
 .trayback{position:fixed;inset:0;z-index:1;background:none}
-.m .reactpick{position:absolute;bottom:100%;margin-bottom:6px;z-index:6;display:flex;gap:2px;background:var(--sheet);
-  border:1px solid var(--line);border-radius:999px;padding:4px 6px;box-shadow:0 10px 26px -8px rgba(0,0,0,.35)}
+.m .reactpick{position:absolute;bottom:100%;margin-bottom:6px;z-index:6;display:flex;gap:2px;background:var(--sheet);border-radius:var(--r-pill);padding:4px 6px;box-shadow:0 10px 26px -8px rgba(0,0,0,.35)}
 .m.them .reactpick{left:0;right:auto}
 .m.me .reactpick{left:auto;right:0;transform-origin:right bottom}
 /* flex:none or there is nothing to scroll: sixty emoji in a flex row shrink to fit the
@@ -1195,11 +1205,11 @@ details.pmore[open] summary::after{transform:rotate(90deg)}
    height of the screen less the keyboard, so the box sits above the keyboard because the
    column ends there, not because anything worked out where the keyboard is. */
 .csend{flex:none;margin:8px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:8px;padding:8px;
-  background:var(--card);border:1px solid var(--line)}
+  background:var(--soft);border-radius:var(--r-card)}
 .csend .emo{width:34px;height:34px;background:var(--soft);display:grid;place-items:center;flex:none;padding:0}
 .csend .emo svg{width:19px;height:19px;fill:none;stroke:var(--muted);stroke-width:1.9}
-.csend [name=body]{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);
-  font:inherit;font-size:16px;border-radius:0}
+.csend [name=body]{flex:1;min-width:0;padding:9px 12px;background:var(--card);color:var(--text);
+  font:inherit;font-size:16px;border-radius:var(--r-box)}
 .csend button.primary{background:none;color:var(--mkt);font-weight:800;font-size:15px;padding:6px 6px;flex:none}
 .cemoji{flex:none;margin:0 12px}
 main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:calc(100dvh - var(--kb,0px));
@@ -1207,7 +1217,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* The way into a group's own chat, on the group screen. */
 .chatrow{display:flex;align-items:center;justify-content:center;gap:8px}
 .chatrow svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
-.chatrow i{font-style:normal;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--mk);
+.chatrow i{font-style:normal;min-width:19px;height:19px;padding:0 5px;border-radius:var(--r-pill);background:var(--mk);
   color:var(--onmk);font-size:11px;line-height:19px}
 .list .row .msg{display:inline-flex;align-items:center;gap:5px;line-height:0}
 .list .row .msg svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
@@ -1221,7 +1231,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* A line across the bottom of the post saying where that question got to. Your own post
    carries no flag button and very much needs this. */
 .fstrip{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 14px;background:var(--soft);
-  color:var(--text);border-top:1px solid var(--line);font-size:13px;line-height:1.35;border-radius:0}
+  color:var(--text);font-size:13px;line-height:1.35;border-radius:var(--r-box)}
 .fstrip svg{width:17px;height:17px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
 .fstrip span{flex:1;min-width:0;font-weight:600}
 .fstrip b{font-weight:800}
@@ -1232,7 +1242,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* The way in, in the feed, because it is a thing with a clock on it rather than a place
    to browse. Not there at all when nothing is running, which is most days. */
 .fbar-chip{display:flex;align-items:center;gap:10px;width:calc(100% - 28px);margin:12px 14px 0;padding:12px 13px;
-  background:var(--text);color:var(--bg);text-align:left;font-size:13.5px;font-weight:700;border-radius:0}
+  background:var(--text);color:var(--bg);text-align:left;font-size:13.5px;font-weight:700;border-radius:var(--r-card)}
 .fbar-chip svg{width:19px;height:19px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
 .fbar-chip span{flex:1;min-width:0}
 .fbar-chip em{font-style:normal;flex:none;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:13.5px;
@@ -1242,7 +1252,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* The screen. A bar with the clock in it, because how long is left is the whole question. */
 /* The clock is the whole point of this screen, so the bar it is on stays put while the rest
    scrolls — the same as a conversation keeps its name and its way back. */
-.fbar{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line)}
+.fbar{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 14px 10px}
 .fbar h2{margin:0;font-size:17px;font-weight:800}
 .fbar .backx{margin:0}
 .fbar .clock{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--text);color:var(--bg);padding:6px 10px}
@@ -1259,7 +1269,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
    is capped: the reason and the two answers have to be reachable without hunting for them,
    and a 4:5 card plus a verdict is already more than a phone shows at once. */
 .fbar ~ .post .reel,.verdict + .post .reel{aspect-ratio:auto;height:min(42vh,340px)}
-.why{padding:14px;border-bottom:1px solid var(--line)}
+.why{padding:14px}
 .why .head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
 .why .head b{font-size:13.5px;font-weight:800}
 .why .head span{font-size:12px;color:var(--muted)}
@@ -1269,14 +1279,14 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .ask span{font-size:13px;color:var(--muted)}
 .votes{display:flex;gap:10px;padding:12px 14px 14px}
 .votes button{flex:1;padding:15px 8px;font-size:14.5px;font-weight:800;background:var(--soft);color:var(--text);
-  display:flex;flex-direction:column;align-items:center;gap:7px;line-height:1.2;border-radius:0}
+  display:flex;flex-direction:column;align-items:center;gap:7px;line-height:1.2;border-radius:var(--r-pill)}
 .votes button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
 .votes button.on{background:var(--mk);color:var(--onmk)}
 .tally{padding:0 14px calc(28px + env(safe-area-inset-bottom))}
 .tally .track{height:6px;background:var(--line);overflow:hidden}
 .tally .track i{display:block;height:100%;background:var(--mk)}
 .tally .rows{padding:4px 0}
-.tally .rw{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)}
+.tally .rw{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--hair)}
 .tally .rw:last-child{border-bottom:0}
 .tally .rw b{font-size:14px;font-weight:700;flex:1;min-width:0}
 .tally .rw em{font-style:normal;font-size:12.5px;font-weight:800;color:var(--mkt);flex:none}
@@ -1287,7 +1297,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 /* The list, when more than one is running. */
 .flist{padding:2px 0}
 .frow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 14px;background:none;
-  color:var(--text);border-bottom:1px solid var(--line);border-radius:0}
+  color:var(--text);border-bottom:1px solid var(--hair);border-radius:0}
 .frow .th{width:44px;height:55px;flex:none;background:#0b0c0e;overflow:hidden;display:block}
 .frow .th img,.frow .th video{width:100%;height:100%;object-fit:cover;display:block}
 .frow .gr{flex:1;min-width:0}
@@ -1301,8 +1311,8 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .fchip{display:flex;align-items:center;gap:9px;margin:16px 0 14px;padding:9px 10px;background:var(--soft)}
 .fchip b{display:block;font-size:13px;font-weight:800}
 .fchip em{font-style:normal;font-size:12px;color:var(--muted)}
-#dlg textarea{width:100%;padding:12px;border:1px solid var(--line);background:var(--card);color:var(--text);
-  font:inherit;font-size:16px;resize:none;border-radius:0}
+#dlg textarea{width:100%;padding:12px;background:var(--soft);color:var(--text);
+  font:inherit;font-size:16px;resize:none;border-radius:var(--r-box)}
 #dlg textarea.autogrow{padding:12px 14px}
 /* ---- settings ---- */
 .sec{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 18px 7px}
@@ -1321,9 +1331,8 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .legallinks button{background:none;color:var(--muted);font-weight:800;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:4px 7px}
 .agree{text-align:left;margin-top:18px;align-items:flex-start}
 .agree span{font-weight:600;font-size:13px;line-height:1.45;color:var(--muted)}
-.list{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .li{display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border-radius:0;
-  border-bottom:1px solid var(--line);text-align:left;font:inherit;color:var(--text);white-space:normal}
+  border-bottom:1px solid var(--hair);text-align:left;font:inherit;color:var(--text);white-space:normal}
 .li:last-child{border-bottom:0}
 .li svg{width:20px;height:20px;fill:none;stroke:var(--muted);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .li .t{flex:1;min-width:0}
@@ -1332,13 +1341,13 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .li .go{color:var(--muted);font-size:17px;flex:none}
 .li.danger{color:#d1344f}
 .li.danger svg{stroke:#d1344f}
-.sw{width:42px;height:25px;border-radius:999px;background:var(--todo);position:relative;flex:none;transition:background .2s}
+.sw{width:42px;height:25px;border-radius:var(--r-pill);background:var(--todo);position:relative;flex:none;transition:background .2s}
 .sw::after{content:"";position:absolute;top:2.5px;left:2.5px;width:20px;height:20px;border-radius:50%;background:#fff;
   transition:transform .22s cubic-bezier(.2,.8,.2,1);box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .sw.on{background:var(--mk)}
 .sw.on::after{transform:translateX(17px)}
 /* The one new line on the post form reads as a choice, not fine print. */
-.chk{display:flex;gap:11px;align-items:flex-start;padding:13px;border:1px solid var(--line)}
+.chk{display:flex;gap:11px;align-items:flex-start;padding:13px;border-radius:var(--r-box);background:var(--soft)}
 .chk .t b{display:block;font-size:14px;font-weight:800;color:var(--text)}
 .chk .t em{font-style:normal;display:block;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;line-height:1.4}
 
@@ -1352,7 +1361,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .acts .cc{margin-left:auto;font-size:13px;font-weight:700;color:var(--muted)}
 /* Over the row it was opened from, not over the clip. */
 .reactpick{position:absolute;left:8px;bottom:calc(100% - 6px);z-index:5;display:flex;gap:2px;padding:6px;
-  background:var(--card);border:1px solid var(--line);box-shadow:0 10px 26px -12px rgba(11,12,14,.5)}
+  background:var(--card);box-shadow:0 10px 26px -12px rgba(11,12,14,.5);border-radius:var(--r-pill)}
 .reactpick button{background:none;padding:5px 7px;font-size:22px;line-height:1;flex:none}
 .reactpick button:active{background:var(--soft)}
 /* The replies, and a box that is always ready. */
@@ -1373,7 +1382,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .reel.bust .bust{display:flex}
 .reel.bust .play,.reel.bust .proof{display:none}
 .reel .bust p{font-size:14px;font-weight:700;line-height:1.4}
-.reel .bust button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.5);padding:8px 16px}
+.reel .bust button{background:rgba(255,255,255,.2);color:#fff;padding:8px 16px}
 .c{display:flex;gap:8px;padding:7px 0;font-size:14px;align-items:flex-start}
 .c b{font-weight:800;flex:none}
 .c span{color:var(--muted);flex:1;font-weight:500}
@@ -1389,17 +1398,17 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .clist .c.reply{margin-left:34px}
 .clist .c .at{font-style:normal;font-weight:700;color:var(--mk)}
 .clist .c .creply{display:inline-block;background:none;padding:3px 0 0;font-size:12px;font-weight:800;color:var(--muted)}
-.replying{display:flex;align-items:center;gap:8px;margin:2px 0 6px;padding:7px 10px;background:var(--soft);font-size:13px;color:var(--muted)}
+.replying{display:flex;align-items:center;gap:8px;margin:2px 0 6px;padding:7px 10px;background:var(--soft);font-size:13px;color:var(--muted);border-radius:var(--r-box)}
 .replying span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .replying b{color:var(--text)}
 .replying em{font-style:normal;margin-left:6px}
 .replying button{background:none;padding:2px 6px;color:var(--muted);font-size:13px;flex:none}
 .replying.chat{flex:none;margin:6px 12px -4px}
-.reactpick.opts{flex-direction:column;align-items:stretch;gap:0;padding:4px;bottom:auto;top:100%;margin-top:6px;min-width:150px;border-radius:12px}
+.reactpick.opts{flex-direction:column;align-items:stretch;gap:0;padding:4px;bottom:auto;top:100%;margin-top:6px;min-width:150px;border-radius:var(--r-box)}
 .reactpick.opts button{font-size:15px;font-weight:700;text-align:left;padding:10px 12px;line-height:1.2}
 .reactpick.opts button.bad{color:#d1344f}
 .clist .c .reactpick.opts{left:40px;top:calc(100% - 4px)}
-.m .reactpick.opts{border-radius:12px}
+.m .reactpick.opts{border-radius:var(--r-box)}
 .m.them .reactpick.opts{left:0;right:auto}
 .m.me .reactpick.opts{left:auto;right:0}
 /* Turned upward when there is no room under the thing it belongs to. */
@@ -1419,7 +1428,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .cquote.them{align-self:flex-start;align-items:flex-start}
 .cquote b{font-size:11px;font-weight:700;color:var(--muted);margin:0 6px 3px}
 .cquote span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:7px 12px;
-  border-radius:14px;background:var(--soft);color:var(--muted);font-size:13.5px;line-height:1.35;opacity:.75}
+  border-radius:var(--r-box);background:var(--soft);color:var(--muted);font-size:13.5px;line-height:1.35;opacity:.75}
 /* Arrived here from a notification: say which reply it was, then stop saying it. */
 .clist .c.found{background:var(--mktint);box-shadow:0 0 0 6px var(--mktint);animation:foundit 2.2s ease-out}
 @keyframes foundit{0%,55%{background:var(--mkveil);box-shadow:0 0 0 6px var(--mkveil)}}
@@ -1430,7 +1439,7 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
    doing, and the padding is what keeps the tap target the size of a thumb without it. */
 .cin button.primary{background:none;color:var(--mkt);padding:9px 6px;font-size:17px;line-height:1.3}
 .cin button.primary:active{opacity:.55;transform:none}
-.cin .emo{background:var(--soft);padding:0;width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:0}
+.cin .emo{background:var(--soft);padding:0;width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:50%}
 .cin .emo svg{width:21px;height:21px;fill:none;stroke:var(--muted);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* bubble bar */
 /* iOS keeps a fixed element pinned to the layout viewport, which is not what is on
@@ -1459,12 +1468,12 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
    The one strip that scrolls sideways of its own accord keeps that. */
 #app{touch-action:pan-y}
 .stories{touch-action:pan-x}
-.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb, 0px));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
+.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb, 0px));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:var(--r-pill);display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
 /* Put away for a conversation, on the same curve and over the same time as the screen that
    is arriving. Popping out of existence over a screen still sliding in read as a fault. */
 .bar{transition:opacity .34s cubic-bezier(.32,.72,0,1),transform .34s cubic-bezier(.32,.72,0,1)}
 .bar.away{opacity:0;transform:translate(-50%,28px);pointer-events:none}
-.bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:999px}
+.bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:var(--r-pill)}
 .bar button{transition:color .2s,transform .12s cubic-bezier(.2,.7,.2,1)}
 .bar button.on{color:var(--text);background:none}
 /* One underline for the whole bar, so it slides to the tab you chose rather than
@@ -1587,6 +1596,12 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
 .camrow .cbtn{width:50px;height:50px}
 /* Hidden, the buttons either side still hold their places, so the shutter never moves. */
 .camrow .cbtn[hidden]{display:grid;visibility:hidden}
+/* The left of the shutter is front-and-back on the proof camera and the gallery on the
+   story one. Whichever is not there takes no room, so the other stays centred in its place. */
+.camleft{display:grid;place-items:center}
+.camrow #camgal[hidden]{display:none}
+.campill.fixed{pointer-events:none}
+.campill.fixed:disabled{opacity:1}
 /* The shutter: green to record, white for a picture, and a green square while recording. */
 .shutter{width:80px;height:80px;border-radius:50%;padding:0;border:4px solid #fff;background:transparent;
   display:grid;place-items:center;-webkit-tap-highlight-color:transparent}
@@ -1599,9 +1614,9 @@ dialog::backdrop{background:rgba(18,33,43,.5);backdrop-filter:blur(2px)}
   font:700 120px/1 Oswald,system-ui,sans-serif;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.6)}
 #cam.dual.second .camcount{left:50%}
 .camzoom{position:absolute;left:50%;bottom:calc(178px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3;margin:0;
-  background:rgba(0,0,0,.55);border-radius:999px;padding:6px 11px;font:700 13px/1 system-ui,sans-serif;color:var(--camg)}
+  background:rgba(0,0,0,.55);border-radius:var(--r-pill);padding:6px 11px;font:700 13px/1 system-ui,sans-serif;color:var(--camg)}
 .camnote{position:absolute;left:50%;top:calc(66px + env(safe-area-inset-top));transform:translateX(-50%);z-index:3;margin:0;
-  background:rgba(0,0,0,.6);border-radius:999px;padding:8px 14px;font-weight:700;font-size:13px;white-space:nowrap}
+  background:rgba(0,0,0,.6);border-radius:var(--r-pill);padding:8px 14px;font-weight:700;font-size:13px;white-space:nowrap}
 .camwhy{position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);z-index:4;text-align:center}
 .camwhy p{font-weight:700;line-height:1.45;margin:0 0 16px}
 .camwhy button{display:block;width:100%;margin-top:10px}
@@ -1632,11 +1647,11 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .auth p.muted{font-size:14px;margin:10px 0 0}
 .auth .card{margin:0;padding:0;border:0;background:none;text-align:left}
 .auth label{font-size:13.5px;font-weight:600;color:var(--muted);margin:16px 0 7px}
-.auth input,.auth select{height:52px;padding:0 15px;border-radius:12px;border:1px solid var(--field);font-size:16px}
-.auth input:focus,.auth select:focus{border-color:var(--mk);box-shadow:0 0 0 3px var(--mkveil)}
-.auth .primary,.welcome .primary,.oauth{width:100%;height:52px;padding:0 16px;border-radius:12px;font-size:16px;font-weight:600;letter-spacing:0;text-transform:none}
+.auth input,.auth select{height:52px;padding:0 15px;border-radius:var(--r-box);font-size:16px;background:var(--soft)}
+.auth input:focus,.auth select:focus{box-shadow:0 0 0 2px var(--mk)}
+.auth .primary,.welcome .primary,.oauth{width:100%;height:52px;padding:0 16px;border-radius:var(--r-pill);font-size:16px;font-weight:600;letter-spacing:0;text-transform:none}
 .auth .primary{margin-top:24px}
-.auth .small{border-radius:10px}
+.auth .small{border-radius:var(--r-pill)}
 .switch{margin-top:20px;color:var(--muted);font-weight:500;font-size:15px;text-align:center}
 .switch button{padding:0 2px;background:none;color:var(--mkt);font-weight:700;font-size:inherit}
 .auth > div:last-child > .ghost{display:block;margin:20px auto 0;color:var(--muted);font-size:15px;font-weight:600;background:none}
@@ -1644,10 +1659,10 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .alt{display:block;width:100%;margin-top:10px;background:none;color:var(--mkt);font-size:15px;font-weight:600;padding:12px}
 .ways{display:flex;flex-direction:column;gap:10px}
 .ways .oauth ~ .primary{background:var(--soft);color:var(--text)}
-.oauth{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--field);background:var(--card);color:var(--text)}
+.oauth{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--soft);color:var(--text)}
 .oauth svg{width:19px;height:19px;flex:none}
-.oauth.apple{background:#000;color:#fff;border-color:#000}
-:root[data-theme=dark] .oauth.apple{background:#fff;color:#000;border-color:#fff}
+.oauth.apple{background:#000;color:#fff}
+:root[data-theme=dark] .oauth.apple{background:#fff;color:#000}
 .or{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:14px;font-weight:500;margin:22px 0 2px}
 .or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
 .auth p.fine,.fine{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.5;margin:20px 0 0;text-align:center}
@@ -1655,15 +1670,15 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .fine button{display:inline;padding:0;background:none;color:inherit;font-size:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;white-space:normal}
 .auth.start{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
 .presets{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.presets button{background:var(--soft);border-radius:12px;padding:15px 14px;text-align:left;white-space:normal;font-size:15px;font-weight:600;line-height:1.25}
+.presets button{background:var(--soft);border-radius:var(--r-box);padding:15px 14px;text-align:left;white-space:normal;font-size:15px;font-weight:600;line-height:1.25}
 .presets button span{display:block;font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
 .presets.mini{display:flex;flex-wrap:wrap;gap:6px}
-.presets.mini button{padding:8px 11px;font-size:13px;border-radius:10px}
+.presets.mini button{padding:8px 11px;font-size:13px;border-radius:var(--r-pill)}
 .back{margin:12px 18px 0}
 /* The old one was a muted text link in the corner and people did not find it. This is a
    button shaped like a button, with the arrow pointing the way it goes. */
 .backx{margin:12px 0 0 14px;width:38px;height:38px;padding:0;border-radius:50%;display:grid;place-items:center;
-  background:var(--sheet);color:var(--text);border:1px solid var(--line);box-shadow:0 2px 10px -2px rgba(11,12,14,.22)}
+  background:var(--soft);color:var(--text);box-shadow:0 2px 10px -2px rgba(11,12,14,.22)}
 /* On its own at the top of a screen — a profile, the chats, the flags — it is the first thing
    under the notch, and the notch is not a place a button can be pressed. */
 #app > .backx{margin-top:calc(12px + env(safe-area-inset-top))}
@@ -1687,7 +1702,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 @media (prefers-reduced-motion:reduce){.wheel-spin{transition-duration:1.2s}}
 
 /* a wheel as it appears in the group */
-.wh{border:1px solid var(--line);border-radius:0;padding:13px 14px;margin-top:10px}
+.wh{border-radius:var(--r-box);padding:13px 14px;margin-top:10px;background:var(--card)}
 .wh:first-of-type{margin-top:0}
 .wh .top{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;
   font:inherit;color:inherit;text-align:left;cursor:pointer;white-space:normal}
@@ -1700,14 +1715,14 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .wh .got{font-weight:800;font-size:15px;margin-top:8px}
 .wh .got.out{color:var(--muted);font-weight:700}
 .wh .who{font-size:13px;font-weight:600;color:var(--muted);margin-top:2px}
-.due{border-color:var(--mk);background:linear-gradient(180deg,var(--mkveil),transparent)}
-.spinday{border-color:var(--mk)}
+.due{background:var(--mktint)}
+.spinday{background:var(--mktint)}
 .spinday b{font-family:Oswald,system-ui,sans-serif;font-size:15px}
 .spinday p{margin-top:4px}
 .ticks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.tick{display:inline-block;padding:6px 9px;border-radius:0;border:1px solid var(--line);background:var(--card);
+.tick{display:inline-block;padding:6px 9px;border-radius:var(--r-pill);background:var(--card);
   font-size:12px;font-weight:700;color:var(--muted)}
-.tick.on{background:var(--mktint);border-color:var(--mk);color:var(--mkt)}
+.tick.on{background:var(--mktint);color:var(--mkt)}
 
 /* Hitting a long run is the whole point of the app, so it is worth stopping for. Sits over
    everything, waits to be dismissed, and is the one place in here that is allowed to be
@@ -1716,7 +1731,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
   background:rgba(8,12,10,.55);backdrop-filter:blur(3px)}
 #party[hidden]{display:none}
 #party canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-#party .card{position:relative;background:var(--card);border:1px solid var(--line);padding:30px 26px 24px;
+#party .card{position:relative;background:var(--card);padding:30px 26px 24px;
   max-width:330px;width:100%;text-align:center;box-shadow:0 30px 60px -20px rgba(8,12,10,.5)}
 #party .n{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:76px;line-height:.82;
   letter-spacing:-.02em;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em 0;
@@ -1728,28 +1743,28 @@ dialog h2{font-size:20px;margin-bottom:2px}
 #party p{color:var(--muted);font-weight:600;font-size:14.5px;line-height:1.45;margin-top:8px}
 #party button{width:100%;margin-top:22px;padding:14px;background:var(--mk);color:var(--onmk);
   font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
-#party button.share{margin-top:9px;background:none;color:var(--mkt);border:1px solid var(--line)}
+#party button.share{margin-top:9px;background:var(--soft);color:var(--mkt)}
 
 /* the splash while the first load runs, and the banner when it fails */
 #sendbar{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:65;display:flex;align-items:center;gap:10px;
-  padding:11px 14px;background:var(--card);color:var(--text);border:1px solid var(--line);box-shadow:0 10px 30px -12px rgba(0,0,0,.35);overflow:hidden;
-  animation:rise .2s ease-out}
+  padding:11px 14px;background:var(--card);color:var(--text);box-shadow:0 10px 30px -12px rgba(0,0,0,.35);overflow:hidden;
+  animation:rise .2s ease-out;border-radius:var(--r-card)}
 #sendbar[hidden]{display:none}
 #sendbar b{font-size:14px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#sendbar i{position:absolute;left:0;bottom:0;height:3px;width:var(--w);background:var(--mk);transition:width .25s ease-out}
+#sendbar i{position:absolute;left:0;bottom:0;height:3px;width:var(--w);background:var(--mk);transition:width .25s ease-out;border-radius:var(--r-pill)}
 .adm .big{margin:0 0 12px;font-size:15px}
 .adm .big b{font-size:22px}
 .adm .search{margin-bottom:10px}
 .adm .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.adm .chip.on{background:var(--mk);border-color:var(--mk);color:#fff}
-.alist{margin:0 12px 24px;border:1px solid var(--line);background:var(--card)}
-.arow + .arow{border-top:1px solid var(--line)}
+.adm .chip.on{background:var(--mk);color:#fff}
+.alist{margin:0 12px 24px;background:var(--soft);border-radius:var(--r-card);overflow:hidden}
+.arow + .arow{border-top:1px solid var(--hair)}
 .arow .top{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;background:none;text-align:left;font-weight:400;white-space:normal}
 .arow .who{flex:1;min-width:0;display:flex;flex-direction:column}
 .arow .who b{font-size:14.5px;font-weight:800}
 .arow .who em,.arow .st em{font-style:normal;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
 .arow .st{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;max-width:45%}
-.pill{display:inline-block;padding:3px 8px;font-size:11.5px;font-weight:800;background:var(--soft);color:var(--muted)}
+.pill{display:inline-block;padding:3px 8px;font-size:11.5px;font-weight:800;background:var(--soft);color:var(--muted);border-radius:var(--r-pill)}
 .pill.ok{background:var(--mktint);color:var(--mkt)}
 .pill.warn{background:#fff3d6;color:#8a5a00}
 .pill.bad{background:#ffe1e1;color:#a01818}
@@ -1757,11 +1772,11 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .rsub{margin:2px 0 0;font-size:13px}
 .rtabs{display:flex;gap:6px;margin:4px 12px 10px}
 .rtabs .chip{font-size:13px;padding:7px 12px}
-.rtabs .chip.on{background:var(--mk);border-color:var(--mk);color:#fff}
-.rlist{margin:0 12px 24px;border:1px solid var(--line);background:var(--card)}
+.rtabs .chip.on{background:var(--mk);color:#fff}
+.rlist{margin:0 12px 24px;border-radius:var(--r-card);background:var(--soft);overflow:hidden}
 .rcard{display:flex;align-items:flex-start;gap:12px;width:100%;padding:12px 14px;background:none;text-align:left;font-weight:400;white-space:normal;color:var(--text)}
-.rcard + .rcard{border-top:1px solid var(--line)}
-.rthumb{flex:none;width:52px;height:68px;background:var(--soft);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.rcard + .rcard{border-top:1px solid var(--hair)}
+.rthumb{flex:none;width:52px;height:68px;background:var(--soft);display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px}
 .rthumb img{width:100%;height:100%;object-fit:cover}
 .rthumb svg{width:24px;height:24px;fill:none;stroke:var(--muted);stroke-width:1.8}
 .rthumb.av{background:none}
@@ -1780,23 +1795,23 @@ dialog h2{font-size:20px;margin-bottom:2px}
 .rtop{display:flex;align-items:center;justify-content:space-between;padding-right:16px}
 .rrev{display:flex;flex-direction:column;gap:12px}
 .rmedia{display:block;width:100%;max-height:62vh;background:#000;object-fit:contain}
-.rgone{margin:0;padding:10px 12px;background:var(--soft);color:var(--muted);font-size:13.5px;font-weight:600}
-.rwords{padding:16px;background:var(--soft);font-size:16px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.rgone{margin:0;padding:10px 12px;background:var(--soft);color:var(--muted);font-size:13.5px;font-weight:600;border-radius:var(--r-box)}
+.rwords{padding:16px;background:var(--soft);font-size:16px;line-height:1.45;white-space:pre-wrap;word-break:break-word;border-radius:var(--r-box)}
 .ramber{padding:10px 12px;background:#fff3d6;color:#8a5a00;font-weight:800;font-size:13.5px}
 .rwho{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rwho .grow{min-width:0;display:flex;flex-direction:column}
 .rwho em{font-style:normal;font-size:12.5px;color:var(--muted)}
 .rcap{margin:0;font-size:15px;white-space:pre-wrap}
-.rbox{background:var(--soft);padding:2px 12px}
+.rbox{background:var(--soft);padding:2px 12px;border-radius:var(--r-box)}
 .rrep{padding:10px 0}
-.rrep + .rrep{border-top:1px solid var(--line)}
+.rrep + .rrep{border-top:1px solid var(--hair)}
 .rrep p{margin:6px 0 0;font-size:14px;white-space:pre-wrap}
 .rdecide{display:flex;gap:10px;margin:0 12px 24px}
 .rdecide button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 10px}
 .rdecide em{font-style:normal;font-size:12px;font-weight:600;opacity:.8}
-.rdecide .keep{background:none;border:2px solid var(--mk);color:var(--mkt)}
+.rdecide .keep{background:var(--mktint);color:var(--mkt)}
 .rdecide .down{background:#d1344f;color:#fff}
-.tdsays{margin-top:14px;border:1px solid var(--line);padding:10px 12px}
+.tdsays{margin-top:14px;padding:10px 12px;border-radius:var(--r-box);background:var(--soft)}
 .tdh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .tdh b{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .tdh span{flex:1;font-size:12.5px}
@@ -1804,7 +1819,7 @@ dialog h2{font-size:20px;margin-bottom:2px}
 textarea.tdout{width:100%}
 .tdm{margin-top:14px}
 .tdm .bars{display:flex;gap:4px;margin-bottom:6px}
-.tdm .bars i{flex:1;height:6px;background:var(--line)}
+.tdm .bars i{flex:1;height:5px;background:var(--line);border-radius:var(--r-pill)}
 .tdm .bars i.was{background:#f0a2b0}
 .tdm .bars i.now{background:#d1344f}
 .tdm .bars i.sus{background:#8f1022}
@@ -1821,7 +1836,7 @@ button.tdgo{background:#d1344f;color:#fff}
 :root[data-theme=dark] .rchip,:root[data-theme=dark] .susp{background:#3d1418;color:#ff9aa8}
 :root[data-theme=dark] .rchip.sh,:root[data-theme=dark] .tdsh{background:#16223f;color:#9db6ff}
 .arow .hist{padding:0 14px 12px}
-.arow .h{padding:8px 0;border-top:1px dashed var(--line);font-size:13px;display:flex;flex-direction:column;gap:2px}
+.arow .h{padding:8px 0;border-top:1px dashed var(--hair);font-size:13px;display:flex;flex-direction:column;gap:2px}
 .arow .h em{font-style:normal;color:var(--muted);font-size:12px}
 .arow .h .ua{word-break:break-all;font-size:11px}
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:28vh;color:var(--muted)}
@@ -1829,7 +1844,7 @@ button.tdgo{background:#d1344f;color:#fff}
 .splash i{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--mk);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.splash i{animation-duration:2.4s}}
-#err{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:576px;margin:0 auto;z-index:30;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:0;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);font-size:13px;font-weight:600;line-height:1.35}
+#err{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:576px;margin:0 auto;z-index:30;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border-radius:var(--r-card);padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);font-size:13px;font-weight:600;line-height:1.35}
 #err[hidden]{display:none}
 #err span{flex:1;min-width:0}
 #err button{flex:none;background:var(--soft);color:var(--mkt);padding:7px 12px;font-size:13px}
@@ -1846,14 +1861,14 @@ button.tdgo{background:#d1344f;color:#fff}
 #drop[hidden]{display:none}
 @keyframes dropin{from{opacity:0;transform:translateY(-14px)}}
 #drop .dropcard{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:11px 4px 11px 12px;
-  background:none;color:inherit;text-align:left;border-radius:0}
+  background:none;color:inherit;text-align:left;border-radius:var(--r-card)}
 #drop .av{background:var(--bg);color:var(--text)}
 #drop .gr{flex:1;min-width:0}
 #drop b{display:block;font-size:13.5px;font-weight:800}
 #drop .gr span{display:block;font-size:12.5px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #drop .x{flex:none;background:none;color:inherit;opacity:.55;font-size:15px;padding:12px 12px}
 /* iOS Safari has no install prompt, so this explains Add to Home Screen once */
-#a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:0;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
+#a2hs{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;max-width:576px;margin:0 auto;z-index:20;display:flex;gap:12px;align-items:center;background:var(--card);color:var(--text);border-radius:var(--r-card);padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35)}
 #a2hs[hidden]{display:none}
 #a2hs .share{width:26px;height:26px;flex:none;stroke:var(--mkt);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #a2hs p{flex:1;min-width:0;font-size:13px;line-height:1.35}
@@ -1916,9 +1931,10 @@ button.tdgo{background:#d1344f;color:#fff}
     <button type="button" class="primary" onclick="startCam()">Try again</button>
     <button type="button" onclick="camToPhone()">Use the phone's camera</button></div>
   <div class="cambot">
-    <div class="cammodes" id="cammodes"><button type="button" data-m="video" onclick="camModeTo('video')">Video</button><button type="button" data-m="photo" onclick="camModeTo('photo')">Photo</button></div>
+    <div class="cammodes" id="cammodes"><button type="button" data-m="text" onclick="camModeTo('text')" hidden>Text</button><button type="button" data-m="video" onclick="camModeTo('video')">Video</button><button type="button" data-m="photo" onclick="camModeTo('photo')">Photo</button></div>
     <div class="camrow">
-      <button type="button" class="cbtn" id="camdual" onclick="camDualTap()" aria-label="Front and back"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 3v18"/></svg></button>
+      <span class="camleft"><button type="button" class="cbtn" id="camdual" onclick="camDualTap()" aria-label="Front and back"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 3v18"/></svg></button>
+        <button type="button" class="cbtn" id="camgal" onclick="camGallery()" aria-label="Choose from your phone" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg></button></span>
       <button type="button" class="shutter" id="camgo" onclick="camShutter()" aria-label="Record"><i></i></button>
       <button type="button" class="cbtn" id="camflip" onclick="camFlip()" aria-label="Switch camera"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
     </div>
@@ -1957,7 +1973,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v168';
+const BUILD = 'quota-v169';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -4089,9 +4105,9 @@ function storyRow() {
     ${mine ? `<div class="s me has">
       <button type="button" class="own" onclick="openStory('${m.id}')" aria-label="Watch your story">
         <span class="rg${unseenOf(m.id).length ? ' new' : ' old'}">${av(m)}</span></button>
-      <button type="button" class="plus" onclick="storyKind()" aria-label="Add another story"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button type="button" class="plus" onclick="storyCam()" aria-label="Add another story"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
       <span class="nm">Your story</span></div>`
-    : `<button type="button" class="s me" onclick="storyKind()">
+    : `<button type="button" class="s me" onclick="storyCam()">
       <span class="rg">${av(m)}<i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i></span>
       <span class="nm">Add story</span></button>`}
     ${order.map(id => { const u = user(id), fresh = unseenOf(id).length;
@@ -4579,8 +4595,15 @@ function newStory(pre) {
   paintDraft();
   trimClips();
 }
-// Three ways in, and the camera is the same one proof uses — capped at ten seconds when
-// it is opened from here.
+// The story circle opens the camera straight away, the same one proof uses, capped at ten
+// seconds, with Text and the gallery on it. Where Quota's own camera cannot run, it falls
+// back to the sheet below, so Text and Upload are still there to be had.
+function storyCam() {
+  if (suspendedStop()) return;
+  if (!camSupported() || !canRecord()) return storyKind();
+  openCam('story', storyMode() === 'photo');
+}
+// The sheet, for a phone where the camera above cannot run.
 function storyKind() {
   if (suspendedStop()) return;
   dlg(`<h2>New story</h2><p class="muted">A picture, ten seconds of video, or just words.</p>
@@ -4641,6 +4664,15 @@ function placeCaretEnd(el) {
 // The picture goes before the handle to it does, or the last frame blanks on the way out.
 // Handing the handle back matters: it is the whole clip, held in memory until it is, and a
 // phone that has been offered five stories and posted none of them is carrying all five.
+// ✕ on a picture or a clip that has just been taken is "not that one": back to the camera,
+// in the same mode, to take it again. Words, a card the app suggested, or a story being
+// edited after it went up have nothing to retake, so ✕ closes those as it always did.
+const draftRetakes = d => !!d && !d.editing && !d.suggested && (d.kind === 'photo' || d.kind === 'video');
+function draftX() {
+  const d = S.draft, again = draftRetakes(d), photo = d && d.kind === 'photo';
+  closeDraft();
+  if (again) openCam('story', photo);
+}
 function closeDraft() {
   const url = S.draft && S.draft.url;
   S.draft = null; $('#make').hidden = true; $('#make').innerHTML = '';
@@ -4668,7 +4700,7 @@ function paintDraft() {
   box.hidden = false;
   box.innerHTML = `<div class="pane">
     <div class="mbar top">
-      <button type="button" class="x" onclick="closeDraft()" aria-label="Close">✕</button>
+      <button type="button" class="x" onclick="draftX()" aria-label="${draftRetakes(d) ? 'Retake' : 'Close'}">✕</button>
       <div class="tools">
         ${d.kind === 'text' ? `<button type="button" class="bgbtn${t === 'bg' ? ' on' : ''}" style="background:${STORY_BG[y.bg]}" onclick="draftTray('bg')" aria-label="Background"></button>` : ''}
         ${storyClip(d) ? `<button type="button" class="tb snd" onclick="toggleStorySound()" aria-label="Sound">${SPEAKER}</button>` : ''}
@@ -7311,6 +7343,7 @@ const MORE_BASICS = [
   {icon: 'flag', title: 'Flags', line: 'Flag proof that looks off. The crew votes.'},
   {icon: 'owe', title: 'Forfeits', line: 'What you owe your crew for a missed day.'},
   {icon: 'wheel', title: 'Wheels', line: 'Spin for a bonus challenge on spin day.'},
+  {icon: 'play', title: 'Stories', line: 'Tap your circle and the camera opens. Pick Text, Video or Photo, or a picture from your phone. Gone in a day.'},
 ];
 // On every screen once you are in. Never before: the way in has its own help, on the site.
 const helpBtn = () => me() ? `<button type="button" class="helpbtn" onclick="helpDlg()" aria-label="Help"><svg viewBox="0 0 24 24">${SICON.help}</svg></button>` : '';
@@ -10665,6 +10698,11 @@ const CAM = {for: 'post', mode: 'video', facing: 'user', step: 'idle', stream: n
 const camOpen = () => $('#cam').open;
 // Proof runs as long as it runs. A story is ten seconds, which is what a story is.
 const camRecMax = () => CAM.for === 'story' ? STORY_SECS : Infinity;
+// A story's camera opens on whatever it was last used for, a clip or a picture. Text is a
+// mode on the row but never the one it opens on: picking it leaves the camera altogether.
+const storyMode = () => { try { return localStorage.getItem('quota.storyMode') === 'photo' ? 'photo' : 'video'; } catch (e) { return 'video'; } };
+const saveStoryMode = m => { try { localStorage.setItem('quota.storyMode', m); } catch (e) {} };
+const camModes = () => CAM.for === 'story' ? ['text', 'video', 'photo'] : ['video', 'photo'];
 const camTrack = () => CAM.stream && CAM.stream.getVideoTracks()[0];
 // Which way it opens is remembered: somebody filming their pushups wants the front one
 // every time. A profile picture always opens on you and is not remembered.
@@ -10883,11 +10921,19 @@ function paintCam() {
   const modes = $('#cammodes');
   modes.hidden = avatar || rec || st === 'counting' || st === 'saving';
   modes.querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.m === CAM.mode); b.disabled = !idle; });
+  const story = CAM.for === 'story';
+  modes.querySelector('[data-m=text]').hidden = !story;
+  // The gallery is the story camera's: a story can be something already on the phone, a
+  // proof cannot. Front and back goes up to the top bar there, beside the flash and the timer.
+  $('#camgal').hidden = !story || rec;
+  $('#camgal').disabled = !idle;
   const flip = $('#camflip');
   flip.hidden = CAM.cams < 2 || dual || rec;
   flip.disabled = !idle;
   const du = $('#camdual');
-  du.hidden = avatar || !(nativeDual || (photo && CAM.cams >= 2));
+  if (story && !du.parentNode.classList.contains('camtop')) $('#camflash').before(du);
+  else if (!story && du.parentNode.classList.contains('camtop')) $('#camgal').before(du);
+  du.hidden = avatar || (story && !photo) || !(nativeDual || (photo && CAM.cams >= 2));
   du.classList.toggle('on', dual);
   du.disabled = !idle;
   const tm = $('#camtimer');
@@ -10904,8 +10950,11 @@ function paintCam() {
   $('#cammic').hidden = !(CAM.noMic && !photo && st !== 'error');
   // Which group the take is for, until it is being recorded: then the clock has the space.
   const pill = $('#campill'), pg = CAM.for === 'post' && S.groups.find(x => x.id === postFor);
-  pill.hidden = !pg || rec || st === 'saving';
+  pill.hidden = !(pg || story) || rec || st === 'saving';
+  pill.classList.toggle('fixed', story);
   if (pg) { pill.textContent = `${pg.name} \u00b7 ${goalText(pg)}`; pill.disabled = !idle || myGroups().length < 2; }
+  // The story's says what it is and how long it can run, and is not a button.
+  if (story) { pill.textContent = `Your story \u00b7 ${STORY_SECS}s`; pill.disabled = true; }
   const clock = $('#camclock');
   clock.hidden = !(rec || st === 'saving');
   if (st === 'saving') clock.textContent = 'Saving…';
@@ -11224,6 +11273,10 @@ function camFlip() {
 }
 function camModeTo(m) {
   if (CAM.for === 'avatar' || m === CAM.mode || !(CAM.step === 'ready' || CAM.step === 'error')) return;
+  // Words are not a camera mode: TEXT puts the camera away and opens the card editor, which
+  // is exactly what the old sheet's Text button did.
+  if (m === 'text') { if (CAM.for !== 'story') return; camClose(); return newStory(); }
+  if (CAM.for === 'story') saveStoryMode(m);
   CAM.mode = m;
   if (m === 'video') CAM.dual = false;
   startCam();                              // a clip needs the microphone and a picture does not
@@ -11295,7 +11348,11 @@ async function camZoomTo(z) {
     if (!swipe || e.type === 'pointercancel') { swipe = null; return; }
     const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y, quick = Date.now() - swipe.t < 700;
     swipe = null;
-    if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) return camModeTo(dx < 0 ? 'photo' : 'video');
+    // Across the row: a swipe left is the mode to the right of this one, and back again.
+    if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+      const ms = camModes(), i = ms.indexOf(CAM.mode), to = ms[Math.max(0, Math.min(ms.length - 1, i + (dx < 0 ? 1 : -1)))];
+      return camModeTo(to);
+    }
     if (Math.hypot(dx, dy) < 12) {
       const now = Date.now();
       if (now - lastTap < 320) { lastTap = 0; return camFlip(); }
@@ -11392,6 +11449,13 @@ function phoneCam(what = 'post', photo = false) {
   i.click();
 }
 function avatarCam() { openCam('avatar'); }
+// A story from something already on the phone, which is what the old sheet's Upload did. Still
+// held to ten seconds, by storyFrom(), like anything else that becomes a story.
+function camGallery() {
+  if (CAM.for !== 'story' || CAM.step === 'saving' || CAM.rec) return;
+  camClose();
+  $('#storyfile').click();
+}
 
 // How long a clip runs, which nothing knows until something has read the file.
 function clipSecs(f) {
