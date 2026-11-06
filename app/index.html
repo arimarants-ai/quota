@@ -1141,6 +1141,40 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 #dlg .postfor{margin:2px 0 6px}
 .gpill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:var(--r-pill);background:var(--soft);font-size:12.5px;font-weight:800;color:var(--text)}
 .gpill svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+/* The pill's chevron points down while the list is shut and up while it is open. */
+.gpill .chev,.campill .chev{flex:none;transform-origin:center;transition:transform .2s}
+.gpill[aria-expanded=true] .chev,.campill[aria-expanded=true] .chev{transform:rotate(180deg)}
+.gpill .gpt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gpill{max-width:100%}
+/* The list under it: every group, its goal under its name, a rounded tick box. Filled and
+   lifted off the sheet by a shadow, not drawn round with a line. */
+.gpick{position:relative}
+.gplist{position:absolute;left:0;top:calc(100% + 6px);z-index:5;width:min(320px,calc(100vw - 36px));max-height:min(52vh,420px);overflow-y:auto;
+  padding:6px;background:var(--sheet);border-radius:var(--r-card);box-shadow:0 16px 40px -12px rgba(0,0,0,.42)}
+/* On the dark sheet a list the sheet's own colour would vanish into it: it takes the soft fill. */
+:root[data-theme=dark] .gplist{background:var(--soft)}
+.gplist[hidden]{display:none}
+.gprow{position:relative;display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:10px 12px;border-radius:var(--r-box);
+  background:none;text-align:left;font:inherit;color:var(--text);cursor:pointer;white-space:normal}
+.gprow:active{opacity:1;background:var(--soft)}
+.gprow input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;opacity:0;cursor:pointer}
+.gprow span{min-width:0}
+.gprow b{display:block;font-size:14.5px;font-weight:800;color:var(--text);line-height:1.25}
+.gprow em{display:block;font-style:normal;font-size:12.5px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.3}
+.gtick{flex:none;width:22px;height:22px;border-radius:8px;background:var(--line);display:grid;place-items:center}
+.gtick::after{content:"";width:10px;height:5px;border-left:2.5px solid var(--onmk);border-bottom:2.5px solid var(--onmk);
+  transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.gprow:has(input:checked) .gtick{background:var(--mk)}
+.gprow:has(input:checked) .gtick::after{opacity:1}
+.gprow:has(input:focus-visible){box-shadow:0 0 0 2px var(--mk)}
+.gprow.main,.gprow.main input{cursor:default}
+.gprow.off{cursor:default}
+.gprow.off b{color:var(--muted)}
+.gprow.off .gtick{opacity:.5}
+/* In the camera it hangs under the camera's pill, over the picture. */
+.camgpick{position:absolute;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:6}
+.campill{display:inline-flex;align-items:center;gap:6px}
+.campill .chev{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
 .take{position:relative}
 .take #takeprev{margin-top:4px}
 .take #recbtn.retake{display:block;margin:6px 0 0 auto;padding:4px 0;border:0;background:none;color:var(--mkt);font-weight:800;font-size:13.5px}
@@ -1148,21 +1182,17 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 .howmany button{flex:none;width:52px;font-size:22px;font-weight:700;padding:0}
 .howmany input{flex:1;min-width:0;text-align:center;font-family:Oswald,system-ui,sans-serif;font-size:30px;font-weight:600;padding:8px 6px}
 .amthint{margin:6px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
-.cfor{display:flex;flex-wrap:wrap;gap:8px}
-.cchip{position:relative;display:inline-flex;flex-direction:column;gap:1px;padding:8px 13px;border-radius:var(--r-pill);cursor:pointer;background:var(--soft)}
 /* The box itself covers the chip, unseen, so a tap anywhere on it is a tap on the box. */
-.cchip input,.stile input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer}
-.cchip b{font-size:13px;font-weight:800;color:var(--text)}
-.cchip em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted)}
-.cchip:has(input:checked){background:var(--mktint)}
-.cchip:has(input:checked) b::before{content:"\2713  ";color:var(--mkt)}
-.cchip:has(input:disabled){opacity:.55;cursor:default}
-.cchip.main{cursor:default}
+.stile input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer}
 details.pmore{margin-top:14px}
-details.pmore summary{cursor:pointer;font-weight:800;font-size:13.5px;color:var(--muted);list-style:none}
+details.pmore summary{display:inline-flex;align-items:center;cursor:pointer;font-weight:800;font-size:13.5px;color:var(--muted);list-style:none}
 details.pmore summary::-webkit-details-marker{display:none}
-details.pmore summary::after{content:" \203A";display:inline-block;transition:transform .2s}
-details.pmore[open] summary::after{transform:rotate(90deg)}
+/* Its own element beside the word, turning about its own middle, so going from right to down
+   it stays where it is instead of swinging into "More". */
+details.pmore .mchev{width:13px;height:13px;margin-left:4px;flex:none;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
+  transform-origin:center;transition:transform .2s}
+details.pmore[open] .mchev{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){details.pmore .mchev{transition:none}}
 #dlg .postbtn{width:100%;margin-top:18px}
 /* The group a take is for, at the top of the camera. Tapping it moves to the next one. */
 .campill{max-width:58vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 13px;border:0;border-radius:999px;
@@ -1918,12 +1948,13 @@ button.tdgo{background:#d1344f;color:#fff}
     <button type="button" class="cbtn" id="camx" onclick="camX()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <span class="sp"></span>
     <span class="camclock" id="camclock" hidden></span>
-    <button type="button" class="campill" id="campill" hidden onclick="camNextGroup()"></button>
+    <button type="button" class="campill" id="campill" hidden onclick="camPick()" aria-haspopup="true" aria-expanded="false"></button>
     <span class="sp"></span>
     <button type="button" class="cbtn" id="cammic" aria-label="No sound" hidden disabled><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M4 3l16 18"/></svg></button>
     <button type="button" class="cbtn" id="camflash" onclick="camFlashTap()" aria-label="Flash" hidden><svg viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 8-11h-6z"/></svg></button>
     <button type="button" class="cbtn" id="camtimer" onclick="camTimerTap()" aria-label="Timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2h5"/></svg></button>
   </div>
+  <div class="gplist camgpick" id="camgpick" hidden></div>
   <div class="campract" id="campract" hidden></div>
   <p class="camzoom" id="camzoom" hidden></p>
   <p class="camnote" id="camnote" role="status" hidden></p>
@@ -1973,7 +2004,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v169';
+const BUILD = 'quota-v170';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8950,29 +8981,77 @@ const alsoOk = x => !dueIn(x).length;
 // What a group asks for, said short, the way the camera's pill and the chips say it:
 // "50 pushups", "10 lb a month".
 const goalText = g => g.quotas.map(qq => `${qq.target} ${qq.metric}${isTotal(g) ? ` a ${unitOf(g)}` : ''}`).join(' · ');
-// "Counts for": the group the camera was opened for, always, and a chip for each of your other
-// groups with the same thing in their quota, which a tap adds. This is the group dropdown and
-// the "Also post to" list in one row, and the row is not there at all when there is nothing
-// to add. Different groups call the same thing different names, and each gets it under its own.
-function alsoBlock(g, metric, ticked = new Set()) {
-  const xs = alsoFor(g, metric);
-  if (!xs.length) return '';
-  return `<label>Counts for</label><div class="cfor">
-    <span class="cchip main"><input type="checkbox" checked disabled aria-label="${esc(g.name)}"><b>${esc(g.name)}</b></span>
-    ${xs.map(({g: x, qq}) => {
-    const ok = alsoOk(x);
-    return `<label class="cchip"><input type="checkbox" name="also" value="${x.id}"${ok ? '' : ' disabled'}${ok && ticked.has(x.id) ? ' checked' : ''}>
-      <b>${esc(x.name)}</b><em>${ok ? `${qq.target} ${esc(qq.metric)} ${isTotal(x) ? `a ${unitOf(x)}` : 'a day'}` : 'Spin its wheel first'}</em></label>`;
-  }).join('')}</div>`;
+// ---- which groups a post is for: one picker
+// The pill at the top says where the post is going; tapping it drops a list of every group
+// under it, not a new sheet. The first group is always ticked and cannot be unticked, so a
+// post is always going somewhere. Groups with the same exercise can be ticked as well, and
+// the post counts for each, under each one's own name for it (the name="also" boxes addPost
+// reads). A group with a different exercise is a different post: tapping it moves the post
+// there, with How many and its hint redone, and keeps the take. One whose wheel has not been
+// spun yet says so and cannot be picked. The camera's pill opens the same list.
+let postAlso = new Set();                  // the extra groups ticked, kept from the camera to the Post screen
+// What a group asks for, in a line: "100 pushups a day", "10 lb a month".
+const goalLine = g => doesLine(g.quotas, g) || goalText(g);
+// The ticks that still mean something for this group and this exercise.
+const alsoNow = (g, metric) => alsoFor(g, metric).filter(a => alsoOk(a.g) && postAlso.has(a.g.id)).map(a => a.g);
+function gpickLabel(g, metric) {
+  const names = [g.name, ...alsoNow(g, metric).map(x => x.name)];
+  return `${names.length <= 2 ? names.join(' + ') : `${names[0]} + ${names.length - 1} more`} · ${goalText(g)}`;
 }
-// Redrawn whenever the thing being posted changes, keeping what was already ticked.
-function paintAlso() {
-  const f = $('#dlg').open && $('#dlg form'), box = $('#alsobox');
-  if (!f || !box || !f.metric) return;
+function gpickRows(g, metric) {
+  const same = new Set(alsoFor(g, metric).map(a => a.g.id));
+  const row = (x, inner, cls = '', tag = 'label', extra = '') =>
+    `<${tag} class="gprow${cls}"${extra}>${inner}<i class="gtick" aria-hidden="true"></i><span><b>${esc(x.name)}</b><em>${esc(alsoOk(x) || x.id === g.id ? goalLine(x) : 'Spin its wheel first')}</em></span></${tag}>`;
+  return [g, ...myGroups().filter(x => x.id !== g.id)].map(x =>
+    x.id === g.id ? row(x, `<input type="checkbox" checked disabled aria-label="${esc(x.name)}, always">`, ' main')
+    : !alsoOk(x) ? row(x, '', ' off', 'div', ' aria-disabled="true"')
+    : same.has(x.id) ? row(x, `<input type="checkbox" name="also" value="${x.id}"${postAlso.has(x.id) ? ' checked' : ''} onchange="gpickTick(this)">`)
+    : row(x, '', '', 'button', ` type="button" onclick="gpickSwitch(${x.id})"`)).join('');
+}
+// "More" with its own chevron beside it, which turns on the spot rather than swinging into the word.
+const MORECHEV = '<svg class="mchev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const CHEV = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4 4 4-4"/></svg>';
+// The Post screen's picker, or just the group's name when there is only one.
+function gpickHTML(g, metric) {
+  if (myGroups().length < 2) return `<span class="muted">${esc(g.name)} · ${esc(goalText(g))}</span>`;
+  return `<div class="gpick" id="gpick"><button type="button" class="gpill" aria-haspopup="true" aria-expanded="false" onclick="gpickOpen(!this.nextElementSibling.hidden ? false : true)"><span class="gpt">${esc(gpickLabel(g, metric))}</span>${CHEV}</button>
+    <div class="gplist" id="gplist" hidden>${gpickRows(g, metric)}</div></div>`;
+}
+// Redrawn whenever the exercise changes, keeping what was already ticked.
+function paintPick() {
+  const f = $('#dlg').open && $('#dlg form'), box = $('#gplist');
+  if (!f || !f.metric) return;
   const g = S.groups.find(x => x.id === postFor);
-  const was = new Set([...f.querySelectorAll('[name=also]:checked')].map(i => +i.value));
-  box.innerHTML = g ? alsoBlock(g, f.metric.value, was) : '';
+  if (!g) return;
+  if (box) box.innerHTML = gpickRows(g, f.metric.value);
+  const t = $('#gpick .gpt'); if (t) t.textContent = gpickLabel(g, f.metric.value);
 }
+function gpickOpen(on) {
+  const b = $('#gpick .gpill'), l = $('#gplist');
+  if (!b || !l) return;
+  l.hidden = !on; b.setAttribute('aria-expanded', on);
+}
+// A tick on a group with the same exercise: the post counts there too.
+function gpickTick(i) {
+  const id = +i.value;
+  i.checked ? postAlso.add(id) : postAlso.delete(id);
+  if ($('#cam').open && CAM.for === 'post') return paintCam();
+  const g = S.groups.find(x => x.id === postFor), f = i.form || $('#dlg form');
+  const t = $('#gpick .gpt'); if (g && t && f) t.textContent = gpickLabel(g, f.metric.value);
+}
+// A group with a different exercise: the post moves there, on its own, with the take kept
+// and what was typed in the caption kept too.
+function gpickSwitch(id) {
+  postAlso = new Set();
+  if ($('#cam').open && CAM.for === 'post') { postFor = id; camPick(false); return paintCam(); }
+  const f = $('#dlg form'), cap = f ? f.caption.value : '', prof = !!(f && f.onprofile.checked);
+  submitDlg(id, 1);
+  const n = $('#dlg form');
+  if (n) { if (cap) n.caption.value = cap; if (prof) n.onprofile.checked = true; }
+}
+// Anywhere but the list or its pill puts the list away, on the Post screen and in the camera.
+$('#dlg').addEventListener('pointerdown', e => { if ($('#gplist') && !$('#gplist').hidden && !e.target.closest('#gpick')) gpickOpen(false); });
+$('#cam').addEventListener('pointerdown', e => { if (!$('#camgpick').hidden && !e.target.closest('#camgpick,#campill')) camPick(false); });
 // How many, filled in with what is left today so most posts are one tap: the rest of the
 // day's quota, or all of it again once it is in. A month's or a year's total is not a day's
 // work, so that is left for you to say, with what is still to go under it.
@@ -8990,7 +9069,7 @@ function amountHint(g, metric) {
 // The metric changed: what is left changes with it, unless a number has been typed already.
 function metricTo(sel) {
   const f = sel.form, g = S.groups.find(x => x.id === postFor);
-  paintAlso();
+  paintPick();
   if (!g) return;
   if (!f.amount.dataset.typed) f.amount.value = amountFor(g, sel.value);
   const h = $('#amthint'); if (h) h.textContent = amountHint(g, sel.value);
@@ -9023,19 +9102,20 @@ function startPost(gid) {
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
   postFor = g.id;
+  postAlso = new Set();
   // A take kept from before (the app was reloaded, the sheet put away) goes straight back on
   // the Post screen rather than being filmed again. So does a phone that cannot run Quota's
   // own camera: the Post screen has the buttons that hand over to the phone's.
   if (recorded || !camSupported() || !canRecord()) return submitDlg(g.id, !!recorded);
   openCam('post');
 }
-// The pill: the next of your groups, round and round, keeping whatever has been shot.
-function camNextGroup() {
-  const gs = myGroups();
-  if (gs.length < 2) return;
-  const i = gs.findIndex(x => x.id === postFor);
-  postFor = gs[(i + 1) % gs.length].id;
-  paintCam();
+// The camera's pill opens the same list as the Post screen's, under it, over the picture.
+function camPick(on = $('#camgpick').hidden) {
+  const box = $('#camgpick'), g = S.groups.find(x => x.id === postFor);
+  if (on && (!g || myGroups().length < 2 || CAM.for !== 'post')) return;
+  box.hidden = !on;
+  if (on) box.innerHTML = gpickRows(g, g.quotas[0] ? g.quotas[0].metric : '');
+  $('#campill').setAttribute('aria-expanded', !!on);
 }
 function retake() { openCam('post', !!(recorded && isPic(recorded))); }
 // The Post screen. Opened after the camera hands a take back, or on its own (the walkthrough,
@@ -9053,12 +9133,11 @@ function submitDlg(gid, keep) {
   const metric = g.quotas.length > 1
     ? `<label>Counting</label><select name="metric" onchange="metricTo(this)">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select>`
     : `<input type="hidden" name="metric" value="${esc(m0)}">`;
-  const next = gs.length > 1 ? gs[(gs.indexOf(g) + 1) % gs.length] : null;
+  if (!keep) postAlso = new Set();
   dlg(`<button type="button" class="dlgx" onclick="letGo()&&dlg()" aria-label="Close">✕</button>
     <h2>Post proof</h2>
-    <p class="postfor">${next ? `<button type="button" class="gpill" onclick="submitDlg(${next.id},1)" title="Switch to ${esc(next.name)}">${esc(g.name)} · ${esc(goalText(g))}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4 4 4-4"/></svg></button>`
-      : `<span class="muted">${esc(g.name)} · ${esc(goalText(g))}</span>`}</p>
     <form onsubmit="event.preventDefault();addPost(this,${g.id})" oninput="keepForm(this)" onchange="keepForm(this)">
+    <div class="postfor">${gpickHTML(g, m0)}</div>
     <div class="take"><div id="takeprev" hidden></div>
       <div class="row" id="takebtns"><button type="button" class="teal grow" id="recbtn" onclick="retake()">Record</button><button type="button" class="grow" id="photobtn" onclick="openCam('post',true)">Photo</button></div></div>
     <p class="muted small" id="kept" hidden style="margin-top:6px">Your clip from before was kept. Post it, or retake it.</p>
@@ -9068,10 +9147,9 @@ function submitDlg(gid, keep) {
     <label>How many</label><div class="howmany"><button type="button" onclick="bump(this,-1)" aria-label="One fewer">−</button><input name="amount" type="number" min="1" inputmode="numeric" placeholder="0" value="${amt}" required oninput="this.dataset.typed='1'"><button type="button" onclick="bump(this,1)" aria-label="One more">+</button></div>
     <p class="amthint" id="amthint">${esc(amountHint(g, m0))}</p>
     ${metric}
-    <div id="alsobox">${alsoBlock(g, m0)}</div>
     ${challengeBlock(g)}
     <label>Caption (optional)</label><textarea class="autogrow" rows="1" name="caption" placeholder="Add a caption" maxlength="200"></textarea>
-    <details class="pmore"><summary>More</summary>
+    <details class="pmore"><summary>More${MORECHEV}</summary>
       <label class="check chk" style="margin-top:10px"><input type="checkbox" name="onprofile">
         <span class="t"><b>Also show this on my profile</b><em>Your group sees it either way. This puts it in your public grid.</em></span></label></details>
     <button class="primary postbtn">Post</button></form>`);
@@ -9186,7 +9264,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
     <label id="qlabel">${quotaLabel(sc)}</label><div>${g.quotas.map(quotaRow).join('')}</div><button type="button" class="small" style="margin-top:8px" onclick="this.previousElementSibling.insertAdjacentHTML('beforeend',quotaRow())">+ add metric</button>
     <p class="muted small" id="qhelp" style="margin-top:8px">${esc(quotaHelp(sc, n))}</p>
     ${S.noForfeits || !canForfeit(g) ? '' : forfeitField(g.forfeit)}
-    <details class="pmore gmore"${more ? ' open' : ''}><summary>More</summary>
+    <details class="pmore gmore"${more ? ' open' : ''}><summary>More${MORECHEV}</summary>
       <div class="row" style="margin:12px 0 0"><span id="avprev">${gav(g, 'xl')}</span>
         <div class="grow">
           <div class="row"><button type="button" class="teal grow" onclick="avatarCam()">Camera</button>
@@ -10493,7 +10571,7 @@ async function restoreTake() {
   const file = new File([bytes], t.file.name || (isPic(t.file) ? 'take.jpg' : 'take.mp4'), {type: t.file.type || 'video/mp4'});
   if (recorded || !$('#takeprev')) return;
   const v = t.form || {};
-  if (v.metric && f.metric && f.metric.options && [...f.metric.options].some(o => o.value === v.metric)) { f.metric.value = v.metric; paintAlso(); }
+  if (v.metric && f.metric && f.metric.options && [...f.metric.options].some(o => o.value === v.metric)) { f.metric.value = v.metric; paintPick(); }
   // What was typed wins over what was filled in for them.
   if (v.amount && f.amount) { f.amount.value = v.amount; f.amount.dataset.typed = '1'; }
   if (v.caption && f.caption && !f.caption.value) f.caption.value = v.caption;
@@ -10952,7 +11030,8 @@ function paintCam() {
   const pill = $('#campill'), pg = CAM.for === 'post' && S.groups.find(x => x.id === postFor);
   pill.hidden = !(pg || story) || rec || st === 'saving';
   pill.classList.toggle('fixed', story);
-  if (pg) { pill.textContent = `${pg.name} \u00b7 ${goalText(pg)}`; pill.disabled = !idle || myGroups().length < 2; }
+  if (pg) { pill.innerHTML = esc(gpickLabel(pg, pg.quotas[0] ? pg.quotas[0].metric : '')) + (myGroups().length > 1 ? CHEV : ''); pill.disabled = !idle || myGroups().length < 2; }
+  if (!pg || rec || st === 'saving' || !idle) { if (!$('#camgpick').hidden) camPick(false); }
   // The story's says what it is and how long it can run, and is not a button.
   if (story) { pill.textContent = `Your story \u00b7 ${STORY_SECS}s`; pill.disabled = true; }
   const clock = $('#camclock');

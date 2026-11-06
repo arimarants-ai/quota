@@ -30,7 +30,7 @@
   }));
   // A chain of two wheels, anchored 10 days back on a 5-day cycle, so the group is on
   // cycle 2 and nobody has spun it yet.
-  const WHEEL = { id: 7, group_id: 1, name: 'Challenge', every_days: 5, remind_hour: 8,
+  const WHEEL = { id: 7, group_id: M().wheelGroup || 1, name: 'Challenge', every_days: 5, remind_hour: 8,
     breaks_streak: false, active: true, starts_on: ago(10),
     created_by: M().theirWheel ? 'u2' : 'u1' };
   const BORROW_TEXT = "Someone else's challenge";
