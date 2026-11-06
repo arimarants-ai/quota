@@ -7290,7 +7290,7 @@ await withPage(NO_WHEEL, async page => {
   check('  History opens on This month, with a Recaps tab beside it', tabs.length === 2 && /This month/.test(tabs[0]) && /Recaps/.test(tabs[1])
     && await page.evaluate(() => S.sub && S.sub.kind === 'month') && await page.locator('#app .mgrid').count() > 0, tabs.join(' | '));
   await page.locator('#app .htabs button:has-text("Recaps")').click(); await page.waitForTimeout(400);
-  check('  and Recaps has what it always had', await page.evaluate(() => S.sub && S.sub.kind === 'recaps') && /Still filling up/.test(await page.innerText('#app')));
+  check('  and Recaps has what it always had', await page.evaluate(() => S.sub && S.sub.kind === 'recaps') && /still filling up/i.test(await page.innerText('#app')));
   await page.evaluate(() => closeSub()); await page.waitForTimeout(400);
   check('  and the way back goes to the group', await page.evaluate(() => !S.sub && S.open === 1));
 });
