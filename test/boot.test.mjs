@@ -1347,7 +1347,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
   const ready = await camReady(page);
   const cam = await page.evaluate(() => ({open: $('#cam').open, w: $('#campre').videoWidth, mode: CAM.mode,
     green: getComputedStyle(document.querySelector('#camgo i')).backgroundColor,
-    modes: [...document.querySelectorAll('#cammodes button')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join('|')}));
+    modes: [...document.querySelectorAll('#cammodes button')].filter(b => !b.hidden).map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join('|')}));
   check('Record opens Quota\'s own camera, with a live picture', ready && cam.open && cam.w > 0 && !chose, JSON.stringify(cam));
   check('  in video, with Video and Photo to swap between', cam.mode === 'video' && cam.modes === 'Video*|Photo', cam.modes);
   check('  and a green record button', cam.green === 'rgb(47, 211, 111)', cam.green);
