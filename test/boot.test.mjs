@@ -7366,7 +7366,9 @@ await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 6, name: 'S
     && (await pill.innerText()).trim() === 'Mornings + Push Club · 50 pushups');
   await page.locator('#gplist .gprow:has-text("Strong")').click();
   check('    and past two it counts the rest', (await pill.innerText()).trim() === 'Mornings + 2 more · 50 pushups', await pill.innerText());
-  await page.locator('#gplist .gprow.main').click();
+  // A tap like a finger's: Playwright will not click a label whose box is disabled, which is
+  // the point of it, so the tap is forced and the box is checked to have stayed ticked.
+  await page.locator('#gplist .gprow.main').click({ force: true });
   check('    the first stays ticked when tapped', await page.locator('#gplist .gprow.main input').isChecked());
   await pill.click();
   check('  tapping the pill again closes the list', await page.locator('#gplist').isHidden() && await pill.getAttribute('aria-expanded') === 'false');
