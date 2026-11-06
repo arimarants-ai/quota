@@ -7139,10 +7139,12 @@ await withPage(null, async page => {
 // ---- Your numbers: thirty days as squares, shaded by how much got done, each one a way in.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
+  // Going to the profile reloads, so the history is put in after it, then Your numbers opened.
+  await page.evaluate(() => go('profile')); await page.waitForTimeout(700);
   await page.evaluate(() => { const d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
     // Two days back half done, three days back a quarter; today is the stub's full fifty.
-    S.totals.push({g: 1, u: 'u1', d: d(2), m: 'pushups', n: 25}, {g: 1, u: 'u1', d: d(3), m: 'pushups', n: 12}); });
-  await page.evaluate(() => { go('profile'); openSub('stats'); }); await page.waitForTimeout(500);
+    S.totals.push({g: 1, u: 'u1', d: d(2), m: 'pushups', n: 25}, {g: 1, u: 'u1', d: d(3), m: 'pushups', n: 12});
+    openSub('stats'); }); await page.waitForTimeout(500);
   const g = await page.evaluate(() => { const cells = [...document.querySelectorAll('#app .heat button')];
     const cs = getComputedStyle(cells[0]), grid = $('#app .heat').getBoundingClientRect(), line = $('#app .hline').getBoundingClientRect();
     return {n: cells.length, cols: getComputedStyle($('#app .heat')).gridTemplateColumns.split(' ').length, radius: cs.borderRadius,
