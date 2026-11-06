@@ -7136,6 +7136,60 @@ await withPage(null, async page => {
   check('  with no uncaught errors', errs.length === 0, errs.join(' | '));
 });
 
+// ---- Your numbers: thirty days as squares, shaded by how much got done, each one a way in.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { const d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
+    // Two days back half done, three days back a quarter; today is the stub's full fifty.
+    S.totals.push({g: 1, u: 'u1', d: d(2), m: 'pushups', n: 25}, {g: 1, u: 'u1', d: d(3), m: 'pushups', n: 12}); });
+  await page.evaluate(() => { go('profile'); openSub('stats'); }); await page.waitForTimeout(500);
+  const g = await page.evaluate(() => { const cells = [...document.querySelectorAll('#app .heat button')];
+    const cs = getComputedStyle(cells[0]), grid = $('#app .heat').getBoundingClientRect(), line = $('#app .hline').getBoundingClientRect();
+    return {n: cells.length, cols: getComputedStyle($('#app .heat')).gridTemplateColumns.split(' ').length, radius: cs.borderRadius,
+      square: Math.abs(cells[0].getBoundingClientRect().width - cells[0].getBoundingClientRect().height) < 1,
+      steps: cells.map(c => c.className.match(/s(\d)/)[1]).join(''), now: cells.findIndex(c => c.classList.contains('now')),
+      nowRing: getComputedStyle(cells.at(-1)).boxShadow !== 'none', doneBg: getComputedStyle(cells.at(-1)).backgroundImage,
+      legend: [...document.querySelectorAll('#app .hlegend span')].map(x => x.textContent.trim()).join(' · '),
+      line: $('#app .hline').textContent, lineLeft: Math.round(line.left), gridLeft: Math.round(grid.left)}; });
+  check('Your numbers draws the last thirty days as squares, ten across, with 6px corners', g.n === 30 && g.cols === 10 && g.square && g.radius === '6px', JSON.stringify(g));
+  check('  shaded by how much got done: today done, two days back most, three days back some', g.steps.slice(-4) === '1203' && g.steps.slice(0, 26) === '0'.repeat(26), g.steps);
+  check('  done is the app\'s green gradient', /linear-gradient/.test(g.doneBg), g.doneBg);
+  check('  today outlined so it can be found', g.now === 29 && g.nowRing);
+  check('  a legend under it: nothing · some · most · done', g.legend === 'nothing · some · most · done', g.legend);
+  check('  and the line says how many full days, lined up with the grid', g.line === '1 full day of the last 30' && g.lineLeft === g.gridLeft, JSON.stringify(g));
+  await page.locator('#app .heat button').nth(29).click(); await page.waitForTimeout(700);
+  const day = await page.evaluate(() => ({kind: S.sub && S.sub.kind, posts: [...document.querySelectorAll('#app .post')].map(p => p.dataset.post).join(),
+    mine: [...document.querySelectorAll('#app .post')].every(p => (S.posts.find(x => x.id === +p.dataset.post) || {}).userId === 'u1')}));
+  check('  tapping today opens it: your own posts that day, drawn as the feed draws them', day.kind === 'myday' && day.posts === '1' && day.mine, JSON.stringify(day));
+  check('    with a way back to Your numbers', await page.locator('#app button.back:has-text("Your numbers")').count() === 1);
+  await page.locator('#app button.back:has-text("Your numbers")').click(); await page.waitForTimeout(400);
+  await page.locator('#app .heat button').nth(10).click(); await page.waitForTimeout(700);
+  check('  and a day with nothing in it says so', /Nothing posted this day/.test(await page.innerText('#app')));
+});
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { setTheme('dark'); go('profile'); openSub('stats'); }); await page.waitForTimeout(500);
+  check('  in dark mode the shades come from the dark theme', await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--heat1').trim() === '#163626'));
+});
+// The profile's Stats button: room above it, and as wide as the boxes.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => go('profile')); await page.waitForTimeout(500);
+  const r = await page.evaluate(() => { const st = $('#app .pf .stats').getBoundingClientRect(), b = [...document.querySelectorAll('#app .pf button')].find(x => x.textContent.trim() === 'Stats').getBoundingClientRect();
+    return {gap: Math.round(b.top - st.bottom), w: Math.round(b.width), sw: Math.round(st.width), left: Math.round(b.left - st.left)}; });
+  check('the profile\'s Stats button sits 14px under the boxes, the same width as them', r.gap === 14 && r.w === r.sw && r.left === 0, JSON.stringify(r));
+});
+// The feed's gradient bars are thin and straight again.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const b = await page.evaluate(() => { const st = el => el && getComputedStyle(el); const mini = st(document.querySelector('.mini i'));
+    const p = document.createElement('i'); p.className = 'prog'; document.body.append(p); const prog = st(p);
+    const t = document.createElement('div'); t.className = 'tr'; t.innerHTML = '<i></i>'; document.body.append(t);
+    return {mini: mini && `${mini.height} ${mini.borderRadius}`, tr: `${st(t).height} ${st(t).borderRadius} ${st(t.firstChild).borderRadius}`,
+      prog: `${prog.height} ${prog.borderRadius}`, grad: /linear-gradient/.test(mini.backgroundImage)}; });
+  check('the feed\'s bars are thin and square-ended again, gradient kept', b.mini === '2px 0px' && b.tr === '3px 0px 0px' && b.prog === '3px 0px' && b.grad, JSON.stringify(b));
+});
+
 // ---- stories, camera first
 // The story circle is the camera: TEXT · VIDEO · PHOTO along the bottom, the gallery where
 // Upload was, front-and-back up top for a picture, and a pill saying what it is.
