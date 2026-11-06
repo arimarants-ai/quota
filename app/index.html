@@ -1173,6 +1173,8 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 /* On the dark sheet a list the sheet's own colour would vanish into it: it takes the soft fill. */
 :root[data-theme=dark] .gplist{background:var(--soft)}
 .gplist[hidden]{display:none}
+/* Said over the pill when Post was tapped with nothing ticked. */
+#gpwhy{margin:0 0 6px}
 .gprow{position:relative;display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:10px 12px;border-radius:var(--r-box);
   background:none;text-align:left;font:inherit;color:var(--text);cursor:pointer;white-space:normal}
 .gprow:active{opacity:1;background:var(--soft)}
@@ -1186,7 +1188,6 @@ button.helpbtn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-w
 .gprow:has(input:checked) .gtick{background:var(--mk)}
 .gprow:has(input:checked) .gtick::after{opacity:1}
 .gprow:has(input:focus-visible){box-shadow:0 0 0 2px var(--mk)}
-.gprow.main,.gprow.main input{cursor:default}
 .gprow.off{cursor:default}
 .gprow.off b{color:var(--muted)}
 .gprow.off .gtick{opacity:.5}
@@ -2023,7 +2024,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v171';
+const BUILD = 'quota-v172';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2164,7 +2165,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // Made by a function rather than written out once, so the example crews (demoState) start
 // from exactly the same shape the app does and every screen finds what it expects.
 const freshS = () => ({blocked: new Set(), mut: {}, cseen: {}, settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
-  msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'off', booting: true, legal: null});
+  msgs: [], mreacts: [], reads: [], chat: null, flagFrom: null, who: null, pro: {}, settings: false, one: null, story: null, draft: null, openPost: null, fq: '', frows: [], fbusy: false, ferr: '', tab: 'feed', open: null, noComments: false, noFlags: false, noChat: false, auth: 'welcome', push: 'checking', booting: true, legal: null});
 let S = freshS();
 const me = () => S.me;
 const user = id => S.profiles[id] || {id, username: '?'};
@@ -7282,6 +7283,8 @@ function notNowPush() {
   try { localStorage.setItem(PUSHASK, String(Date.now())); } catch (e) {}
   render();
 }
+// Only once the phone has been asked and said off. Until then it is 'checking', and
+// somebody with them on was being shown this card for the second it took to find out.
 function pushPrompt() {
   if (S.push !== 'off' || askedRecently()) return '';
   return `<div class="card nudge">
@@ -7302,6 +7305,7 @@ const PUSHABOUT = [
 ];
 function pushCard() {
   const t = {
+    checking:    ['Checking\u2026', ''],
     on:          ['On', '<button class="small" onclick="disablePush()">Turn off</button>'],
     off:         ['Off. You will only find out by opening the app.', '<button class="teal small" onclick="enablePush()">Turn on</button>'],
     denied:      ['Turned off for Quota on this phone. Settings \u2192 Quota \u2192 Notifications puts them back.', ''],
@@ -7350,7 +7354,7 @@ const srow = (icon, title, sub, right, click, cls = '') =>
     <svg viewBox="0 0 24 24">${SICON[icon]}</svg>
     <span class="t"><b>${title}</b>${sub ? `<em>${sub}</em>` : ''}</span>${right}</button>`;
 const sw = on => `<span class="sw${on ? ' on' : ''}"></span>`;
-const PUSHSUB = {on: 'On', off: 'Off. You will only find out by opening the app.',
+const PUSHSUB = {checking: 'Checking\u2026', on: 'On', off: 'Off. You will only find out by opening the app.',
   denied: 'Turned off for Quota on this phone. Settings \u2192 Quota \u2192 Notifications puts them back.',
   install: 'Add Quota to your home screen first', unsupported: 'This browser cannot do notifications'};
 function settingsView() {
@@ -7368,7 +7372,7 @@ function settingsView() {
       ${srow('moon', 'Dark mode', isDark() ? 'On' : 'Off', sw(isDark()), 'toggleTheme()')}
       ${S.noChat ? '' : srow('eye', 'Seen', m.hide_seen ? "Off. People can't see when you've read their messages, and you can't see when they've read yours."
         : 'People can see when you\u2019ve read their messages', sw(!m.hide_seen), 'toggleSeen()')}
-      ${srow('bell', 'Notifications', PUSHSUB[S.push] || '', pushable ? sw(pushOn) : '<span class="go"></span>',
+      ${srow('bell', 'Notifications', PUSHSUB[S.push] || '', pushable ? sw(pushOn) : S.push === 'checking' ? '' : '<span class="go"></span>',
         pushable ? (pushOn ? 'disablePush()' : 'enablePush()') : '')}
     </div>
     ${pushable ? `<div class="pushabout"><p class="muted">A switch covering five different things has to say which five. You will hear about:</p>
@@ -9041,18 +9045,25 @@ const alsoOk = x => !dueIn(x).length;
 const goalText = g => g.quotas.map(qq => `${qq.target} ${qq.metric}${isTotal(g) ? ` a ${unitOf(g)}` : ''}`).join(' · ');
 // ---- which groups a post is for: one picker
 // The pill at the top says where the post is going; tapping it drops a list of every group
-// under it, not a new sheet. The first group is always ticked and cannot be unticked, so a
-// post is always going somewhere. Groups with the same exercise can be ticked as well, and
+// under it, not a new sheet. The first group ticked is the one the post is shaped by (its
+// exercise, How many and hint). Groups with the same exercise can be ticked as well, and
 // the post counts for each, under each one's own name for it (the name="also" boxes addPost
 // reads). A group with a different exercise is a different post: tapping it moves the post
 // there, with How many and its hint redone, and keeps the take. One whose wheel has not been
 // spun yet says so and cannot be picked. The camera's pill opens the same list.
+//
+// Any of them can be unticked, the first too. Unticking the first hands the post to the
+// next one ticked; unticking the last leaves it going nowhere, "Pick a group", which is
+// fine while filming and while typing. Only Post minds: a post has to be in a group, so it
+// opens the list instead, and nothing on the form is lost.
 let postAlso = new Set();                  // the extra groups ticked, kept from the camera to the Post screen
+let postNone = false;                      // nothing ticked: postFor still shapes the form, but it is not going there
 // What a group asks for, in a line: "100 pushups a day", "10 lb a month".
 const goalLine = g => doesLine(g.quotas, g) || goalText(g);
 // The ticks that still mean something for this group and this exercise.
 const alsoNow = (g, metric) => alsoFor(g, metric).filter(a => alsoOk(a.g) && postAlso.has(a.g.id)).map(a => a.g);
 function gpickLabel(g, metric) {
+  if (postNone) return 'Pick a group';
   const names = [g.name, ...alsoNow(g, metric).map(x => x.name)];
   return `${names.length <= 2 ? names.join(' + ') : `${names[0]} + ${names.length - 1} more`} · ${goalText(g)}`;
 }
@@ -9060,10 +9071,11 @@ function gpickRows(g, metric) {
   const same = new Set(alsoFor(g, metric).map(a => a.g.id));
   const row = (x, inner, cls = '', tag = 'label', extra = '') =>
     `<${tag} class="gprow${cls}"${extra}>${inner}<i class="gtick" aria-hidden="true"></i><span><b>${esc(x.name)}</b><em>${esc(alsoOk(x) || x.id === g.id ? goalLine(x) : 'Spin its wheel first')}</em></span></${tag}>`;
+  // With nothing ticked, ticking any group makes it the one the post is for.
   return [g, ...myGroups().filter(x => x.id !== g.id)].map(x =>
-    x.id === g.id ? row(x, `<input type="checkbox" checked disabled aria-label="${esc(x.name)}, always">`, ' main')
+    x.id === g.id ? row(x, `<input type="checkbox"${postNone ? '' : ' checked'} aria-label="${esc(x.name)}" onchange="gpickMain(this)">`, ' main')
     : !alsoOk(x) ? row(x, '', ' off', 'div', ' aria-disabled="true"')
-    : same.has(x.id) ? row(x, `<input type="checkbox" name="also" value="${x.id}"${postAlso.has(x.id) ? ' checked' : ''} onchange="gpickTick(this)">`)
+    : same.has(x.id) && !postNone ? row(x, `<input type="checkbox" name="also" value="${x.id}"${postAlso.has(x.id) ? ' checked' : ''} onchange="gpickTick(this)">`)
     : row(x, '', '', 'button', ` type="button" onclick="gpickSwitch(${x.id})"`)).join('');
 }
 // "More" with its own chevron beside it, which turns on the spot rather than swinging into the word.
@@ -9072,7 +9084,7 @@ const CHEV = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="
 // The Post screen's picker, or just the group's name when there is only one.
 function gpickHTML(g, metric) {
   if (myGroups().length < 2) return `<span class="muted">${esc(g.name)} · ${esc(goalText(g))}</span>`;
-  return `<div class="gpick" id="gpick"><button type="button" class="gpill" aria-haspopup="true" aria-expanded="false" onclick="gpickOpen(!this.nextElementSibling.hidden ? false : true)"><span class="gpt">${esc(gpickLabel(g, metric))}</span>${CHEV}</button>
+  return `<div class="gpick" id="gpick"><p class="warn small" id="gpwhy" hidden>Pick a group to post to</p><button type="button" class="gpill" aria-haspopup="true" aria-expanded="false" onclick="gpickOpen($('#gplist').hidden)"><span class="gpt">${esc(gpickLabel(g, metric))}</span>${CHEV}</button>
     <div class="gplist" id="gplist" hidden>${gpickRows(g, metric)}</div></div>`;
 }
 // Redrawn whenever the exercise changes, keeping what was already ticked.
@@ -9097,15 +9109,50 @@ function gpickTick(i) {
   const g = S.groups.find(x => x.id === postFor), f = i.form || $('#dlg form');
   const t = $('#gpick .gpt'); if (g && t && f) t.textContent = gpickLabel(g, f.metric.value);
 }
+// The tick on the group the post is shaped by. Off, the next group ticked takes over, or,
+// with none, nothing is; back on, it is the post's again.
+function gpickMain(i) {
+  const g = S.groups.find(x => x.id === postFor), f = $('#dlg').open && $('#dlg form');
+  const metric = f && f.metric ? f.metric.value : g && g.quotas[0] ? g.quotas[0].metric : '';
+  if (i.checked) { postNone = false; return gpickRepaint(); }
+  const next = g && alsoNow(g, metric)[0];
+  if (next) { postAlso.delete(next.id); return gpickSwitch(next.id, true); }
+  postNone = true;
+  gpickRepaint();
+}
+// The list and its pill drawn again where they are, open, after the ticks changed under them.
+function gpickRepaint() {
+  if ($('#cam').open && CAM.for === 'post') {
+    const g = S.groups.find(x => x.id === postFor), box = $('#camgpick');
+    if (g && box && !box.hidden) box.innerHTML = gpickRows(g, g.quotas[0] ? g.quotas[0].metric : '');
+    return paintCam();
+  }
+  paintPick();
+  const w = $('#gpwhy'); if (w && !postNone) w.hidden = true;
+}
 // A group with a different exercise: the post moves there, on its own, with the take kept
-// and what was typed in the caption kept too.
-function gpickSwitch(id) {
-  postAlso = new Set();
-  if ($('#cam').open && CAM.for === 'post') { postFor = id; camPick(false); return paintCam(); }
+// and what was typed in the caption kept too. `keep` keeps the other ticks, for when the
+// group it was going to was unticked and the next one ticked has taken over.
+function gpickSwitch(id, keep) {
+  if (!keep) postAlso = new Set();
+  postNone = false;
+  if ($('#cam').open && CAM.for === 'post') {
+    postFor = id;
+    if (keep) return gpickRepaint();
+    camPick(false); return paintCam();
+  }
   const f = $('#dlg form'), cap = f ? f.caption.value : '', prof = !!(f && f.onprofile.checked);
+  const was = f && f.metric ? f.metric.value : '', amt = f && f.amount && f.amount.dataset.typed ? f.amount.value : '';
   submitDlg(id, 1);
   const n = $('#dlg form');
-  if (n) { if (cap) n.caption.value = cap; if (prof) n.onprofile.checked = true; }
+  if (!n) return;
+  if (cap) n.caption.value = cap; if (prof) n.onprofile.checked = true;
+  // The same exercise under another group's name for it: still the same post, so the
+  // exercise it was on and a number already typed stay as they were.
+  const o = n.metric && n.metric.options && [...n.metric.options].find(x => sameThing(x.value) === sameThing(was));
+  if (o && n.metric.value !== o.value) { n.metric.value = o.value; metricTo(n.metric); }
+  if (amt && (o || sameThing(n.metric.value) === sameThing(was))) { n.amount.value = amt; n.amount.dataset.typed = '1'; }
+  if (keep) gpickOpen(true);
 }
 // Anywhere but the list or its pill puts the list away, on the Post screen and in the camera.
 $('#dlg').addEventListener('pointerdown', e => { if ($('#gplist') && !$('#gplist').hidden && !e.target.closest('#gpick')) gpickOpen(false); });
@@ -9160,7 +9207,7 @@ function startPost(gid) {
   // gets you a rejected insert; this is so you meet the wheel rather than an error.
   if (dueIn(g).length) return spinDlg(g.id);
   postFor = g.id;
-  postAlso = new Set();
+  postAlso = new Set(); postNone = false;
   // A take kept from before (the app was reloaded, the sheet put away) goes straight back on
   // the Post screen rather than being filmed again. So does a phone that cannot run Quota's
   // own camera: the Post screen has the buttons that hand over to the phone's.
@@ -9191,7 +9238,7 @@ function submitDlg(gid, keep) {
   const metric = g.quotas.length > 1
     ? `<label>Counting</label><select name="metric" onchange="metricTo(this)">${g.quotas.map(qq => `<option>${esc(qq.metric)}</option>`).join('')}</select>`
     : `<input type="hidden" name="metric" value="${esc(m0)}">`;
-  if (!keep) postAlso = new Set();
+  if (!keep) { postAlso = new Set(); postNone = false; }
   dlg(`<button type="button" class="dlgx" onclick="letGo()&&dlg()" aria-label="Close">✕</button>
     <h2>Post proof</h2>
     <form onsubmit="event.preventDefault();addPost(this,${g.id})" oninput="keepForm(this)" onchange="keepForm(this)">
@@ -10592,6 +10639,14 @@ function keepTake(f) {
   try { takeTx('readwrite', st => st.put({uid: m.id, gid: postFor, day: today(), at: Date.now(), file: f, form: {}}, 'last')).catch(() => {}); } catch (e) {}
 }
 function forgetTake() { try { if (self.indexedDB) takeTx('readwrite', st => st.delete('last')).catch(() => {}); } catch (e) {} }
+// A post has taken the take: it is let go of everywhere, on the phone, in memory and on the
+// form, and a save of the form still waiting to happen is called off.
+function handOff() {
+  clearTimeout(formT); formT = null;
+  recorded = null; camAt = 0;
+  dropTake();
+  forgetTake();
+}
 async function keptTake() {
   const m = me(); if (!m || !self.indexedDB) return null;
   let t; try { t = await takeTx('readonly', st => st.get('last')); } catch (e) { return null; }
@@ -10603,8 +10658,11 @@ async function keptTake() {
 function keepForm(f) {
   clearTimeout(formT);
   formT = setTimeout(async () => {
-    if (!recorded) return;
-    const t = await keptTake(); if (!t) return;
+    // Which take this is for. Post can be tapped while the stored one is being read, and a
+    // save that finishes after that would put a posted clip back on the phone.
+    const r = recorded;
+    if (!r) return;
+    const t = await keptTake(); if (!t || recorded !== r) return;
     const fd = new FormData(f);
     t.gid = postFor;
     t.form = {amount: fd.get('amount') || '', metric: fd.get('metric') || '', caption: fd.get('caption') || '', onprofile: !!fd.get('onprofile')};
@@ -12247,6 +12305,14 @@ async function sendPost(f, gid) {
   // There is no other way in any more: the form has no file input, so proof is whatever
   // the camera last handed back and nothing else.
   if (!picked || !picked.size) return alert('Record your proof first \u2014 tap Record.');
+  // Nothing ticked: the database will not take a post that is in no group, so Post opens
+  // the list to pick one from, with everything on the form left where it is.
+  if (postNone) {
+    const w = $('#gpwhy'); if (w) w.hidden = false;
+    gpickOpen(true);
+    try { $('#gpick').scrollIntoView({block: 'nearest', behavior: 'smooth'}); } catch (e) {}
+    return;
+  }
   if (dueIn(S.groups.find(x => x.id === gid) || {id: gid}).length) return spinDlg(gid);
   if (posting) return alert('A post is still going up. It will be done in a moment.');
   // The sheet goes the moment Post is tapped, and the clip goes up behind it with a bar at
@@ -12257,7 +12323,9 @@ async function sendPost(f, gid) {
   const what = `${+fd.get('amount') || ''} ${fd.get('metric') || ''}`.trim();
   posting = true;
   dlg();
-  forgetTake();                            // from here it is the post's, or the outbox's
+  // From here it is the post's, or the outbox's, and not the form's any more: the next +
+  // is a new post, so it opens the camera rather than the Post screen with this clip on it.
+  handOff();
   sendStatus(`Posting ${what}`, 0);
   let key = null;                          // once the file is up, where it went
   let poster = null;                       // its still, kept for the outbox if the upload fails
@@ -12273,7 +12341,7 @@ async function sendPost(f, gid) {
   catch (e) { video = picked; }            // the original goes as it is rather than not at all
   // Still too big to send (a phone that cannot re-encode, or an extraordinarily long clip):
   // the take goes back on the phone rather than being lost, and opening the form brings it.
-  if (video.size > MAX_MB * 1048576) { posting = false; sendStatus(null); keepTake(picked); return alert(tooBig(video.size)); }
+  if (video.size > MAX_MB * 1048576) { posting = false; sendStatus(null); recorded = picked; keepTake(picked); return alert(tooBig(video.size)); }
 
   sendStatus('Uploading…', 50);
   // The whole post is put together before anything is sent, so a clip that ends up in the
@@ -12322,7 +12390,7 @@ async function sendPost(f, gid) {
     // waiting; already uploaded if it got that far, so the outbox posts that file rather
     // than sending it again under a new name.
     // A file too big for the bucket will never go, and waiting would only hide that.
-    if (e.status === 413 || /maximum allowed size|too big/i.test(String(e.message || ''))) return alert(friendlyError(e));
+    if (e.status === 413 || /maximum allowed size|too big/i.test(String(e.message || ''))) { recorded = picked; return alert(friendlyError(e)); }
     for (let i = at; i < sends.length; i++) await queuePost(sends[i].row, video, i === at ? key : null, poster);
     render();
     if (e.offline || navigator.onLine === false) return alert('No connection, so that is saved on your phone and will go up on its own when you are back.');
@@ -12739,7 +12807,12 @@ async function keepNativePush() {
     localStorage.setItem(PUSHKEY, endpoint);
   } catch (e) { console.warn('Quota: could not refresh the push token', e); }
 }
+// What the phone says about notifications. A check that cannot finish says off, so the way
+// to turn them on is still there.
 async function refreshPush() {
+  try { await askPush(); } catch (e) { S.push = 'off'; }
+}
+async function askPush() {
   if (NATIVE) {
     const p = plug('PushNotifications');
     if (!p) { S.push = 'unsupported'; return; }
