@@ -2748,8 +2748,8 @@ await withPage(SIGNED_IN, async page => {
 await withPage({ ...SIGNED_IN, suspended: true }, async page => {
   await settle(page);
   check('a suspended account sees a banner saying so', /Your account is suspended\. Reply to the email we sent if you think this is a mistake\./.test(await page.innerText('#app')));
-  await page.evaluate(() => storyKind()); await page.waitForTimeout(250);
-  check('  and is told, rather than asked what kind of story', /Your account is suspended/.test(await page.innerText('#dlg')) && !/New story/.test(await page.innerText('#dlg')));
+  await page.evaluate(() => storyCam()); await page.waitForTimeout(250);
+  check('  and is told, rather than shown the story camera', await page.evaluate(() => !$('#cam').open) && /Your account is suspended/.test(await page.innerText('#dlg')) && !/New story/.test(await page.innerText('#dlg')));
   await page.evaluate(() => { dlg(); openCam('post'); }); await page.waitForTimeout(250);
   check('  and cannot open the camera to post', /Your account is suspended/.test(await page.innerText('#dlg')));
 });
@@ -4738,11 +4738,10 @@ await withPage(SIGNED_IN, async page => {
   check('  your own circle keeps offering another once you have posted one',
     await page.locator('.stories .s.me .plus').count() === 1);
   await page.locator('.stories .s.me .plus').click();
-  await page.waitForTimeout(300);
-  check('    and it asks what kind, rather than opening the one you have',
-    /New story/.test(await page.locator('#dlg').innerText()) && await page.locator('#story').isHidden(),
-    await page.locator('#dlg').innerText());
-  await page.locator('#dlg button:has-text("Text")').click();
+  await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
+  check('    and it opens the story camera, rather than the one you have',
+    await page.evaluate(() => $('#cam').open && CAM.for === 'story') && await page.locator('#story').isHidden());
+  await page.locator('#cammodes button[data-m=text]').click();
   await page.waitForTimeout(300);
   check('    on a blank card, not the one already up',
     await page.locator('#make').isVisible() && await page.evaluate(() => S.draft.body) === ''
@@ -7133,6 +7132,87 @@ await withPage(null, async page => {
   const html = await page.innerHTML('#app');
   check('the vendored library boots the page', !html.includes('could not start') && html.trim().length > 50);
   check('  with no uncaught errors', errs.length === 0, errs.join(' | '));
+});
+
+// ---- stories, camera first
+// The story circle is the camera: TEXT · VIDEO · PHOTO along the bottom, the gallery where
+// Upload was, front-and-back up top for a picture, and a pill saying what it is.
+await withPage({ ...NO_WHEEL }, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => localStorage.removeItem('quota.storyMode'));
+  await page.locator('.stories .s.me').click();
+  await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
+  const cam = await page.evaluate(() => ({open: $('#cam').open, for: CAM.for, mode: CAM.mode, dlg: $('#dlg').open,
+    modes: [...document.querySelectorAll('#cammodes button')].filter(b => !b.hidden).map(b => b.textContent.trim().toUpperCase()).join(' · '),
+    pill: $('#campill').hidden ? '' : $('#campill').textContent, gal: !$('#camgal').hidden,
+    galLeft: $('#camgal').getBoundingClientRect().left < innerWidth / 3, flip: !$('#camflip').hidden,
+    dualTop: !!$('#camdual').closest('.camtop'), dualShown: !$('#camdual').hidden}));
+  check('tapping your story circle opens the camera straight away, with no sheet first', cam.open && cam.for === 'story' && !cam.dlg, JSON.stringify(cam));
+  check('  on VIDEO, with TEXT · VIDEO · PHOTO along the bottom', cam.mode === 'video' && cam.modes === 'TEXT · VIDEO · PHOTO', JSON.stringify(cam));
+  check('  a pill saying "Your story · 10s"', cam.pill === 'Your story · 10s', cam.pill);
+  check('  the gallery bottom left, and flip still there', cam.gal && cam.galLeft && cam.flip, JSON.stringify(cam));
+  check('  front-and-back up in the top bar, and not for a clip', cam.dualTop && !cam.dualShown, JSON.stringify(cam));
+  await page.locator('#cammodes button[data-m=photo]').click();
+  await page.waitForFunction(() => CAM.step === 'ready' && CAM.mode === 'photo', null, {timeout: 8000}).catch(() => {});
+  check('  PHOTO shows front-and-back beside the flash and the timer', await page.evaluate(() => !$('#camdual').hidden && $('#camdual').nextElementSibling === $('#camflash')));
+  await page.evaluate(() => camClose()); await page.waitForTimeout(300);
+  await page.evaluate(() => storyCam());
+  await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
+  check('  and the next story opens on the mode last used', await page.evaluate(() => CAM.mode) === 'photo');
+  // Swiping goes along the row; past VIDEO to the right is TEXT, which is the card editor.
+  const swipe = async dx => { const b = await page.locator('#camview').boundingBox(), y = b.y + b.height / 2, x = b.x + b.width / 2;
+    await page.mouse.move(x - dx / 2, y); await page.mouse.down(); await page.mouse.move(x + dx / 2, y, {steps: 5}); await page.mouse.up(); };
+  await swipe(200);
+  await page.waitForFunction(() => CAM.step === 'ready' && CAM.mode === 'video', null, {timeout: 8000}).catch(() => {});
+  check('  a swipe right goes from PHOTO to VIDEO', await page.evaluate(() => CAM.mode) === 'video');
+  await swipe(200); await page.waitForTimeout(400);
+  check('  and another to TEXT, which closes the camera on a blank text card',
+    await page.evaluate(() => !$('#cam').open && !!S.draft && S.draft.kind === 'text' && S.draft.body === '') && await page.locator('#make').isVisible());
+  await page.locator('#make .x').click(); await page.waitForTimeout(300);
+  check('    whose ✕ closes it, with no camera behind it', await page.evaluate(() => !S.draft && !$('#cam').open));
+
+  // The gallery is what Upload was: the phone's own picker, then the same editor.
+  await page.evaluate(() => storyCam());
+  await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout: 4000}).catch(() => null), page.locator('#camgal').click()]);
+  check('  the gallery button puts the camera away and opens the phone\'s picker', !!fc && await page.evaluate(() => !$('#cam').open));
+  const c = await page.evaluate(async () => { const cv = document.createElement('canvas'); cv.width = 90; cv.height = 160;
+    cv.getContext('2d').fillRect(0, 0, 90, 160); return [...new Uint8Array(await (await new Promise(r => cv.toBlob(r, 'image/jpeg'))).arrayBuffer())]; });
+  if (fc) await fc.setFiles({ name: 'p.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(c) });
+  await page.waitForFunction(() => S.draft && S.draft.kind === 'photo', null, {timeout: 5000}).catch(() => {});
+  check('    and a picture from it lands in the story editor', await page.evaluate(() => !!S.draft && S.draft.kind === 'photo') && await page.locator('#make').isVisible());
+  // ✕ on a picture or a clip is a retake: back to the camera, not all the way out.
+  await page.locator('#make .x').click();
+  await page.waitForFunction(() => $('#cam').open, null, {timeout: 4000}).catch(() => {});
+  check('  ✕ on a photo story goes back to the camera to retake it', await page.evaluate(() => $('#cam').open && CAM.for === 'story' && CAM.mode === 'photo' && !S.draft));
+  await page.evaluate(() => camClose());
+  check('  with nothing said along the way', alerts.length === 0, alerts.join(' | '));
+});
+// The gallery's clips still have to be ten seconds or less.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(async () => { self.clipSecs = async () => 14; await storyFrom(new File([new Uint8Array(2048)], 'long.mp4', {type: 'video/mp4'})); });
+  await page.waitForTimeout(200);
+  check('a clip from the gallery longer than ten seconds is turned away', alerts.some(a => /A story can be 10/.test(a)) && await page.evaluate(() => !S.draft), alerts.join(' | '));
+});
+// The proof camera keeps its own layout: front-and-back beside the shutter, no gallery, no Text.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { localStorage.setItem('quota.storyMode', 'photo'); openCam('post'); });
+  await page.waitForFunction(() => $('#cam').open && CAM.step === 'ready', null, {timeout: 8000}).catch(() => {});
+  const p = await page.evaluate(() => ({mode: CAM.mode, inRow: !!$('#camdual').closest('.camrow'), gal: $('#camgal').hidden,
+    text: document.querySelector('#cammodes [data-m=text]').hidden, pill: $('#campill').textContent}));
+  check('the proof camera keeps front-and-back beside the shutter, with no gallery and no Text', p.mode === 'video' && p.inRow && p.gal && p.text, JSON.stringify(p));
+  check('  and its pill is still the group', /^Mornings · /.test(p.pill), p.pill);
+  await page.evaluate(() => camClose());
+});
+// Where Quota's camera cannot run, the old sheet is still there, so Text and Upload are too.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { Object.defineProperty(navigator, 'mediaDevices', {configurable: true, value: undefined}); storyCam(); });
+  await page.waitForTimeout(300);
+  const d = await page.locator('#dlg').innerText().catch(() => '');
+  check('without Quota\'s camera the story circle falls back to the sheet', /New story/.test(d) && /Text/.test(d) && /Upload/.test(d), d);
 });
 
 // ---- how often (v60), and the simpler screens built with it
