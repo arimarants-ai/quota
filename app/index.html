@@ -43,6 +43,8 @@
      for anything inside a card, a card for a panel. --hair is the only line left, for long
      lists, and it is fainter than --line. */
   --r-pill:999px;--r-box:12px;--r-card:18px;--hair:#f0f1f1;
+  /* The thirty-day grid's two middle shades, between nothing and the full streak gradient. */
+  --heat1:#cfeedb;--heat2:#6cd296;
   --teal:#0b0c0e;--onteal:#fff;--teal2:#8b8f94;--todo:#d7d9da;--sheet:#fff;--barbg:rgba(255,255,255,.96);
   --acc:var(--mk);--ok:var(--mk);--okbg:var(--mktint);--mkring:rgba(17,129,74,.22);
   /* stage 1: a run that has only just started */
@@ -57,6 +59,7 @@
 /* Dark is the same design on ink rather than paper. The deep greens vanish against it, so
    anything that has to be read as text takes the bright end of the ramp instead. */
 :root[data-theme=dark]{--bg:#0a0b0c;--card:#121315;--line:#232527;--text:#f2f3f4;--muted:#9ba0a4;--soft:#1a1c1e;--hair:#17191b;
+  --heat1:#163626;--heat2:#1d7244;
   --teal:#f2f3f4;--onteal:#0a0b0c;--teal2:#6f7478;--todo:#2c2f31;--sheet:#121315;--barbg:rgba(18,19,21,.94);
   --mkring:rgba(63,220,127,.25)}
 :root[data-theme=dark]{--mk:#0f7f45;--mkt:#3fdc7f;--onmk:#fff;--mktint:#11291d;--mkveil:rgba(63,220,127,.12);
@@ -213,6 +216,21 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .dots{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:0 18px}
 .dots i{display:block;aspect-ratio:1;border-radius:50%;background:var(--soft)}
 .dots i.on{background:var(--mk);box-shadow:none}
+/* The last thirty days on Your numbers: a square a day, shaded by how much of it got done.
+   Four steps rather than a smooth ramp, so a glance can tell them apart. */
+.heat{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:0 18px}
+.heat button{display:block;aspect-ratio:1;padding:0;border-radius:6px;background:var(--soft)}
+.heat .s1{background:var(--heat1)}
+.heat .s2{background:var(--heat2)}
+.heat .s3{background:linear-gradient(135deg,#0b5a34,#2fd36f 55%,#48ec8b)}
+.heat .now{box-shadow:inset 0 0 0 1.5px var(--text)}
+.heat .s3.now{box-shadow:inset 0 0 0 1.5px var(--text),inset 0 0 0 3px var(--bg)}
+.hlegend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:10px 18px 0}
+.hlegend span{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.hlegend i{width:12px;height:12px;border-radius:4px;display:block;background:var(--soft)}
+.hlegend .s1{background:var(--heat1)}.hlegend .s2{background:var(--heat2)}
+.hlegend .s3{background:linear-gradient(135deg,#0b5a34,#2fd36f 55%,#48ec8b)}
+.hline{margin:10px 18px 0;font-size:13px}
 .card.soft{background:var(--soft);border:0}
 .rlist{display:flex;flex-direction:column;gap:12px;margin:0 18px}
 .rcard{position:relative;display:block;width:100%;padding:0;border-radius:var(--r-card);overflow:hidden;
@@ -305,7 +323,7 @@ a.textbtn:active{opacity:.6}
    and not merely that you are along. Drawn as the gradient with the unearned part covered
    rather than as a fill that is coloured, because a fill scales its own gradient and a
    quarter-width fill would then be the whole dark-to-light run squeezed into a quarter. */
-.mini i{display:block;height:5px;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);border-radius:var(--r-pill);overflow:hidden}
+.mini i{display:block;height:2px;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);border-radius:0;overflow:hidden}
 .mini i::after{content:"";display:block;height:100%;margin-left:var(--w);width:calc(100% - var(--w));
   background:var(--line);transition:margin-left .4s,width .4s}
 /* Only people with something running are in this row, unseen first. A lit ring is a story
@@ -661,7 +679,7 @@ button.rg{border:0;font:inherit}
 .q .t{display:flex;justify-content:space-between;font-weight:700;font-size:14px}
 .q .t span{color:var(--muted)}
 /* The same bar in a group card, so the two cannot say different things about one day. */
-.tr{height:5px;border-radius:var(--r-pill);background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);margin-top:8px;overflow:hidden}
+.tr{height:3px;border-radius:0;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);margin-top:8px;overflow:hidden}
 .tr i{display:block;height:100%;border-radius:0;margin-left:var(--w, 0);width:calc(100% - var(--w, 0));
   background:var(--line);transition:margin-left .4s,width .4s}
 .ppl{display:flex;margin-top:14px;align-items:center}
@@ -719,7 +737,7 @@ button.rg{border:0;font:inherit}
 .warn-card p{margin-top:5px;line-height:1.45}
 /* The setup form's two extra fields, which are the only select and date input in the app. */
 .auth select,.auth input[type=date]{font:inherit;font-size:16px}
-.prog{display:block;height:5px;background:var(--soft);border-radius:var(--r-pill);overflow:hidden;margin-top:10px}
+.prog{display:block;height:3px;background:var(--soft);border-radius:0;overflow:hidden;margin-top:10px}
 .prog::after{content:"";display:block;height:100%;background:var(--mk);width:var(--w,0%);transition:width .25s}
 .prog[hidden]{display:none}
 .rank{flex:none;width:20px;text-align:center;font-family:Oswald,system-ui,sans-serif;font-weight:800;font-size:13px;color:var(--muted)}
@@ -911,6 +929,7 @@ button.rg{border:0;font:inherit}
 .pf .stats div{padding:11px 4px;text-align:center;background:var(--soft);border-radius:var(--r-box)}
 .pf .stats b{display:block;font-size:26px;line-height:1}
 .pf .stats div:first-child b{color:var(--mkt)}
+.pf .row.pad{margin:14px 0 0}   /* the full width of the boxes above, with room between */
 .pf .stats small{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
 .pf .bshelf{margin-top:16px}
 .muted.pad,p.pad{padding:18px 0;font-size:13.5px;line-height:1.5}
@@ -2004,7 +2023,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v170';
+const BUILD = 'quota-v171';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3111,7 +3130,7 @@ async function loadDay(gid, day) {
     const rows = await q(sb.from('posts').select('*').eq('group_id', gid).eq('day', day).order('created_at', {ascending: false}));
     S.days[k] = {posts: await bringIn((rows || []).map(asPost))};
   } catch (e) { S.days[k] = {posts: [], err: true}; }
-  if (S.sub && S.sub.kind === 'day') render();
+  if (S.sub && (S.sub.kind === 'day' || S.sub.kind === 'myday')) render();
 }
 // A recap reaches back months, so its clips are signed when the recaps are opened rather
 // than with everything else. Still only signatures: a clip is fetched when it plays.
@@ -5234,6 +5253,7 @@ async function shareInvite(gid) {
 function openSub(kind, gid, day) {
   S.sub = {kind, gid, day}; stackOn();
   if (kind === 'day') loadDay(gid, day);
+  if (kind === 'myday') myGroups().forEach(g => loadDay(g.id, day));
   if (kind === 'recaps') signRecaps(gid);
 }
 function closeSub() { S.sub = null; stackOff(); }
@@ -5250,6 +5270,7 @@ const histTabs = (g, on) => S.demo ? '' : `<div class="htabs" role="tablist">${[
 function subScreen(v) {
   const g = S.groups.find(x => x.id === v.gid);
   return v.kind === 'stats' ? statsView()
+    : v.kind === 'myday' ? myDayView(v.day)
     : !g ? (closeSub(), '')
     : v.kind === 'month' ? monthView(g)
     : v.kind === 'day' ? dayView(g, v.day)
@@ -5323,11 +5344,14 @@ function statsView() {
   const mon = today().slice(0, 7);
   // From the whole history rather than the feed's pages, which stop well short of a month.
   const mine = new Set(S.hist.filter(p => p.userId === m.id && p.day.startsWith(mon)).map(p => p.day));
-  const dots = [];
-  // A day the quota was met, or for a month's or a year's total, a day something went in.
-  const sets = gs.map(g => hitDays(g, m.id));
-  for (let i = 29; i >= 0; i--) { const d = daysAgo(i); dots.push(`<i class="${sets.some(x => x.has(d)) ? 'on' : ''}"></i>`); }
-  const on = dots.filter(x => x.includes('on')).length;
+  // A square a day, shaded by how much of it got done; tap one to see what went in.
+  const t = today(), cells = [];
+  let full = 0;
+  for (let i = 29; i >= 0; i--) {
+    const d = daysAgo(i), f = dayFill(m.id, d), st = fillStep(f);
+    if (st === 3) full++;
+    cells.push(`<button type="button" class="s${st}${d === t ? ' now' : ''}" onclick="openSub('myday',0,'${d}')" aria-label="${esc(dayLabel(d))}: ${FILL_WORD[st]}"></button>`);
+  }
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ Profile</button>
       <span class="end"><span class="date">Your numbers</span>${helpBtn()}</span></div>
     <div class="big"><b class="num">${cur}</b><div>${head.unit} streak<small>${cur ? 'keep it going' : 'nothing going right now'}</small></div></div></div>
@@ -5336,9 +5360,43 @@ function statsView() {
     <div class="card"><b class="num big2">${mine.size}</b><span>days this month</span></div>
   </div>
   <h3>The last thirty days</h3>
-  <div class="dots">${dots.join('')}</div>
-  <p class="muted pad small">${on} of the last 30.</p>
+  <div class="heat">${cells.join('')}</div>
+  <div class="hlegend">${FILL_WORD.map((w, i) => `<span><i class="s${i}"></i>${w}</span>`).join('')}</div>
+  <p class="muted hline">${full} full ${full === 1 ? 'day' : 'days'} of the last 30</p>
   <div class="card soft"><b>This screen is yours alone</b><p class="muted">No ranking and nobody else's numbers. The leaderboard lives on the group screen; this is only about how you are doing.</p></div>`;
+}
+
+// How much of a day's goal got done, 0 to 1, across every group that needed something from
+// you that day: done over target for each quota, capped at 1, averaged. A day a group was not
+// expecting anything (a rest day, a week with days to spare, a month mid-way) is left out of
+// it; a month's or a year's total counts as done on a day something went in, as hitDays has it.
+// Null when nothing was expected of you at all.
+function dayFill(uid, d) {
+  const vals = [];
+  for (const g of S.groups.filter(x => x.members.includes(uid))) {
+    const start = joinedDay(g, uid);
+    if (start && d < start) continue;
+    const posted = g.quotas.some(qq => done(g, uid, qq.metric, d) > 0);
+    if (isTotal(g)) { if (posted) vals.push(1); continue; }
+    const needed = byDay(g) ? onDay(g, d) : posted || dueToday(g, uid, d);
+    if (!needed) continue;
+    for (const qq of g.quotas) vals.push(Math.min(1, done(g, uid, qq.metric, d) / qq.target));
+  }
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+const fillStep = f => !f ? 0 : f >= 1 ? 3 : f >= 0.5 ? 2 : 1;
+const FILL_WORD = ['nothing', 'some', 'most', 'done'];
+// One of your own days, from Your numbers: what you posted in every group that day. Each
+// group's day is fetched the way a group's day already is (loadDay), and only yours is kept.
+function myDayView(day) {
+  const m = me(), gs = myGroups();
+  for (const g of gs) if (!S.days[`${g.id}|${day}`]) loadDay(g.id, day);
+  const loading = gs.some(g => (S.days[`${g.id}|${day}`] || {loading: true}).loading);
+  const ps = [...new Map([...gs.flatMap(g => (S.days[`${g.id}|${day}`] || {posts: []}).posts), ...S.posts.filter(p => p.day === day)]
+    .filter(p => p.userId === m.id).map(p => [p.id, p])).values()].sort((a, b) => b.ts - a.ts);
+  return smallHdr(esc(dayLabel(day))) + backTo('Your numbers', "openSub('stats')")
+    + (ps.length ? feed(ps, true) : loading ? `<p class="muted pad" style="padding-inline:18px">Loading…</p>`
+      : `<div class="card empty"><b>Nothing posted this day</b></div>`);
 }
 
 // ---- recaps
@@ -13373,6 +13431,26 @@ if (location.hash === '#test') {
     console.assert(headGroups([gm, gw, {...gw, id: 84}]).every(x => unitOf(x) === 'week'), "otherwise it is the most common schedule's");
     console.assert(headGroups([gm, gw]).every(x => unitOf(x) === 'week'), '  and a tie goes to the shorter unit');
     S.totals = was; S.joined = wasJ; S.settle = wasS; S.noForfeits = wasN;
+  }
+
+  // ---- the thirty-day grid: how much of a day got done, across the groups that needed it.
+  {
+    const was = S.totals, wasG = S.groups, wasJ = S.joined;
+    S.joined = {};
+    const gd = {id: 86, quotas: [{metric: 'pushups', target: 10}, {metric: 'situps', target: 20}], members: ['h'], active_days: ALLDAYS, created_at: '2026-01-01T12:00'};
+    const gr = {id: 87, schedule: 'days', quotas: [{metric: 'pages', target: 10}], members: ['h'], active_days: [1, 2, 3, 4, 5], created_at: '2026-01-01T12:00'};
+    const gm = {id: 88, schedule: 'monthly', quotas: [{metric: 'lb', target: 10}], members: ['h'], created_at: '2026-01-01T12:00'};
+    S.groups = [gd, gm];
+    S.totals = [{g: 86, u: 'h', d: '2026-03-10', m: 'pushups', n: 10}, {g: 86, u: 'h', d: '2026-03-10', m: 'situps', n: 5},
+      {g: 86, u: 'h', d: '2026-03-11', m: 'pushups', n: 12}, {g: 86, u: 'h', d: '2026-03-11', m: 'situps', n: 20},
+      {g: 88, u: 'h', d: '2026-03-12', m: 'lb', n: 2}];
+    console.assert(dayFill('h', '2026-03-10') === 0.625 && fillStep(0.625) === 2, 'done over target per quota, capped, averaged: (1 + 0.25) / 2 is most', dayFill('h', '2026-03-10'));
+    console.assert(dayFill('h', '2026-03-11') === 1 && fillStep(1) === 3, 'every quota met, and more, is done');
+    console.assert(Math.abs(dayFill('h', '2026-03-12') - 1 / 3) < 1e-9 && fillStep(1 / 3) === 1, 'a month counts as done on a day something went in: (0 + 0 + 1) / 3 is some');
+    console.assert(dayFill('h', '2026-03-13') === 0 && fillStep(0) === 0, 'and is left out on a day nothing did, which is nothing');
+    S.groups = [gr];
+    console.assert(dayFill('h', '2026-03-14') === null, 'a rest day expected nothing, so it is not a day anything was missed');
+    S.totals = was; S.groups = wasG; S.joined = wasJ;
   }
 
   // ---- errors are said in Quota's words, never the machine's.
