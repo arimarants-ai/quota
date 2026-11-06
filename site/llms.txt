@@ -18,6 +18,7 @@ Key facts:
 - Sign-up needs an email and a password; a code confirms the email, then you choose a username. Emails are never shown to anyone.
 - Price: the base version is free and always will be; a paid version with extra perks may come later.
 - Platforms: a web app at https://app.hitquota.app that installs to the home screen on iPhone (Safari: Share, Add to Home Screen) and Android (Chrome: menu, Install app). App Store and Google Play listings are coming. Reminders only work once installed.
+- Social: TikTok @quota.app (https://www.tiktok.com/@quota.app), Instagram @thequota_app (https://www.instagram.com/thequota_app/), Facebook @quota_app (https://www.facebook.com/profile.php?id=61594829766331).
 - Contact: hello@hitquota.app. Account deletion: in the app, Settings → Delete account.
 
 ## Pages

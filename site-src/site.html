@@ -113,9 +113,13 @@ a.badge{color:var(--ink)}a.badge:hover{text-decoration:none;border-color:var(--g
 .faq details p{color:var(--mute);margin:14px 0 0;font-size:17px;max-width:62ch}
 .more{text-align:center;margin-top:40px;font-size:19px}.more a::after{content:" \203A"}
 footer{background:var(--alt);padding-block:28px;font-size:12px;color:var(--mute);border-top:1px solid var(--line)}
-footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
-footer nav2,footer ul{display:flex;gap:18px;list-style:none;margin:0;padding:0}
+footer .wrap{display:grid;grid-template-columns:auto 1fr;gap:20px 48px;align-items:start}
+footer .fbrand{display:flex;flex-direction:column;gap:12px}
+footer .fbrand .logo{font-size:19px;gap:8px;color:var(--ink)}footer .fbrand .logo svg{width:24px;height:24px}
+footer .fbrand p{margin:0;font-size:14px}
+footer ul{display:flex;gap:10px 18px;list-style:none;margin:0;padding:6px 0 0;justify-content:flex-end}
 footer a{color:var(--mute)}
+footer .fbase{grid-column:1/-1;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 18px;border-top:1px solid var(--line);padding-top:16px}
 @media (max-width:820px){.cards,.steps,.two,.platform{grid-template-columns:1fr}section{padding-block:64px}nav ul{gap:16px}.hero .wrap{grid-template-columns:1fr;padding-block:56px 0;min-height:0}.phone{width:250px}.screen{height:440px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}.bigring .ar{stroke-dashoffset:110}}
 
@@ -392,8 +396,8 @@ footer ul{flex-wrap:wrap}
   .faq details{padding:18px 0}
   .faq details p{font-size:16px}
   .badges{margin-top:28px}
-  footer .wrap{flex-direction:column;gap:14px}
-  footer ul{gap:10px 16px}
+  footer .wrap{grid-template-columns:1fr;gap:22px}
+  footer ul{gap:10px 16px;justify-content:flex-start;padding-top:0}
   .more{font-size:17px}
 }
 @keyframes drop{from{opacity:0;transform:translateY(-6px)}}
@@ -501,6 +505,8 @@ nav ul .mget{display:none}
 .mailcard .addr:hover{text-decoration:none;color:var(--g0)}
 .mbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}
 .copy{font:inherit;font-size:17px;font-weight:600;padding:12px 24px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.follow{margin-top:36px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.follow h3{font-size:17px;margin:0}.follow p{margin:0 0 8px;color:var(--mute);font-size:15px}
 .copy:hover{border-color:var(--ink)}.copy:focus-visible{outline:2px solid var(--g1);outline-offset:2px}
 .cards.four{grid-template-columns:1fr 1fr;max-width:760px;margin-inline:auto}
 .mailfig{font-size:14px}
@@ -907,6 +913,7 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 <section><div class="wrap center"><div class="eyebrow">Contact</div><h2>Write to us.</h2><p class="lead">One address for everything. You'll hear back from one of the two of us.</p>
 <div class="mailcard"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div><a class="addr" href="mailto:hello@hitquota.app">hello@hitquota.app</a>
 <div class="mbtns"><a class="navcta big" href="mailto:hello@hitquota.app">Email us</a><button type="button" class="copy" id="copymail">Copy address</button></div></div>
+<div class="follow"><h3>Follow along</h3><p>Crews, streaks and the occasional forfeit.</p><!--social--></div>
 </div></section>
 
 <section class="alt"><div class="wrap center"><h2>What to write about.</h2><p class="lead">Anything to do with Quota. Most emails are one of these.</p>
@@ -969,10 +976,11 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 </div></div></section>
 </div>
 
-<section class="dlband" id="dlband"><div class="wrap"><div><h2>Ready when you are.</h2><p>Free on iPhone and Android.</p></div><a class="navcta big" href="/get">Get the app</a></div></section>
-<footer><div class="wrap"><span>Copyright © 2026 Quota. Ari Marants and Justin Smith.</span>
+<section class="dlband" id="dlband"><div class="wrap"><div><h2>Ready when you are.</h2><p>Free on any phone. App Store and Google Play coming soon.</p></div><a class="navcta big" href="/get">Get the app</a></div></section>
+<footer><div class="wrap">
+<div class="fbrand"><a class="logo" href="/"><svg viewBox="0 0 132 132" aria-hidden="true"><use href="#mark"/></svg><span>Quota</span></a><p>Proof or it didn't happen.</p><!--social--></div>
 <ul><li><a href="/what">What it is</a></li><li><a href="/approach">Our approach</a></li><li><a href="/about">About us</a></li><li><a href="/get">Get the app</a></li><li><a href="/faq">FAQ</a></li><li><a href="/guides">Guides</a></li><li><a href="/contact">Contact</a></li><li><a href="/privacy-summary">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/support">Support</a></li></ul>
-<span><a href="mailto:hello@hitquota.app">hello@hitquota.app</a></span></div></footer>
+<div class="fbase"><span><a href="mailto:hello@hitquota.app">hello@hitquota.app</a></span><span>Copyright © 2026 Quota. Ari Marants and Justin Smith.</span></div></div></footer>
 <script>
 // One page per address now, so nothing here switches between pages: each piece looks for
 // what it works on and does nothing on a page that does not have it.

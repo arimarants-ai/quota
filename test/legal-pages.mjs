@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SOCIAL_CSS, socialRow } from '../site-src/social.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(ROOT, 'app', 'index.html'), 'utf8');
@@ -36,7 +37,7 @@ const page = (title, lead, body) => `<!doctype html>
 body{margin:0;background:#fff;color:var(--ink);font:17px/1.55 Geist,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.011em}
 a{color:var(--g1);text-decoration:none}a:hover{text-decoration:underline}
 nav{border-bottom:1px solid var(--line);padding:max(14px,env(safe-area-inset-top)) 16px 14px}
-nav div,main,footer div{max-width:720px;margin:0 auto}
+nav div,main{max-width:720px;margin:0 auto}
 nav a{color:var(--ink);font-weight:600;font-size:19px}
 main{padding:40px 16px 64px}
 h1{font-size:40px;line-height:1.1;letter-spacing:-.03em;margin:0 0 8px;font-weight:600}
@@ -47,7 +48,13 @@ h3{font-size:19px;margin:28px 0 6px;font-weight:600}
 ul{padding-left:22px}li{margin:6px 0}
 details{border-bottom:1px solid var(--line);padding:14px 0}summary{cursor:pointer;font-weight:600}
 footer{border-top:1px solid var(--line);padding:24px 16px calc(24px + env(safe-area-inset-bottom));color:var(--mute);font-size:14px}
-footer div{display:flex;flex-wrap:wrap;gap:8px 18px}
+footer .fwrap{max-width:720px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:20px 32px}
+footer .fbrand{display:flex;flex-direction:column;gap:10px}
+footer .fbrand p{margin:0}
+footer .fmark{color:var(--ink);font-weight:600;font-size:19px}footer .fmark:hover{text-decoration:none}
+footer .flinks{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+footer .flinks div{display:flex;flex-wrap:wrap;gap:8px 18px}
+${SOCIAL_CSS}
 </style>
 </head>
 <body>
@@ -57,7 +64,10 @@ footer div{display:flex;flex-wrap:wrap;gap:8px 18px}
 <p class="lead">${lead}</p>
 ${body}
 </main>
-<footer><div><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/support">Support</a><a href="/guides">Guides</a><a href="mailto:${CONTACT}">${CONTACT}</a></div></footer>
+<footer><div class="fwrap">
+<div class="fbrand"><a class="fmark" href="/">Quota</a><p>Proof or it didn't happen.</p>${socialRow()}</div>
+<div class="flinks"><div><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/support">Support</a><a href="/guides">Guides</a><a href="mailto:${CONTACT}">${CONTACT}</a></div><span>Copyright © 2026 Quota. Ari Marants and Justin Smith.</span></div>
+</div></footer>
 </body>
 </html>
 `;
