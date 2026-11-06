@@ -29,7 +29,7 @@ final class Countdown {
     private static final int RC_LAST_CALL = 1;
     private static final int RC_MIDNIGHT = 2;
 
-    static boolean show(Context c, int streak, String left, String crew, long deadline) {
+    static boolean show(Context c, int streak, String unit, String left, String crew, long deadline) {
         if (Build.VERSION.SDK_INT >= 33
                 && ContextCompat.checkSelfPermission(c, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             return false;
@@ -37,7 +37,7 @@ final class Countdown {
         channel(c);
         long now = System.currentTimeMillis();
         if (deadline <= now) return false;
-        String title = streak > 0 ? "Your " + streak + " day streak ends at midnight" : "Post today to start your streak";
+        String title = streak > 0 ? "Your " + streak + " " + unit + " streak ends at midnight" : "Post today to start your streak";
         String text = left.isEmpty() ? "Post proof before midnight." : left + " to go";
         if (!crew.isEmpty()) text += " · " + crew;
         PendingIntent record = PendingIntent.getActivity(c, 0,

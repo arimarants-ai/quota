@@ -1,5 +1,5 @@
 // Run: node --experimental-strip-types message.test.ts
-import { chatFor, forfeitFor, forfeitPaidFor, flagFor, messageFor, socialFor, verdictFor } from './message.ts';
+import { chatFor, forfeitFor, forfeitPaidFor, flagFor, messageFor, socialFor, totalFrom, verdictFor } from './message.ts';
 let n = 0;
 const eq = (got: string, want: string, msg: string) => {
   if (got !== want) throw new Error(`FAIL ${msg}\n  got:  ${got}\n  want: ${want}`);
@@ -52,6 +52,20 @@ eq(messageFor('Bob', 'pushups', 25, [{ metric: 'pushups', target: 100 }], [{ met
 
 eq(messageFor('Bob', 'pushups', 100, [{ metric: 'pushups', target: 100 }], [{ metric: 'pushups', amount: 100 }], 'decline'),
    "Bob finished the day's goal", 'finishing the day still announces the goal');
+
+// A month's or a year's goal is a total (schema v60): the posts that add up are the
+// stretch's, and the one that crosses the line finishes the month, not the day.
+const lb = [{ metric: 'lb', target: 10 }];
+eq(messageFor('Kim', 'lb', 3, lb, [{ metric: 'lb', amount: 2 }, { metric: 'lb', amount: 5 }, { metric: 'lb', amount: 3 }], null, 'Run club', 'monthly'),
+   "Kim finished the month's goal in Run club", "2 + 5 + 3 lb across the month finishes the month's goal");
+eq(messageFor('Kim', 'lb', 2, lb, [{ metric: 'lb', amount: 2 }, { metric: 'lb', amount: 5 }], null, 'Run club', 'monthly'),
+   'Kim posted 2 lb in Run club', '  short of the total, it is just a post');
+eq(messageFor('Kim', 'books', 1, [{ metric: 'books', target: 3 }], [{ metric: 'books', amount: 2 }, { metric: 'books', amount: 1 }], null, null, 'yearly'),
+   "Kim finished the year's goal", "  and a year's says so");
+eq(messageFor('Kim', 'pushups', 50, [{ metric: 'pushups', target: 50 }], [{ metric: 'pushups', amount: 50 }], null, null, 'weekly'),
+   "Kim finished the day's goal", "a week's quota is still a day's, done on some days");
+eq(totalFrom('monthly', '2026-11-28') + ' ' + totalFrom('yearly', '2026-11-28') + ' ' + totalFrom('weekly', '2026-11-28') + ' ' + totalFrom(undefined, '2026-11-28'),
+   '2026-11-01 2026-01-01 2026-11-28 2026-11-28', 'what adds up starts on the 1st of the month or year, and is the day for anything else');
 
 console.log(`\nall ${n} message checks passed`);
 

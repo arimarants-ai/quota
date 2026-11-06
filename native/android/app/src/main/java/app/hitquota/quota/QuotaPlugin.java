@@ -25,7 +25,7 @@ public class QuotaPlugin extends Plugin {
     @PluginMethod
     public void startCountdown(PluginCall call) {
         double deadline = call.getDouble("deadline", 0.0);
-        boolean shown = Countdown.show(getContext(), call.getInt("streak", 0), call.getString("left", ""),
+        boolean shown = Countdown.show(getContext(), call.getInt("streak", 0), call.getString("unit", "day"), call.getString("left", ""),
                 call.getString("crew", ""), (long) (deadline * 1000));
         JSObject out = new JSObject();
         out.put("started", shown);

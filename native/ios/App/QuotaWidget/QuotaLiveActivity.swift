@@ -18,7 +18,7 @@ struct QuotaLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
                         Mark().frame(width: 16, height: 16)
-                        Text(context.state.streak > 0 ? "\(context.state.streak) day streak" : "Day one")
+                        Text(context.state.streak > 0 ? "\(context.state.streak) \(context.state.unit) streak" : "Day one")
                             .font(.system(size: 15, weight: .semibold))
                     }
                     .padding(.leading, 4)
@@ -118,8 +118,8 @@ struct LockScreenCountdown: View {
     }
 
     func headline(_ state: QuotaActivityAttributes.ContentState, over: Bool) -> String {
-        if state.done { return "\(state.streak) day streak" }
+        if state.done { return "\(state.streak) \(state.unit) streak" }
         if over { return "Streak missed" }
-        return state.streak > 0 ? "\(state.streak) day streak at risk" : "Start your streak"
+        return state.streak > 0 ? "\(state.streak) \(state.unit) streak at risk" : "Start your streak"
     }
 }

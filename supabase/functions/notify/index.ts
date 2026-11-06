@@ -1,7 +1,7 @@
 // Fan out a push notification to a group when someone posts proof.
 // Called by the posts_notify trigger in schema.sql (v4).
 import { send, type Subscription } from './push.ts';
-import { chatFor, flagFor, forfeitFor, forfeitPaidFor, messageFor, reportFor, socialFor, thingWord, verdictFor, who } from './message.ts';
+import { chatFor, flagFor, forfeitFor, forfeitPaidFor, messageFor, reportFor, socialFor, thingWord, totalFrom, verdictFor, who } from './message.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -331,16 +331,20 @@ Deno.serve(async (req) => {
   if (!record?.group_id) return new Response('ignored', { status: 200 });
   const { group_id, user_id, metric, amount, day, challenge } = record;
 
-  const [[group], [poster], members, dayPosts] = await Promise.all([
-    rest(`groups?id=eq.${group_id}&select=name,quotas`),
+  // The whole row rather than named columns: a project that has not run v60 has no schedule
+  // column, and naming one it lacks would fail the request and send nothing at all.
+  const [[group], [poster], members] = await Promise.all([
+    rest(`groups?id=eq.${group_id}&select=*`),
     rest(`profiles?id=eq.${user_id}&select=username,display_name`),
     rest(`group_members?group_id=eq.${group_id}&user_id=neq.${user_id}&muted=is.false&select=user_id`),
-    rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=eq.${day}&removed_at=is.null&select=metric,amount`),
   ]);
   if (!group || !poster || !members.length) return new Response('nobody to notify', { status: 200 });
+  // A month's or a year's goal is a total, so what counts is the stretch so far; anything
+  // else is measured against the day. Either way it already includes the row that fired this.
+  const from = totalFrom(group.schedule, day);
+  const dayPosts = await rest(`posts?group_id=eq.${group_id}&user_id=eq.${user_id}&day=gte.${from}&day=lte.${day}&removed_at=is.null&select=metric,amount`);
 
-  // dayPosts already includes the row that fired this trigger.
-  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge, group.name);
+  const body = messageFor(poster.display_name || poster.username, metric, amount, group.quotas ?? [], dayPosts, challenge, group.name, group.schedule);
 
   return blast(
     members.map((m: { user_id: string }) => m.user_id),

@@ -1673,3 +1673,178 @@ begin
 end $$;
 reset role;
 \echo PASS: a report outlives its reporter
+
+-- ---- v60: how often. Five schedules, the old "certain days" groups moved onto the second,
+-- and the reminders asking whether today needs anything rather than assuming every day does.
+reset role;
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'groups'
+                  and column_name = 'schedule' and is_nullable = 'NO' and column_default like '%daily%') then
+    raise exception 'groups.schedule should be there, required, and every day by default';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'groups'
+                  and column_name = 'per_week' and is_nullable = 'YES') then
+    raise exception 'groups.per_week should be there, and empty unless the group is a week';
+  end if;
+end $$;
+
+-- Two groups the way they sit in the live project before v60 has been run there: no
+-- schedule of their own yet, so they have the column's default, and one of them has only
+-- weekdays set. Running the block again is what the live project will do, and twice is
+-- what "safe to run twice" means.
+insert into auth.users (id) values ('60000000-0000-0000-0000-000000000001'), ('60000000-0000-0000-0000-000000000002'),
+  ('60000000-0000-0000-0000-000000000003');
+insert into public.profiles (id, username, created_at) values
+  ('60000000-0000-0000-0000-000000000001', 'v60_week', '2026-01-01'),
+  ('60000000-0000-0000-0000-000000000002', 'v60_month', '2026-01-01'),
+  ('60000000-0000-0000-0000-000000000003', 'v60_day', '2026-01-01');
+insert into public.groups (id, name, quotas, active_days) overriding system value values
+  (6001, 'Old weekdays', '[{"metric":"pushups","target":10}]', '{1,2,3,4,5}'),
+  (6002, 'Old every day', '[{"metric":"pushups","target":10}]', '{0,1,2,3,4,5,6}');
+\i :v60
+do $$
+begin
+  if (select schedule from public.groups where id = 6001) <> 'days' then raise exception 'a group with only weekdays set should have moved to set days'; end if;
+  if (select schedule from public.groups where id = 6002) <> 'daily' then raise exception 'a group with all seven days should have stayed every day'; end if;
+  if (select array_length(active_days, 1) from public.groups where id = 6001) <> 5 then raise exception 'moving it lost its days'; end if;
+
+  begin update public.groups set schedule = 'weekly' where id = 6002; raise exception 'a week with no number of days went in';
+  exception when check_violation then null; end;
+  begin update public.groups set schedule = 'weekly', per_week = 7 where id = 6002; raise exception 'seven days a week is every day, not a week';
+  exception when check_violation then null; end;
+  begin update public.groups set schedule = 'fortnightly' where id = 6002; raise exception 'a schedule that is not one went in';
+  exception when check_violation then null; end;
+  update public.groups set schedule = 'weekly', per_week = 3 where id = 6002;
+end $$;
+-- A second run leaves a group that has since been set to a week alone, and moves nothing else.
+\i :v60
+do $$
+begin
+  if (select schedule from public.groups where id = 6002) <> 'weekly' then raise exception 'running v60 again undid a week'; end if;
+  if (select schedule from public.groups where id = 6001) <> 'days' then raise exception 'running v60 again moved set days'; end if;
+end $$;
+
+-- The stretches, over the ends of a month and a year, and February in a leap year.
+do $$
+begin
+  if public.period_start('weekly', '2026-11-01') <> '2026-10-26' or public.period_end('weekly', '2026-10-26') <> '2026-11-01'
+     or public.period_start('weekly', '2026-11-02') <> '2026-11-02' then
+    raise exception 'a week should run Monday to Sunday';
+  end if;
+  if public.period_end('monthly', '2024-02-10') <> '2024-02-29' or public.period_start('monthly', '2026-11-30') <> '2026-11-01' then
+    raise exception 'a month should run from its 1st to its own last day';
+  end if;
+  if public.period_end('yearly', '2026-01-01') <> '2026-12-31' or public.period_start('yearly', '2025-12-31') <> '2025-01-01' then
+    raise exception 'a year should run from January to December';
+  end if;
+  if public.period_start('daily', '2026-11-05') <> '2026-11-05' or public.period_end('days', '2026-11-05') <> '2026-11-05' then
+    raise exception 'a day is its own stretch';
+  end if;
+end $$;
+
+-- Who is owed a nag, on fixed days.
+--   6002 (weekly, 3 days): the week of Mon 16 November. Monday and Tuesday done, Friday short.
+--   6003 (monthly, 10 lb): 2 + 3 + 4 by the 27th.
+--   6004 (yearly, 3 books): one book.
+--   6001 (set days, weekdays).
+insert into public.groups (id, name, quotas, schedule) overriding system value values
+  (6003, 'Monthly', '[{"metric":"lb","target":10}]', 'monthly'),
+  (6004, 'Yearly', '[{"metric":"books","target":3}]', 'yearly');
+insert into public.group_members (group_id, user_id) values
+  (6002, '60000000-0000-0000-0000-000000000001'), (6003, '60000000-0000-0000-0000-000000000002'),
+  (6004, '60000000-0000-0000-0000-000000000002'), (6001, '60000000-0000-0000-0000-000000000003');
+insert into public.posts (group_id, user_id, metric, amount, video_path, day) values
+  (6002, '60000000-0000-0000-0000-000000000001', 'pushups', 10, '6002/a/1.mp4', '2026-11-16'),
+  (6002, '60000000-0000-0000-0000-000000000001', 'pushups', 10, '6002/a/2.mp4', '2026-11-17'),
+  (6002, '60000000-0000-0000-0000-000000000001', 'pushups', 5, '6002/a/3.mp4', '2026-11-20'),
+  (6003, '60000000-0000-0000-0000-000000000002', 'lb', 2, '6003/b/1.mp4', '2026-11-03'),
+  (6003, '60000000-0000-0000-0000-000000000002', 'lb', 3, '6003/b/2.mp4', '2026-11-10'),
+  (6003, '60000000-0000-0000-0000-000000000002', 'lb', 4, '6003/b/3.mp4', '2026-11-27'),
+  (6004, '60000000-0000-0000-0000-000000000002', 'books', 1, '6004/b/1.mp4', '2026-03-01');
+
+do $$
+declare wk uuid := '60000000-0000-0000-0000-000000000001'; mo uuid := '60000000-0000-0000-0000-000000000002';
+        dy uuid := '60000000-0000-0000-0000-000000000003'; n int; r record; at timestamptz;
+begin
+  -- A week with days to spare needs nothing. Thursday, two of three in: four days left for one.
+  if public.week_hits_before(6002, wk, '2026-11-19') <> 2 then raise exception 'two days of the week were done before Thursday'; end if;
+  if public.goal_due(6002, wk, '2026-11-19') then raise exception 'a week with four days left for one was due on Thursday'; end if;
+  -- A short day is not one of the three: on Sunday one is still needed, and Sunday is the last day.
+  if public.week_hits_before(6002, wk, '2026-11-22') <> 2 then raise exception 'a short Friday counted as one of the days'; end if;
+  if not public.goal_due(6002, wk, '2026-11-22') then raise exception 'the last day a week could still be saved on was not due'; end if;
+  select count(*) into n from public.quota_owed(6002, wk, '2026-11-22') o where o.metric = 'pushups' and o.owed = 10 and o.nag = 'day';
+  if n <> 1 then raise exception 'on that Sunday the whole day''s quota is owed'; end if;
+  -- Nothing for the week after a week that counted.
+  if public.goal_due(6002, wk, '2026-11-18') then raise exception 'Wednesday, two in and five days left, was due'; end if;
+
+  -- A month is never nagged mid-way, only in its last three days, and only for what is short.
+  select count(*) into n from public.quota_owed(6003, mo, '2026-11-20');
+  if n <> 0 then raise exception 'a month was chased on the 20th'; end if;
+  select o.owed, o.nag into r from public.quota_owed(6003, mo, '2026-11-28') o;
+  if r.owed is distinct from 1 or r.nag is distinct from 'period' then raise exception 'on the 28th, 9 of 10 lb should be 1 lb owed for the month, got %', r; end if;
+  if public.goal_due(6003, mo, '2026-11-30') then raise exception 'a month is never a day''s goal'; end if;
+  select count(*) into n from public.quota_owed(6004, mo, '2026-12-28');
+  if n <> 0 then raise exception 'a year was chased before its last three days'; end if;
+  select o.owed into r from public.quota_owed(6004, mo, '2026-12-30') o;
+  if r.owed is distinct from 2 then raise exception 'on 30 December, 1 of 3 books should be 2 owed'; end if;
+
+  -- Set days: nothing on a Saturday, the day's quota on a Monday.
+  if public.goal_due(6001, dy, '2026-11-21') then raise exception 'a set-days group was due on a day it rests'; end if;
+  select count(*) into n from public.quota_owed(6001, dy, '2026-11-23') o where o.owed = 10 and o.nag = 'day';
+  if n <> 1 then raise exception 'a set-days group owed nothing on a day it expects'; end if;
+
+  -- And the evening's decision, at fixed moments. Everyone here is on UTC, and each check
+  -- stands on that person's own slot hour (or last-call hour) for that day.
+  -- The month: its slot hour on the 28th is one 'period' message, and nothing else.
+  at := ('2026-11-28'::timestamp + make_interval(hours => public.slot_hour(mo, '2026-11-28'))) at time zone 'UTC';
+  select x.kind, x.line, x.unit, x.days_left, x.group_name into r from public.notices_due_now(at) x where x.user_id = mo;
+  if r.kind is distinct from 'period' or r.line is distinct from '1 lb' or r.unit is distinct from 'month'
+     or r.days_left is distinct from 3 or r.group_name is distinct from 'Monthly' then
+    raise exception 'the month''s last-three-days reminder should say 1 lb, 3 days left this month, in Monthly; got %', r;
+  end if;
+  if (select count(*) from public.day_reminders where user_id = mo and day = '2026-11-28') <> 1 then
+    raise exception 'the month''s reminder should be the only thing that went out that day';
+  end if;
+  -- (asked again, it has been claimed)
+  select count(*) into n from public.notices_due_now(at) x where x.user_id = mo;
+  if n <> 0 then raise exception 'the month''s reminder went out twice'; end if;
+  -- The next day, still short, it is not said again: once a stretch.
+  at := ('2026-11-29'::timestamp + make_interval(hours => public.slot_hour(mo, '2026-11-29'))) at time zone 'UTC';
+  select count(*) into n from public.notices_due_now(at) x where x.user_id = mo;
+  if n <> 0 then raise exception 'the month was chased again the next day'; end if;
+  -- Mid-month nothing at all, not the window and not "lapsed", though nothing went in for days.
+  at := ('2026-11-20'::timestamp + make_interval(hours => public.slot_hour(mo, '2026-11-20'))) at time zone 'UTC';
+  select count(*) into n from public.notices_due_now(at) x where x.user_id = mo;
+  if n <> 0 then raise exception 'a month mid-way was nagged'; end if;
+
+  -- The week: Thursday's window says nothing; Sunday's opens, and Sunday's last call names what is left.
+  at := ('2026-11-19'::timestamp + make_interval(hours => public.slot_hour(wk, '2026-11-19'))) at time zone 'UTC';
+  select count(*) into n from public.notices_due_now(at) x where x.user_id = wk;
+  if n <> 0 then raise exception 'a week with days to spare was nagged on Thursday'; end if;
+  at := ('2026-11-22'::timestamp + make_interval(hours => public.slot_hour(wk, '2026-11-22'))) at time zone 'UTC';
+  select x.kind into r from public.notices_due_now(at) x where x.user_id = wk;
+  if r.kind is distinct from 'open' then raise exception 'the last day a week could be saved on opened nothing, got %', r; end if;
+  at := ('2026-11-22'::timestamp + make_interval(hours => public.lastcall_hour(public.slot_hour(wk, '2026-11-22')))) at time zone 'UTC';
+  select x.kind, x.line into r from public.notices_due_now(at) x where x.user_id = wk;
+  if r.kind is distinct from 'lastcall' or r.line is distinct from '10 pushups' then raise exception 'that Sunday''s last call should say 10 pushups, got %', r; end if;
+
+  -- Set days: the window opens on a Monday and stays shut on a Saturday.
+  at := ('2026-11-21'::timestamp + make_interval(hours => public.slot_hour(dy, '2026-11-21'))) at time zone 'UTC';
+  select count(*) into n from public.notices_due_now(at) x where x.user_id = dy;
+  if n <> 0 then raise exception 'a set-days group nagged on its day off'; end if;
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day) values (6001, dy, 'pushups', 1, '6001/d/1.mp4', '2026-11-22');
+  at := ('2026-11-23'::timestamp + make_interval(hours => public.slot_hour(dy, '2026-11-23'))) at time zone 'UTC';
+  select x.kind into r from public.notices_due_now(at) x where x.user_id = dy;
+  if r.kind is distinct from 'open' then raise exception 'a set-days group said nothing on a day it expects, got %', r; end if;
+end $$;
+
+-- The invite page knows what kind of goal it is inviting somebody to.
+do $$
+declare r record;
+begin
+  update public.groups set join_code = 'v60code00001' where id = 6003;
+  select * into r from public.code_group('v60code00001');
+  if r.schedule is distinct from 'monthly' then raise exception 'the invite page should know a month is a month, got %', r; end if;
+end $$;
+\echo PASS: how often

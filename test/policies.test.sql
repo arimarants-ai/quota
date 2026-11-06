@@ -53,14 +53,14 @@ begin
   -- v34 replaced day_due_now() with one decision per person per day. The rule is the same
   -- and it matters more: this one claims all three kinds, so a caller who could spend them
   -- could silence somebody's whole day.
-  if has_function_privilege('anon', 'public.notices_due_now()', 'EXECUTE') then
+  if has_function_privilege('anon', 'public.notices_due_now(timestamptz)', 'EXECUTE') then
     raise exception 'anyone with the anon key could spend everybody''s notifications';
   end if;
-  if has_function_privilege('authenticated', 'public.notices_due_now()', 'EXECUTE') then
+  if has_function_privilege('authenticated', 'public.notices_due_now(timestamptz)', 'EXECUTE') then
     raise exception 'any signed-in account could spend everybody''s notifications';
   end if;
   -- And the one caller that does need it still has it.
-  if not has_function_privilege('service_role', 'public.notices_due_now()', 'EXECUTE') then
+  if not has_function_privilege('service_role', 'public.notices_due_now(timestamptz)', 'EXECUTE') then
     raise exception 'the cron cannot call notices_due_now, so no reminder would ever go out';
   end if;
   -- The window onto cron.job_run_details is the cron's own. It reports what is broken

@@ -3,12 +3,25 @@ export type Quota = { metric: string; target: number };
 export type Post = { metric: string; amount: number };
 
 /**
+ * How often a group's goal is (schema v60). A month's or a year's quota is a total, so the
+ * posts that count towards it are the whole stretch's, not the day's. A week's is still a
+ * day's quota, done on some days of the week, so a post is measured against its day.
+ */
+export type Schedule = 'daily' | 'days' | 'weekly' | 'monthly' | 'yearly';
+export const isTotal = (s?: string | null) => s === 'monthly' || s === 'yearly';
+/** The first day of the stretch `day` (YYYY-MM-DD) falls in, for the posts that add up. */
+export function totalFrom(schedule: string | null | undefined, day: string): string {
+  return schedule === 'monthly' ? `${day.slice(0, 7)}-01` : schedule === 'yearly' ? `${day.slice(0, 4)}-01-01` : day;
+}
+
+/**
  * Text for a new post. `dayPosts` is everything the poster has logged in this
- * group today, including the post that just landed. `challenge` is what the wheel
+ * group today, including the post that just landed — or, for a group whose goal is a
+ * month's or a year's total, everything this stretch. `challenge` is what the wheel
  * gave them, when the post was marked as done with it: "did 25 decline pushups"
  * rather than "did 25 pushups".
  */
-export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null, where?: string | null): string {
+export function messageFor(name: string, metric: string, amount: number, quotas: Quota[], dayPosts: Post[], challenge?: string | null, where?: string | null, schedule?: string | null): string {
   const totals = new Map<string, number>();
   for (const p of dayPosts) totals.set(p.metric, (totals.get(p.metric) ?? 0) + p.amount);
 
@@ -23,7 +36,8 @@ export function messageFor(name: string, metric: string, amount: number, quotas:
   // pushups" reads on a lock screen as something Sam mentioned; what it means is that Sam
   // posted proof, in a group, and there is something there to go and look at.
   const wheresit = where ? ` in ${where}` : '';
-  return justFinished ? `${name} finished the day's goal${wheresit}` : `${name} posted ${what}${wheresit}`;
+  const span = schedule === 'monthly' ? 'month' : schedule === 'yearly' ? 'year' : 'day';
+  return justFinished ? `${name} finished the ${span}'s goal${wheresit}` : `${name} posted ${what}${wheresit}`;
 }
 
 /**

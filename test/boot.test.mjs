@@ -447,10 +447,23 @@ async function giveTake(page, file) {
   await (await chooser).setFiles(file);
   await page.waitForTimeout(150);
 }
+// The Post screen on its own, with no take on it yet: what + used to open. Most cases here
+// are about the screen, not about how you got to it; the ones about + itself use the real
+// thing (submitProof, and the camera-first cases further down).
+async function openForm(page) {
+  await page.evaluate(() => submitDlg((postTarget() || {}).id));
+  await page.waitForTimeout(120);
+}
+// The way a person posts: + opens the camera, the shot comes back, and the Post screen is
+// what it lands on, with how many already filled in.
 async function submitProof(page) {
   await page.locator('.bar .add').click();
+  await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  const chooser = page.waitForEvent('filechooser');
+  await page.evaluate(() => camToPhone());
+  await (await chooser).setFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4 * 1048576, 7) });
+  await page.waitForFunction(() => $('#dlg').open && !!document.querySelector('#dlg input[name=amount]'), null, { timeout: 4000 }).catch(() => {});
   await page.locator('#dlg input[name=amount]').fill('20');
-  await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4 * 1048576, 7) });
   await page.locator('#dlg button.primary').click();
 }
 const labels = page => page.evaluate(() => self.__btn);
@@ -475,6 +488,7 @@ await withPage(MULTI, async page => {
   await page.locator('#alsobox input[value="4"]').check();
   await page.locator('#dlg input[name=amount]').fill('25');
   await page.locator('#dlg textarea[name=caption]').fill('two for one');
+  await page.locator('#dlg details.pmore summary').click();   // the profile tick is under More
   await page.locator('#dlg input[name=onprofile]').check();
   await giveTake(page, { name: 'm.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(2048, 3) });
   await page.locator('#dlg button.primary').click();
@@ -633,7 +647,7 @@ if (chrome && phone) {
     await settle(page);
     lastUpload = null; lastPoster = null;
     uploadReply = { status: 200, body: '{}', hold: null };
-    await page.locator('.bar .add').click();
+    await openForm(page);
     await page.locator('#dlg input[name=amount]').fill('20');
     await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: phone });
     // The take is checked (its length read) before it is accepted, which for a big clip takes
@@ -667,7 +681,7 @@ await withPage(NO_WHEEL, async page => {
   await settle(page);
   const clip = phone || Buffer.from(await record1080p(page));
   lastUpload = null;
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.locator('#dlg input[name=amount]').fill('20');
   await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: clip });
   await page.waitForFunction(() => typeof recorded !== 'undefined' && recorded && recorded.size > 0, null, { timeout: 15000 }).catch(() => {});
@@ -834,7 +848,7 @@ await withPage(NO_WHEEL, async page => {
   await settle(page);
   lastUpload = null;
   const junk = Buffer.alloc(7 * 1048576, 3);          // over the threshold, but not a video
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.locator('#dlg input[name=amount]').fill('20');
   await giveTake(page, { name: 'clip.mp4', mimeType: 'video/mp4', buffer: junk });
   await page.locator('#dlg button.primary').click();
@@ -843,17 +857,23 @@ await withPage(NO_WHEEL, async page => {
     `sent ${lastUpload ? lastUpload.length : 'nothing'} of ${junk.length} bytes`);
 });
 
-// The leaderboard: current streak first, with how typical that is beside it.
+// The crew: one list, current streak first, with how typical that is under it. It used to
+// be two lists of the same people — today's, and a leaderboard below it.
 await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => openGroup(1));
   await page.waitForTimeout(200);
-  const rows = await page.locator('#app .rank').evaluateAll(els => els.map(e => e.closest('.row').innerText.replace(/\n/g, ' | ')));
-  check('the group has a leaderboard', rows.length === 2, rows.join(' // '));
+  const rows = await page.locator('#app .crew .mrow').evaluateAll(els => els.map(e => e.innerText.replace(/\n/g, ' ')));
+  check('the group has one Crew list, a row each', rows.length === 2 && await page.locator('#app .card.list .mrow').count() === 2, rows.join(' // '));
+  check('  and no leaderboard or Today list beside it', await page.locator('#app h3:has-text("Leaderboard"), #app h3:has-text("Today")').count() === 0
+    && await page.locator('#app .rank').count() === 0 && await page.locator('#app h3:has-text("Crew")').count() === 1);
   // Sam has three days running, Ari has today only, so Sam is first.
   check('  ranked by streak', /Sam/.test(rows[0] || '') && /Ari/.test(rows[1] || ''), rows.join(' // '));
-  check('  with the completion rate beside it', /hit the quota \d+% of the last \d+ days/.test(rows[0] || ''), rows[0]);
-  check('  and the streak in days', /3 days/.test(rows[0] || ''), rows[0]);
+  check('  with the 30-day rate as a small line', /hit the quota \d+% of the last \d+ days/.test(rows[0] || '')
+    && await page.locator('#app .crew .mrow .rate').count() === 2, rows[0]);
+  check('  today\'s progress as a chip', /\b\d+\/50\b/.test(rows[0] || '') && /\b50\/50\b/.test(rows[1] || ''), rows.join(' // '));
+  check('  and the streak in days', /3 days/i.test(rows[0] || ''), rows[0]);
+  check('  with the line about who is still out kept above it', await page.locator('#app .missline').count() === 1);
 });
 
 // ---- wheels
@@ -1116,7 +1136,7 @@ await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
 await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
   await settle(page);
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   // Off to begin with. A box that arrives ticked gets posted ticked by people who never
   // read it, and a challenge day nobody decided to claim is worth nothing.
@@ -1150,7 +1170,7 @@ await withPage({ ...SIGNED_IN, pick: 0, samSpun: true }, async page => {
 await withPage({ ...SIGNED_IN, pick: 0 }, async page => {
   await settle(page);
   await page.evaluate(async () => { await sb.rpc('spin', {p_wheel: 7, p_day: today()}); await load(); });
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   // Left alone, which is now the default rather than something to undo.
   await page.locator('#dlg input[name=amount]').fill('50');
@@ -1319,7 +1339,7 @@ const camReady = page => page.waitForFunction(() => typeof CAM !== 'undefined' &
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   await camSpy(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   let chose = false;
   page.on('filechooser', () => { chose = true; });
@@ -1355,7 +1375,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
     shown: !!document.querySelector('#takeprev video'), again: ($('#recbtn') || {}).textContent}));
   check('  tapping again stops it: the camera closes and the clip is on the form', !took.open && took.size > 2048 && /^video\//.test(took.type) && took.shown,
     JSON.stringify(took));
-  check('    to watch back, and record again if it was not right', took.again === 'Record again', took.again);
+  check('    to watch back, and retake it if it was not right', took.again === 'Retake', took.again);
   check('  and the camera and microphone are off', await liveTracks(page) === '', await liveTracks(page));
   check('  with nothing said about it', alerts.length === 0, alerts.join(' | '));
 });
@@ -1364,7 +1384,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   await camSpy(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   await page.evaluate(() => openCam());
   await camReady(page);
@@ -1393,7 +1413,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   await camSpy(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   await page.locator('#dlg button:has-text("Photo")').click();
   await camReady(page);
@@ -1432,7 +1452,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
   await camSpy(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   await page.evaluate(() => openCam());
   await camReady(page);
@@ -1528,7 +1548,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 await withPage(NO_WHEEL, async page => {
   await settle(page);
   await page.evaluate(() => { navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error('no'), {name: 'NotAllowedError'})); });
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   await page.evaluate(() => openCam());
   await page.waitForTimeout(600);
@@ -1581,7 +1601,7 @@ await withPage(NO_WHEEL, async (page, alerts) => {
 // camera is asked for, and that what comes back is treated as a take.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   check('posting offers to record', await page.locator('button:has-text("Record")').count() > 0);
   check('  and nothing else — the roll is not an option', await page.locator('#dlg button:has-text("Upload")').count() === 0);
@@ -1610,7 +1630,8 @@ await withPage(NO_WHEEL, async page => {
     return {has: !!recorded, name: recorded && recorded.name, text: $('#vsize').textContent};
   });
   check('  and a clip that comes back is the take', line.has && /IMG_0001/.test(line.name), JSON.stringify(line));
-  check('    with its size on the sheet', /MB/.test(line.text), line.text);
+  // Its size is only said when it will not go: a clip that fits needs no sentence about it.
+  check('    with no size line for a take that fits', line.text === '' && await page.locator('#vsize').isHidden(), line.text);
   // The old camera recorded at the size we asked for and said so, to skip the re-encode.
   // The phone records at whatever it is set to, which can be 4K, so it must not say so.
   check('    and never marked as already the right size',
@@ -1622,7 +1643,7 @@ await withPage(NO_WHEEL, async page => {
 // is kept on the phone, comes back with the app, and is only thrown away when asked.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   await page.evaluate(async () => {
     camAt = Date.now();
@@ -1645,16 +1666,16 @@ await withPage(NO_WHEEL, async page => {
   const kept = await page.evaluate(() => { submitDlg(postFor, 1); return {size: recorded && recorded.size, shown: !!document.querySelector('#takeprev video')}; });
   check('  picking another group keeps it', kept.size === 4096 && kept.shown, JSON.stringify(kept));
 
-  // Cancel asks; the test's dialogs say no, so it stays.
+  // ✕ asks; the test's dialogs say no, so it stays. (There is no Cancel on the Post screen.)
   const said = [];
   page.on('dialog', d => said.push(d.message()));
-  await page.locator('#dlg button:has-text("Cancel")').click();
+  await page.locator('#dlg .dlgx').click();
   await page.waitForTimeout(400);
   check('  putting the form away asks before the take goes',
     said.some(m => /Discard this clip/.test(m)) && await page.evaluate(() => $('#dlg').open && !!recorded), JSON.stringify(said));
   // And saying yes is what lets it go, from the phone as well as the form.
   await page.evaluate(() => { self.confirm = () => true; });
-  await page.locator('#dlg button:has-text("Cancel")').click();
+  await page.locator('#dlg .dlgx').click();
   await page.waitForTimeout(500);
   check('  and saying yes throws it away for good',
     await page.evaluate(async () => !$('#dlg').open && recorded === null && !(await keptTake())));
@@ -1716,7 +1737,7 @@ await withPage(NO_WHEEL, async page => {
 // when it is sent).
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   const said = [];
   page.on('dialog', d => said.push(d.message()));   // withPage dismisses it; this only listens
@@ -3244,9 +3265,10 @@ await withPage(SIGNED_IN, async page => {
 // A clip goes to the group. Putting it on your profile is a separate, deliberate tick.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(400);
   const box = page.locator('#dlg input[name=onprofile]');
+  await page.locator('#dlg details.pmore summary').click();   // under More, one tap away
   check('the post form offers the profile as a choice', await box.count() === 1);
   check('  which is off to begin with', !await box.isChecked());
   check('    and says what the difference is',
@@ -4428,6 +4450,8 @@ await withPage({ ...NO_WHEEL, friends: true }, async page => {
   await page.waitForTimeout(500);
   await page.evaluate(() => groupDlg(S.groups.find(x => x.id === 1)));
   await page.waitForTimeout(400);
+  // Behind More, for a group that has no picture yet.
+  await page.locator('#dlg details.gmore summary').click();
   check('  editing it offers somewhere to put one',
     await page.locator('#dlg #avprev .av').count() === 1
     && /camera/i.test(await page.locator('#dlg').innerText()));
@@ -5583,7 +5607,7 @@ await withPage({ ...SIGNED_IN, photos: true, noSign: true, resignFails: true }, 
 // on the way in, which is exactly what a file off the roll looks like.
 await withPage(NO_WHEEL, async (page, alerts) => {
   await settle(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.locator('#dlg input[name=amount]').fill('20');
   // Nothing recorded yet: Post has nothing to send.
   await page.locator('#dlg button.primary').click();
@@ -6222,7 +6246,8 @@ await withPage({ ...NO_WHEEL, noGroup: true }, async page => {
   check('  and it can be put off, by posting first', /Post first, invite later/.test(d));
   await page.locator('#dlg button:has-text("Post first, invite later")').click();
   await page.waitForTimeout(400);
-  check('    which opens the proof form for that group', /Post proof/.test(await page.locator('#dlg').innerHTML()));
+  check('    which opens the camera for that group', await page.evaluate(() => $('#cam').open && CAM.for === 'post' && postFor === S.groups[0].id));
+  await page.evaluate(() => camClose());
 });
 
 // The walkthrough comes once, right after the first group, when the invite sheet goes.
@@ -6348,7 +6373,7 @@ await withPage(NO_WHEEL, async page => {
 // Proof can be a picture as well as a clip — both come off the camera.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   check('the form has no way to choose a file', await page.locator('#dlg input[type=file]').count() === 0,
     'a file input is still on the proof form');
@@ -6421,8 +6446,8 @@ await withPage(SIGNED_IN, async page => {
   await page.evaluate(() => groupDlg());
   await page.waitForTimeout(200);
   check('a new group does not ask about days unless you want it to',
-    await page.locator('#gdays').isHidden() && await page.locator('#dlg input[name=somedays]').isChecked() === false);
-  await page.locator('#dlg input[name=somedays]').check();
+    await page.locator('#gdays').isHidden() && await page.locator('#dlg input[name=sched][value=daily]').isChecked());
+  await page.locator('#dlg .stile:has(input[value=days])').click();
   await page.waitForTimeout(150);
   check('  asking brings up all seven', await page.locator('#gdays').isVisible()
     && await page.locator('#gdays input[name=day]').count() === 7);
@@ -6603,7 +6628,7 @@ await withPage(SIGNED_IN, async page => {
   check('no field is small enough to make iOS zoom into it', small.length === 0, small.join(', '));
 
   // And the ones that only exist inside the post sheet.
-  await page.locator('.bar .add').click();
+  await openForm(page);
   await page.waitForTimeout(300);
   const dlgSmall = await page.evaluate(() => [...document.querySelectorAll('#dlg input,#dlg select,#dlg textarea')]
     .filter(el => el.type !== 'hidden' && parseFloat(getComputedStyle(el).fontSize) < 16)
@@ -6910,12 +6935,14 @@ await withNative({ ...SIGNED_IN, wheel: false }, async page => {
   check('    and the widget turns to done', (await q()).filter(x => x.fn === 'setWidget').at(-1).a.done === true);
   await page.evaluate(() => { __native.fire('App.appUrlOpen', { url: 'hitquota://record' }); });
   await page.waitForTimeout(300);
-  check('  tapping the countdown opens the form to record', /Post proof/.test(await page.innerHTML('#dlg')));
+  // Recording is the camera now, the same as +.
+  const recOpen = () => page.evaluate(() => ($('#cam').open && CAM.for === 'post') || /Post proof/.test($('#dlg').open ? $('#dlg').innerHTML : ''));
+  check('  tapping the countdown opens the camera to record', await recOpen());
   // Arriving before the app is signed in, it waits rather than being dropped.
-  await page.evaluate(() => { dlg(); const was = S.me; S.me = null; recordFromPhone(); self.__held = recordWanted; S.me = was; });
+  await page.evaluate(() => { dlg(); camClose(); const was = S.me; S.me = null; recordFromPhone(); self.__held = recordWanted; S.me = was; });
   check('    and one that arrives before the app is ready is held, not dropped', await page.evaluate(() => self.__held === true));
   await page.evaluate(() => load()); await page.waitForTimeout(600);
-  check('    then opens the form once it is', /Post proof/.test(await page.innerHTML('#dlg')));
+  check('    then opens it once it is', await recOpen());
   await page.evaluate(() => { dlg(); __native.quota = []; return logout(); });
   await page.waitForTimeout(300);
   check('  logging out tells the widget nobody is signed in', (await q()).some(x => x.fn === 'setWidget' && x.a.signedIn === false));
@@ -7106,6 +7133,227 @@ await withPage(null, async page => {
   const html = await page.innerHTML('#app');
   check('the vendored library boots the page', !html.includes('could not start') && html.trim().length > 50);
   check('  with no uncaught errors', errs.length === 0, errs.join(' | '));
+});
+
+// ---- how often (v60), and the simpler screens built with it
+// A week shows its seven days under the number, filled on the days the quota was hit.
+await withPage({ ...NO_WHEEL, schedule: 'weekly', perWeek: 3 }, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(400);
+  const hdr = await page.locator('#app .hdr').innerText();
+  check('a weekly group counts its streak in weeks', /week streak/i.test(hdr) && !/day streak/i.test(hdr), hdr);
+  check('  says how this week is going', /This week · 1 of 3/.test(hdr), hdr);
+  check('  with seven day dots, filled on the days the quota was hit',
+    await page.locator('#app .hdr .wdots i').count() === 7 && await page.locator('#app .hdr .wdots i.on').count() === 1);
+  check('  and no monthly pass, which is only for days', !/pass left|pass used/i.test(hdr), hdr);
+  const crew = await page.locator('#app .crew').innerText();
+  check('  its crew list counts weeks too', /1\/3 this week/.test(crew) && /weeks?\b/i.test(crew), crew);
+  check('  and its quota says it is a day\'s, three days a week', /50 pushups \/ day/.test(await page.innerText('#app')) && /3 days a week/.test(await page.innerText('#app')));
+});
+// A month is a total, with a bar towards it.
+await withPage({ ...NO_WHEEL, schedule: 'monthly', quotas: [{ metric: 'pushups', target: 200 }] }, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(400);
+  const hdr = await page.locator('#app .hdr').innerText();
+  check('a monthly group counts its streak in months', /month streak/i.test(hdr), hdr);
+  check('  with a progress bar towards the month\'s total', /50 of 200 pushups this month/.test(hdr)
+    && await page.locator('#app .hdr .pbar i').evaluate(el => el.style.getPropertyValue('--w')) === '25.0%', hdr);
+  check('  and its crew row shows the total so far', /50\/200 pushups/.test(await page.locator('#app .crew').innerText()));
+  check('  and nobody is told they "haven\'t posted" today, only this month', !/haven't posted —/.test(await page.innerText('#app'))
+    && /this month/.test(await page.locator('#app .missline').innerText()), await page.locator('#app .missline').innerText());
+});
+// The home screen: the day streak stays the big number, and every week, month or year gets a chip.
+await withPage({ ...NO_WHEEL, schedule: 'weekly', perWeek: 3, extraGroups: [{ id: 2, name: 'Readers', quotas: [{ metric: 'pages', target: 10 }] }] }, async page => {
+  await settle(page);
+  const big = await page.locator('#app .hdr .big').innerText();
+  check('the home screen\'s number is still the day streak', /day streak/i.test(big), big);
+  const chips = await page.locator('#app .hdr .schips button').allInnerTexts();
+  check('  with a chip for the weekly group under it', chips.length === 1 && /weeks? · Mornings/.test(chips[0]), chips.join(' | '));
+  await page.locator('#app .hdr .schips button').click(); await page.waitForTimeout(400);
+  check('    and tapping it opens that group', await page.evaluate(() => S.open === 1));
+});
+await withPage({ ...NO_WHEEL, schedule: 'weekly', perWeek: 3 }, async page => {
+  await settle(page);
+  check('with no every-day group, the number is the most common schedule\'s, in its unit',
+    /week streak/i.test(await page.locator('#app .hdr .big').innerText()), await page.locator('#app .hdr .big').innerText());
+});
+
+// + is the camera. The group it is for is chosen, and shown on a pill.
+await withPage({ ...NO_WHEEL, quotas: [{ metric: 'pushups', target: 80 }] }, async (page, alerts) => {
+  await settle(page);
+  await page.locator('.bar .add').click();
+  await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  const cam = await page.evaluate(() => ({open: $('#cam').open, dlg: $('#dlg').open, for: CAM.for, pill: $('#campill').hidden ? '' : $('#campill').textContent,
+    modes: !$('#cammodes').hidden, timer: !!$('#camtimer'), flip: !!$('#camflip'), dual: !!$('#camdual')}));
+  check('+ opens Quota\'s camera straight away, with no form first', cam.open && !cam.dlg && cam.for === 'post', JSON.stringify(cam));
+  check('  with its video and photo switch, timer, front-and-back and flip', cam.modes && cam.timer && cam.flip && cam.dual, JSON.stringify(cam));
+  check('  and a pill saying which group it is for', cam.pill === 'Mornings · 80 pushups', cam.pill);
+  const chooser = page.waitForEvent('filechooser');
+  await page.evaluate(() => camToPhone());
+  await (await chooser).setFiles({ name: 'c.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4096, 1) });
+  await page.waitForFunction(() => $('#dlg').open, null, { timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  const post = await page.evaluate(() => ({amount: $('#dlg form').amount.value, hint: $('#amthint').textContent, take: !!document.querySelector('#takeprev video'),
+    retake: ($('#recbtn') || {}).textContent, photo: $('#photobtn') && !$('#photobtn').hidden}));
+  check('  after the shot, one Post screen, with the take on it', post.take, JSON.stringify(post));
+  check('    and a Retake link where the buttons were', post.retake === 'Retake' && !post.photo, JSON.stringify(post));
+  check('    How many is filled in with what is left today', post.amount === '30' && post.hint === "pushups · what's left today", JSON.stringify(post));
+  await page.locator('#dlg .howmany button[aria-label="One more"]').click();
+  check('    and + and − change it', await page.evaluate(() => $('#dlg form').amount.value) === '31');
+  check('  no Cancel button, an ✕ instead, and a Post button the width of the sheet',
+    await page.locator('#dlg button:has-text("Cancel")').count() === 0 && await page.locator('#dlg .dlgx').count() === 1
+    && await page.evaluate(() => { const b = $('#dlg .postbtn'), f = $('#dlg form'); return b.getBoundingClientRect().width >= f.getBoundingClientRect().width - 1; }));
+  check('  no group dropdown, and no "also post to" list', await page.locator('#dlg select[name=group]').count() === 0
+    && !/Also post to/i.test(await page.locator('#dlg').innerText()));
+  check('  with only one group, no Counts for row at all', await page.locator('#dlg .cfor').count() === 0 && !/Counts for/.test(await page.locator('#dlg').innerText()));
+  check('  one metric, so no metric picker', await page.locator('#dlg select[name=metric]').count() === 0
+    && await page.evaluate(() => $('#dlg form').metric.value) === 'pushups');
+  check('  and nothing said about the file\'s size when it fits', await page.locator('#vsize').isHidden()
+    && !/up to \d+ MB|recorded now/i.test(await page.locator('#dlg').innerText()));
+  check('  "Also show this on my profile" waits under More', await page.locator('#dlg details.pmore input[name=onprofile]').count() === 1
+    && !(await page.locator('#dlg details.pmore').evaluate(d => d.open)) && await page.locator('#dlg input[name=onprofile]').isHidden());
+  await page.locator('#dlg details.pmore summary').click();
+  check('    and More shows it', await page.locator('#dlg input[name=onprofile]').isVisible());
+  check('  a caption is optional', await page.locator('#dlg textarea[name=caption]').getAttribute('placeholder') === 'Add a caption'
+    && !(await page.locator('#dlg textarea[name=caption]').evaluate(t => t.required)));
+  await page.locator('#dlg button.postbtn').click();
+  await page.waitForFunction(() => self.__posts.length >= 1, null, {timeout: 8000}).catch(() => {});
+  const sent = await page.evaluate(() => self.__posts.at(-1));
+  check('  and Post sends it', sent && sent.amount === 31 && sent.group_id === 1 && sent.metric === 'pushups', JSON.stringify(sent));
+  check('  with nothing said along the way', alerts.length === 0, alerts.join(' | '));
+});
+// The camera's pill moves to the next group, and the Post screen follows it.
+await withPage({ ...NO_WHEEL, extraGroups: [{ id: 3, name: 'Readers', quotas: [{ metric: 'pages', target: 20 }] }] }, async page => {
+  await settle(page);
+  await page.evaluate(() => startPost(1)); await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  await page.waitForFunction(() => !$('#campill').disabled, null, { timeout: 4000 }).catch(() => {});
+  await page.locator('#campill').click();
+  check('tapping the pill moves the take to the next group', await page.locator('#campill').innerText() === 'Readers · 20 pages');
+  const chooser = page.waitForEvent('filechooser');
+  await page.evaluate(() => camToPhone());
+  await (await chooser).setFiles({ name: 'c.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(2048, 1) });
+  await page.waitForFunction(() => $('#dlg').open, null, { timeout: 4000 }).catch(() => {});
+  check('  and the Post screen is for that group', /Readers/.test(await page.locator('#dlg .postfor').innerText())
+    && await page.evaluate(() => $('#dlg form').amount.value) === '20');
+  await page.locator('#dlg .postfor .gpill').click(); await page.waitForTimeout(200);
+  check('  switching group on the Post screen keeps the take', /Mornings/.test(await page.locator('#dlg .postfor').innerText())
+    && await page.evaluate(() => !!recorded && !!document.querySelector('#takeprev img')));
+});
+// The default group is the first that still needs something; the wheel still comes first.
+await withPage({ ...NO_WHEEL, extraGroups: [{ id: 3, name: 'Readers', quotas: [{ metric: 'pages', target: 20 }] }] }, async page => {
+  await settle(page);
+  check('the camera is for the first group that has not hit its quota today', await page.evaluate(() => postTarget().id) === 3);
+});
+// Counts for: a chip for each group with the same metric, the camera's own already on.
+await withPage(MULTI, async page => {
+  await settle(page);
+  await page.evaluate(() => submitDlg(1)); await page.waitForTimeout(200);
+  const chips = await page.locator('#dlg .cfor .cchip').allInnerTexts();
+  check('Counts for has a chip per group with the same thing in its quota', chips.length === 3 && /Mornings/.test(chips[0]), chips.join(' | '));
+  check('  the camera\'s group already on, and the others off until tapped',
+    await page.locator('#dlg .cfor .cchip.main input').isChecked() && await page.locator('#dlg .cfor input[name=also]:checked').count() === 0);
+  await page.locator('#dlg .cfor .cchip:has(input[value="2"])').click();
+  check('  a tap adds one', await page.locator('#dlg .cfor input[value="2"]').isChecked());
+});
+await withPage({ ...MULTI, extraGroups: [...MULTI.extraGroups, { id: 5, name: 'Two things', quotas: [{ metric: 'pushups', target: 10 }, { metric: 'squats', target: 10 }] }] }, async page => {
+  await settle(page);
+  await page.evaluate(() => submitDlg(5)); await page.waitForTimeout(200);
+  check('a group that tracks two things gets a metric picker', await page.locator('#dlg select[name=metric] option').count() === 2);
+});
+// A month's total is not a day's work, so How many is left for you, with what is still to go.
+await withPage({ ...NO_WHEEL, schedule: 'monthly', quotas: [{ metric: 'pushups', target: 200 }] }, async page => {
+  await settle(page);
+  await page.evaluate(() => submitDlg(1)); await page.waitForTimeout(200);
+  const v = await page.evaluate(() => ({amount: $('#dlg form').amount.value, hint: $('#amthint').textContent}));
+  check('a monthly group leaves How many blank, and says what is left this month', v.amount === '' && v.hint === '150 pushups left this month', JSON.stringify(v));
+});
+// "Post first, invite later" goes to the camera too.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => { myCodes[1] = 'abc123XYZ789'; inviteDlg(1, true); }); await page.waitForTimeout(300);
+  await page.locator('#dlg button:has-text("Post first, invite later")').click();
+  await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  check('"Post first, invite later" opens the camera', await page.evaluate(() => $('#cam').open && CAM.for === 'post' && postFor === 1));
+  await page.evaluate(() => camClose());
+});
+
+// The group card: Chat, Invite a friend, one History button, and Manage.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => openGroup(1)); await page.waitForTimeout(400);
+  const card = await page.locator('#app .card').first().innerText();
+  check('the group card has one History button', await page.locator('#app #histbtn').count() === 1
+    && await page.locator('#app .card button:has-text("This month"), #app .card button:has-text("Recaps")').count() === 0, card);
+  check('  beside Chat and Invite a friend, with Manage as a small link', /Chat/.test(card) && /Invite a friend/.test(card) && /Manage/.test(card), card);
+  await page.locator('#app #histbtn').click(); await page.waitForTimeout(500);
+  const tabs = await page.locator('#app .htabs button').allInnerTexts();
+  check('  History opens on This month, with a Recaps tab beside it', tabs.length === 2 && /This month/.test(tabs[0]) && /Recaps/.test(tabs[1])
+    && await page.evaluate(() => S.sub && S.sub.kind === 'month') && await page.locator('#app .mgrid').count() > 0, tabs.join(' | '));
+  await page.locator('#app .htabs button:has-text("Recaps")').click(); await page.waitForTimeout(400);
+  check('  and Recaps has what it always had', await page.evaluate(() => S.sub && S.sub.kind === 'recaps') && /still filling up/i.test(await page.innerText('#app')));
+  await page.evaluate(() => closeSub()); await page.waitForTimeout(400);
+  check('  and the way back goes to the group', await page.evaluate(() => !S.sub && S.open === 1));
+});
+
+// The New group form: presets, name, how often, the quota, the forfeit; photo and goal behind More.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => groupDlg()); await page.waitForTimeout(300);
+  const txt = await page.locator('#dlg').innerText();
+  const at = w => txt.indexOf(w);
+  check('the form goes presets, name, how often, quota', at('Start from') >= 0 && at('Start from') < at('Name') && at('Name') < at('How often')
+    && at('How often') < at('Daily quota'), txt.slice(0, 400));
+  const tiles = await page.locator('#dlg .sched .stile b').allInnerTexts();
+  check('  How often is five tiles', tiles.join('|') === 'Every day|Set days|Days a week|Per month|Per year', tiles.join('|'));
+  check('    in two columns, each with a line under it', await page.evaluate(() => getComputedStyle($('#dlg .sched')).gridTemplateColumns.split(' ').length === 2)
+    && await page.locator('#dlg .sched .stile em').count() === 5);
+  check('  with no "Only on certain days" box any more', await page.locator('#dlg input[name=somedays]').count() === 0 && !/Only on certain days|Daily quota \(per person\)/.test(txt));
+  check('  the picture and the goal behind More, shut for a new group', !(await page.locator('#dlg details.gmore').evaluate(d => d.open))
+    && await page.locator('#dlg details.gmore #avprev').count() === 1 && await page.locator('#dlg details.gmore textarea[name=goal]').count() === 1);
+  await page.locator('#dlg .stile:has(input[value=weekly])').click(); await page.waitForTimeout(100);
+  check('  Days a week shows a stepper at 3', await page.locator('#gweek').isVisible() && (await page.locator('#gweekn').innerText()) === '3');
+  check('    and the quota is a daily one, with its one line', (await page.locator('#qlabel').innerText()) === 'Daily quota'
+    && /hit 3 days and the week counts/.test(await page.locator('#qhelp').innerText()), await page.locator('#qhelp').innerText());
+  await page.locator('#gweek button[aria-label="One day more"]').click();
+  check('    which + moves on', (await page.locator('#gweekn').innerText()) === '4' && /hit 4 days/.test(await page.locator('#qhelp').innerText()));
+  await page.locator('#dlg .stile:has(input[value=monthly])').click(); await page.waitForTimeout(100);
+  check('  Per month calls it a Monthly total', (await page.locator('#qlabel').innerText()) === 'Monthly total' && await page.locator('#gweek').isHidden());
+  await page.locator('#dlg .stile:has(input[value=yearly])').click();
+  check('  Per year a Yearly total', (await page.locator('#qlabel').innerText()) === 'Yearly total');
+  await page.locator('#dlg .stile:has(input[value=days])').click();
+  check('  Set days the quota on those days, with the day chips', (await page.locator('#qlabel').innerText()) === 'Quota on those days' && await page.locator('#gdays').isVisible());
+});
+// Editing: More is open when there is something in it, and a new schedule asks first.
+await withPage({ ...NO_WHEEL, extraGroups: [{ id: 2, name: 'Readers', goal: 'a book a week', quotas: [{ metric: 'pages', target: 10 }] }] }, async (page, alerts) => {
+  await settle(page);
+  await page.evaluate(() => groupDlg(S.groups.find(x => x.id === 2))); await page.waitForTimeout(300);
+  check('editing a group with a goal opens More already', await page.locator('#dlg details.gmore').evaluate(d => d.open));
+  await page.locator('#dlg .stile:has(input[value=monthly])').click();
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(500);
+  check('  changing how often asks first', alerts.includes('Streaks will be recounted under the new schedule.'), alerts.join(' | '));
+  check('    and saying no saves nothing', await page.evaluate(() => !self.__edits.some(e => e.table === 'groups' && 'schedule' in e)) && await page.evaluate(() => $('#dlg').open));
+  await page.evaluate(() => { self.confirm = () => true; });
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(1200);
+  const w = await page.evaluate(() => self.__edits.filter(e => e.table === 'groups' && 'schedule' in e).at(-1));
+  check('    and yes saves it', w && w.schedule === 'monthly' && w.per_week === null, JSON.stringify(w));
+  check('  and the group is monthly once it is read back', await page.evaluate(() => schedOf(S.groups.find(x => x.id === 2))) === 'monthly');
+});
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  await page.evaluate(() => groupDlg()); await page.waitForTimeout(300);
+  await page.locator('#dlg input[name=name]').fill('Run club');
+  await page.locator('#dlg .stile:has(input[value=weekly])').click();
+  await page.locator('#dlg button.primary').click(); await page.waitForTimeout(1200);
+  const w = await page.evaluate(() => self.__edits.filter(e => e.table === 'groups' && 'schedule' in e).at(-1));
+  check('a new weekly group saves its days a week with it', w && w.schedule === 'weekly' && w.per_week === 3, JSON.stringify(w));
+});
+
+// The comment box under each post is exactly what it was.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const box = await page.evaluate(() => { const f = document.querySelector('.post .cmts form.cin');
+    return f && [...f.children].map(x => `${x.tagName.toLowerCase()}.${x.className}|${x.getAttribute('placeholder') || x.textContent.trim()}`).join(' / '); });
+  check('the comment box under a post is unchanged', box === 'button.emo| / textarea.autogrow|Write a comment / button.primary|Send', box);
 });
 
 // The page's own self-check still passes.
