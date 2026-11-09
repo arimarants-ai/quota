@@ -4563,3 +4563,33 @@ language sql security definer stable set search_path = public as $$
 $$;
 revoke all on function public.code_group(text) from public;
 grant execute on function public.code_group(text) to anon, authenticated;
+
+-- ============================================================
+-- v61 (a post of 0): safe to run on an existing project, and safe to run twice. Nothing to
+-- redeploy: no function reads an amount as anything but a number to add up. Run it BEFORE the
+-- app that allows 0 goes out, or a 0 posted from the new app is refused here.
+--
+-- A post's amount could be anything but 0 (v1: amount > 0). Now 0 is an amount like any
+-- other: the proof, the caption and the comments, and nothing added to a total. Negative is
+-- still refused, and so is no amount at all (the column was always not null).
+--
+-- Whether a 0 post counts follows the rules already here, untouched: anything that asks
+-- whether somebody posted (lapsed, "others posted today") counts it, and anything that asks
+-- whether a quota was reached (done_between, quota_owed, week_hits_before, a challenge day)
+-- adds 0 to it, which reaches nothing that was not already reached.
+-- ============================================================
+
+-- The old check was declared on the column, so Postgres named it; dropped by what it says
+-- rather than by that name, in case a project's copy was ever named differently, and so a
+-- second run drops this block's own check and puts it straight back.
+do $$
+declare c text;
+begin
+  for c in select conname from pg_constraint
+            where conrelid = 'public.posts'::regclass and contype = 'c'
+              and pg_get_constraintdef(oid) ~ '\mamount\M'
+  loop
+    execute format('alter table public.posts drop constraint %I', c);
+  end loop;
+end $$;
+alter table public.posts add constraint posts_amount_not_negative check (amount >= 0);

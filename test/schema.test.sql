@@ -1848,3 +1848,99 @@ begin
   if r.schedule is distinct from 'monthly' then raise exception 'the invite page should know a month is a month, got %', r; end if;
 end $$;
 \echo PASS: how often
+
+-- ---- v61: a post of 0. Twice, as a live project might run it, and still exactly one rule
+-- about amounts on posts: 0 and up.
+reset role;
+\i :v61
+\i :v61
+do $$
+declare n int; d text;
+begin
+  select count(*), min(pg_get_constraintdef(oid)) into n, d from pg_constraint
+   where conrelid = 'public.posts'::regclass and contype = 'c' and pg_get_constraintdef(oid) ~ '\mamount\M';
+  if n <> 1 or d !~ 'amount >= 0' then raise exception 'posts should have one check on amount, amount >= 0; got % (%)', n, d; end if;
+end $$;
+
+-- A daily group and two people who joined long ago, for the one rule that asks only whether
+-- somebody posted at all: one posted 0 yesterday, the other nothing for days.
+insert into auth.users (id) values ('61000000-0000-0000-0000-000000000001'), ('61000000-0000-0000-0000-000000000002');
+insert into public.profiles (id, username, created_at) values
+  ('61000000-0000-0000-0000-000000000001', 'v61_zero', '2026-01-01'),
+  ('61000000-0000-0000-0000-000000000002', 'v61_none', '2026-01-01');
+insert into public.groups (id, name, quotas, schedule) overriding system value values
+  (6101, 'Zero', '[{"metric":"miles","target":5}]', 'daily');
+insert into public.group_members (group_id, user_id) values
+  (6101, '61000000-0000-0000-0000-000000000001'), (6101, '61000000-0000-0000-0000-000000000002');
+
+-- From the poster's own seat, the way the app sends it: through row level security, as a
+-- member, with nothing but the row.
+set role app;
+do $$
+declare mo uuid := '60000000-0000-0000-0000-000000000002'; wk uuid := '60000000-0000-0000-0000-000000000001';
+        zr uuid := '61000000-0000-0000-0000-000000000001';
+begin
+  perform set_config('test.uid', mo::text, true);
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day, caption)
+    values (6003, mo, 'lb', 0, '6003/' || mo || '/zero.mp4', '2026-11-28', 'nothing came off this week');
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (6004, mo, 'books', 0, '6004/' || mo || '/zero.mp4', '2026-12-30');
+  -- Below 0 is still nonsense, and no amount at all is still no post.
+  begin
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day) values (6003, mo, 'lb', -1, '6003/x/neg.mp4', '2026-11-28');
+    raise exception 'a negative amount went in';
+  exception when check_violation then null; end;
+  begin
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day) values (6003, mo, 'lb', null, '6003/x/none.mp4', '2026-11-28');
+    raise exception 'a post with no amount went in';
+  exception when not_null_violation then null; end;
+
+  perform set_config('test.uid', wk::text, true);
+  -- A 0 on a day with nothing else (Saturday), and a 0 on a day already met (Monday, 10 of 10).
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day) values
+    (6002, wk, 'pushups', 0, '6002/' || wk || '/z1.mp4', '2026-11-21'),
+    (6002, wk, 'pushups', 0, '6002/' || wk || '/z2.mp4', '2026-11-16');
+
+  perform set_config('test.uid', zr::text, true);
+  insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+    values (6101, zr, 'miles', 0, '6101/' || zr || '/z.mp4', '2026-12-06');
+end $$;
+reset role;
+
+do $$
+declare mo uuid := '60000000-0000-0000-0000-000000000002'; wk uuid := '60000000-0000-0000-0000-000000000001';
+        zr uuid := '61000000-0000-0000-0000-000000000001'; nn uuid := '61000000-0000-0000-0000-000000000002';
+        n int; r record; at timestamptz;
+begin
+  -- It saved, as 0 and with its caption, not as nothing.
+  select amount, caption into r from public.posts where group_id = 6003 and day = '2026-11-28';
+  if r.amount is distinct from 0 or r.caption is distinct from 'nothing came off this week' then raise exception 'the 0 post did not save as 0, got %', r; end if;
+
+  -- 0 adds nothing to a month's total or a year's, and what is owed is what it was (v60 tests: 9 of 10 lb, 1 of 3 books).
+  if public.done_between(6003, mo, 'lb', '2026-11-01', '2026-11-30') <> 9 then raise exception 'a 0 post changed the month''s total'; end if;
+  select o.owed, o.nag into r from public.quota_owed(6003, mo, '2026-11-28') o;
+  if r.owed is distinct from 1 or r.nag is distinct from 'period' then raise exception 'after a 0 post 1 lb is still owed for the month, got %', r; end if;
+  if public.done_between(6004, mo, 'books', '2026-01-01', '2026-12-31') <> 1 then raise exception 'a 0 post changed the year''s total'; end if;
+  select o.owed into r from public.quota_owed(6004, mo, '2026-12-30') o;
+  if r.owed is distinct from 2 then raise exception 'after a 0 post 2 books are still owed for the year, got %', r; end if;
+
+  -- A day that needs 10 is not met by 0, and a day that was met stays met: still two of the
+  -- week's days by Sunday, and Sunday still owes the whole 10.
+  if public.week_hits_before(6002, wk, '2026-11-22') <> 2 then raise exception 'a 0 post changed which days of the week counted'; end if;
+  select o.owed into r from public.quota_owed(6002, wk, '2026-11-22') o where o.metric = 'pushups';
+  if r.owed is distinct from 10 then raise exception 'after a 0 post Sunday still owes 10, got %', r; end if;
+
+  -- Posting at all is what keeps somebody from being "lapsed", and a 0 post is posting. The
+  -- one who posted nothing for days gets the lapsed message; the one who posted 0 yesterday
+  -- gets the ordinary window, and last call still names the whole day's quota as short.
+  at := ('2026-12-07'::timestamp + make_interval(hours => public.slot_hour(zr, '2026-12-07'))) at time zone 'UTC';
+  select x.kind into r from public.notices_due_now(at) x where x.user_id = zr;
+  if r.kind is distinct from 'open' then raise exception 'somebody who posted 0 yesterday should get the window, not %', r; end if;
+  at := ('2026-12-07'::timestamp + make_interval(hours => public.slot_hour(nn, '2026-12-07'))) at time zone 'UTC';
+  select x.kind into r from public.notices_due_now(at) x where x.user_id = nn;
+  if r.kind is distinct from 'lapsed' then raise exception 'somebody who posted nothing for days should be lapsed, got %', r; end if;
+  at := ('2026-12-07'::timestamp + make_interval(hours => public.lastcall_hour(public.slot_hour(zr, '2026-12-07')))) at time zone 'UTC';
+  select x.kind, x.line into r from public.notices_due_now(at) x where x.user_id = zr;
+  if r.kind is distinct from 'lastcall' or r.line is distinct from '5 miles' then raise exception 'last call should still say 5 miles, got %', r; end if;
+end $$;
+\echo PASS: a post of 0
