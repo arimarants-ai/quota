@@ -26,6 +26,17 @@ eq(messageFor('Sydney', 'pushups', 10, push100,
    [{ metric: 'pushups', amount: 100 }, { metric: 'pushups', amount: 10 }]),
    'Sydney posted 10 pushups', 'a post after the goal is already met does not re-announce');
 
+// A post of 0 (schema v61) is a post: it says 0, it adds nothing, and it never finishes a
+// goal or announces one twice.
+eq(messageFor('Mo', 'miles', 0, [{ metric: 'miles', target: 3 }], [{ metric: 'miles', amount: 0 }], null, 'Runners'),
+   'Mo posted 0 miles in Runners', 'a post of 0 says 0, not nothing');
+eq(messageFor('Mo', 'miles', 0, [{ metric: 'miles', target: 3 }], [{ metric: 'miles', amount: 3 }, { metric: 'miles', amount: 0 }]),
+   'Mo posted 0 miles', 'a 0 after the goal is met does not announce it again');
+eq(messageFor('Mo', 'lb', 0, [{ metric: 'lb', target: 10 }], [{ metric: 'lb', amount: 9 }, { metric: 'lb', amount: 0 }], null, null, 'monthly'),
+   'Mo posted 0 lb', 'a 0 adds nothing to a month\'s total, so 9 of 10 is still short');
+eq(messageFor('Mo', 'lb', 1, [{ metric: 'lb', target: 10 }], [{ metric: 'lb', amount: 9 }, { metric: 'lb', amount: 0 }, { metric: 'lb', amount: 1 }], null, null, 'monthly'),
+   "Mo finished the month's goal", 'and the post that reaches it after a 0 still announces it');
+
 eq(messageFor('Ari', 'pushups', 100, both, [{ metric: 'pushups', amount: 100 }]),
    'Ari posted 100 pushups', 'one of two quotas met is not the goal');
 

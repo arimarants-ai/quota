@@ -2035,7 +2035,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v173';
+const BUILD = 'quota-v174';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2226,6 +2226,12 @@ const doneWith = (g, uid, metric, sp, day) => {
   return totalsFor(g.id, uid, metric, day).filter(t => t.sp === sp.id && t.ch === ch).reduce((a, t) => a + t.n, 0);
 };
 const effort = p => `${p.amount} ${p.challenge ? esc(p.challenge) + ' ' : ''}${esc(p.metric)}`;
+// An amount as typed or stored. 0 is an amount like any other (schema v61): a mile not run
+// is still a post, with its proof, and it adds nothing. Only nothing at all is missing, so
+// the checks are against null and '' rather than truthiness, which reads 0 as "not there".
+const hasAmount = v => v != null && String(v).trim() !== '';
+// A post's amount: a whole number, 0 or more. Anything else is null and the post is refused.
+const amountOf = v => { if (!hasAmount(v)) return null; const n = Number(String(v).trim()); return Number.isInteger(n) && n >= 0 ? n : null; };
 // ---- flags: one person saying a post does not meet the challenge, and the group deciding
 const flagOf = postId => S.flags.find(f => f.post === postId);
 const votesOn = fid => S.fvotes.filter(v => v.f === fid);
@@ -3721,7 +3727,7 @@ function outboxCard() {
   const on = navigator.onLine !== false;
   const rows = outbox.map(r => {
     const p = r.post || {}, g = S.groups.find(x => x.id === p.group_id);
-    const what = `${p.amount || ''} ${p.metric || ''}${g ? ` \u00b7 ${g.name}` : ''}${p.day ? ` \u00b7 ${dayLabel(p.day)}` : ''}`;
+    const what = `${hasAmount(p.amount) ? p.amount : ''} ${p.metric || ''}${g ? ` \u00b7 ${g.name}` : ''}${p.day ? ` \u00b7 ${dayLabel(p.day)}` : ''}`;
     const why = r.dead ? 'This phone cleared the clip before it could be sent, so it cannot go up. Remove it to clear this.'
       : r.err ? `Could not post: ${r.err}` : on ? 'Waiting to send' : 'Waiting for a connection';
     return `<div class="row" style="margin-top:10px"><div class="grow"><b>${esc(what.trim())}</b>
@@ -7955,7 +7961,7 @@ function demoState(c, ci) {
     const ago = Math.max(0, +p.daysAgo || 0), day = daysAgo(ago), m = c.members.find(x => x.key === p.member) || c.members[0];
     // Today's went up over the last few hours, never before midnight; older ones in the day.
     const ts = ago ? midnight - ago * 864e5 + (7 + (i * 3) % 12) * 36e5 : Math.max(midnight + (i + 1) * 6e4, now - (i + 1) * 41 * 6e4);
-    return {id: 9000 + ci * 100 + i, groupId: gid, userId: uid(m.key), metric, amount: +p.amount || target, caption: p.caption || '',
+    return {id: 9000 + ci * 100 + i, groupId: gid, userId: uid(m.key), metric, amount: hasAmount(p.amount) ? +p.amount : target, caption: p.caption || '',
       path: p.media, url: demoUrl(p.media), poster: demoUrl(p.poster), day, ts, at: new Date(ts).toISOString(),
       dayN: Math.max(1, (+m.streak || 1) - ago)};
   }).sort((a, b) => b.ts - a.ts);
@@ -9215,7 +9221,7 @@ function metricTo(sel) {
 }
 function bump(btn, d) {
   const i = btn.closest('.howmany').querySelector('input');
-  i.value = Math.max(1, (Math.round(+i.value) || 0) + d);
+  i.value = Math.max(0, (Math.round(+i.value) || 0) + d);
   i.dataset.typed = '1';
   keepForm(i.form);
 }
@@ -9283,7 +9289,7 @@ function submitDlg(gid, keep) {
     <p class="warn" id="vsize" hidden style="margin-top:6px"></p>
     <i class="prog" id="uprog" hidden></i>
     <p class="muted small" id="keepopen" hidden style="margin-top:6px">Keep Quota open until this is done. Leaving the app stops the upload.</p>
-    <label>How many</label><div class="howmany"><button type="button" onclick="bump(this,-1)" aria-label="One fewer">−</button><input name="amount" type="number" min="1" inputmode="numeric" placeholder="0" value="${amt}" required oninput="this.dataset.typed='1'"><button type="button" onclick="bump(this,1)" aria-label="One more">+</button></div>
+    <label>How many</label><div class="howmany"><button type="button" onclick="bump(this,-1)" aria-label="One fewer">−</button><input name="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${amt}" required oninput="this.dataset.typed='1'"><button type="button" onclick="bump(this,1)" aria-label="One more">+</button></div>
     <p class="amthint" id="amthint">${esc(amountHint(g, m0))}</p>
     ${metric}
     ${challengeBlock(g)}
@@ -9773,7 +9779,7 @@ function reportView(id) {
         <em>${r.poster_username ? `@${esc(r.poster_username)}` : ''}${r.group_name ? ` · ${esc(r.group_name)}` : ''}${r.posted_at ? ` · ${esc(stamp(r.posted_at))}` : ''}</em></div>
         ${strikes}${r.suspended ? '<span class="pill bad">Suspended</span>' : ''}</div>
       ${r.what === 'post' && r.caption ? `<p class="rcap">${esc(r.caption)}</p>` : ''}
-      ${r.what === 'post' && r.amount ? `<p class="muted">${esc(`${r.amount} ${r.challenge ? r.challenge + ' ' : ''}${r.metric || ''}`)}</p>` : ''}
+      ${r.what === 'post' && hasAmount(r.amount) ? `<p class="muted">${esc(`${r.amount} ${r.challenge ? r.challenge + ' ' : ''}${r.metric || ''}`)}</p>` : ''}
       <div class="rbox">${reps}</div>
       ${r.suspended ? `<button type="button" class="small" onclick="liftAsk('${esc(r.poster_id)}')">Lift suspension</button>` : ''}
     </div>
@@ -10699,7 +10705,7 @@ function keepForm(f) {
     const t = await keptTake(); if (!t || recorded !== r) return;
     const fd = new FormData(f);
     t.gid = postFor;
-    t.form = {amount: fd.get('amount') || '', metric: fd.get('metric') || '', caption: fd.get('caption') || '', onprofile: !!fd.get('onprofile')};
+    t.form = {amount: fd.get('amount') ?? '', metric: fd.get('metric') || '', caption: fd.get('caption') || '', onprofile: !!fd.get('onprofile')};
     try { takeTx('readwrite', st => st.put(t, 'last')).catch(() => {}); } catch (e) {}
   }, 300);
 }
@@ -10723,7 +10729,7 @@ async function restoreTake() {
   const v = t.form || {};
   if (v.metric && f.metric && f.metric.options && [...f.metric.options].some(o => o.value === v.metric)) { f.metric.value = v.metric; paintPick(); }
   // What was typed wins over what was filled in for them.
-  if (v.amount && f.amount) { f.amount.value = v.amount; f.amount.dataset.typed = '1'; }
+  if (hasAmount(v.amount) && f.amount) { f.amount.value = v.amount; f.amount.dataset.typed = '1'; }
   if (v.caption && f.caption && !f.caption.value) f.caption.value = v.caption;
   if (v.onprofile && f.onprofile) f.onprofile.checked = true;
   takeBack(file);
@@ -12339,6 +12345,14 @@ async function sendPost(f, gid) {
   // There is no other way in any more: the form has no file input, so proof is whatever
   // the camera last handed back and nothing else.
   if (!picked || !picked.size) return alert('Record your proof first \u2014 tap Record.');
+  // How many. 0 is fine; nothing, a negative or a fraction is not. The form's own required
+  // and min say so first, but a post built in code (the practice one) does not go through
+  // them, and +'' is 0, so an empty box would otherwise go up as a 0 nobody typed.
+  const amount = amountOf(fd.get('amount'));
+  if (amount == null) {
+    if (f.amount && f.amount.focus) try { f.amount.focus(); } catch (e) {}
+    return alert(hasAmount(fd.get('amount')) ? 'How many has to be a whole number, 0 or more.' : 'Say how many first. 0 is fine.');
+  }
   // Nothing ticked: the database will not take a post that is in no group, so Post opens
   // the list to pick one from, with everything on the form left where it is.
   if (postNone) {
@@ -12354,7 +12368,7 @@ async function sendPost(f, gid) {
   // can take most of a minute, and watching a sheet do it was the slowest part of the app.
   // Anything that goes wrong after this keeps the take: it waits in the outbox instead.
   let row = null;
-  const what = `${+fd.get('amount') || ''} ${fd.get('metric') || ''}`.trim();
+  const what = `${amount} ${fd.get('metric') || ''}`.trim();
   posting = true;
   dlg();
   // From here it is the post's, or the outbox's, and not the form's any more: the next +
@@ -12384,7 +12398,7 @@ async function sendPost(f, gid) {
   // box — so a challenge post that had to wait went up as a plain one, counted for the
   // quota and not for the wheel, and a streak that depends on the wheel broke over it.
   const [spinId, chalText] = fd.get('chal') ? String(fd.get('chal')).split(/\|(.*)/s) : [];
-  row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount: +fd.get('amount'),
+  row = {group_id: gid, user_id: me().id, metric: fd.get('metric'), amount,
     caption: fd.get('caption').trim(), day,
     on_profile: !!fd.get('onprofile'),
     challenge: chalText || null, spin_id: spinId ? +spinId : null};

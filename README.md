@@ -30,7 +30,7 @@ Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it b
 
 ## Updating the database
 
-`schema.sql` is the base schema followed by numbered blocks, `v2` through `v60`, each
+`schema.sql` is the base schema followed by numbered blocks, `v2` through `v61`, each
 appended when the change that needed it landed. Running the whole file is step 2 above,
 and that is only for a project with nothing in it yet. On a project that already has
 data, run the blocks it has not seen, oldest first; every block is written to be safe
@@ -870,6 +870,14 @@ something (a pill at the top says which, and a tap moves it on); the shot lands 
 screen: how many (filled with what is left today, blank for a total), a "Counts for" chip per
 group with the same metric, a caption, and the profile tick under More. The group page has
 one Crew list, and History holds This month and Recaps.
+
+**A post can be 0** (schema v61: `posts.amount >= 0`, was `> 0`). It goes up like any other
+post, says "0 miles", and adds 0 to every total. Nothing special-cases it: a rule that asks
+whether somebody posted (today unlocked, not lapsed) counts it, and a rule that asks whether a
+quota was reached adds 0 to it. That includes a challenge day in a monthly or yearly group,
+which needs at least 1 to have gone in with the challenge. Negative is refused, and so is an
+empty How many: the app checks the box, and checks again before sending (`amountOf`), because
+`+''` is 0.
 
 ## What a person sees when something goes wrong
 

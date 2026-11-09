@@ -7574,6 +7574,97 @@ await withPage({ ...NO_WHEEL, schedule: 'monthly', quotas: [{ metric: 'pushups',
   const v = await page.evaluate(() => ({amount: $('#dlg form').amount.value, hint: $('#amthint').textContent}));
   check('a monthly group leaves How many blank, and says what is left this month', v.amount === '' && v.hint === '150 pushups left this month', JSON.stringify(v));
 });
+
+// ---- a post of 0 (schema v61). It goes up like any other post, with its proof and its
+// caption, says 0, and adds nothing: whatever a day, a month or a streak was, it still is.
+const zeroState = () => { const g = S.groups[0], u = me().id;
+  return {done: doneIn(g, u, g.quotas[0].metric), hit: hit(g, u), streak: streak(g, u), best: best(g, u), crew: groupRun(g).n,
+    chips: progressChips(g, u).map(c => c.t).join(), posted: postedIn(g)}; };
+async function postZero(page, caption = '') {
+  await openForm(page);
+  await page.locator('#dlg input[name=amount]').fill('0');
+  if (caption) await page.locator('#dlg textarea[name=caption]').fill(caption);
+  await giveTake(page, { name: 'zero.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(2048, 5) });
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(() => self.__posts.length >= 1 && !posting, null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  return page.evaluate(() => self.__posts.at(-1));
+}
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  const before = await page.evaluate(zeroState);
+  const sent = await postZero(page, 'rest day, still showed up');
+  check('a post of 0 goes up, as the number 0 with its caption', sent && sent.amount === 0 && sent.caption === 'rest day, still showed up'
+    && /\.mp4$/.test(sent.video_path || ''), JSON.stringify(sent));
+  check('  with nothing said against it', !alerts.length, alerts.join(' | '));
+  const after = await page.evaluate(zeroState);
+  check('  it adds nothing to the day, and the day is judged as it was', after.done === before.done && after.hit === before.hit
+    && after.chips === before.chips, JSON.stringify({before, after}));
+  check('  the streaks are what they were', after.streak === before.streak && after.best === before.best && after.crew === before.crew,
+    JSON.stringify({before, after}));
+  check('  and it is a post, so today is unlocked, as any post unlocks it', after.posted === true);
+  // In the feed and on its own, as "0 pushups": not hidden, not blank.
+  const card = await page.evaluate(id => { const el = document.querySelector(`.post[data-post="${id}"]`); return el ? el.textContent.replace(/\s+/g, ' ') : null; }, sent.id);
+  check('  it is in the feed, saying 0 pushups', card != null && /\+0 pushups\b/.test(card) && !/\+ pushups/.test(card) && /rest day, still showed up/.test(card), String(card));
+  await page.evaluate(id => openPost(id), sent.id); await page.waitForTimeout(400);
+  const one = await page.evaluate(() => (document.querySelector('#one') || document.body).textContent.replace(/\s+/g, ' '));
+  check('  and on its own, saying 0 pushups', /\+0 pushups\b/.test(one), one.slice(0, 300));
+  // Waiting in the outbox, it says 0 too, rather than " pushups".
+  const box = await page.evaluate(() => { const keep = outbox.slice();
+    outbox.splice(0, outbox.length, {id: -1, post: {group_id: S.groups[0].id, metric: 'pushups', amount: 0, day: today()}});
+    const t = outboxCard(); outbox.splice(0, outbox.length, ...keep); return t; });
+  check('  a 0 waiting to send says 0 pushups', /<b>0 pushups/.test(box), box.slice(0, 200));
+});
+// Totals: a month's and a year's running total, and what is left of it, do not move for a 0.
+for (const schedule of ['monthly', 'yearly']) {
+  await withPage({ ...NO_WHEEL, schedule, quotas: [{ metric: 'pushups', target: 200 }] }, async page => {
+    await settle(page);
+    const was = await page.evaluate(`(${zeroState})()`), hintWas = await page.evaluate(() => amountHint(S.groups[0], 'pushups'));
+    const sent = await postZero(page);
+    const now = await page.evaluate(`(${zeroState})()`), hintNow = await page.evaluate(() => amountHint(S.groups[0], 'pushups'));
+    check(`a 0 adds nothing to the ${schedule === 'monthly' ? 'month' : 'year'}'s running total`, sent && sent.amount === 0
+      && now.done === was.done && now.chips === was.chips && now.hit === was.hit && hintNow === hintWas,
+      JSON.stringify({sent: sent && sent.amount, was, now, hintWas, hintNow}));
+  });
+}
+// Still refused: below 0, and nothing at all. The box says so first; a post put together in
+// code, which never goes through the box, is checked the same way before anything is sent.
+await withPage(NO_WHEEL, async (page, alerts) => {
+  await settle(page);
+  await openForm(page);
+  await giveTake(page, { name: 'neg.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(2048, 6) });
+  const amt = page.locator('#dlg input[name=amount]');
+  check('How many takes 0 and nothing below it', await amt.getAttribute('min') === '0');
+  await amt.fill('-3'); await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
+  check('  a negative number does not go up', await page.evaluate(() => self.__posts.length === 0 && $('#dlg').open
+    && $('#dlg form').amount.validity.rangeUnderflow));
+  await amt.fill(''); await page.locator('#dlg button.primary').click(); await page.waitForTimeout(300);
+  check('  and neither does an empty box', await page.evaluate(() => self.__posts.length === 0 && $('#dlg').open
+    && $('#dlg form').amount.validity.valueMissing));
+  await amt.fill('2');
+  const minus = page.locator('#dlg .howmany button').first();
+  await minus.click(); await minus.click(); await minus.click();
+  check('  − goes down to 0 and stops there', await amt.inputValue() === '0', await amt.inputValue());
+  const n = await page.evaluate(async () => {
+    for (const v of ['', '-2', '1.5']) {
+      const f = document.createElement('form');
+      f.innerHTML = `<input name="amount" value="${v}"><input name="metric" value="pushups"><input name="caption" value="">`;
+      await sendPost(f, S.groups[0].id);
+    }
+    return self.__posts.length;
+  });
+  check('  a post built without the box is refused the same way, empty, negative or a fraction', n === 0
+    && alerts.filter(a => /Say how many first/.test(a)).length === 1 && alerts.filter(a => /whole number, 0 or more/.test(a)).length === 2,
+    alerts.join(' | '));
+});
+// The moderators' screen shows a reported 0 post's amount rather than leaving the line out.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const html = await page.evaluate(() => { try { S.reports = {tab: 'open', open: [{id: 61, what: 'post', amount: 0, metric: 'miles', caption: 'zero',
+      reporters: [], reason: 'fake', n: 1, poster_id: me().id, poster_name: 'Ari'}], done: [], err: '', others: null};
+      return reportView(61); } catch (e) { return 'threw: ' + e.message; } });
+  check('a reported 0 post says 0 miles on the moderators\' screen', /0 miles/.test(html), html.slice(0, 300));
+});
 // "Post first, invite later" goes to the camera too.
 await withPage(NO_WHEEL, async page => {
   await settle(page);
