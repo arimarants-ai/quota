@@ -136,6 +136,18 @@ function phoneClip() {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
+// A long portrait clip the way a phone films one, in a format Playwright's own Chromium can
+// play (it has no H.264): 70 seconds, 720x1280, a moving picture and a tone.
+function longClip() {
+  const dir = mkdtempSync(join(tmpdir(), 'quota-long-')), f = join(dir, 'clip.webm');
+  try {
+    const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=720x1280:rate=30',
+      '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '70', '-c:v', 'libvpx-vp9', '-b:v', '400k', '-deadline', 'realtime',
+      '-cpu-used', '8', '-c:a', 'libopus', f]);
+    return r.status === 0 ? readSync(f) : null;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 let failed = 0;
 const check = (name, ok, detail = '') => {
   console.log(`${ok ? '  ok  ' : '  FAIL'} ${name}${ok || !detail ? '' : `\n        ${detail}`}`);
@@ -4666,6 +4678,15 @@ await withPage(SIGNED_IN, async page => {
   check('  one badge, not a row of them', await page.evaluate(() =>
     [...document.querySelectorAll('.post[data-post] .head')].every(h => h.querySelectorAll('.bchip').length <= 1)));
   check('    and it is the highest', await page.evaluate(() => topBadge('u2').n) === 365);
+  // No ground of its own, on the post's gray card, in either theme: it used to wear the white
+  // every other button on a card is given.
+  const clear = () => page.evaluate(() => [...document.querySelectorAll('.bchip')].map(b => getComputedStyle(b).backgroundColor));
+  const light = await clear();
+  await page.evaluate(() => { setTheme('dark'); render(); }); await page.waitForTimeout(200);
+  const dark = await clear();
+  await page.evaluate(() => { setTheme('light'); render(); }); await page.waitForTimeout(200);
+  check('  with no background of its own on the post, light or dark', light.length > 0 && dark.length > 0
+    && [...light, ...dark].every(c => c === 'rgba(0, 0, 0, 0)'), JSON.stringify({light, dark}));
 
   await page.locator('.post .head .bchip').first().click();
   await page.waitForTimeout(350);
@@ -4690,6 +4711,13 @@ await withPage(SIGNED_IN, async page => {
   }));
   check('  and openable from there too', await page.evaluate(() =>
     document.querySelector('.bshelf button').getAttribute('onclick').includes('badgeDlg')));
+  const grounds = async () => page.evaluate(() => [...document.querySelectorAll('.bshelf button, .pf .bchip')].map(b => getComputedStyle(b).backgroundColor));
+  const pl = await grounds();
+  await page.evaluate(() => { setTheme('dark'); render(); }); await page.waitForTimeout(200);
+  const pd = await grounds();
+  await page.evaluate(() => { setTheme('light'); render(); }); await page.waitForTimeout(200);
+  check('  none of them with a background of its own on the profile either, light or dark', pl.length >= 4 && pd.length >= 4
+    && [...pl, ...pd].every(c => c === 'rgba(0, 0, 0, 0)'), JSON.stringify({pl, pd}));
   check('  every one of them has a name and a line', await page.evaluate(() =>
     MILESTONES.every(n => BADGE_NAME[n] && MILESTONE_LINE[n])));
   check('  and 10 is drawn as the lowest: a dot, where 25 has a chevron', await page.evaluate(() =>
@@ -8035,6 +8063,99 @@ await withPage(NO_WHEEL, async page => {
   check('a month with no clips, only pictures, still opens on its awards', pics && pics.n > 0 && pics.clips === 0, JSON.stringify(pics));
   await page.evaluate(() => closeRecap());
 });
+
+// ---- the take, watched back before it is posted
+// The same player a posted clip has, and a feed that gives back its decoders while it plays:
+// a phone decodes only a few videos at once, and a preview that ran out of them froze with
+// the sound still going.
+const LONG = FFMPEG ? longClip() : null;
+if (LONG) await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  // A clip watched in the feed first, which holds its source from then on.
+  await page.evaluate(() => { const v = document.querySelector('#app .reel video.proof'); v.dataset.go = '1'; attachClip(v); });
+  check('a feed clip that was watched holds its source', await page.evaluate(() => !!document.querySelector('#app .reel video.proof[src]')));
+  await page.locator('.bar .add').click();
+  await page.waitForFunction(() => $('#cam').open, null, { timeout: 4000 }).catch(() => {});
+  const chooser = page.waitForEvent('filechooser');
+  await page.evaluate(() => camToPhone());
+  await (await chooser).setFiles({ name: 'clip.webm', mimeType: 'video/webm', buffer: LONG });
+  await page.waitForFunction(() => $('#dlg').open && !!document.querySelector('#takeprev video'), null, { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('#takeprev video').readyState >= 1, null, { timeout: 8000 }).catch(() => {});
+  const ctl = sel => page.evaluate(sel => [...document.querySelector(sel).children].map(e => `${e.tagName.toLowerCase()}.${e.className}`).filter(x => !/^video|^img|badge|bust|reacts/.test(x)).join('|'), sel);
+  const feedCtl = await ctl('#app .reel'), takeCtl = await ctl('#takeprev .reel');
+  check('the take on the Post screen has the posted clip\'s player, the same controls', takeCtl === feedCtl && /play/.test(takeCtl) && /spd/.test(takeCtl) && /prg/.test(takeCtl),
+    `${takeCtl} vs ${feedCtl}`);
+  check('  and nothing more under it than before: the buttons below are the form\'s', await page.locator('#takeprev > *').count() === 1);
+  const box = await page.evaluate(() => { const v = $('#takeprev video'), r = v.getBoundingClientRect();
+    return {w: r.width, h: r.height, vw: v.videoWidth, vh: v.videoHeight, fit: getComputedStyle(v).objectFit, max: innerHeight * .46}; });
+  check('  a portrait clip shows whole, at the size the preview always had', box.vh > box.vw && box.fit === 'contain' && box.h <= box.max + 1 && box.h > 100, JSON.stringify(box));
+  check('while it is up, the feed under it holds no video at all', await page.evaluate(() => !document.querySelector('#app video[src], #one video[src]')));
+
+  // Watched, and the picture keeping up with the sound: every half second the clock moves,
+  // and so do the frames, at 1x and at 2x.
+  await page.evaluate(() => { const v = $('#takeprev video'); v.muted = true; self.__fr = 0;
+    const tick = () => { self.__fr++; self.__mt = v.currentTime; v.requestVideoFrameCallback(tick); }; v.requestVideoFrameCallback(tick); });
+  await page.locator('#takeprev video').click({ position: { x: 150, y: 120 } });
+  const watch = n => page.evaluate(async n => { const v = $('#takeprev video'), out = [];
+    for (let i = 0; i < n; i++) { const t = v.currentTime, f = self.__fr; await new Promise(r => setTimeout(r, 500));
+      out.push({dt: +(v.currentTime - t).toFixed(2), df: self.__fr - f, lag: +Math.abs(v.currentTime - self.__mt).toFixed(2)}); }
+    return out; }, n);
+  const in1 = await watch(4);
+  check('  tapping it plays it, with the picture moving all the way with the sound', in1.every(x => x.dt > .3 && x.df > 3 && x.lag < .5), JSON.stringify(in1));
+  check('  and the reel says it is playing, the way a posted clip\'s does', await page.evaluate(() => $('#takeprev .reel').classList.contains('started')));
+  await page.locator('#takeprev .reel .spd').click();
+  await page.locator('#takeprev .reel .spdm button:has-text("2×")').click();
+  const in2 = await watch(4);
+  check('  2x from the speed chip, the picture still in step', await page.evaluate(() => $('#takeprev video').playbackRate === 2 && $('#takeprev .spd').textContent === '2×')
+    && in2.every(x => x.dt > .7 && x.df > 3 && x.lag < .6), JSON.stringify(in2));
+  await page.locator('#takeprev .reel .spd').click();
+  await page.locator('#takeprev .reel .spdm button:has-text("1×")').click();
+  check('  and back to 1x', await page.evaluate(() => $('#takeprev video').playbackRate === 1));
+  // Skimming: pressed halfway along the line, the clip is halfway in, and the picture with it.
+  const bar = await page.locator('#takeprev .reel .prg').boundingBox();
+  await page.mouse.click(bar.x + bar.width / 2, bar.y + bar.height - 3);
+  await page.waitForTimeout(700);
+  const mid = await page.evaluate(() => ({t: $('#takeprev video').currentTime, d: $('#takeprev video').duration, mt: self.__mt, playing: !$('#takeprev video').paused}));
+  check('  pressing the middle of the line goes to the middle, and the picture goes with it', Math.abs(mid.t - mid.d / 2) < 3 && Math.abs(mid.mt - mid.t) < 1 && mid.playing,
+    JSON.stringify(mid));
+  await page.locator('#takeprev video').click({ position: { x: 150, y: 120 } });
+  await page.waitForTimeout(300);
+  const held = await page.evaluate(() => ({p: $('#takeprev video').paused, t: $('#takeprev video').currentTime}));
+  await page.waitForTimeout(600);
+  check('  a tap pauses it, and it stays where it was', held.p && await page.evaluate(t => Math.abs($('#takeprev video').currentTime - t) < .05, held.t));
+  await page.locator('#takeprev video').click({ position: { x: 150, y: 120 } });
+  const again = await watch(2);
+  check('  and another carries on from there, in step', again.every(x => x.dt > .3 && x.df > 3 && x.lag < .5), JSON.stringify(again));
+  // To the end at double speed: still moving in the last seconds, and it ends cleanly.
+  await page.evaluate(() => { const v = $('#takeprev video'); v.currentTime = v.duration - 8; v.playbackRate = 2; });
+  const late = await watch(4);
+  const ended = await page.waitForFunction(() => $('#takeprev video').ended, null, { timeout: 15000 }).then(() => true, () => false);
+  check('  played all the way to the end, the picture with it', ended && late.slice(0, 3).every(x => x.df > 3 && x.lag < .6), JSON.stringify(late));
+
+  // Posted after all that: the file that goes up is the take, untouched by having been watched.
+  await page.locator('#dlg input[name=amount]').fill('20');
+  const before = await page.evaluate(() => {
+    // What the upload is handed, before it does anything of its own with it (the shrink that
+    // was always there): the take, as it came from the camera.
+    const was = shrink; self.__handed = null;
+    shrink = async (f, cb) => { self.__handed = f; return was(f, cb); };
+    return self.__posts.length;
+  });
+  lastUpload = null;
+  await page.locator('#dlg button.primary').click();
+  await page.waitForFunction(n => self.__posts.length > n, before, { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  check('posting after watching it back still posts', await page.evaluate(n => self.__posts.length > n, before));
+  const handed = await page.evaluate(async () => { const f = self.__handed; if (!f) return null;
+    const d = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+    return {n: f.size, sha: [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('')}; });
+  const sha = (await import('node:crypto')).createHash('sha256').update(LONG).digest('hex');
+  check('  and what it posts is the take byte for byte: watching it back changed nothing', !!handed && handed.n === LONG.length && handed.sha === sha && !!lastUpload,
+    JSON.stringify(handed));
+  await page.waitForTimeout(400);
+  check('  and the feed has its clip back once the preview is gone', await page.evaluate(() => !document.querySelector('#takeprev video')
+    && !!document.querySelector('#app .reel video.proof[data-go][src]')));
+}); else console.log('  skip  the take preview with a long clip (needs ffmpeg; CI has it)');
 
 // The page's own self-check still passes.
 await withPage(null, async page => {
