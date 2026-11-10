@@ -15,7 +15,7 @@ const MUST = {
   notify: ['Deno.serve', 'function messageFor', 'function socialFor', 'function chatFor',
            'function flagFor', 'async function send', 'x-hook-secret'],
   wheelday: ['Deno.serve', 'function remindersFor', 'function endOfDayFor',
-             'async function send', 'x-hook-secret', 'rpc/wheel_due_now', 'rpc/notices_due_now',
+             'async function send', 'x-hook-secret', 'rpc/wheel_due_now', 'rpc/notices_due_now', 'rpc/day_notices_now',
              'storage/v1/object/stories', 'async function sweepStories',
              'rpc/cron_health', 'function cronAlertBody', 'removeR2', 'async function removeObject'],
   media: ['Deno.serve', 'function planUpload', 'function canView', 'function canDelete',

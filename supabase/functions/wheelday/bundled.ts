@@ -288,7 +288,7 @@ export function remindersFor(due: Due[]): Map<string, string> {
 // What notices_due_now() hands back, per person per kind.
 export type Notice = {
   user_id: string;
-  kind: 'open' | 'lastcall' | 'lapsed' | 'challenge' | 'period';
+  kind: 'open' | 'lastcall' | 'lapsed' | 'challenge' | 'period' | 'awards' | 'beat';
   hours: number;
   group_name: string;              // the group, or for a challenge the wheel
   others: number;                  // other people in that group who have posted today
@@ -299,6 +299,13 @@ export type Notice = {
   unit?: string;                   // 'month' or 'year', for a period reminder (schema v60)
   days_left?: number;              // and how many days of it are left, today included
   since_days?: number | null;      // for a lapsed one, days since their last post (schema v63)
+  // The month's awards (schema v64, day_notices_now): the month they are for, and for 'beat'
+  // who leads Most in one video, with what, and how many groups the person has awards in.
+  award_month?: string | null;     // its first day, '2026-10-01'
+  award_leaders?: string[] | null;
+  award_amount?: number | null;
+  award_metric?: string | null;
+  award_groups?: number | null;
 };
 
 const hrs = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
@@ -391,6 +398,35 @@ export function lapsedFor(n: Notice): string {
     : `${n.group_name} is still going. Your spot is still there.`;
 }
 
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthOf = (d?: string | null) => MONTHS[+(d ?? '').slice(5, 7) - 1] ?? '';
+// "Sam's", "Mornings'".
+const whose = (s: string) => /s$/i.test(s) ? `${s}'` : `${s}'s`;
+const listOf = (xs: string[]) => xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`;
+
+/**
+ * The 1st, in the morning: last month's awards are in. It does not say who won: that is what
+ * opening the app is for, and a lock screen that gave it away would be the whole of it.
+ */
+export function awardsFor(n: Notice): string {
+  const month = monthOf(n.award_month), more = Math.max(0, (n.award_groups ?? 1) - 1);
+  const what = month ? `${month} awards` : 'awards';
+  if (!n.group_name) return `Your group's ${what} are in. See what you got.`;
+  return more
+    ? `Your ${what} are in, from ${n.group_name} and ${more} more ${more === 1 ? 'group' : 'groups'}. See what you got.`
+    : `${whose(n.group_name)} ${what} are in. See what you got.`;
+}
+
+/**
+ * Three days left in the month, to everybody but whoever leads Most in one video: their name
+ * and their number, which is the thing to beat.
+ */
+export function beatFor(n: Notice): string {
+  const who = (n.award_leaders ?? []).filter(Boolean);
+  if (!who.length || !(n.award_amount! > 0)) return '3 days left to take Most in one video.';
+  return `3 days left to beat ${whose(listOf(who))} ${n.award_amount} ${n.award_metric ?? ''}`.trimEnd() + ' for Most in one video.';
+}
+
 // Title and tag per kind. The tag is what makes today's replace yesterday's rather than
 // stacking up on the lock screen.
 export const NOTICE_META: Record<Notice['kind'], { title: string; tag: string }> = {
@@ -399,6 +435,8 @@ export const NOTICE_META: Record<Notice['kind'], { title: string; tag: string }>
   lapsed: { title: 'Quota', tag: 'day-open' },     // the one it stands in for
   challenge: { title: 'Last call', tag: 'day-last' },   // likewise: it takes last call's place
   period: { title: 'Nearly there', tag: 'day-open' },   // it stands in for the window that day
+  awards: { title: 'Monthly awards', tag: 'day-open' },  // and so do both of these
+  beat: { title: 'Most in one video', tag: 'day-open' },
 };
 
 export function noticeBody(n: Notice): string {
@@ -406,6 +444,8 @@ export function noticeBody(n: Notice): string {
     : n.kind === 'challenge' ? challengeFor(n)
     : n.kind === 'lastcall' ? lastCallFor(n)
     : n.kind === 'period' ? periodFor(n)
+    : n.kind === 'awards' ? awardsFor(n)
+    : n.kind === 'beat' ? beatFor(n)
     : lapsedFor(n);
 }
 
@@ -580,9 +620,12 @@ Deno.serve(async (req) => {
   // what it returns, so an overlapping run cannot wake anybody twice.
   const [due, notices] = await Promise.all([
     rest('rpc/wheel_due_now', { method: 'POST', body: '{}' }) as Promise<Due[]>,
-    // A project that has not run the v34 block has no such function; that is not a reason
-    // for spin day to stop working.
-    (rest('rpc/notices_due_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>).catch(() => []),
+    // The day's notices with the month's awards in them (v64), and before that block has been
+    // run the same notices without them. A project that has not run the v34 block has neither;
+    // that is not a reason for spin day to stop working.
+    (rest('rpc/day_notices_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>)
+      .catch(() => rest('rpc/notices_due_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>)
+      .catch(() => []),
   ]);
 
   const spin = due.length
@@ -601,6 +644,7 @@ Deno.serve(async (req) => {
   const day: Record<string, unknown> = {};
   for (const [kind, msgs] of byKind) {
     const meta = NOTICE_META[kind];
+    if (!meta) continue;             // a kind from a newer database than this function knows
     day[kind] = await blast(msgs, meta.title, meta.tag);
   }
 

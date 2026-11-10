@@ -554,6 +554,38 @@ button.rg{border:0;font:inherit}
 #story .tap,#recap .tap{position:absolute;top:70px;bottom:0;width:38%;background:none;padding:0;z-index:2}
 #story .tap.back,#recap .tap.back{left:0}
 #story .tap.fwd,#recap .tap.fwd{right:0;width:62%}
+/* A month's awards, one to a screen at the start of its recap: the same dark pane, with the
+   number as big as the screen allows and the rest of the month in a soft box under it. */
+#recap .aw{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  padding:0 26px 18px;color:#fff;text-align:center}
+#recap .aw-k{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:#48ec8b}
+#recap .aw-k svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#recap .aw-n{font-size:min(30vw,128px);line-height:.95;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+#recap .aw-u{font-size:15px;color:rgba(255,255,255,.72)}
+#recap .aw-faces{display:flex;justify-content:center;margin-top:22px}
+#recap .pane.award .who > div{display:flex;flex-direction:column;gap:1px}
+#recap .aw-faces .av{box-shadow:0 0 0 3px #050706,0 0 0 5px rgba(255,255,255,.22)}
+#recap .aw-faces .av + .av{margin-left:-14px}
+#recap .aw-who{font-size:20px;font-weight:800;margin-top:10px}
+#recap .aw-also{margin-top:26px;width:100%;max-width:330px;border-radius:22px;background:rgba(255,255,255,.08);padding:14px 16px;text-align:left}
+#recap .aw-also span{display:block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:6px}
+#recap .aw-also p{margin:6px 0 0;font-size:13.5px;display:flex;flex-direction:column}
+#recap .aw-also em{font-style:normal;color:rgba(255,255,255,.7)}
+/* This month's, on the group page: a soft rounded card, a row an award. */
+.card.awards .ahead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card.awards .ahead b{font-size:16px;font-weight:800}
+.card.awards .aleft{font-size:12px;font-weight:800;padding:5px 10px;border-radius:var(--r-pill);background:var(--card);color:var(--muted);white-space:nowrap}
+.card.awards > p{margin:4px 0 10px}
+.card.awards .arow{display:flex;align-items:center;gap:12px;padding:9px 0}
+.card.awards .arow .grow{min-width:0}
+.card.awards .arow b{display:block;font-size:14px;font-weight:800}
+.card.awards .arow .grow span{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card.awards .aic{width:36px;height:36px;border-radius:50%;background:var(--card);display:grid;place-items:center;flex:none}
+.card.awards .aic svg{width:19px;height:19px;fill:none;stroke:var(--acc,currentColor);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card.awards .afaces{display:flex;flex:none}
+.card.awards .afaces .av + .av{margin-left:-8px}
+.card.awards .afaces .av{box-shadow:0 0 0 2px var(--soft)}
 /* Who watched: only on your own, in the corner where the other app keeps it. */
 #story .eye{position:absolute;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3;display:flex;align-items:center;gap:6px;
   background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:800;padding:8px 12px;border-radius:var(--r-pill)}
@@ -2035,7 +2067,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v177';
+const BUILD = 'quota-v178';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -5470,6 +5502,114 @@ function myDayView(day) {
       : `<div class="card empty"><b>Nothing posted this day</b></div>`);
 }
 
+// ---- the month's awards
+// When a month closes, every group of two or more gets three: Most in one video (the biggest
+// single post towards its first quota), Longest streak (the longest run of days in a row
+// inside the month, only where the schedule counts days) and Never missed a day (everybody
+// who did it every day that was due; a rest day is not one). Ties share an award.
+//
+// Worked out on each phone, the way streaks, forfeits and recaps are, rather than stored when
+// the month closes. Every phone in a group holds the same history to work it out from — the
+// whole of every member's posts, blocked people's numbers and posts waiting on a report
+// included, voided ones left out (S.totals) — and the same members, join dates, passes and
+// schedule, so every phone comes to the same winners. Storing them would mean writing the
+// rules for a day (rest days, the pass, the day somebody joined) a second time in SQL, or
+// trusting whichever phone got there first to write them down honestly. What it costs: a
+// post voided after the month closed, or somebody leaving the group, changes that month's
+// awards, the same as it changes the streaks.
+//
+// Blocking somebody hides them from you as everywhere else: an award of theirs is left off
+// your screen. It is never handed to the runner-up, which would be a different winner on
+// different phones.
+const AWARD_TITLE = {most: 'Most in one video', streak: 'Longest streak', never: 'Never missed a day'};
+const AWARD_ICON = {
+  most: '<path d="M4 7.5h10.5v9H4zM14.5 10.5 20 7.5v9l-5.5-3"/>',
+  streak: '<path d="M12 3c.6 3 4.5 4.7 4.5 9.3a4.5 4.5 0 0 1-9 0c0-2 1-3.3 2-4.3.3 1.6 1 2.5 2 2.8C11 8.6 11.2 5.6 12 3Z"/>',
+  never: '<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.2"/>',
+};
+const monthEndOf = from => { const y = +from.slice(0, 4), m = +from.slice(5, 7) - 1; return ymdOf(y, m, monthDays(y, m)); };
+// Named in UTC, for the same reason recapsOf names them that way.
+const monthName = from => new Date(`${from.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString(undefined, {month: 'long', timeZone: 'UTC'});
+// The month starting `from`. Once it has closed it is final; while it is running it is who is
+// ahead so far, with today counted only once it is done.
+function monthAwards(g, from) {
+  if (!g || !g.members || g.members.length < 2) return [];
+  const t = today(), end = monthEndOf(from), to = end < t ? end : t, out = [];
+  if (from > t) return out;
+  const days = [];
+  for (let x = dayNo(from); x <= dayNo(to); x++) days.push(fromDayNo(x));
+  const top = (score) => {
+    let best = 0, who = [];
+    for (const uid of g.members) {
+      const n = score(uid);
+      if (n > best) { best = n; who = [uid]; } else if (n === best && n > 0) who.push(uid);
+    }
+    return {n: best, winners: best > 0 ? who : []};
+  };
+  // Most in one video: one post, not a day's total.
+  const metric = (g.quotas[0] || {}).metric;
+  if (metric) {
+    const r = top(uid => Math.max(0, ...days.flatMap(d => totalsFor(g.id, uid, metric, d).map(x => +x.n || 0))));
+    if (r.n > 0) out.push({k: 'most', ...r, unit: metric});
+  }
+  // Longest streak: counted the way best() counts one, over rest days and over a day the
+  // month's pass covered once something had been done, but only inside the month.
+  if (byDay(g)) {
+    const r = top(uid => {
+      const good = goodDays(g, uid), covered = passDays(g, uid, end < t ? fromDayNo(dayNo(end) + 1) : t, good), start = joinedDay(g, uid);
+      let b = 0, n = 0;
+      for (const d of days) {
+        if ((start && d < start) || !onDay(g, d)) continue;
+        if (good.has(d)) n++;
+        else if (covered.has(d) && n) n++;
+        else if (d !== t) n = 0;           // today is still going
+        b = Math.max(b, n);
+      }
+      return b;
+    });
+    if (r.n > 0) out.push({k: 'streak', ...r, unit: 'day'});
+  }
+  // Never missed a day: every day that was due, done. A rest day is not due, nor a day
+  // before somebody joined, nor the day they joined unless they did it, nor today until it
+  // is done. For a week, a month or a year, every one that closed in the month made, and
+  // the one still running once it is. At least one, or there was nothing to miss.
+  const counted = uid => {
+    const start = joinedDay(g, uid);
+    if (byDay(g)) {
+      let n = 0;
+      for (const d of days) {
+        if (!onDay(g, d) || (start && d < start)) continue;
+        if (dayHit(g, uid, d)) { n++; continue; }
+        if (d === t || (start && d === start)) continue;   // still going, or the day they joined
+        return -1;
+      }
+      return n;
+    }
+    const ps = [...new Set(Array.from({length: dayNo(end) - dayNo(from) + 1}, (_, i) => periodStart(g, fromDayNo(dayNo(from) + i))))]
+      .filter(p => { const e = periodEnd(g, p); return e >= from && e <= end; });
+    let n = 0;
+    for (const p of ps) {
+      const made = periodHit(g, uid, p), closed = periodEnd(g, p) < t;
+      if (!closed || (start && p <= start)) { if (made) n++; continue; }   // still running, or joined during it
+      if (!made) return -1;
+      n++;
+    }
+    return n;
+  };
+  // Everybody who did it, not only whoever had the most days to do: somebody who joined on
+  // the 10th and missed nothing since has never missed a day either.
+  const all = g.members.map(uid => ({uid, n: counted(uid)})).filter(x => x.n > 0);
+  if (all.length) out.push({k: 'never', n: Math.max(...all.map(x => x.n)), winners: all.map(x => x.uid), unit: byDay(g) ? 'day' : unitOf(g)});
+  return out;
+}
+// Who of an award's winners you can see.
+const awardShown = a => a.winners.filter(u => !S.blocked.has(u));
+// How an award's number reads: under the big number, and in a line.
+const awardUnit = a => a.k === 'most' ? `${a.unit} in one video` : a.k === 'streak' ? `${a.n === 1 ? 'day' : 'days'} in a row`
+  : `${plural(a.n, a.unit).replace(/^\d+ /, '')} due, ${a.unit === 'day' ? 'every one done' : 'every one made'}`;
+const awardShort = a => a.k === 'most' ? `${a.n} ${a.unit}` : plural(a.n, a.unit);
+const winnersText = ids => names(ids).replace(/^you\b/, 'You');
+
 // ---- recaps
 // A recap is the clips a group already posted between two dates. That is a filter, not a
 // build, so there is nothing to generate and nothing to schedule: the moment a week closes
@@ -5504,8 +5644,12 @@ function recapsOf(g) {
     out.push({kind: 'month', key: `m${from}`, from, to,
       name: d.toLocaleDateString(undefined, {month: 'long', timeZone: 'UTC', year: y === now.getFullYear() ? undefined : 'numeric'})});
   }
+  // A month with no clips in it can still have awards (pictures only, or a total), and the
+  // awards are the start of its recap, so it is kept for them. Only asked about a month that
+  // has any posts at all, which is the most it could need.
   return out.map(r => ({...r, posts: clipsBetween(g, r.from, r.to)}))
-    .filter(r => r.posts.length)
+    .filter(r => r.posts.length || (r.kind === 'month' && S.hist.some(p => p.groupId === g.id && p.day >= r.from && p.day <= r.to)
+      && monthAwards(g, r.from).some(a => awardShown(a).length)))
     .sort((a, b) => (a.to < b.to ? 1 : a.to > b.to ? -1 : a.kind === 'month' ? 1 : -1));
 }
 // A montage is clips. A photo has no duration and would either flash past or need a rule
@@ -5530,11 +5674,11 @@ function recapsView(g) {
   const rs = recapsOf(g), open = openPeriod(g), seen = watched();
   const card = r => `<div class="rwrap"><button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
     <span class="sheet">${r.posts.slice(0, 8).map((p, i) => `<i style="--n:${i}"></i>`).join('')}
-      <video class="proof" muted playsinline preload="none"${lazyPoster(r.posts[0])}></video></span>
+      ${r.posts.length ? `<video class="proof" muted playsinline preload="none"${lazyPoster(r.posts[0])}></video>` : ''}</span>
     <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
-    <span class="meta"><b>${esc(r.name)}</b><em>${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
+    <span class="meta"><b>${esc(r.name)}</b><em>${r.kind === 'month' && monthAwards(g, r.from).some(a => awardShown(a).length) ? 'Awards · ' : ''}${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
     ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>
-    <button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share</button></div>`;
+    ${r.posts.length ? `<button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share</button>` : ''}</div>`;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
       <span class="end"><span class="date">Recaps</span>${helpBtn()}</span></div></div>
   ${histTabs(g, 'recaps')}
@@ -5752,15 +5896,17 @@ async function pickMark(gid, k) {
 // Clips one after another on one element, which is all a montage is. The story viewer is
 // not reused: it is a queue of people with seen marks and swipes between them, and forcing
 // a week of one group's clips into that shape would be more work than this whole player.
-let R = null;                              // {clips, i, key}
+// A month's starts with its awards, one to a screen, and then the clips.
+let R = null;                              // {clips, awards, i, key}
 async function openRecap(gid, key) {
   const g = S.groups.find(x => x.id === gid);
   if (!g) return;
   const r = recapsOf(g).find(x => x.key === key);
-  if (!r || !r.posts.length) return;
+  const awards = r && r.kind === 'month' ? monthAwards(g, r.from).filter(a => awardShown(a).length) : [];
+  if (!r || (!r.posts.length && !awards.length)) return;
   // Signed when the recaps were opened; only asked for again if that has run out since.
   if (r.posts.some(p => !urlFresh(p))) { try { await signProof(r.posts); } catch (e) {} }
-  R = {clips: r.posts, i: 0, key, name: r.name};
+  R = {clips: r.posts, awards, i: 0, key, name: r.name, gid, month: r.from};
   markWatched(key);
   $('#recap').hidden = false;
   paintRecap();
@@ -5772,11 +5918,35 @@ function closeRecap() {
   box.hidden = true; box.innerHTML = '';
   render(); watchClips();
 }
+const recapBars = () => `<div class="bars">${[...R.awards, ...R.clips].map((_, i) => `<i class="${i < R.i ? 'done' : ''}"></i>`).join('')}</div>`;
+// One award: what it is, the big number, whose it is, and the month's other awards in a
+// small box underneath, so the first screen already says how the month went.
+function paintAward() {
+  const a = R.awards[R.i], g = S.groups.find(x => x.id === R.gid) || {name: ''}, who = awardShown(a);
+  const rest = R.awards.filter(x => x !== a);
+  $('#recap').innerHTML = `<div class="pane award">
+    ${recapBars()}
+    <div class="who">${gav(g, 'sm')}<div><b>${esc(g.name)}</b><span>${esc(monthName(R.month))} awards</span></div>
+      <button type="button" class="x" onclick="closeRecap()" aria-label="Close">✕</button></div>
+    <div class="aw">
+      <span class="aw-k"><svg viewBox="0 0 24 24" aria-hidden="true">${AWARD_ICON[a.k]}</svg>${esc(AWARD_TITLE[a.k])}</span>
+      <b class="num aw-n">${num(a.n)}</b>
+      <span class="aw-u">${esc(awardUnit(a))}</span>
+      <div class="aw-faces">${who.slice(0, 4).map(u => av(user(u), 'xl')).join('')}</div>
+      <b class="aw-who">${esc(winnersText(who))}</b>
+      ${rest.length ? `<div class="aw-also"><span>Also this month</span>${rest.map(x =>
+        `<p><b>${esc(AWARD_TITLE[x.k])}</b><em>${esc(winnersText(awardShown(x)))} · ${esc(awardShort(x))}</em></p>`).join('')}</div>` : ''}
+    </div>
+    <button type="button" class="tap back" onclick="stepRecap(-1)" aria-label="Previous"></button>
+    <button type="button" class="tap fwd" onclick="stepRecap(1)" aria-label="Next"></button>
+  </div>`;
+}
 function paintRecap() {
   if (!R) return;
-  const p = R.clips[R.i], u = user(p.userId);
+  if (R.i < R.awards.length) return paintAward();
+  const p = R.clips[R.i - R.awards.length], u = user(p.userId);
   $('#recap').innerHTML = `<div class="pane">
-    <div class="bars">${R.clips.map((_, i) => `<i class="${i < R.i ? 'done' : ''}"></i>`).join('')}</div>
+    ${recapBars()}
     <div class="who">${av(u, 'sm')}<div><b>${esc(name(u))}</b><span>${esc(R.name)} · ${esc(dayLabel(p.day))}</span></div>
       <button type="button" class="x" onclick="closeRecap()" aria-label="Close">✕</button></div>
     <video class="face" playsinline autoplay src="${esc(p.url)}" onended="stepRecap(1)" onerror="stepRecap(1)"></video>
@@ -5787,7 +5957,7 @@ function paintRecap() {
 function stepRecap(d) {
   if (!R) return;
   const i = R.i + d;
-  if (i >= R.clips.length) return closeRecap();
+  if (i >= R.awards.length + R.clips.length) return closeRecap();
   R.i = Math.max(0, i);
   paintRecap();
 }
@@ -5842,9 +6012,25 @@ function groupView(g) {
   ${missLine(g)}
   ${crewList(g)}
   ${owedCard(g)}
+  ${awardsCard(g)}
   ${pending.length ? `<p class="muted" style="margin:0 18px">Invited: ${pending.map(i => esc(name(user(i.to)))).join(', ')}</p>` : ''}
   ${wheelsOf(g).length ? `<h3>Wheels</h3><div class="card">${wheelsOf(g).map(w => wheelCard(g, w)).join('')}</div>` : ''}
   <h3>Proof</h3>${flagTip(g)}${feed(S.posts.filter(p => p.groupId === g.id), false, false, g.id)}`;
+}
+// This month's awards, as they stand: who would get each one if the month closed now. It is
+// a race, not a verdict, so it says so, and an award nobody is on yet is up for grabs.
+function awardsCard(g) {
+  if (S.demo || g.members.length < 2) return '';
+  const t = today(), from = `${t.slice(0, 8)}01`, left = dayNo(monthEndOf(from)) - dayNo(t) + 1;
+  const list = monthAwards(g, from);
+  const rows = (byDay(g) ? ['most', 'streak', 'never'] : ['most', 'never']).map(k => {
+    const a = list.find(x => x.k === k), who = a ? awardShown(a) : [];
+    return `<div class="arow"><span class="aic"><svg viewBox="0 0 24 24" aria-hidden="true">${AWARD_ICON[k]}</svg></span>
+      <div class="grow"><b>${esc(AWARD_TITLE[k])}</b><span>${who.length ? `${esc(winnersText(who))} \u00b7 ${esc(awardShort(a))}` : 'Up for grabs'}</span></div>
+      ${who.length ? `<span class="afaces">${who.slice(0, 3).map(u => av(user(u), 'sm')).join('')}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="card awards"><div class="ahead"><b>${esc(monthName(from))} awards</b><span class="aleft">${plural(left, 'day')} left</span></div>
+    <p class="muted small">Who's on track right now. Anyone can still take it.</p>${rows}</div>`;
 }
 // Who owes the crew, kindly: a name, the forfeit in the crew's own words, and which day.
 // Anybody else in the group can mark it paid; nobody marks their own.
@@ -13684,6 +13870,66 @@ if (location.hash === '#test') {
     console.assert(run('w', [W], '2026-03-09').n === 0, '  while the days the week could not do without, and did not get, do');
     console.assert(run('nobody', [A, B], '2026-03-05').n === 0 && run('o', [], '2026-03-05').n === 0, 'no history and no groups are both 0');
     S.totals = was; S.joined = wasJ;
+  }
+
+  // ---- the month's awards, on March 2026, which is long closed. Everybody joined on 20 February.
+  {
+    const was = S.totals, wasJ = S.joined, wasB = S.blocked;
+    S.totals = []; S.joined = {}; S.blocked = new Set();
+    const mk = (id, members, more = {}) => { members.forEach(u => { S.joined[`${id}|${u}`] = Date.parse('2026-02-20T12:00'); });
+      return {id, quotas: [{metric: 'pushups', target: 10}], members, created_at: '2026-01-01T12:00', ...more}; };
+    const add = (gid, u, d, n = 10, m = 'pushups') => S.totals.push({g: gid, u, d, m, n});
+    const days = (a, b) => { const out = []; for (let x = dayNo(a); x <= dayNo(b); x++) out.push(fromDayNo(x)); return out; };
+    const aw = (g, k) => monthAwards(g, '2026-03-01').find(x => x.k === k);
+    // Most in one video: one post, not a day's total; ties share it; only the month, and only members.
+    const g1 = mk(60, ['a', 'b', 'c']);
+    add(60, 'a', '2026-03-05', 30); add(60, 'a', '2026-03-06', 20); add(60, 'b', '2026-03-10', 30);
+    add(60, 'c', '2026-03-11', 25); add(60, 'c', '2026-03-11', 25);
+    add(60, 'a', '2026-02-27', 80); add(60, 'b', '2026-04-01', 70); add(60, 'gone', '2026-03-12', 99);
+    console.assert(aw(g1, 'most').n === 30 && aw(g1, 'most').winners.join() === 'a,b' && aw(g1, 'most').unit === 'pushups',
+      'most in one video is the biggest single post, ties share it, and a day of 25 + 25 is not one video of 50', aw(g1, 'most'));
+    console.assert(monthAwards({...g1, members: ['a']}, '2026-03-01').length === 0, 'a group of one gets no awards');
+    console.assert(monthAwards({...g1, quotas: [{metric: 'situps', target: 5}, {metric: 'pushups', target: 10}]}, '2026-03-01').every(x => x.k !== 'most'),
+      '  and with several quotas it is the first one that counts');
+    // Longest streak: inside the month only, over the pass the way a streak goes, ties shared.
+    const g2 = mk(61, ['a', 'b']);
+    [...days('2026-02-21', '2026-03-10'), ...days('2026-03-13', '2026-03-20')].forEach(d => add(61, 'a', d));
+    days('2026-03-05', '2026-03-15').forEach(d => add(61, 'b', d));
+    console.assert(aw(g2, 'streak').n === 11 && aw(g2, 'streak').winners.join() === 'a,b',
+      "the longest run inside the month: 10 days and the pass's day for one, 11 days for the other, so both", aw(g2, 'streak'));
+    console.assert(!aw(g2, 'never'), '  and nobody who missed a day never missed one');
+    // Never missed a day, on Mondays, Wednesdays and Fridays: rest days are not due, nor the days
+    // before somebody joined; everybody who did it gets it.
+    const g3 = mk(63, ['a', 'b', 'c'], {schedule: 'days', active_days: [1, 3, 5]});
+    S.joined['63|c'] = Date.parse('2026-03-10T12:00');
+    const mwf = days('2026-03-01', '2026-03-31').filter(d => [1, 3, 5].includes(new Date(`${d}T00:00`).getDay()));
+    mwf.forEach(d => add(63, 'a', d)); mwf.filter(d => d !== '2026-03-18').forEach(d => add(63, 'b', d));
+    mwf.filter(d => d > '2026-03-10').forEach(d => add(63, 'c', d));
+    console.assert(mwf.length === 13 && aw(g3, 'never').winners.join() === 'a,c' && aw(g3, 'never').n === 13,
+      'never missed a day: every due day done, rest days aside, a late joiner from when they joined', aw(g3, 'never'));
+    console.assert(aw(g3, 'streak').n === 13 && aw(g3, 'streak').winners.join() === 'a,b',
+      "  and the streak steps over the rest days, with the month's pass carrying the one miss: a streak, not never missed", aw(g3, 'streak'));
+    // A week counts weeks: no streak award, and never missed is every week that closed in March.
+    const g4 = mk(64, ['a', 'b'], {schedule: 'weekly', per_week: 3});
+    for (const w of ['2026-02-23', '2026-03-02', '2026-03-09', '2026-03-16', '2026-03-23']) for (let i = 0; i < 3; i++) {
+      const d = fromDayNo(dayNo(w) + i);
+      add(64, 'a', d); if (w !== '2026-03-16') add(64, 'b', d);
+    }
+    console.assert(!aw(g4, 'streak'), 'a weekly group has no longest streak award');
+    console.assert(aw(g4, 'never').winners.join() === 'a' && aw(g4, 'never').n === 5 && aw(g4, 'never').unit === 'week',
+      '  and never missed is the five weeks that closed in March, every one made', aw(g4, 'never'));
+    // A month's total: made it, or not.
+    const g5 = mk(65, ['a', 'b'], {schedule: 'monthly', quotas: [{metric: 'lb', target: 100}]});
+    add(65, 'a', '2026-03-03', 60, 'lb'); add(65, 'a', '2026-03-20', 40, 'lb'); add(65, 'b', '2026-03-04', 60, 'lb');
+    console.assert(aw(g5, 'never').winners.join() === 'a' && aw(g5, 'most').winners.join() === 'a,b' && aw(g5, 'most').n === 60,
+      'a monthly total: whoever made it never missed, and the biggest single post still wins most', monthAwards(g5, '2026-03-01'));
+    // Blocking hides a winner from you; it never moves the award.
+    S.blocked = new Set(['b']);
+    console.assert(aw(g1, 'most').winners.join() === 'a,b' && awardShown(aw(g1, 'most')).join() === 'a',
+      'blocking somebody hides them on your screen and leaves the winners as they are');
+    console.assert(awardUnit(aw(g2, 'streak')) === 'days in a row' && awardShort(aw(g1, 'most')) === '30 pushups'
+      && awardUnit(aw(g3, 'never')) === 'days due, every one done', 'and the awards read as they should');
+    S.totals = was; S.joined = wasJ; S.blocked = wasB;
   }
 
   // ---- the thirty-day grid: how much of a day got done, across the groups that needed it.

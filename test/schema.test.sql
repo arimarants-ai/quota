@@ -2025,3 +2025,106 @@ begin
   if r.kind is not null and r.since_days is not null then raise exception 'only a lapsed notice carries since_days, got %', r; end if;
 end $$;
 \echo PASS: how long since the last post
+
+-- ---- v64: the month's awards, told. Twice, as a live project might run it, and then v63
+-- again on top, which must leave both functions callable: v64 makes a function of its own
+-- rather than a second notices_due_now() that would make every call to it ambiguous.
+reset role;
+\i :v64
+\i :v64
+\i :v63
+insert into auth.users (id) values ('64000000-0000-0000-0000-00000000000a'), ('64000000-0000-0000-0000-00000000000b'),
+  ('64000000-0000-0000-0000-00000000000c'), ('64000000-0000-0000-0000-00000000000d'), ('64000000-0000-0000-0000-00000000000e');
+insert into public.profiles (id, username, display_name, created_at) values
+  ('64000000-0000-0000-0000-00000000000a', 'v64_ana', 'Ana', '2026-01-01'),
+  ('64000000-0000-0000-0000-00000000000b', 'v64_ben', 'Ben', '2026-01-01'),
+  ('64000000-0000-0000-0000-00000000000c', 'v64_cal', 'Cal', '2026-01-01'),
+  ('64000000-0000-0000-0000-00000000000d', 'v64_dee', 'Dee', '2026-01-01'),
+  ('64000000-0000-0000-0000-00000000000e', 'v64_eve', 'Eve', '2026-01-01');
+insert into public.groups (id, name, quotas, schedule) overriding system value values
+  (6401, 'Awards', '[{"metric":"pushups","target":10},{"metric":"situps","target":10}]', 'daily'),
+  (6402, 'Solo', '[{"metric":"pushups","target":10}]', 'daily');
+insert into public.group_members (group_id, user_id, joined_at) values
+  (6401, '64000000-0000-0000-0000-00000000000a', '2026-09-01'), (6401, '64000000-0000-0000-0000-00000000000b', '2026-09-01'),
+  (6401, '64000000-0000-0000-0000-00000000000c', '2026-09-01'), (6401, '64000000-0000-0000-0000-00000000000d', '2026-09-01'),
+  (6401, '64000000-0000-0000-0000-00000000000e', '2026-10-31 12:00'),
+  (6402, '64000000-0000-0000-0000-00000000000a', '2026-09-01');
+-- October: Ben and Cal tie at 50 in one post; Cal's 90 was voided, a 200 was taken down, Ana's
+-- 40 + 40 is a day of 80 but no one post of it, and situps are not the first quota.
+insert into public.posts (id, group_id, user_id, metric, amount, video_path, day, removed_at) overriding system value values
+  (640001, 6401, '64000000-0000-0000-0000-00000000000a', 'pushups', 40, 'a1.mp4', '2026-10-05', null),
+  (640002, 6401, '64000000-0000-0000-0000-00000000000a', 'pushups', 40, 'a2.mp4', '2026-10-05', null),
+  (640003, 6401, '64000000-0000-0000-0000-00000000000b', 'pushups', 50, 'b1.mp4', '2026-10-10', null),
+  (640004, 6401, '64000000-0000-0000-0000-00000000000c', 'pushups', 50, 'c1.mp4', '2026-10-12', null),
+  (640005, 6401, '64000000-0000-0000-0000-00000000000c', 'pushups', 90, 'c2.mp4', '2026-10-13', null),
+  (640006, 6401, '64000000-0000-0000-0000-00000000000d', 'pushups', 200, 'd1.mp4', '2026-10-14', now()),
+  (640007, 6401, '64000000-0000-0000-0000-00000000000d', 'situps', 300, 'd2.mp4', '2026-10-15', null),
+  (640008, 6402, '64000000-0000-0000-0000-00000000000a', 'pushups', 99, 's1.mp4', '2026-10-15', null),
+  -- Small ones late in the month, so nobody here is lapsed on the mornings being asked about.
+  (640011, 6401, '64000000-0000-0000-0000-00000000000a', 'pushups', 10, 'a3.mp4', '2026-10-28', null),
+  (640012, 6401, '64000000-0000-0000-0000-00000000000b', 'pushups', 10, 'b3.mp4', '2026-10-28', null),
+  (640013, 6401, '64000000-0000-0000-0000-00000000000c', 'pushups', 10, 'c3.mp4', '2026-10-28', null),
+  (640014, 6401, '64000000-0000-0000-0000-00000000000d', 'pushups', 10, 'd3.mp4', '2026-10-28', null),
+  (640015, 6401, '64000000-0000-0000-0000-00000000000a', 'pushups', 5, 'a4.mp4', '2026-10-31', null),
+  (640016, 6401, '64000000-0000-0000-0000-00000000000c', 'pushups', 5, 'c4.mp4', '2026-10-31', null),
+  (640017, 6401, '64000000-0000-0000-0000-00000000000e', 'pushups', 5, 'e4.mp4', '2026-10-31', null);
+-- Raised the way the app raises one (the database fills in who and when), then decided.
+do $$ begin perform set_config('test.uid', '64000000-0000-0000-0000-00000000000a', false); end $$;
+insert into public.flags (post_id, reason) values (640005, 'not 90');
+update public.flags set outcome = 'upheld', closed_at = now() where post_id = 640005;
+do $$ begin perform set_config('test.uid', '', false); end $$;
+do $$ begin
+  if (select outcome from public.flags where post_id = 640005) is distinct from 'upheld' then raise exception 'the flag did not end upheld'; end if;
+end $$;
+-- Dee has blocked Ben.
+insert into public.blocks (by_user, user_id) values ('64000000-0000-0000-0000-00000000000d', '64000000-0000-0000-0000-00000000000b');
+do $$
+declare a uuid := '64000000-0000-0000-0000-00000000000a'; b uuid := '64000000-0000-0000-0000-00000000000b';
+        c uuid := '64000000-0000-0000-0000-00000000000c'; d uuid := '64000000-0000-0000-0000-00000000000d';
+        e uuid := '64000000-0000-0000-0000-00000000000e';
+        r record; n int; at timestamptz; hr int;
+begin
+  -- The leader: one post, the first quota, nothing voided or taken down, ties together.
+  select string_agg(t.user_id::text, ',' order by t.user_id), max(t.amount), max(t.metric) into r from public.award_top(6401, '2026-10-01', '2026-10-31') t;
+  if r.string_agg is distinct from (b::text || ',' || c::text) or r.max is distinct from 50 then raise exception 'award_top should be Ben and Cal at 50, got %', r; end if;
+
+  -- With three days of October left (the 29th), everybody but the leaders hears who to beat.
+  at := ('2026-10-29'::timestamp + make_interval(hours => public.slot_hour(a, '2026-10-29'))) at time zone 'UTC';
+  select x.kind, x.award_leaders, x.award_amount, x.award_metric, x.group_name into r from public.day_notices_now(at) x where x.user_id = a;
+  if r.kind is distinct from 'beat' or r.award_leaders is distinct from array['Ben', 'Cal'] or r.award_amount is distinct from 50
+     or r.award_metric is distinct from 'pushups' or r.group_name is distinct from 'Awards' then
+    raise exception 'Ana should be told to beat Ben and Cal''s 50 pushups, got %', r; end if;
+  -- One a day: that was the window's place, so nothing else comes at that hour.
+  select count(*) into n from public.day_notices_now(at) x where x.user_id = a;
+  if n <> 0 then raise exception 'a second morning message went to Ana'; end if;
+  -- A leader gets the ordinary window; somebody who blocked a leader is not sent their name.
+  at := ('2026-10-29'::timestamp + make_interval(hours => public.slot_hour(b, '2026-10-29'))) at time zone 'UTC';
+  select x.kind into r from public.day_notices_now(at) x where x.user_id = b;
+  if r.kind is distinct from 'open' then raise exception 'Ben leads, so Ben gets the window, got %', r; end if;
+  at := ('2026-10-29'::timestamp + make_interval(hours => public.slot_hour(d, '2026-10-29'))) at time zone 'UTC';
+  select x.kind into r from public.day_notices_now(at) x where x.user_id = d;
+  if r.kind is distinct from 'open' then raise exception 'Dee blocked Ben, so is not told to beat him, got %', r; end if;
+  -- The day before is not three days out.
+  at := ('2026-10-28'::timestamp + make_interval(hours => public.slot_hour(c, '2026-10-28'))) at time zone 'UTC';
+  select x.kind into r from public.day_notices_now(at) x where x.user_id = c;
+  if r.kind is distinct from 'open' then raise exception 'the 28th is an ordinary morning, got %', r; end if;
+
+  -- The 1st: October's awards are in, in a group of two or more only, and for Eve too: she
+  -- joined on the 31st, before it closed.
+  at := ('2026-11-01'::timestamp + make_interval(hours => public.slot_hour(a, '2026-11-01'))) at time zone 'UTC';
+  select x.kind, x.group_name, x.award_month, x.award_groups into r from public.day_notices_now(at) x where x.user_id = a;
+  if r.kind is distinct from 'awards' or r.group_name is distinct from 'Awards' or r.award_month is distinct from '2026-10-01'
+     or r.award_groups is distinct from 1 then raise exception 'Ana should hear October''s awards are in for Awards (not Solo), got %', r; end if;
+  at := ('2026-11-01'::timestamp + make_interval(hours => public.slot_hour(e, '2026-11-01'))) at time zone 'UTC';
+  select x.kind into r from public.day_notices_now(at) x where x.user_id = e;
+  if r.kind is distinct from 'awards' then raise exception 'Eve was in before October closed, got %', r; end if;
+
+  -- notices_due_now() is still v63's, and knows nothing of awards.
+  at := ('2026-11-01'::timestamp + make_interval(hours => public.slot_hour(c, '2026-11-01'))) at time zone 'UTC';
+  select x.kind into r from public.notices_due_now(at) x where x.user_id = c;
+  if r.kind is distinct from 'open' then raise exception 'notices_due_now should still be the plain window, got %', r; end if;
+  -- And what it claimed is claimed for both: the newer one does not send a second.
+  select count(*) into n from public.day_notices_now(at) x where x.user_id = c and x.kind = 'open';
+  if n <> 0 then raise exception 'the window went out twice'; end if;
+end $$;
+\echo PASS: the awards of the month, told
