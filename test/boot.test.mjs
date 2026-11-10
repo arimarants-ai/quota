@@ -7872,6 +7872,92 @@ await withPage(NO_WHEEL, async page => {
   check('the comment box under a post is unchanged', box === 'button.emo| / textarea.autogrow|Write a comment / button.primary|Send', box);
 });
 
+// ---- the month's awards
+// On the group page, this month's as they stand: who is on track for each one.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const set = () => page.evaluate(() => {
+    const t = today();
+    S.totals = S.totals.filter(x => !x.d.startsWith(t.slice(0, 7)));
+    S.totals.push({g: 1, u: 'u2', d: t, m: 'pushups', n: 120}, {g: 1, u: 'u1', d: t, m: 'pushups', n: 60});
+    openGroup(1);
+  });
+  await set(); await page.waitForTimeout(400);
+  const card = page.locator('#app .card.awards');
+  const txt = await card.innerText().catch(() => '');
+  const month = await page.evaluate(() => monthName(`${today().slice(0, 8)}01`));
+  check('the group page has this month\'s awards', new RegExp(`${month} awards`).test(txt), txt);
+  check('  with the days left', /\d+ days? left/.test(txt) && await page.evaluate(() =>
+    new RegExp(`${dayNo(monthEndOf(today().slice(0, 8) + '01')) - dayNo(today()) + 1} days? left`).test(document.querySelector('.card.awards').innerText)), txt);
+  check('  and says it is a race, not a verdict', /Who's on track right now\. Anyone can still take it\./.test(txt), txt);
+  check('  Most in one video, with who is ahead and by how much', /Most in one video\s*Sam · 120 pushups/.test(txt), txt);
+  check('  the longest streak and never missed a day, for a group that counts days', /Longest streak/.test(txt) && /Never missed a day/.test(txt), txt);
+  check('  in a soft rounded card, not a box', await card.evaluate(el => { const c = getComputedStyle(el); return parseFloat(c.borderTopLeftRadius) >= 12 && c.borderTopStyle === 'none'; }));
+  // Somebody you blocked is hidden from it, and the award does not move to you.
+  await page.evaluate(() => { S.blocked.add('u2'); render(); });
+  await page.waitForTimeout(250);
+  const hid = await page.locator('#app .card.awards').innerText();
+  check('  somebody you blocked is left off it, and nobody else is put in their place',
+    !/Sam/.test(hid) && /Most in one video\s*Up for grabs/.test(hid), hid);
+  await page.evaluate(() => { S.blocked.delete('u2'); });
+  // A group of one has no awards.
+  await page.evaluate(() => { S.groups[0].members = ['u1']; render(); });
+  await page.waitForTimeout(250);
+  check('a group of one has none', await page.locator('#app .card.awards').count() === 0);
+});
+
+// At the start of last month's recap: one award a screen, then the clips.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    const t = new Date(), y = t.getFullYear(), mo = t.getMonth() - 1;
+    const from = ymdOf(new Date(y, mo, 1).getFullYear(), new Date(y, mo, 1).getMonth(), 1), d = n => fromDayNo(dayNo(from) + n);
+    S.totals = S.totals.filter(x => !x.d.startsWith(from.slice(0, 7)));
+    S.hist = S.hist.filter(x => !x.day.startsWith(from.slice(0, 7)));
+    S.groups[0].created_at = new Date(Date.now() - 90 * 864e5).toISOString(); S.joined = {};
+    for (let i = 0; i < 6; i++) S.totals.push({g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    S.totals.push({g: 1, u: 'u2', d: d(2), m: 'pushups', n: 140});
+    S.hist.push({id: 9001, groupId: 1, userId: 'u2', day: d(2), ts: Date.parse(d(2)), metric: 'pushups', amount: 140, path: 'last.mp4', url: '/x.mp4', until: Date.now() + 1e8});
+    const rec = recapsOf(S.groups[0]).find(x => x.kind === 'month' && x.from === from);
+    await openRecap(1, rec.key);
+    return {key: rec.key, awards: R && R.awards.map(a => `${a.k}:${a.n}:${a.winners.join('+')}`), month: monthName(from),
+      streak: (R.awards.find(a => a.k === 'streak') || {}).n};
+  });
+  await page.waitForTimeout(300);
+  const first = await page.locator('#recap').innerText();
+  check("a month's recap opens on its awards", await page.locator('#recap .pane.award').count() === 1 && /Most in one video/i.test(first), first);
+  check('  one to a screen, with a big number and whose it is', /140/.test(first) && /pushups in one video/.test(first) && /Sam/.test(first)
+    && await page.locator('#recap .aw-faces .av').count() === 1, first);
+  check('  and the month named', new RegExp(`${r.month} awards`).test(first), first);
+  check('  with the rest of the month in a small box', /Also this month/i.test(first) && /Longest streak/i.test(first) && new RegExp(`You · ${r.streak} days`).test(first), first + JSON.stringify(r));
+  check('  on the dark full screen the recap already is', await page.evaluate(() => getComputedStyle($('#recap')).backgroundColor) === 'rgb(5, 7, 6)');
+  await page.locator('#recap .tap.fwd').click(); await page.waitForTimeout(200);
+  const second = await page.locator('#recap').innerText();
+  // Six days done, and the month's pass carrying the seventh, the way a streak counts it.
+  check('  the next screen is the next award', r.streak === 7 && /Longest streak/i.test(second) && new RegExp(`\\b${r.streak}\\b`).test(second) && /days in a row/.test(second), second);
+  check('  and every award gets a bar of its own beside the clips', await page.locator('#recap .bars i').count() === r.awards.length + 1, JSON.stringify(r));
+  // Asked in the same breath as the step: the stand-in clip is not a real file, and a clip
+  // that will not play moves the player on by itself.
+  const clip = await page.evaluate(n => { for (let i = 1; i < n; i++) stepRecap(1);
+    return !!document.querySelector('#recap video.face') && !document.querySelector('#recap .pane.award'); }, r.awards.length);
+  check('  then the clips', clip);
+  await page.evaluate(() => closeRecap());
+
+  // A month of pictures only still has its awards, so its recap is there for them.
+  const pics = await page.evaluate(async () => {
+    const was = S.hist;
+    S.hist = S.hist.map(h => h.id === 9001 ? {...h, path: 'last.jpg'} : h);
+    const rec = recapsOf(S.groups[0]).find(x => x.kind === 'month' && !x.posts.length);
+    if (!rec) { S.hist = was; return null; }
+    await openRecap(1, rec.key);
+    const out = {n: R ? R.awards.length : 0, clips: R ? R.clips.length : -1};
+    S.hist = was;
+    return out;
+  });
+  check('a month with no clips, only pictures, still opens on its awards', pics && pics.n > 0 && pics.clips === 0, JSON.stringify(pics));
+  await page.evaluate(() => closeRecap());
+});
+
 // The page's own self-check still passes.
 await withPage(null, async page => {
   const logs = [];

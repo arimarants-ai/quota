@@ -4759,3 +4759,224 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.notices_due_now(timestamptz) from public, anon, authenticated;
 grant execute on function public.notices_due_now(timestamptz) to service_role;
+
+-- ============================================================
+-- v64 (the month's awards, told): safe to run on an existing project, and safe to run twice.
+-- Redeploy wheelday before this or after it, either works: a wheelday from before v64 still
+-- asks notices_due_now(), which this block leaves exactly as v63 made it, and the new one
+-- asks day_notices_now() and, if this block is not there yet, notices_due_now() as before.
+--
+-- The awards themselves are worked out on each phone from the posts (Most in one video,
+-- Longest streak, Never missed a day; see monthAwards in the app), the way streaks are, so
+-- nothing here stores one. All the server needs is the one the notices name: who leads Most
+-- in one video, which is a single post's amount and needs no rules about days.
+--
+-- award_top(): the biggest single post towards a group's first quota between two dates, by
+-- somebody still in the group, with anything taken down or voided by an upheld flag left out
+-- exactly as the app leaves it out. Every one tied for it, or nothing when the best is 0.
+--
+-- day_notices_now() is notices_due_now() with two kinds more, at the hour the window would
+-- open, standing in for the window message so it is still one a day (a lapsed notice and a
+-- month's or a year's 'period' one still come first):
+--   awards  on the 1st, for each group of two or more somebody was in before the month
+--           closed and that has awards to show: "Mornings' October awards are in."
+--   beat    with three days of the month left, to everybody in such a group but whoever leads
+--           Most in one video, unless either has blocked the other: "3 days left to beat
+--           Sam's 120 pushups for Most in one video."
+-- A function of its own rather than notices_due_now() again with a second argument: a
+-- second notices_due_now() beside v63's would make every call to it ambiguous the moment an
+-- older block was run again, and a wheelday from before this would then get nothing at all.
+-- Both claim in day_reminders, so neither can repeat what the other already said.
+-- ============================================================
+create or replace function public.award_top(p_group bigint, p_from date, p_to date)
+returns table (user_id uuid, amount int, metric text)
+language sql stable security definer set search_path = public as $$
+  with m as (
+    select g.quotas->0->>'metric' as metric from public.groups g where g.id = p_group
+  ), c as (
+    select po.user_id, po.amount::int as amount, po.metric
+      from public.posts po join m on po.metric = m.metric
+     where po.group_id = p_group and po.day between p_from and p_to
+       and po.removed_at is null and po.amount > 0
+       and exists (select 1 from public.group_members gm where gm.group_id = p_group and gm.user_id = po.user_id)
+       and not exists (select 1 from public.flags f where f.post_id = po.id and f.outcome = 'upheld')
+  )
+  select distinct c.user_id, c.amount, c.metric from c where c.amount = (select max(c2.amount) from c c2);
+$$;
+revoke all on function public.award_top(bigint, date, date) from public, anon, authenticated;
+
+drop function if exists public.day_notices_now(timestamptz);
+create function public.day_notices_now(p_now timestamptz default now())
+returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int,
+               line text, done int, needs int, unit text, days_left int, since_days int,
+               award_month date, award_leaders text[], award_amount int, award_metric text, award_groups int)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone, p.created_at
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+       and exists (select 1 from public.group_members gm where gm.user_id = p.id)
+  ), whenIs as (
+    select id, zone, created_at,
+           (p_now at time zone zone)::date as day,
+           extract(hour from (p_now at time zone zone))::int as hr
+      from folk
+  ), plan0 as (
+    select w.*,
+           public.slot_hour(w.id, w.day) as slot,
+           public.lastcall_hour(public.slot_hour(w.id, w.day)) as lc,
+           (w.created_at < p_now - interval '3 days'
+            and not exists (select 1 from public.posts po
+                             where po.user_id = w.id and po.day > w.day - 3 and po.removed_at is null)) as lapsed
+      from whenIs w
+  ), plan as (
+    select p.*, exists (select 1 from public.group_members gm
+                         where gm.user_id = p.id and public.goal_due(gm.group_id, p.id, p.day)) as daydue
+      from plan0 p
+  ), owed as (
+    select pl.id as uid, pl.day, g.id as gid, g.name as gname, g.schedule, o.metric, o.owed, o.nag
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral public.quota_owed(g.id, pl.id, pl.day) o
+  ), behind as (
+    select uid, day, string_agg(distinct owed::text || ' ' || metric, ', ') as line
+      from owed where nag = 'day' group by uid, day
+  ), periodic as (
+    -- One a stretch: not again if one went in the last three days, whichever group it named.
+    select distinct on (o.uid) o.uid, o.day, o.gname,
+           case o.schedule when 'yearly' then 'year' else 'month' end as unit,
+           (public.period_end(o.schedule, o.day) - o.day + 1)::int as days_left,
+           (select string_agg(o2.owed::text || ' ' || o2.metric, ', ' order by o2.metric)
+              from owed o2 where o2.uid = o.uid and o2.gid = o.gid and o2.nag = 'period') as line
+      from owed o
+     where o.nag = 'period'
+       and not exists (select 1 from public.day_reminders r
+                        where r.user_id = o.uid and r.kind = 'period' and r.day > o.day - 3)
+     order by o.uid, public.period_end(o.schedule, o.day), o.gname
+  ), closing as (
+    select pl.id as uid, pl.day, w.name as wname,
+           public.challenge_day_count(sp.id, pl.day) as done,
+           public.challenge_required(sp.id) as needs
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.wheels w on w.group_id = gm.group_id and w.active
+      join public.spins sp on sp.wheel_id = w.id and sp.user_id = pl.id
+                          and sp.cycle = public.wheel_cycle(w, pl.day)
+     where not sp.sat_out
+       and (w.starts_on + ((sp.cycle + 1) * w.every_days - 1))::date = pl.day
+  ), closingNow as (
+    select distinct on (uid) uid, day, wname, done, needs
+      from closing where done < needs order by uid, needs - done desc, wname
+  ), prize0 as (
+    -- The month's awards (v64). At the hour the window would open, in each group of two or
+    -- more: on the 1st, last month's are in; with three days of the month left (today
+    -- counted), whoever leads Most in one video so far is there to be beaten.
+    select pl.id as uid, pl.day, g.id as gid, g.name as gname,
+           case when extract(day from pl.day) = 1 then 'awards' else 'beat' end as pkind,
+           case when extract(day from pl.day) = 1 then (pl.day - interval '1 month')::date
+                else date_trunc('month', pl.day)::date end as mfrom
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.groups g on g.id = gm.group_id
+     where pl.hr = pl.slot
+       and (extract(day from pl.day) = 1 or public.period_end('monthly', pl.day) - pl.day = 2)
+       and (select count(*) from public.group_members m2 where m2.group_id = g.id) >= 2
+  ), prize1 as (
+    select p0.*, t.leaders, t.leader_ids, t.amount, t.metric
+      from prize0 p0
+      cross join lateral (
+        select array_agg(coalesce(nullif(pr.display_name, ''), pr.username, 'Someone')
+                         order by coalesce(nullif(pr.display_name, ''), pr.username, 'Someone')) as leaders,
+               array_agg(a.user_id) as leader_ids, max(a.amount)::int as amount, max(a.metric) as metric
+          from public.award_top(p0.gid, p0.mfrom, case when p0.pkind = 'awards' then p0.day - 1 else p0.day end) a
+          join public.profiles pr on pr.id = a.user_id
+      ) t
+     where t.amount is not null
+       -- Last month's are in only for somebody who was in the group before it closed.
+       and (p0.pkind = 'beat' or exists (select 1 from public.group_members gm
+                                          where gm.group_id = p0.gid and gm.user_id = p0.uid
+                                            and coalesce(gm.joined_at, '-infinity'::timestamptz) < p0.day))
+       -- Somebody to beat is for everybody else, and never names somebody blocked either way.
+       and (p0.pkind = 'awards' or (not (p0.uid = any(t.leader_ids))
+            and not exists (select 1 from public.blocks b
+                             where (b.by_user = p0.uid and b.user_id = any(t.leader_ids))
+                                or (b.user_id = p0.uid and b.by_user = any(t.leader_ids)))))
+  ), prize as (
+    -- One a person, however many groups: the biggest number, then the oldest group.
+    select distinct on (uid) uid, day, pkind, gname, mfrom, leaders, amount, metric,
+           (count(*) over (partition by uid))::int as ngroups
+      from prize1
+     order by uid, amount desc, gid
+  ), want as (
+    select id, day, 'lapsed'::text as kind, 0 as hours from plan where hr = slot and lapsed and daydue
+    union all
+    select pl.id, pl.day, 'period'::text, 24 - pl.slot from plan pl
+      join periodic pe on pe.uid = pl.id
+     where pl.hr = pl.slot and not (pl.lapsed and pl.daydue)
+    union all
+    select pl.id, pl.day, pz.pkind, 24 - pl.slot from plan pl
+      join prize pz on pz.uid = pl.id
+     where pl.hr = pl.slot and not (pl.lapsed and pl.daydue)
+       and not exists (select 1 from periodic pe where pe.uid = pl.id)
+    union all
+    select pl.id, pl.day, 'open'::text, 24 - pl.slot from plan pl
+     where pl.hr = pl.slot and pl.daydue and not pl.lapsed
+       and not exists (select 1 from periodic pe where pe.uid = pl.id)
+       and not exists (select 1 from prize pz where pz.uid = pl.id)
+    union all
+    select pl.id, pl.day, 'challenge'::text, 24 - pl.hr from plan pl
+      join closingNow c on c.uid = pl.id where pl.hr = pl.lc and not pl.lapsed
+    union all
+    select pl.id, pl.day, 'lastcall'::text, 24 - pl.hr from plan pl
+      join behind b on b.uid = pl.id
+     where pl.hr = pl.lc and not pl.lapsed
+       and not exists (select 1 from closingNow c where c.uid = pl.id)
+  ), pick as (
+    select w.id, w.day, w.kind, w.hours, x.gname, x.others, x.mates,
+           case when w.kind = 'period' then pe.line else b.line end as line,
+           c.done, c.needs, c.wname, pe.gname as pgname, pe.unit, pe.days_left,
+           pz.gname as zgname, pz.mfrom, pz.leaders, pz.amount as zamount, pz.metric as zmetric, pz.ngroups
+      from want w
+      left join behind b on b.uid = w.id and b.day = w.day
+      left join closingNow c on c.uid = w.id and c.day = w.day
+      left join periodic pe on pe.uid = w.id and w.kind = 'period'
+      left join prize pz on pz.uid = w.id and w.kind in ('awards', 'beat')
+      -- The group a message names is one that needs something today.
+      left join lateral (
+        select g.name as gname,
+               count(*) filter (where exists (
+                 select 1 from public.posts po
+                  where po.group_id = g.id and po.user_id = gm2.user_id and po.day = w.day and po.removed_at is null)) as others,
+               count(*) as mates
+          from public.group_members gm
+          join public.groups g on g.id = gm.group_id
+          join public.group_members gm2 on gm2.group_id = g.id and gm2.user_id <> w.id
+         where gm.user_id = w.id and public.goal_due(g.id, w.id, w.day)
+         group by g.id, g.name
+         order by 2 desc, g.id
+         limit 1
+      ) x on true
+  ), claimed as (
+    insert into public.day_reminders (user_id, day, kind)
+    select id, day, kind from pick
+    on conflict do nothing
+    returning day_reminders.user_id as uid, day_reminders.kind as k
+  )
+  select p.id, p.kind, p.hours,
+         coalesce(nullif(p.wname, ''), case when p.kind = 'period' then p.pgname when p.kind in ('awards', 'beat') then p.zgname end, p.gname, ''),
+         coalesce(p.others, 0)::int, coalesce(p.mates, 0)::int,
+         coalesce(p.line, ''), coalesce(p.done, 0)::int, coalesce(p.needs, 0)::int,
+         coalesce(p.unit, ''), coalesce(p.days_left, 0)::int,
+         -- How long it has really been, for a lapsed notice only: the days back from today, on
+         -- their own clock, to their last post that still stands. Asked here rather than for
+         -- everybody up in plan, so it is one lookup per lapsed person and not one per person.
+         -- Null for somebody who has never posted.
+         case when p.kind = 'lapsed' then
+           (p.day - (select max(po.day) from public.posts po
+                      where po.user_id = p.id and po.day <= p.day and po.removed_at is null))::int end,
+         p.mfrom, p.leaders, p.zamount, p.zmetric, p.ngroups
+    from pick p join claimed c on c.uid = p.id and c.k = p.kind;
+$$;
+revoke all on function public.day_notices_now(timestamptz) from public, anon, authenticated;
+grant execute on function public.day_notices_now(timestamptz) to service_role;

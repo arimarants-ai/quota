@@ -145,7 +145,25 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
   assert.equal(NOTICE_META.period.tag, NOTICE_META.open.tag);
   ok(true, '  it replaces the window message rather than landing beside it');
 
-  for (const kind of ['open', 'lastcall', 'lapsed', 'period'] as const) {
+  // The month's awards (schema v64). On the 1st: they are in, and not who won.
+  const aw = noticeBody(n({ kind: 'awards', group_name: 'Mornings', award_month: '2026-10-01', award_groups: 1 }));
+  assert.equal(aw, "Mornings' October awards are in. See what you got.");
+  ok(true, 'on the 1st, the group\'s awards for last month are in', aw);
+  assert.equal(noticeBody(n({ kind: 'awards', group_name: 'Run club', award_month: '2026-12-01' })), "Run club's December awards are in. See what you got.");
+  const many = noticeBody(n({ kind: 'awards', group_name: 'Mornings', award_month: '2026-01-01', award_groups: 3 }));
+  ok(/^Your January awards are in, from Mornings and 2 more groups\. See what you got\.$/.test(many), '  and with awards in three groups it is still one message', many);
+  // Three days before the month ends: who to beat, with what.
+  const beat = noticeBody(n({ kind: 'beat', group_name: 'Mornings', award_leaders: ['Sam'], award_amount: 120, award_metric: 'pushups' }));
+  assert.equal(beat, "3 days left to beat Sam's 120 pushups for Most in one video.");
+  ok(true, 'three days out, the one to beat for Most in one video', beat);
+  const tie = noticeBody(n({ kind: 'beat', award_leaders: ['Kim', 'Sam'], award_amount: 40, award_metric: 'miles' }));
+  ok(tie === "3 days left to beat Kim and Sam's 40 miles for Most in one video.", '  and a tie names both', tie);
+  ok(!/undefined|null/.test(noticeBody(n({ kind: 'beat', award_leaders: null, award_amount: null }))), '  and with nobody to name still reads as a sentence');
+  assert.equal(NOTICE_META.awards.tag, NOTICE_META.open.tag);
+  assert.equal(NOTICE_META.beat.tag, NOTICE_META.open.tag);
+  ok(true, '  both stand in for the window message rather than landing beside it');
+
+  for (const kind of ['open', 'lastcall', 'lapsed', 'period', 'awards', 'beat'] as const) {
     const body = noticeBody(n({ kind, group_name: '' }));
     ok(body.length > 0 && !/undefined|null/.test(body),
       `${kind} still reads as a sentence with no group to name`, body);

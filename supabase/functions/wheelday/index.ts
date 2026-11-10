@@ -80,9 +80,12 @@ Deno.serve(async (req) => {
   // what it returns, so an overlapping run cannot wake anybody twice.
   const [due, notices] = await Promise.all([
     rest('rpc/wheel_due_now', { method: 'POST', body: '{}' }) as Promise<Due[]>,
-    // A project that has not run the v34 block has no such function; that is not a reason
-    // for spin day to stop working.
-    (rest('rpc/notices_due_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>).catch(() => []),
+    // The day's notices with the month's awards in them (v64), and before that block has been
+    // run the same notices without them. A project that has not run the v34 block has neither;
+    // that is not a reason for spin day to stop working.
+    (rest('rpc/day_notices_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>)
+      .catch(() => rest('rpc/notices_due_now', { method: 'POST', body: '{}' }) as Promise<Notice[]>)
+      .catch(() => []),
   ]);
 
   const spin = due.length
@@ -101,6 +104,7 @@ Deno.serve(async (req) => {
   const day: Record<string, unknown> = {};
   for (const [kind, msgs] of byKind) {
     const meta = NOTICE_META[kind];
+    if (!meta) continue;             // a kind from a newer database than this function knows
     day[kind] = await blast(msgs, meta.title, meta.tag);
   }
 

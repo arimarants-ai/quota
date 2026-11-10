@@ -30,7 +30,7 @@ Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it b
 
 ## Updating the database
 
-`schema.sql` is the base schema followed by numbered blocks, `v2` through `v63`, each
+`schema.sql` is the base schema followed by numbered blocks, `v2` through `v64`, each
 appended when the change that needed it landed. Running the whole file is step 2 above,
 and that is only for a project with nothing in it yet. On a project that already has
 data, run the blocks it has not seen, oldest first; every block is written to be safe
@@ -898,6 +898,37 @@ quota was reached adds 0 to it. That includes a challenge day in a monthly or ye
 which needs at least 1 to have gone in with the challenge. Negative is refused, and so is an
 empty How many: the app checks the box, and checks again before sending (`amountOf`), because
 `+''` is 0.
+
+## The month's awards
+
+At the end of each month every group of two or more gets three (`monthAwards`): **Most in
+one video**, the biggest single post towards the first quota; **Longest streak**, the longest
+run of days in a row inside the month, counted the way a streak is (over rest days and the
+month's pass), only for groups that count days; and **Never missed a day**, everybody who did
+it on every day that was due (for a week, a month or a year, every one that closed in the
+month made). Ties share an award. Voided posts are already out of `S.totals`, so they count
+for nothing here either.
+
+They are worked out on each phone, not stored when the month closes. Every phone in a group
+holds the same history (every member's posts, blocked people's numbers and posts waiting on
+a report included), the same members, join dates, passes and schedule, so every phone comes
+to the same winners, and the rules for a day live in one place. Storing them would mean
+writing those rules again in SQL, or trusting whichever phone got there first to write the
+winners down honestly. The cost: a post voided after the month closed, or somebody leaving,
+changes that month's awards, the same as it changes the streaks. Blocking somebody leaves
+their award off your screen; it is never handed to the runner-up.
+
+- **Recaps:** a month's recap opens on its awards, one to a dark full screen, a big number,
+  the winner's face and name, and the rest of the month in a small "Also this month" box. A
+  month with awards but no clips still gets a recap for them.
+- **The group page:** "November awards", a soft rounded card with who is on track right now
+  for each, the days left, and "Who's on track right now. Anyone can still take it."
+- **Notifications** (schema v64, `day_notices_now()`): on the 1st, at the hour the window
+  would open, "Mornings' October awards are in. See what you got."; with three days of the
+  month left, to everybody but the leader, "3 days left to beat Sam's 120 pushups for Most in
+  one video." Either stands in for that morning's window message, so it is still one a day.
+  The server only ever needs the leader of Most in one video (`award_top()`), a single post's
+  amount, so nothing about days is written twice.
 
 ## What a person sees when something goes wrong
 
