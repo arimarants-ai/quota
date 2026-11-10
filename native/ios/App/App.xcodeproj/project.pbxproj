@@ -26,6 +26,7 @@
 		BB23DD5FEEC88028D2E55668 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 821B111F4AEAB1A5C00D6601 /* Foundation.framework */; };
 		C2BC1F24AB24DA21CFF360AA /* QuotaActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02B5A4248C0B8746EA5111A1 /* QuotaActivityAttributes.swift */; };
 		DB04FCD6DB18558D6F319D1F /* StreakWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A718253C6C9B0C64ACA790D0 /* StreakWidget.swift */; };
+		0827F634185D70DF50785BB0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 679DB65FA1F933C8E47BA680 /* Assets.xcassets */; };
 		EDDCDC2C46767468C4F00E6C /* QuotaViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652BF8E743EE87DDF89C27F0 /* QuotaViewController.swift */; };
 /* End PBXBuildFile section */
 
@@ -72,6 +73,7 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		9762CFDE0A765F91969C312A /* Shared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared.swift; sourceTree = "<group>"; };
 		A718253C6C9B0C64ACA790D0 /* StreakWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StreakWidget.swift; sourceTree = "<group>"; };
+		679DB65FA1F933C8E47BA680 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D5110EDE8DA271DDD05486B7 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DAB39DF75581E58E6572FC18 /* QuotaWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuotaWidgetBundle.swift; sourceTree = "<group>"; };
 		ED8673907BDE006EC4E31B00 /* QuotaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuotaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,6 +108,7 @@
 				9762CFDE0A765F91969C312A /* Shared.swift */,
 				A718253C6C9B0C64ACA790D0 /* StreakWidget.swift */,
 				8550F8708B0ECB04EA1B2BD1 /* QuotaLiveActivity.swift */,
+				679DB65FA1F933C8E47BA680 /* Assets.xcassets */,
 				D5110EDE8DA271DDD05486B7 /* Info.plist */,
 				7540F0F3FA96C18D0D4E8D18 /* QuotaWidget.entitlements */,
 			);
@@ -263,6 +266,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0827F634185D70DF50785BB0 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

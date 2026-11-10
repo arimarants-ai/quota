@@ -23,6 +23,10 @@ jobs:
       # The page and the service worker agreeing needs nothing installed, so run it first
       # and get the cheap failures out of the way.
       - run: node test/static.test.mjs
+      # The widgets are Swift and Java, and the Xcode project file is edited by hand. What can
+      # be checked without Xcode is: the project still holds together, every picture the code
+      # names is there, and the line of the day is the same on the page and both phones.
+      - run: node test/native.test.mjs
 
       # The word filter is pure logic lifted straight out of index.html, and the way it
       # fails is silent: a list that stops matching lets everything through and nothing

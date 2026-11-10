@@ -50,6 +50,12 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_streak_info" />
         </receiver>
+        <receiver android:name=".MotivationWidget" android:exported="false" android:label="Motivation">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_motivation_info" />
+        </receiver>
         <receiver android:name=".CountdownReceiver" android:exported="false" />
 
         <provider

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="widget_text">#F2F3F4</color>
+    <color name="widget_text_soft">#BFFFFFFF</color>
+    <color name="widget_done">#22C55E</color>
 </resources>

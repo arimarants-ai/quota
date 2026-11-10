@@ -18,6 +18,7 @@ public class QuotaPlugin extends Plugin {
         JSObject data = call.getData();
         Today.save(getContext(), data.toString());
         StreakWidget.updateAll(getContext());
+        MotivationWidget.updateAll(getContext());
         Countdown.schedule(getContext());
         call.resolve();
     }
