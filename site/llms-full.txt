@@ -19,7 +19,7 @@
 - Price: the base version is free and always will be; a paid version with extra perks may come later.
 - Platforms: a web app at https://app.hitquota.app that installs to the home screen on iPhone (Safari: Share, Add to Home Screen) and Android (Chrome: menu, Install app). App Store and Google Play listings are coming. Reminders only work once installed.
 - Social: TikTok @quota.app (https://www.tiktok.com/@quota.app), Instagram @thequota_app (https://www.instagram.com/thequota_app/), Facebook @quota_app (https://www.facebook.com/profile.php?id=61594829766331).
-- Contact: hello@hitquota.app. Account deletion: in the app, Settings → Delete account.
+- Contact: support@hitquota.app. Account deletion: in the app, Settings → Delete account.
 
 ## FAQ
 
@@ -109,7 +109,7 @@ No. There are no ads, no analytics, no trackers, and no cookies. Nothing is sold
 
 ### How do I get in touch?
 
-Email hello@hitquota.app, or see the Contact page. You'll hear back from one of the two of us.
+Email support@hitquota.app, or see the Contact page. You'll hear back from one of the two of us.
 
 ## Guides
 

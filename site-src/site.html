@@ -911,8 +911,8 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 <!-- CONTACT -->
 <div class="page" id="p-contact">
 <section><div class="wrap center"><div class="eyebrow">Contact</div><h2>Write to us.</h2><p class="lead">One address for everything. You'll hear back from one of the two of us.</p>
-<div class="mailcard"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div><a class="addr" href="mailto:hello@hitquota.app">hello@hitquota.app</a>
-<div class="mbtns"><a class="navcta big" href="mailto:hello@hitquota.app">Email us</a><button type="button" class="copy" id="copymail">Copy address</button></div></div>
+<div class="mailcard"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div><a class="addr" href="mailto:support@hitquota.app">support@hitquota.app</a>
+<div class="mbtns"><a class="navcta big" href="mailto:support@hitquota.app">Email us</a><button type="button" class="copy" id="copymail">Copy address</button></div></div>
 <div class="follow"><h3>Follow along</h3><p>Crews, streaks and the occasional forfeit.</p><!--social--></div>
 </div></section>
 
@@ -925,7 +925,7 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 </div></div></section>
 
 <section><div class="wrap"><div class="two rev"><div class="fig mailfig">
-<div class="mrow"><span>To</span>hello@hitquota.app</div>
+<div class="mrow"><span>To</span>support@hitquota.app</div>
 <div class="mrow"><span>Subject</span>Clip stuck on "Uploading"</div>
 <p>Hi, I'm @maya on an iPhone 15. I recorded 8 seconds for Pushup club at 10:40 PM and it stayed on Uploading.</p>
 <div class="att"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>screenshot.png</div>
@@ -970,7 +970,7 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 <details><summary>Is it on the App Store?</summary><p>Not yet. Today Quota runs as a web app you add to your home screen. Store links will appear on the Get the app page when they're ready.</p></details>
 <details><summary>How do I delete my account?</summary><p>In the app, Settings → Delete account. Everything in it is deleted straight away. Can't get in? Email us and it's done within 30 days. You can also ask for a copy of everything we hold first.</p></details>
 <details><summary>Does Quota show ads or track me?</summary><p>No. There are no ads, no analytics, no trackers, and no cookies. Nothing is sold.</p></details>
-<details><summary>How do I get in touch?</summary><p>Email hello@hitquota.app, or see the <a href="/contact">Contact</a> page. You'll hear back from one of the two of us.</p></details>
+<details><summary>How do I get in touch?</summary><p>Email support@hitquota.app, or see the <a href="/contact">Contact</a> page. You'll hear back from one of the two of us.</p></details>
 </div>
 <p class="fnone" id="fnone" hidden>No questions match that. Try another word, or email us.</p>
 </div></div></section>
@@ -980,7 +980,7 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 <footer><div class="wrap">
 <div class="fbrand"><a class="logo" href="/"><svg viewBox="0 0 132 132" aria-hidden="true"><use href="#mark"/></svg><span>Quota</span></a><p>Proof or it didn't happen.</p><!--social--></div>
 <ul><li><a href="/what">What it is</a></li><li><a href="/approach">Our approach</a></li><li><a href="/about">About us</a></li><li><a href="/get">Get the app</a></li><li><a href="/faq">FAQ</a></li><li><a href="/guides">Guides</a></li><li><a href="/contact">Contact</a></li><li><a href="/privacy-summary">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/support">Support</a></li></ul>
-<div class="fbase"><span><a href="mailto:hello@hitquota.app">hello@hitquota.app</a></span><span>Copyright © 2026 Quota. Ari Marants and Justin Smith.</span></div></div></footer>
+<div class="fbase"><span><a href="mailto:support@hitquota.app">support@hitquota.app</a></span><span>Copyright © 2026 Quota. Ari Marants and Justin Smith.</span></div></div></footer>
 <script>
 // One page per address now, so nothing here switches between pages: each piece looks for
 // what it works on and does nothing on a page that does not have it.
@@ -995,7 +995,7 @@ function applyF(){var t=(fq.value||'').trim().toLowerCase(),any=false;document.q
 if(fq){fq.addEventListener('input',applyF);
   document.querySelectorAll('.seg button').forEach(function(b){b.addEventListener('click',function(){cat=b.dataset.f;document.querySelectorAll('.seg button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});applyF()})})}
 var cm=$('copymail');if(cm)cm.addEventListener('click',function(){var done=function(t){cm.textContent=t;setTimeout(function(){cm.textContent='Copy address'},2000)};
-  if(navigator.clipboard)navigator.clipboard.writeText('hello@hitquota.app').then(function(){done('Copied')},function(){done('hello@hitquota.app')});else done('hello@hitquota.app')});
+  if(navigator.clipboard)navigator.clipboard.writeText('support@hitquota.app').then(function(){done('Copied')},function(){done('support@hitquota.app')});else done('support@hitquota.app')});
 if(/Android/i.test(navigator.userAgent)){var pl=$('platform');if(pl&&pl.children[1])pl.insertBefore(pl.children[1],pl.children[0])}
 var c=$('clock');if(c){var tick=function(){var d=new Date(),m=new Date(d);m.setHours(24,0,0,0);var r=Math.max(0,m-d)/1000|0;c.textContent=[r/3600|0,r%3600/60|0,r%60].map(function(x){return String(x).padStart(2,'0')}).join(':')};tick();setInterval(tick,1000)}
 var n=$('days'),st=null;if(n){var f=function(ts){st=st||ts;var p=Math.min(1,(ts-st)/1800);p=1-Math.pow(1-p,3);n.textContent=Math.round(p*23);if(p<1)requestAnimationFrame(f)};requestAnimationFrame(f)}})();

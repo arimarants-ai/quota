@@ -1,6 +1,6 @@
 // node test/screenshots.mjs    regenerate the manifest screenshots
 //
-// The four screenshots Chrome and PWABuilder show on the install prompt, rendered from
+// The five screenshots Chrome and PWABuilder show on the install prompt, rendered from
 // the real app at 1284x2778 with the same Supabase stub the boot test uses. The data is
 // an example, not anybody's account: a fortnight of history so the streak reads as what
 // the app is for, and a flat placeholder where somebody's proof would be.
@@ -78,6 +78,8 @@ async function shot(name, mode, body) {
   await page.route(LIB, r => r.fulfill({ contentType: 'text/javascript', body: STUB }));
   await fonts(page);
   await page.addInitScript(m => { self.__MODE = m; }, mode);
+  // The seeded fortnight passes the 10 day milestone, and its confetti is not what the app is.
+  await page.addInitScript(() => { try { localStorage.milestone = '1000'; localStorage.milestone10 = '1'; } catch (e) {} });
   // Half past seven in the evening, when people post: a feed of proof stamped 2:34 AM,
   // because that is when somebody ran this, is not a picture of how the app is used.
   const at = new Date(); at.setHours(19, 32, 0, 0);
@@ -111,6 +113,25 @@ await shot('screenshot-post.png', NO_WHEEL, async page => {
 await shot('screenshot-month.png', SIGNED_IN, async page => {
   await page.evaluate(() => { openGroup(1); openSub('month', 1); });
   await page.waitForTimeout(600);
+});
+
+// Last month's awards, the first screen of its recap: a month of posts behind it, Sam with
+// the biggest single one, you with the longest run.
+await shot('screenshot-awards.png', NO_WHEEL, async page => {
+  await page.evaluate(async () => {
+    const t = new Date(), first = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    const from = ymdOf(first.getFullYear(), first.getMonth(), 1), d = n => fromDayNo(dayNo(from) + n);
+    S.groups[0].created_at = new Date(Date.now() - 90 * 864e5).toISOString(); S.joined = {};
+    S.totals = S.totals.filter(x => !x.d.startsWith(from.slice(0, 7)));
+    S.hist = S.hist.filter(x => !x.day.startsWith(from.slice(0, 7)));
+    for (let i = 0; i < 21; i++) S.totals.push({g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50 + (i % 3) * 10});
+    for (let i = 2; i < 12; i++) S.totals.push({g: 1, u: 'u2', d: d(i), m: 'pushups', n: i === 6 ? 140 : 50});
+    S.hist.push({id: 9001, groupId: 1, userId: 'u2', day: d(6), ts: Date.parse(d(6)), metric: 'pushups', amount: 140, path: 'x.mp4', url: '/x.mp4', until: Date.now() + 1e8});
+    const rec = recapsOf(S.groups[0]).find(x => x.kind === 'month' && x.from === from);
+    await openRecap(1, rec.key);
+    stepRecap = () => {};          // a stand-in clip would move the player on by itself
+  });
+  await page.waitForTimeout(300);
 });
 
 await browser.close();

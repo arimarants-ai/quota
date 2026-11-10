@@ -14,7 +14,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(ROOT, 'app', 'index.html'), 'utf8');
 const pick = re => (html.match(re) || [])[1];
 const CONTACT = pick(/const CONTACT = '([^']+)'/), SITE = pick(/const SITE = '([^']+)'/);
-const VERSION = pick(/const TERMS_VERSION = '([^']+)'/);
+// The date the documents say they were last changed (LEGAL_UPDATED), which is TERMS_VERSION
+// unless a change asked nobody to agree again.
+const VERSION = pick(/const LEGAL_UPDATED = '([^']+)'/) || pick(/const TERMS_VERSION = '([^']+)'/);
 const src = html.slice(html.indexOf('// legal:start'), html.indexOf('// legal:end'));
 if (!CONTACT || !SITE || !VERSION || !src) throw new Error('legal-pages: could not find LEGAL, CONTACT, SITE or TERMS_VERSION in app/index.html');
 const LEGAL = new Function('CONTACT', 'SITE', `${src}; return LEGAL;`)(CONTACT, SITE);
