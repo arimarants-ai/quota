@@ -5410,6 +5410,7 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => {
     const b = document.createElement('button'); b.id = 'boom';
+    b.style.cssText = 'position:fixed;top:0;left:0;z-index:99';   // clear of the docked tab bar
     b.setAttribute('onclick', "throw new Error('tap went wrong')");
     document.body.append(b);
   });
