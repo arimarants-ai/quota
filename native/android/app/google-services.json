@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "6287600521",
+    "project_id": "quota-4652d",
+    "storage_bucket": "quota-4652d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6287600521:android:8e84b7200be56814914f58",
+        "android_client_info": {
+          "package_name": "app.hitquota.quota"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtsW2Sh85mt-R9Koi0srXLm9QoOmM6JHM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
