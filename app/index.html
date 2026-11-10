@@ -93,7 +93,7 @@ button.teal{background:var(--teal);color:var(--onteal)}
 button.small{padding:7px 12px;font-size:13px}
 /* On a panel that is itself the soft fill, a plain button takes the card's instead, so the
    depth comes from the fill rather than from a line round it. */
-.card button:where(:not(.primary,.teal,.ghost,.bad,.rg,.who,.pgo,.more,.lk,.react,.flg,.emo,.creply,.clk,.gtag,.top,.d,.rcard,.rshare,.s,.own,.plus)),
+.card button:where(:not(.primary,.teal,.ghost,.bad,.rg,.who,.pgo,.more,.lk,.react,.flg,.emo,.creply,.clk,.gtag,.top,.d,.rcard,.rshare,.s,.own,.plus,.bchip)),
 .act button:where(:not(.primary,.teal,.ghost)){background:var(--card)}
 /* A finger needs about 44 points, and these are drawn smaller than that on purpose. The part
    that answers a tap is made bigger than the part that is drawn, so nothing moves. */
@@ -949,6 +949,8 @@ button.rg{border:0;font:inherit}
 #metals{position:absolute;width:0;height:0;overflow:hidden}
 .bdg{width:17px;height:17px;display:block;flex:none}
 .bdg.big{width:58px;height:58px}
+/* A badge has no ground of its own: it sits on whatever it is next to, a post's gray card or
+   a profile's white page, in either theme. */
 .bchip{background:none;padding:0 0 0 5px;display:inline-flex;vertical-align:-3px;border-radius:0}
 .bchip:active{opacity:1;transform:scale(.86)}
 .post .head .line{display:flex;align-items:center;gap:0;min-width:0}
@@ -1270,17 +1272,14 @@ details.pmore[open] .mchev{transform:rotate(90deg)}
   background:rgba(0,0,0,.5);color:#fff;font-size:13px;font-weight:800}
 .campill[hidden]{display:none}
 #takeprev{margin-top:10px;position:relative}
-/* Something to aim at, since the controls underneath cannot be trusted on a phone. It goes
-   as soon as the clip is running, and comes back when it is not. */
-#takeprev .takeplay{position:absolute;inset:0;width:100%;background:none;padding:0;
-  display:grid;place-items:center;border-radius:var(--r-card)}
-#takeprev .takeplay i{width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.45);
-  border:1.5px solid rgba(255,255,255,.75);display:grid;place-items:center;backdrop-filter:blur(6px)}
-#takeprev .takeplay i::after{content:"";border-left:15px solid #fff;border-top:10px solid transparent;
-  border-bottom:10px solid transparent;margin-left:4px}
-#takeprev.playing .takeplay{display:none}
 #takeprev video,#takeprev img{display:block;width:100%;max-height:46vh;object-fit:contain;
   background:#000;border-radius:var(--r-card)}
+/* The posted clip's player, at the preview's size: the whole take, not a 4:5 crop of it, and
+   no clip on the box (the corners are the video's own, which iOS paints cleanly over a
+   playing picture where an overflow clip it does not). */
+#takeprev .reel{aspect-ratio:auto;background:none}
+#takeprev .reel .proof{position:relative;inset:auto;height:auto}
+#takeprev .reel .prg{border-radius:0 0 var(--r-card) var(--r-card)}
 .reactpick.all{max-width:min(86vw,320px);overflow-x:auto;overscroll-behavior-x:contain;
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
 .reactpick.all::-webkit-scrollbar{display:none}
@@ -2086,7 +2085,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v180';
+const BUILD = 'quota-v181';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -6085,6 +6084,15 @@ function oweBanner() {
 // What stands where the clip would be until you have posted. A silhouette rather than a
 // blurred frame: there is no frame to blur, because the URL was never asked for. The number
 // is not hidden, only the clip: knowing somebody did +50 is the reason to go and post.
+// Everything a clip's player has besides the clip: the play glyph, sound, the speed chip
+// and its menu, the time said over it, and the line along the bottom that skims. A posted
+// clip and the take on the Post screen both draw it from here, and every handler that works
+// it is keyed on .reel video.proof, so the two are one player and cannot come apart.
+const clipControls = () => `<div class="play"><i></i></div>
+      <button type="button" class="sound" onclick="clipSound(this)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6"/><path class="m" d="M4 4l16 16"/></svg></button>
+      <button type="button" class="spd" onclick="clipSpeedMenu(this)" aria-label="Speed">1×</button>
+      <div class="hud" aria-live="polite"></div>
+      <div class="prg" role="slider" aria-label="Seek" tabindex="0" onkeydown="clipSeekKey(event,this)"><b></b></div>`;
 const lockedReel = p => `<div class="reel lockedreel">
   <svg class="sil" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
   <div class="lockmsg"><b>Post yours to unlock</b><span>${esc(name(user(p.userId)))} did +${effort(p)} today</span></div></div>`;
@@ -6119,11 +6127,7 @@ function feed(ps, showGroup, bare, scope) {
         ? `<img class="proof" alt=""${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="likeTap(this,${p.id})" onerror="clipBust(this,${p.id})">`
         : `<video class="proof" playsinline preload="none"${lazyPoster(p)}${p.url ? ` data-src="${esc(p.url)}"` : ''} onclick="playClip(this,${p.id})" onerror="clipBust(this,${p.id})" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>`}
       <div class="badge">+${effort(p)}</div>
-      ${isPhoto(p) ? '' : `<div class="play"><i></i></div>
-      <button type="button" class="sound" onclick="clipSound(this)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6"/><path class="m" d="M4 4l16 16"/></svg></button>
-      <button type="button" class="spd" onclick="clipSpeedMenu(this)" aria-label="Speed">1×</button>
-      <div class="hud" aria-live="polite"></div>
-      <div class="prg" role="slider" aria-label="Seek" tabindex="0" onkeydown="clipSeekKey(event,this)"><b></b></div>`}
+      ${isPhoto(p) ? '' : clipControls()}
       <div class="bust"><p></p><button type="button" onclick="retryClip(this,${p.id})">Retry</button></div>
       ${reactBubbles(p.id)}</div>`}
       ${locked(p) ? '' : bare ? '' : acts(p, cs.length)}
@@ -6206,7 +6210,8 @@ const MAX_CLIPS = 6;
 // limit on its own and over it the moment a story opened on top, which is why a clip that
 // had been playing happily froze with the sound still running a few seconds in. Under a
 // cover the budget is nothing: the feed gives them all back, and gets them when it returns.
-const clipBudget = () => (S.story || S.draft || $('#cam').open) ? 0 : MAX_CLIPS;
+// The take on the Post screen is a cover too: a clip being watched back before it is posted.
+const clipBudget = () => (S.story || S.draft || $('#cam').open || document.querySelector('#takeprev video')) ? 0 : MAX_CLIPS;
 function trimClips() {
   const keep = clipBudget();
   const on = [...document.querySelectorAll(CLIPS)].filter(v => v.getAttribute('src'));
@@ -6426,7 +6431,8 @@ function clipSound(btn) {
 const PLAY_WAIT = 6000;
 document.addEventListener('progress', e => { if (e.target.tagName === 'VIDEO') e.target._netAt = Date.now(); }, true);
 function watchPlay(v) {
-  if (!v || v.tagName !== 'VIDEO' || !v.classList.contains('proof')) return;
+  // The take on the Post screen is a file on the phone: there is no link to sign again.
+  if (!v || v.tagName !== 'VIDEO' || !v.classList.contains('proof') || v.closest('#takeprev')) return;
   clearTimeout(v._watch);
   const from = v.currentTime, t0 = Date.now();
   v._watch = setTimeout(() => {
@@ -10948,35 +10954,37 @@ let takeUrl = null;
 // shares them, so the ones this app made for its own use were turning the feed black.
 function unloadVideo(v) { if (!v) return; try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} }
 function dropTake() {
+  const had = !!document.querySelector('#takeprev video');
   document.querySelectorAll('#takeprev video').forEach(unloadVideo);
   if (takeUrl) { try { URL.revokeObjectURL(takeUrl); } catch (e) {} takeUrl = null; }
   const box = $('#takeprev');
-  if (box) { box.innerHTML = ''; box.hidden = true; box.classList.remove('playing'); }
+  if (box) { box.innerHTML = ''; box.hidden = true; }
+  if (had) sweepClips();                   // the feed gets back what it gave up for the preview
 }
 function showTake(f) {
   const box = $('#takeprev');
   if (!box) return;
   dropTake();
   takeUrl = URL.createObjectURL(f);
-  // With controls, because watching it back means being able to stop halfway and go again.
+  // The same player a posted clip has (clipControls): play and pause, skim along the line,
+  // the speed chip with its frame steps, a side held for double speed, and sound. Only the
+  // source differs: the file on the phone, not a signed link, and a tap that plays it rather
+  // than liking anything.
   box.innerHTML = isPic(f)
     ? `<img src="${takeUrl}" alt="The picture you just took">`
-    : `<video src="${takeUrl}" playsinline preload="metadata" onclick="playTake(this)"></video>
-       <button type="button" class="takeplay" onclick="playTake(this.previousElementSibling)" aria-label="Watch it back"><i></i></button>`;
-  const v = box.querySelector('video');
-  if (v) {
-    v.onplay = () => box.classList.add('playing');
-    v.onpause = v.onended = () => box.classList.remove('playing');
-  }
+    : `<div class="reel"><video class="proof" src="${takeUrl}" playsinline preload="metadata" onclick="playTake(this)" onplay="clipState(this,'play')" onpause="clipState(this,'pause')" onended="clipState(this,'end')" ontimeupdate="clipTime(this)"></video>
+       ${clipControls()}</div>`;
   box.hidden = false;
+  // A phone decodes only a handful of videos at once, and the feed under this sheet can be
+  // holding some (a clip watched before the camera opened gets its source back the moment
+  // the camera closes). With them all held, the preview ran out of decoders part way in: the
+  // picture froze and the sound went on. So while there is a clip here the feed holds none
+  // (clipBudget), the way it holds none under a story, and it gets them back in dropTake.
+  if (!isPic(f)) trimClips();
 }
-// Played where it sits, the way a clip in the feed is. What was wrong before was never the
-// native controls being in the top layer — it was that there was nothing calling play():
-// the controls drew and answered to nothing, and a tap that asks outright always worked.
-// So no controls, no scrubber, no full screen button, nothing that makes a browser out of
-// a form. Tap it to watch it, tap it again to stop.
 function playTake(v) {
   if (!v || v.tagName !== 'VIDEO') return;
+  if (Date.now() - (v._heldAt || 0) < 450) return;   // a held side was double speed, not a tap
   if (v.paused) v.play().catch(() => {}); else v.pause();
 }
 const STORY_SECS = 10;                     // a story is a moment, not a clip
