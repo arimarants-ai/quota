@@ -8081,6 +8081,7 @@ if (LONG) await withPage(NO_WHEEL, async page => {
   await (await chooser).setFiles({ name: 'clip.webm', mimeType: 'video/webm', buffer: LONG });
   await page.waitForFunction(() => $('#dlg').open && !!document.querySelector('#takeprev video'), null, { timeout: 8000 }).catch(() => {});
   await page.waitForFunction(() => document.querySelector('#takeprev video').readyState >= 1, null, { timeout: 8000 }).catch(() => {});
+  await page.evaluate(() => { self.__file = recorded; });     // for the posted clip below
   const ctl = sel => page.evaluate(sel => [...document.querySelector(sel).children].map(e => `${e.tagName.toLowerCase()}.${e.className}`).filter(x => !/^video|^img|badge|bust|reacts/.test(x)).join('|'), sel);
   const feedCtl = await ctl('#app .reel'), takeCtl = await ctl('#takeprev .reel');
   check('the take on the Post screen has the posted clip\'s player, the same controls', takeCtl === feedCtl && /play/.test(takeCtl) && /spd/.test(takeCtl) && /prg/.test(takeCtl),
@@ -8111,6 +8112,44 @@ if (LONG) await withPage(NO_WHEEL, async page => {
   await page.locator('#takeprev .reel .spd').click();
   await page.locator('#takeprev .reel .spdm button:has-text("1×")').click();
   check('  and back to 1x', await page.evaluate(() => $('#takeprev video').playbackRate === 1));
+  // The posted player's gestures, by the posted player's own code (they are all keyed on
+  // .reel video.proof). A side held while it plays is double speed until it is let go, and
+  // letting go is not a tap that pauses it.
+  const vb = await page.locator('#takeprev video').boundingBox();
+  await page.mouse.move(vb.x + vb.width * .88, vb.y + vb.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  const fast = await page.evaluate(() => ({r: $('#takeprev video').playbackRate, fast: $('#takeprev .reel').classList.contains('fast'), hud: $('#takeprev .hud').textContent}));
+  const inHold = await watch(2);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => ({r: $('#takeprev video').playbackRate, fast: $('#takeprev .reel').classList.contains('fast'), playing: !$('#takeprev video').paused}));
+  check('  holding a side plays it at 2x, said over it, the picture in step', fast.r === 2 && fast.fast && /2×/.test(fast.hud)
+    && inHold.every(x => x.dt > .7 && x.df > 3 && x.lag < .6), JSON.stringify({fast, inHold}));
+  check('    and letting go puts it back to normal speed, still playing', after.r === 1 && !after.fast && after.playing, JSON.stringify(after));
+  // A hold in the middle is a tap there, as on a posted clip: play and pause, not speed.
+  await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(600);
+  const midHold = await page.evaluate(() => $('#takeprev video').playbackRate);
+  await page.mouse.up(); await page.waitForTimeout(200);
+  check('    a hold in the middle is not a speed-up, the same as on a posted clip', midHold === 1);
+  if (await page.evaluate(() => $('#takeprev video').paused)) await page.locator('#takeprev video').click({ position: { x: vb.width / 2, y: 40 } });
+  // A long press is never the browser's save-video menu.
+  check('    and a long press never brings up the save-video menu', await page.evaluate(() => {
+    const ev = new MouseEvent('contextmenu', {bubbles: true, cancelable: true}); $('#takeprev video').dispatchEvent(ev); return ev.defaultPrevented; }));
+  // The line from a keyboard: a second at a time.
+  const kb = await page.evaluate(() => { const v = $('#takeprev video'), bar = $('#takeprev .prg'); v.pause(); const t = v.currentTime;
+    bar.focus(); bar.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true, cancelable: true})); return +(v.currentTime - t).toFixed(2); });
+  check('    the line takes the arrow keys, a second at a time', Math.abs(kb - 1) < .05, String(kb));
+  // A frame at a time, from the speed menu: it stops and steps a thirtieth of a second.
+  await page.locator('#takeprev .reel .spd').click();
+  const t0 = await page.evaluate(() => $('#takeprev video').currentTime);
+  await page.locator('#takeprev .reel .spdm button[aria-label="Forward a frame"]').click();
+  const step = await page.evaluate(t => ({d: +($('#takeprev video').currentTime - t).toFixed(3), p: $('#takeprev video').paused}), t0);
+  check('    and steps a frame at a time from the speed menu', step.p && Math.abs(step.d - 1 / 30) < .01, JSON.stringify(step));
+  await page.evaluate(() => document.querySelectorAll('.reel .spdm').forEach(m => m.remove()));
+  await page.locator('#takeprev video').click({ position: { x: vb.width / 2, y: 40 } });
+  await page.waitForTimeout(300);
   // Skimming: pressed halfway along the line, the clip is halfway in, and the picture with it.
   const bar = await page.locator('#takeprev .reel .prg').boundingBox();
   await page.mouse.click(bar.x + bar.width / 2, bar.y + bar.height - 3);
@@ -8155,6 +8194,19 @@ if (LONG) await withPage(NO_WHEEL, async page => {
   await page.waitForTimeout(400);
   check('  and the feed has its clip back once the preview is gone', await page.evaluate(() => !document.querySelector('#takeprev video')
     && !!document.querySelector('#app .reel video.proof[data-go][src]')));
+  // A posted clip, playing the same file, held on the same side: the same answer, because it
+  // is the same code. Nothing about the posted player was changed to get the preview there.
+  await page.evaluate(async () => { const v = document.querySelector('#app .reel video.proof');
+    v.scrollIntoView({block: 'center'}); v.muted = true; v.src = URL.createObjectURL(self.__file); v.dataset.go = '1'; await v.play(); });
+  await page.waitForTimeout(400);
+  const fb = await page.locator('#app .reel video.proof').first().boundingBox();
+  await page.mouse.move(fb.x + fb.width * .88, fb.y + fb.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(600);
+  const pf = await page.evaluate(() => { const v = document.querySelector('#app .reel video.proof'); return {r: v.playbackRate, fast: v.closest('.reel').classList.contains('fast')}; });
+  await page.mouse.up(); await page.waitForTimeout(300);
+  const pa = await page.evaluate(() => { const v = document.querySelector('#app .reel video.proof'); return {r: v.playbackRate, playing: !v.paused}; });
+  check('a posted clip held on a side does exactly what the preview did: 2x, then back, still playing',
+    pf.r === 2 && pf.fast && pa.r === 1 && pa.playing, JSON.stringify({pf, pa}));
 }); else console.log('  skip  the take preview with a long clip (needs ffmpeg; CI has it)');
 
 // The page's own self-check still passes.
