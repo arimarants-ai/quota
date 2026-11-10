@@ -30,7 +30,7 @@ Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it b
 
 ## Updating the database
 
-`schema.sql` is the base schema followed by numbered blocks, `v2` through `v61`, each
+`schema.sql` is the base schema followed by numbered blocks, `v2` through `v62`, each
 appended when the change that needed it landed. Running the whole file is step 2 above,
 and that is only for a project with nothing in it yet. On a project that already has
 data, run the blocks it has not seen, oldest first; every block is written to be safe

@@ -255,6 +255,10 @@
       if (st.op === 'update' && t === 'posts' && st.row && 'on_profile' in st.row && st.filters.id != null) {
         self.__onprofile[st.filters.id] = st.row.on_profile;
       }
+      // A project that has not run v62 yet: the badges check takes 25 and up, and a 10 is
+      // refused the way Postgres refuses it.
+      if (st.op === 'insert' && t === 'badges' && self.__badgesBefore62 && [].concat(st.row || []).some(r => r.streak === 10))
+        return { data: null, error: { code: '23514', message: 'new row for relation "badges" violates check constraint "badges_streak_check"' } };
       if (st.or != null) return { data: matches(rows(t), st.or), error: null };
       if (st.op) return { data: null, error: null };
       const out = result(t);
@@ -317,8 +321,9 @@
       if (t === 'comment_likes') self.__clikes.push({ ...row });
       if (t === 'story_likes') self.__slikes.push({ ...row });
       if (t === 'story_reactions') self.__sreacts.push({ ...row });
-      // Badges go up as a set, so this is the one write that can arrive as an array.
-      if (t === 'badges') for (const r of [].concat(row)) self.__badges.push({ earned_at: new Date().toISOString(), ...r });
+      // Badges go up one row at a time now, but a set still works the way it always did.
+      if (t === 'badges' && !(self.__badgesBefore62 && [].concat(row).some(r => r.streak === 10)))
+        for (const r of [].concat(row)) self.__badges.push({ earned_at: new Date().toISOString(), ...r });
       if (t === 'comments') self.__cmts.push({ id: 700 + self.__cmts.length, created_at: new Date().toISOString(), ...row });
       if (t === 'wheel_days') self.__ticks.push({ ...row });
       if (t === 'posts') self.__posts.push({ id: 500 + self.__posts.length, created_at: new Date().toISOString(), caption: '', ...row });
@@ -337,7 +342,7 @@
       if (t === 'message_reactions') self.__mreacts.push({ ...row });
       if (t === 'reports') self.__reports.push({ ...row });
       if (t === 'blocks') self.__blocks.push({ by_user: 'u1', ...row });
-      return chain(t, { ...st, op: 'insert' });
+      return chain(t, { ...st, op: 'insert', row });
     };
     p.delete = () => chain(t, { ...st, op: 'delete' });
     return p;

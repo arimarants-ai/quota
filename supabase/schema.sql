@@ -4593,3 +4593,29 @@ begin
   end loop;
 end $$;
 alter table public.posts add constraint posts_amount_not_negative check (amount >= 0);
+
+-- ============================================================
+-- v62 (a badge at 10 days): safe to run on an existing project, and safe to run twice.
+-- Nothing to redeploy. Run it whenever: until it is run, the app's 10 is refused here, the
+-- app takes it back off the profile, and it asks again on the next load.
+--
+-- Badges started at 25 (v21). Now they start at 10, the first run that is past a week and a
+-- bit. Only the list of numbers the table takes changes: every badge already earned is one
+-- of the old numbers, all still on the list, so not one of them is touched.
+-- ============================================================
+
+-- The old check was declared on the column, so Postgres named it; dropped by what it says
+-- rather than by that name, and so a second run drops this block's own check and puts it
+-- straight back.
+do $$
+declare c text;
+begin
+  for c in select conname from pg_constraint
+            where conrelid = 'public.badges'::regclass and contype = 'c'
+              and pg_get_constraintdef(oid) ~ '\mstreak\M'
+  loop
+    execute format('alter table public.badges drop constraint %I', c);
+  end loop;
+end $$;
+alter table public.badges add constraint badges_streak_check
+  check (streak in (10, 25, 50, 100, 150, 250, 365, 500, 1000));

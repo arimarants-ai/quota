@@ -2035,7 +2035,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v175';
+const BUILD = 'quota-v176';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -7791,7 +7791,7 @@ function personView(uid) {
       : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,'${esc(uid)}')">Report</button>${S.blocked.has(uid)
         ? `<button class="small grow" onclick="unblockUser('${esc(uid)}')">Unblock</button>` : `<button class="small grow" onclick="blockAsk('${esc(uid)}')">Block</button>`}</div>`}
     ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
-      : own ? `<p class="muted pad">Badges start at a 25 day streak.</p>` : ''}
+      : own ? `<p class="muted pad">Badges start at a 10 day streak.</p>` : ''}
     ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
       mine.includes(g) && streak(g, uid) ? `<em>${esc(streakText(g, streak(g, uid)))}</em>` : ''}</button>`).join('')}</div>` : ''}
     <div class="ptabs"><span class="on">Proof${grid.length ? ` · ${grid.length}` : ''}</span></div>
@@ -8630,9 +8630,11 @@ async function acceptTerms(btn) {
 
 // ---- a run worth stopping for
 // Only the long ones. A run of five is a good week, not a thing to interrupt somebody for,
-// and a celebration that arrives every few days stops meaning anything at all.
-const MILESTONES = [25, 50, 100, 150, 250, 365, 500, 1000];
+// and a celebration that arrives every few days stops meaning anything at all. Ten is the
+// first: past a week and a bit, which is where most runs quietly stop.
+const MILESTONES = [10, 25, 50, 100, 150, 250, 365, 500, 1000];
 const MILESTONE_LINE = {
+  10: 'Ten in a row. Past the point where most people quietly stop.',
   25: 'Three and a half weeks without missing one.',
   50: 'Fifty days. Most people never see the far side of a fortnight.',
   100: 'Three figures. This is the one people remember.',
@@ -8652,14 +8654,14 @@ const MILESTONE_LINE = {
 // only the silhouette and the metal carry, so that is what changes. The fine detail is for
 // the one in the dialog, which is the same drawing at three times the size.
 const BADGE_NAME = {
-  25: 'Steady', 50: 'Half century', 100: 'Century', 150: 'Unbroken',
+  10: 'Double figures', 25: 'Steady', 50: 'Half century', 100: 'Century', 150: 'Unbroken',
   250: 'Ironclad', 365: 'A full year', 500: 'Five hundred', 1000: 'A thousand days',
 };
 const SHIELD = 'M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z';
 const STAR = 'M12 7.1l1.5 3.4 3.7.35-2.8 2.45.83 3.6L12 15l-3.2 1.9.83-3.6-2.8-2.45 3.7-.35Z';
 const CROWN = 'M3.2 8.6 7 12l5-8 5 8 3.8-3.4-1.5 11.4H4.7Z';
 const LAUREL = 'M12 2.6a9.4 9.4 0 0 0-9.4 9.4 9.4 9.4 0 0 0 9.4 9.4 9.4 9.4 0 0 0 9.4-9.4A9.4 9.4 0 0 0 12 2.6Zm0 2.2a7.2 7.2 0 0 1 7.2 7.2 7.2 7.2 0 0 1-7.2 7.2A7.2 7.2 0 0 1 4.8 12 7.2 7.2 0 0 1 12 4.8Z';
-// The fill, and what sits on it. Ordered so the jump from green to metal and from metal to
+// The fill, and what sits on it: a dot for the first one, then chevrons. Ordered so the jump from green to metal and from metal to
 // a crown lands exactly where the number stops being something most people reach.
 function badgeMark(n, cls = '') {
   const g = k => `url(#bg${k})`;
@@ -8668,7 +8670,8 @@ function badgeMark(n, cls = '') {
   // what a badge should say.
   const chev = y => `<path d="M8 ${y}l4 3.2 4-3.2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
   const art =
-      n === 25   ? `<path d="${SHIELD}" fill="${g('Green')}"/>${chev(9.8)}`
+      n === 10   ? `<path d="${SHIELD}" fill="${g('Green')}"/><circle cx="12" cy="11.4" r="2" fill="#fff" opacity=".95"/>`
+    : n === 25   ? `<path d="${SHIELD}" fill="${g('Green')}"/>${chev(9.8)}`
     : n === 50   ? `<path d="${SHIELD}" fill="${g('Green')}"/>${chev(8.2)}${chev(12)}`
     : n === 100  ? `<path d="${SHIELD}" fill="${g('Bronze')}"/>${inner(STAR, '#4a2a12', '.85')}`
     : n === 150  ? `<path d="${SHIELD}" fill="${g('Silver')}"/>${inner(STAR, '#3d474c', '.85')}`
@@ -8710,7 +8713,16 @@ async function claimBadges() {
   if (!due.length) return;
   S.badges = [...S.badges, ...due.map(d => ({u: m.id, n: d, ts: Date.now()}))];
   render();
-  try { await q(sb.from('badges').insert(due.map(d => ({user_id: m.id, streak: d}))), true); } catch (e) {}
+  // One row at a time. 10 came later than the rest (schema v62 lets the table take it), and
+  // a project that has not run that yet refuses it: on its own, only the 10 is refused, and
+  // it is taken back off the profile rather than shown to you and nobody else. The next
+  // load asks again, so it lands the first time after the SQL is run.
+  const refused = [];
+  await Promise.all(due.map(async d => {
+    try { await q(sb.from('badges').insert({user_id: m.id, streak: d}), true); }
+    catch (e) { if (e && e.code === '23514') refused.push(d); }   // the check refused it, not the network
+  }));
+  if (refused.length) { S.badges = S.badges.filter(b => !(b.u === m.id && refused.includes(b.n))); render(); }
 }
 
 // The milestone is for the day it was earned, so today has to be in the bag: the run is
@@ -8721,6 +8733,17 @@ function milestoneDue() {
   if (!done.length) return 0;
   const best = Math.max(0, ...done.map(g => streak(g, m.id)));
   let seen = 0; try { seen = +(localStorage.milestone || 0); } catch (e) {}
+  // 10 joined the list after plenty of runs had already gone past it. A run already beyond 10
+  // the first time this looks went past it before there was anything to celebrate, so the
+  // 10 is marked as seen rather than thrown at somebody on day 17. Asked only once a group is
+  // done today (above), so the history is there to be read; a run at exactly 10 is today's,
+  // and that one is celebrated.
+  try {
+    if (!localStorage.milestone10) {
+      localStorage.milestone10 = '1';
+      if (seen < 10 && best > 10) { seen = 10; localStorage.milestone = '10'; }
+    }
+  } catch (e) {}
   // The highest one newly passed, so arriving at 100 having never opened the app at 50
   // celebrates the 100 rather than walking up through every number below it.
   return MILESTONES.filter(d => d <= best && d > seen).pop() || 0;
