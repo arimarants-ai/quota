@@ -4632,6 +4632,8 @@ await withPage(SIGNED_IN, async page => {
     try { localStorage.milestone = '1000'; } catch (e) {}
     const g = S.groups[0], d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
     for (let i = 0; i < 120; i++) S.totals.push({g: g.id, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    // A run can only be as old as the group it is in, so the group is made old enough to hold it.
+    S.groups.forEach(x => { x.created_at = new Date(Date.now() - 130 * 864e5).toISOString(); }); S.joined = {};
     S.badges = []; self.__badges = [];
     await claimBadges();
     return {have: badgesOf('u1').map(b => b.n), sent: self.__badges.map(b => b.streak)};
@@ -4707,6 +4709,7 @@ await withPage(SIGNED_IN, async page => {
     try { localStorage.milestone = '1000'; } catch (e) {}
     const g = S.groups[0], d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
     for (let i = 0; i < 30; i++) S.totals.push({g: g.id, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    S.groups.forEach(x => { x.created_at = new Date(Date.now() - 40 * 864e5).toISOString(); }); S.joined = {};
     self.__badgesBefore62 = true; S.badges = []; self.__badges = [];
     await claimBadges();
     const before = {have: badgesOf('u1').map(b => b.n), sent: self.__badges.map(b => b.streak)};
@@ -7040,7 +7043,7 @@ await withNative({ ...SIGNED_IN, wheel: false }, async page => {
   const q = () => page.evaluate(() => __native.quota);
   const w = (await q()).filter(x => x.fn === 'setWidget').at(-1);
   check('the widget is told the streak the home screen shows', w && w.a.signedIn && w.a.day === await page.evaluate(() => today())
-    && w.a.streak === await page.evaluate(() => Math.max(0, ...myGroups().map(g => streak(g, me().id)))), JSON.stringify(w));
+    && w.a.streak === await page.evaluate(() => headStreak(me().id).n) && w.a.unit === 'day', JSON.stringify(w));
   // Nothing posted today, and it is 10:30pm.
   await page.evaluate(() => { S.totals = S.totals.filter(t => !(t.u === 'u1' && t.d === today()));
     S.posts = S.posts.filter(p => !(p.userId === 'u1' && p.day === today())); __native.quota = []; });
@@ -7440,8 +7443,46 @@ await withPage({ ...NO_WHEEL, schedule: 'weekly', perWeek: 3, extraGroups: [{ id
 });
 await withPage({ ...NO_WHEEL, schedule: 'weekly', perWeek: 3 }, async page => {
   await settle(page);
-  check('with no every-day group, the number is the most common schedule\'s, in its unit',
-    /week streak/i.test(await page.locator('#app .hdr .big').innerText()), await page.locator('#app .hdr .big').innerText());
+  check('with only a weekly group, the big number still counts days',
+    /day streak/i.test(await page.locator('#app .hdr .big').innerText()), await page.locator('#app .hdr .big').innerText());
+  check('  and the week streak is on its chip', /weeks? · Mornings/.test((await page.locator('#app .hdr .schips button').allInnerTexts()).join()));
+});
+
+// The big number is one run across every group: Mornings done yesterday, Readers done today,
+// and neither of them both days, is a 2 day streak. Everything that shows it agrees.
+await withPage({ ...NO_WHEEL, extraGroups: [{ id: 2, name: 'Readers', quotas: [{ metric: 'pages', target: 10 }] }] }, async page => {
+  await settle(page);
+  const set = days => page.evaluate(days => {
+    const d = i => { const x = new Date(); x.setDate(x.getDate() - i); return x.toLocaleDateString('en-CA'); };
+    try { localStorage.milestone = '1000'; } catch (e) {}
+    S.totals = S.totals.filter(t => t.u !== 'u1');
+    for (const [g, i] of days) S.totals.push(g === 1 ? {g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50} : {g: 2, u: 'u1', d: d(i), m: 'pages', n: 10});
+    render();
+    return {head: headStreak(me().id), own: myGroups().map(g => streak(g, me().id)), stage: document.documentElement.dataset.stage,
+      want: String(stageOf(2)), phone: todayForPhone()};
+  }, days);
+  const r = await set([[1, 1], [2, 0]]);
+  await page.waitForTimeout(200);
+  const big = await page.locator('#app .hdr .big').innerText();
+  check('finishing one group yesterday and the other today is a 2 day streak', r.head.n === 2 && /^2\b/.test(big.trim()), big);
+  check('  said as a day streak across all groups', /day streak · all groups/.test(big), big);
+  check('  while each group keeps its own streak of 1', r.own.join() === '1,1', JSON.stringify(r.own));
+  check('  the colours follow it', r.stage === r.want, JSON.stringify(r));
+  check('  and the widget is told 2 days, done today', r.phone.streak === 2 && r.phone.unit === 'day' && r.phone.done === true, JSON.stringify(r.phone));
+  // The tab drawn as it is, not through go(), which loads again and would put the stand-in's
+  // own history back in place of this one.
+  await page.evaluate(() => { S.tab = 'profile'; render(); }); await page.waitForTimeout(300);
+  const stat = (await page.locator('.pf .stats div').first().innerText()).replace(/\s+/g, ' ');
+  check('  and the profile says the same', /^2 day streak/i.test(stat), stat);
+  await page.evaluate(() => { S.tab = 'feed'; render(); }); await page.waitForTimeout(200);
+
+  // Today not done yet: still 2, and the widget says not done.
+  const y = await set([[1, 2], [2, 1]]);
+  check('a run with today still to do is not broken by it', y.head.n === 2 && y.head.done === false && y.phone.done === false, JSON.stringify(y.head));
+  // Days nothing was done in either group end it. Five of them, because each group's pass
+  // covers one a month, and five in a row cannot all be covered even across a month's end.
+  const gap = await set([[1, 7], [2, 6], [1, 0]]);
+  check('days both groups expected and neither got end the run', gap.head.n === 1 && gap.head.best >= 2, JSON.stringify(gap.head));
 });
 
 // + is the camera. The group it is for is chosen, and shown on a pill.
