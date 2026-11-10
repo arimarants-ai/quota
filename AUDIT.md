@@ -23,7 +23,7 @@ Legend: **Had** = already in the app, left alone. **Added** = built on this bran
 | Report every video and every user, with a reason, stored for review | **Added.** Report is on others' posts (the ⋯ on the post), others' stories, others' comments and messages (press and hold), and on every profile. It has a reason picker and an optional note. Reports are written to `public.reports`, which nobody can read through the API. You read them in `private.open_reports`. People listed in `public.moderators` get a push notification for each one. | schema v46, `reportDlg()` |
 | Block a user, hidden from the blocker at once | **Added.** From the profile, the post ⋯, or after reporting. Their posts, stories, comments, messages, invites and banners disappear on the spot and stay gone on every load. Blocking also ends a friendship and cancels pending invites both ways. Unblock from Settings → Blocked people. | schema v46 `blocks`, `blocked()` filter in `fetchAll` |
 | Group creator can remove a video | **Added.** Whoever made the group gets "Remove from the group" in the post ⋯ on anyone's post. It deletes the row and the file, and it's enforced by a policy, not only by hiding a button. Authors could already delete their own. Other members can report a post, block its author, or flag it to the group (a flag was already there). | schema v46 policies, `removePost()` |
-| Visible contact for reports and support | **Had, extended.** hello@hitquota.app was in the legal pages and on the website. **Added** a Support section in Settings (email, support page, how reports work). | `settingsView` |
+| Visible contact for reports and support | **Had, extended.** support@hitquota.app was in the legal pages and on the website. **Added** a Support section in Settings (email, support page, how reports work). | `settingsView` |
 | A documented 24-hour process | **Added.** | `MODERATION.md` |
 
 ## B. Account and data
@@ -43,7 +43,7 @@ Legend: **Had** = already in the app, left alone. **Added** = built on this bran
 | /terms | **Added** `site/terms.html`: Terms of Use plus the community guidelines, generated the same way. |
 | /support | **Added** `site/support.html`: contact, reporting, blocking, deleting an account, and an FAQ. |
 | Clean URLs | **Added** `site/vercel.json` with `cleanUrls`, so `/privacy` serves `privacy.html`. |
-| Contact email and legal name | **Filled in, not placeholders.** The app already names Ari Marants and Justin Smith and hello@hitquota.app, so the pages use those. If you set up a company, change `CONTACT` and the first line of `LEGAL.privacy`/`LEGAL.terms` in `app/index.html`, then rerun the generator. The seller name in App Store Connect is a manual step. |
+| Contact email and legal name | **Filled in, not placeholders.** The app already names Ari Marants and Justin Smith and support@hitquota.app, so the pages use those. If you set up a company, change `CONTACT` and the first line of `LEGAL.privacy`/`LEGAL.terms` in `app/index.html`, then rerun the generator. The seller name in App Store Connect is a manual step. |
 
 ## D. Permissions and native polish
 

@@ -64,7 +64,7 @@ const ld = obj => `<script type="application/ld+json">${JSON.stringify(obj).repl
 const url = path => SITE + path;
 
 const ORG = {'@type': 'Organization', '@id': `${SITE}/#org`, name: 'Quota', url: `${SITE}/`, logo: `${SITE}/icon-192.png`,
-  email: 'hello@hitquota.app', sameAs: SOCIAL.map(s => s.url), founder: [{'@type': 'Person', name: 'Ari Marants'}, {'@type': 'Person', name: 'Justin Smith'}]};
+  email: 'support@hitquota.app', sameAs: SOCIAL.map(s => s.url), founder: [{'@type': 'Person', name: 'Ari Marants'}, {'@type': 'Person', name: 'Justin Smith'}]};
 const APPLD = {'@type': 'SoftwareApplication', '@id': `${SITE}/#app`, name: 'Quota', url: APP,
   description: 'A free accountability app for small groups of friends. Each group sets a daily goal, everyone posts a photo or a clip of up to ten seconds as proof before midnight, and the group keeps a streak together.',
   applicationCategory: 'HealthApplication', applicationSubCategory: 'Habit tracking and accountability',
@@ -187,7 +187,7 @@ const PAGES = [
     'Answers about Quota: what counts as proof, what happens when you miss a day, forfeits, challenge wheels, groups, accounts, privacy and cost.',
     {jsonld: graph(faqLd(FAQ), crumbs([['Home', '/'], ['FAQ', '/faq']]))})],
   ['contact.html', '/contact', section('contact', '/contact', 'Contact us · Quota',
-    'Questions, ideas, bug reports or data requests: email hello@hitquota.app and one of the two people who make Quota will answer.',
+    'Questions, ideas, bug reports or data requests: email support@hitquota.app and one of the two people who make Quota will answer.',
     {jsonld: sub('Contact Quota', '/contact', 'ContactPage')})],
   ['privacy-summary.html', '/privacy-summary', section('privacy', '/privacy-summary', 'Privacy, the short version · Quota',
     'No ads, no trackers, no cookies. Your proof is seen only by your group, stories fade after 24 hours, and you can ask for your data or its deletion any time.',
@@ -234,7 +234,7 @@ const FACTS = `- Quota is a free accountability app for small groups of friends,
 - Price: the base version is free and always will be; a paid version with extra perks may come later.
 - Platforms: a web app at ${APP} that installs to the home screen on iPhone (Safari: Share, Add to Home Screen) and Android (Chrome: menu, Install app). App Store and Google Play listings are coming. Reminders only work once installed.
 - Social: ${SOCIAL.map(s => `${s.name} ${s.handle} (${s.url})`).join(', ')}.
-- Contact: hello@hitquota.app. Account deletion: in the app, Settings → Delete account.`;
+- Contact: support@hitquota.app. Account deletion: in the app, Settings → Delete account.`;
 
 const llms = `# Quota
 

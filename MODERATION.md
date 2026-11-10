@@ -118,7 +118,7 @@ update auth.users set banned_until = 'infinity' where id = '<reported_id>';
 
 ## Reports by email
 
-hello@hitquota.app is listed as the contact in the app, the terms and the support page.
+support@hitquota.app is listed as the contact in the app, the terms and the support page.
 Treat an emailed report the same way, within the same 24 hours. If it's about something
 the email doesn't identify, ask for a username and a screenshot.
 

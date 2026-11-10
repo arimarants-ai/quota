@@ -171,7 +171,7 @@ and downscale to 192.
 After changing any of these, bump `VERSION` in `sw.js` or installed apps keep
 the old icons from cache.
 
-The four `screenshot-*.png` in `manifest.json` are what Chrome and PWABuilder put
+The five `screenshot-*.png` in `manifest.json` are what Chrome and PWABuilder put
 on the install prompt, so they have to look like the app that is actually shipping:
 
 ```bash
@@ -1212,14 +1212,17 @@ Logging in can be the password or a code: "Email me a code instead" sends one wi
 `signInWithOtp` (`shouldCreateUser: false`, so it never makes an account).
 
 Finishing the account calls the `welcome` function, which sends one welcome email per
-account through Resend from hello@. `profiles.welcomed_at` (v47) is what makes it once.
+account through Resend from hello@, with replies going to support@. `profiles.welcomed_at`
+(v47) is what makes it once.
 
 ### Supabase settings this depends on
 
 - *Authentication → Emails → SMTP Settings*: Resend (`smtp.resend.com`, port 465, user
   `resend`, password a Resend API key), sender `accounts@hitquota.app`, name `Quota`.
-  Codes come from `accounts@`; `hello@` is the address people write to. Both forward to
-  the same inbox through Cloudflare Email Routing.
+  Codes come from `accounts@`; `support@` is the address people write to (the one the app,
+  the legal pages and the website show, and where replies to the welcome email go), and the
+  welcome email is sent from `hello@`. All
+  of them forward to the same inbox through Cloudflare Email Routing.
 - *Authentication → Providers → Email*: **Confirm email** on, **Secure email change**
   off. Secure email change also emails the old address, and an old account's old address
   is made up, so the change could never be finished.

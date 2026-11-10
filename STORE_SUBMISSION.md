@@ -44,8 +44,8 @@ with Apple, so change it now if you want something else.
 |---|---|---|
 | Name | Quota | 30 |
 | Subtitle | Daily goals with your crew | 30 (26) |
-| Promotional text | Your crew is waiting on your proof. Pick a daily goal together, post a photo or clip before midnight, and keep the streak alive. | 170 (128) |
-| Keywords | `habit,streak,accountability,friends,workout,fitness,challenge,goals,pushups,daily,group,proof,crew` | 100 (98) |
+| Promotional text | New: home screen widgets and monthly awards. Pick a daily goal with your crew, post proof before midnight, and keep one streak going across every group. | 170 (152) |
+| Keywords | `habit,streak,accountability,friends,workout,fitness,challenge,goals,pushups,daily,group,proof,widget` | 100 (100) |
 | Category | Health & Fitness (secondary: Social Networking) | |
 | Support URL | https://hitquota.app/support | |
 | Marketing URL | https://hitquota.app | |
@@ -56,22 +56,25 @@ with Apple, so change it now if you want something else.
 
 > Quota is accountability with the people who'll actually notice.
 >
-> Pick a daily goal with your crew — 100 pushups, a 5k, an hour of reading, anything you can prove. Every day, before midnight where you are, post proof: a photo or a short clip, taken with Quota's camera that day. No camera roll, no old videos, no "trust me".
+> Pick a daily goal with your crew — 100 pushups, a 5k, an hour of reading, anything you can prove. On every day it counts, before midnight where you are, post proof: a photo or a short clip, taken with Quota's camera that day. No camera roll, no old videos, no "trust me".
 >
 > Hit your quota and your streak grows. Miss it and your crew sees. Set a forfeit if you want the stakes higher.
 >
 > WHAT'S IN IT
-> • Groups with one or more daily quotas, on the days you choose
+> • Groups with one or more goals, on the days you choose
 > • Proof that has to be real: taken in the app, that day
-> • Your own streak, a crew bonus when everyone shows up, and one pass a month
+> • One streak across all your groups, plus each group's own
+> • Badges from 10 days, and a crew bonus when everyone shows up
+> • Monthly awards in every group of two or more: most in one video, longest streak, never missed a day
+> • Home screen widgets with a mascot that cheers you on (and panics with you when time's running out)
 > • Today's proof stays locked until you've posted your own
 > • Comments, reactions, stories and group chat
-> • Month views, stats and weekly recaps you can share
+> • Month views and recaps you can share
 > • Reminders before midnight, and a heads-up when your crew posts
 > • Question a post that doesn't count, and let the group decide
 >
 > PRIVATE BY DESIGN
-> Your proof is seen by your group and nobody else. No public feed, no ads, no trackers.
+> Your proof is seen by your group, and by your friends only if you put it on your profile. No public feed, no ads, no trackers.
 >
 > SAFE
 > Report any post, story, comment, message or person from inside the app, and block anyone. Reports are reviewed within 24 hours. Terms: hitquota.app/terms
@@ -83,11 +86,11 @@ with Apple, so change it now if you want something else.
 | Field | Text | Limit |
 |---|---|---|
 | App name | Quota: Daily goals with your crew | 30 — use **Quota** if it complains |
-| Short description | Pick a daily goal with your crew. Post proof before midnight or owe the forfeit. | 80 (80) |
-| Full description | The App Store description above | 4000 |
+| Short description | Daily goals with your crew. Post proof before midnight or owe the forfeit. | 80 (74) |
+| Full description | The App Store description above | 4000 (1539) |
 | Category | Health & Fitness | |
 | Tags | Fitness, Habit tracker, Social | |
-| Contact email | hello@hitquota.app | |
+| Contact email | support@hitquota.app | |
 | Privacy policy | https://hitquota.app/privacy | |
 
 Galaxy Store uses the same text.
@@ -172,7 +175,7 @@ Paste this, with the password filled in:
 > - *Block:* open any profile → Block, or ⋯ on their post → Block. Their content disappears immediately. Settings → Blocked to undo.
 > - *Remove content:* the creator of a group can remove any post in it (⋯ → "Remove from <group name>"). Authors can delete their own.
 > - *Filtering:* slurs, sexual words and strong profanity are refused in all typed text.
-> - *Moderation:* reports are reviewed within 24 hours; contact hello@hitquota.app, also shown in Settings → Support.
+> - *Moderation:* reports are reviewed within 24 hours; contact support@hitquota.app, also shown in Settings → Support.
 >
 > **Account deletion (5.1.1(v)):** Settings (gear on the Profile tab) → Delete account → type "delete" → Delete everything. It deletes the account and all its data immediately.
 >
@@ -190,7 +193,7 @@ Google Play → App content → App access: "All or some functionality is restri
 
 Take them on real devices or simulators signed into the demo account with the App Review
 group full of posts. `node test/screenshots.mjs` renders the web versions (1284×2778) if you
-need a stand-in.
+need a stand-in: the feed, a group, posting, the month and a monthly awards card.
 
 | Store | Required | Size (portrait) |
 |---|---|---|
@@ -199,14 +202,19 @@ need a stand-in.
 | App Store | iPad — **not needed**: the app is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`) | — |
 | App Store | App icon | Taken from the build (1024×1024, no transparency; done) |
 | Google Play | Phone, 2–8 screenshots | 1080×1920 or larger, 9:16 |
-| Google Play | Feature graphic | 1024×500 PNG/JPG |
+| Google Play | Feature graphic | 1024×500 PNG/JPG: `native/store/google-play/feature-graphic.jpg`, the mascot beside the name (redraw with `node test/feature-graphic.mjs`) |
 | Google Play | App icon | 512×512 PNG (`native/assets/icon-only.png` resized: `sips -z 512 512 native/assets/icon-only.png --out play-icon.png`) |
 | Galaxy Store | 3+ screenshots, icon 512×512 | Same as Play |
 
 Suggested set: 1) the feed with today's proof, 2) a group with everyone's streak,
 3) the camera recording proof, 4) the locked day ("post to see"), 5) the month view,
-6) a streak milestone. Don't show the web address bar, "Add to Home Screen", or anything
-Android in the iPhone set.
+6) a streak milestone, 7) the Streak widget on the home screen, 8) a monthly awards card
+(the first screen of a month's recap). Don't show the web address bar, "Add to Home
+Screen", or anything Android in the iPhone set.
+
+The widget shots have to be taken on a real phone (or the simulator / emulator) with the
+store app installed: widgets only exist there, so `node test/screenshots.mjs` cannot render
+them. It does render the awards card (`app/screenshot-awards.png`) as a stand-in.
 
 ---
 
@@ -274,7 +282,7 @@ Enrol in **Play App Signing** when you upload (the default).
 
 **Domain and email** (already done, check they still hold)
 14. hitquota.app/privacy, /terms and /support go live when this branch merges (the `quota-site` project). Open each one before you submit.
-15. hello@hitquota.app forwards to your inbox (Cloudflare Email Routing) and is the address in the app. Someone has to read it daily for the 24-hour promise.
+15. support@hitquota.app forwards to your inbox (Cloudflare Email Routing) and is the address in the app. Someone has to read it daily for the 24-hour promise.
 
 **After launch**
 16. Update the website's "Get the app" badges and the FAQ answer "Is it on the App Store?", and point the site's QR code at the store listing.

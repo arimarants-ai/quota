@@ -80,6 +80,13 @@
       "type": "image/png",
       "form_factor": "narrow",
       "label": "The month at a glance: who showed up, day by day"
+    },
+    {
+      "src": "/screenshot-awards.png",
+      "sizes": "1284x2778",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "A group's monthly awards: most in one video, longest streak, never missed a day"
     }
   ]
 }
