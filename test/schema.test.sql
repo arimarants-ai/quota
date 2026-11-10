@@ -1944,3 +1944,53 @@ begin
   if r.kind is distinct from 'lastcall' or r.line is distinct from '5 miles' then raise exception 'last call should still say 5 miles, got %', r; end if;
 end $$;
 \echo PASS: a post of 0
+
+-- ---- v62: a badge at 10 days. Badges earned under the old list go in first, as a live project
+-- has them; then the block twice, as a live project might run it.
+reset role;
+-- The table as v21 made it, on a database that has run every block: put the old check back.
+do $$
+declare c text;
+begin
+  for c in select conname from pg_constraint where conrelid = 'public.badges'::regclass and contype = 'c' loop
+    execute format('alter table public.badges drop constraint %I', c);
+  end loop;
+end $$;
+alter table public.badges add check (streak in (25, 50, 100, 150, 250, 365, 500, 1000));
+insert into public.badges (user_id, streak) values
+  ('61000000-0000-0000-0000-000000000001', 25), ('61000000-0000-0000-0000-000000000001', 1000);
+do $$
+begin
+  insert into public.badges (user_id, streak) values ('61000000-0000-0000-0000-000000000002', 10);
+  raise exception 'before v62 a 10 should be refused, the way the app expects';
+exception when check_violation then null; end $$;
+\i :v62
+\i :v62
+do $$
+declare n int; d text;
+begin
+  select count(*), min(pg_get_constraintdef(oid)) into n, d from pg_constraint
+   where conrelid = 'public.badges'::regclass and contype = 'c' and pg_get_constraintdef(oid) ~ '\mstreak\M';
+  if n <> 1 or d !~ '\m10\M' then raise exception 'badges should have one check on streak, taking 10; got % (%)', n, d; end if;
+  -- Nothing earned before is gone.
+  select count(*) into n from public.badges where user_id = '61000000-0000-0000-0000-000000000001' and streak in (25, 1000);
+  if n <> 2 then raise exception 'running v62 took away a badge somebody had'; end if;
+end $$;
+-- A 10, claimed from your own seat the way the app claims it; still only the listed numbers.
+set role app;
+do $$
+declare zr uuid := '61000000-0000-0000-0000-000000000002';
+begin
+  perform set_config('test.uid', zr::text, true);
+  insert into public.badges (user_id, streak) values (zr, 10);
+  begin
+    insert into public.badges (user_id, streak) values (zr, 11);
+    raise exception 'an 11 day badge went in';
+  exception when check_violation then null; end;
+  begin
+    insert into public.badges (user_id, streak) values (zr, 10);
+    raise exception 'a second 10 went in';
+  exception when unique_violation then null; end;
+end $$;
+reset role;
+\echo PASS: a badge at 10 days

@@ -2361,6 +2361,48 @@ await withPage(SIGNED_IN, async page => {
     await page.locator('#party').isHidden());
 });
 
+// 10 joined the milestones later. Somebody already past it went past it before there was
+// anything to celebrate: no confetti on day 17 for a day that was a week ago. A run that
+// reaches 10 today is celebrated like any other.
+{
+  // `fresh` is this phone the first time it runs with 10 on the list, in the same breath as
+  // the history, so no render in between can look at the history the stub started with.
+  const back = (page, n, fresh = false) => page.evaluate(([days, fresh]) => {
+    const d = i => { const x = new Date(); x.setDate(x.getDate() - i); return x.toLocaleDateString('en-CA'); };
+    if (fresh) try { localStorage.removeItem('milestone'); localStorage.removeItem('milestone10'); } catch (e) {}
+    S.totals = S.totals.filter(t => t.u !== 'u1');
+    for (let i = 0; i < days; i++) S.totals.push({g: 1, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    S.groups.forEach(g => { g.created_at = new Date(Date.now() - (days + 5) * 864e5).toISOString(); });
+    render();
+  }, [n, fresh]);
+  await withPage(SIGNED_IN, async page => {
+    await settle(page);
+    await back(page, 17, true);
+    await page.waitForTimeout(200);
+    check('a run already past 10 when 10 arrived gets no confetti for it', await page.locator('#party').isHidden());
+    check('  because the 10 is written down as seen', await page.evaluate(() => localStorage.milestone) === '10');
+    await back(page, 18);
+    await page.waitForTimeout(200);
+    check('  and it stays quiet the day after', await page.locator('#party').isHidden());
+    await back(page, 25);
+    await page.waitForTimeout(200);
+    check('  while the next one up, 25, still lands', await page.locator('#party').isVisible()
+      && /25/.test(await page.locator('#party .n').innerText()));
+  });
+  await withPage(SIGNED_IN, async page => {
+    await settle(page);
+    await back(page, 10, true);
+    await page.waitForTimeout(200);
+    check('a run that reaches 10 today is celebrated', await page.locator('#party').isVisible()
+      && /10/.test(await page.locator('#party .n').innerText()),
+      await page.locator('#party .n').innerText().catch(() => '(hidden)'));
+    await page.locator('#party button:not(.share)').click();
+    await back(page, 11);
+    await page.waitForTimeout(200);
+    check('  once', await page.locator('#party').isHidden());
+  });
+}
+
 // ---- signing up with an email, and finishing the account afterwards
 // Signing up is an address and a password. The email carries a code rather than a link:
 // on iPhone a link opens in Safari, not in the app on the home screen.
@@ -4594,16 +4636,16 @@ await withPage(SIGNED_IN, async page => {
     await claimBadges();
     return {have: badgesOf('u1').map(b => b.n), sent: self.__badges.map(b => b.streak)};
   });
-  check('  a run of 120 days earns every milestone it passed', claimed.have.join() === '25,50,100',
+  check('  a run of 120 days earns every milestone it passed', claimed.have.join() === '10,25,50,100',
     JSON.stringify(claimed));
   check('    and each one is written down, not worked out again later',
-    claimed.sent.slice().sort((a, b) => a - b).join() === '25,50,100', JSON.stringify(claimed.sent));
+    claimed.sent.slice().sort((a, b) => a - b).join() === '10,25,50,100', JSON.stringify(claimed.sent));
   check('    stopping at the ones that are big enough to mean something',
-    !claimed.have.some(n => n < 25));
+    !claimed.have.some(n => n < 10));
 
   // Run it again: the badges are already there, so nothing new is claimed.
   const again = await page.evaluate(async () => { await claimBadges(); return self.__badges.length; });
-  check('  asking again claims nothing', again === 3, String(again));
+  check('  asking again claims nothing', again === 4, String(again));
 
   // The run breaks. The badge is not a reading of the current state.
   const broken = await page.evaluate(() => {
@@ -4611,7 +4653,7 @@ await withPage(SIGNED_IN, async page => {
     render();
     return {streak: Math.max(0, ...myGroups().map(g => streak(g, 'u1'))), badges: badgesOf('u1').map(b => b.n)};
   });
-  check('  and a broken run keeps every badge it earned', broken.streak === 0 && broken.badges.join() === '25,50,100',
+  check('  and a broken run keeps every badge it earned', broken.streak === 0 && broken.badges.join() === '10,25,50,100',
     JSON.stringify(broken));
 
   // Next to a name, only the highest of them.
@@ -4635,10 +4677,10 @@ await withPage(SIGNED_IN, async page => {
   check('    and it closes', await page.locator('#dlg').isHidden());
 
   // All of them on the profile, in the order they were earned.
-  await page.evaluate(() => { S.badges = [{u: 'u1', n: 25, ts: Date.now()}, {u: 'u1', n: 100, ts: Date.now()}, {u: 'u1', n: 1000, ts: Date.now()}]; go('profile'); });
+  await page.evaluate(() => { S.badges = [{u: 'u1', n: 25, ts: Date.now()}, {u: 'u1', n: 10, ts: Date.now()}, {u: 'u1', n: 100, ts: Date.now()}, {u: 'u1', n: 1000, ts: Date.now()}]; go('profile'); });
   await page.waitForTimeout(350);
-  check('your profile shows every badge you have', await page.locator('.bshelf button').count() === 3);
-  check('  lowest first', await page.locator('.bshelf button').first().innerText() === '25',
+  check('your profile shows every badge you have', await page.locator('.bshelf button').count() === 4);
+  check('  lowest first', await page.locator('.bshelf button').first().innerText() === '10',
     await page.locator('.bshelf button').first().innerText());
   check('  each one drawn differently', await page.evaluate(() => {
     const arts = [...document.querySelectorAll('.bshelf .bdg')].map(el => el.innerHTML);
@@ -4646,6 +4688,36 @@ await withPage(SIGNED_IN, async page => {
   }));
   check('  and openable from there too', await page.evaluate(() =>
     document.querySelector('.bshelf button').getAttribute('onclick').includes('badgeDlg')));
+  check('  every one of them has a name and a line', await page.evaluate(() =>
+    MILESTONES.every(n => BADGE_NAME[n] && MILESTONE_LINE[n])));
+  check('  and 10 is drawn as the lowest: a dot, where 25 has a chevron', await page.evaluate(() =>
+    /<circle/.test(badgeMark(10)) && !/<circle/.test(badgeMark(25)) && badgeMark(10) !== badgeMark(25)));
+
+  // go() loads again, so the badges claimed above go from the stand-in database as well.
+  await page.evaluate(() => { S.badges = []; self.__badges = []; go('profile'); });
+  await page.waitForTimeout(300);
+  check('  and with none yet, it says where they start', /Badges start at a 10 day streak/.test(await page.locator('#app').innerText()));
+});
+
+// 10 came after the others. A project that has not run v62 refuses a 10; the rest still go
+// in, and the 10 is not left on the profile as if it had, until the SQL is there.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    try { localStorage.milestone = '1000'; } catch (e) {}
+    const g = S.groups[0], d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
+    for (let i = 0; i < 30; i++) S.totals.push({g: g.id, u: 'u1', d: d(i), m: 'pushups', n: 50});
+    self.__badgesBefore62 = true; S.badges = []; self.__badges = [];
+    await claimBadges();
+    const before = {have: badgesOf('u1').map(b => b.n), sent: self.__badges.map(b => b.streak)};
+    self.__badgesBefore62 = false;
+    await claimBadges();
+    return {before, after: {have: badgesOf('u1').map(b => b.n), sent: self.__badges.map(b => b.streak).sort((a, b) => a - b)}};
+  });
+  check('before v62, the 25 is still written down', r.before.sent.join() === '25', JSON.stringify(r));
+  check('  and the refused 10 is not shown', r.before.have.join() === '25', JSON.stringify(r));
+  check('  and once the SQL is run, the next look claims it', r.after.have.join() === '10,25' && r.after.sent.join() === '10,25',
+    JSON.stringify(r));
 });
 
 // A story is findable from the face on a post, not only from the row at the top: somebody
