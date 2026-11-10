@@ -1529,22 +1529,22 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
    The one strip that scrolls sideways of its own accord keeps that. */
 #app{touch-action:pan-y}
 .stories{touch-action:pan-x}
-.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom) + var(--vvb, 0px));width:min(92vw,400px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:var(--r-pill);display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:6}
+.bar{position:fixed;left:0;right:0;bottom:var(--vvb, 0px);background:var(--barbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:0 max(8px, calc((100vw - 600px) / 2)) env(safe-area-inset-bottom);z-index:6}
 /* Put away for a conversation, on the same curve and over the same time as the screen that
    is arriving. Popping out of existence over a screen still sliding in read as a fault. */
 .bar{transition:opacity .34s cubic-bezier(.32,.72,0,1),transform .34s cubic-bezier(.32,.72,0,1)}
-.bar.away{opacity:0;transform:translate(-50%,28px);pointer-events:none}
-.bar button{background:none;padding:7px 0 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);border-radius:var(--r-pill)}
+.bar.away{opacity:0;transform:translateY(28px);pointer-events:none}
+.bar button{background:none;height:62px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted);border-radius:0}
 .bar button{transition:color .2s,transform .12s cubic-bezier(.2,.7,.2,1)}
-.bar button.on{color:var(--text);background:none}
+.bar button.on{color:var(--text);background:none;font-weight:800}
 /* One underline for the whole bar, so it slides to the tab you chose rather than
    blinking out under one and in under the next. */
-.bar .ind{position:absolute;bottom:5px;width:22px;height:2px;background:var(--mk);left:var(--x,0px);opacity:var(--o,0);
+.bar .ind{position:absolute;bottom:calc(6px + env(safe-area-inset-bottom));width:22px;height:2px;background:var(--mk);left:var(--x,0px);opacity:var(--o,0);
   transition:left .28s cubic-bezier(.32,.72,0,1),opacity .2s}
 :root[data-theme=dark] .bar button.on{color:var(--text)}
 .bar button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.bar .add{width:50px;height:50px;border-radius:50%;background:var(--mk);color:var(--onmk);font-size:28px;font-weight:800;display:grid;place-items:center;margin:0 6px;padding:0;line-height:1;box-shadow:0 8px 20px -8px rgba(11,12,14,.4)}
-.bar .add svg{width:26px;height:26px;stroke:var(--onmk);stroke-width:2.5}
+.bar .add{width:52px;height:40px;justify-self:center;border-radius:12px;background:var(--mk);color:var(--onmk);font-size:28px;font-weight:800;display:grid;place-items:center;margin:0;padding:0;line-height:1}
+.bar .add svg{width:22px;height:22px;stroke:var(--onmk);stroke-width:2.4}
 .bar .add:disabled{opacity:.4}
 .bar[hidden]{display:none}
 /* A keyboard is up. No app puts its tab bar on top of one, and here it would sit over
@@ -2035,7 +2035,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v174';
+const BUILD = 'quota-v175';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
