@@ -1,7 +1,7 @@
 // The welcome email, once per account, sent when somebody finishes setting up.
 //
 // Supabase's own emails are only the codes. This one is Quota's, so it goes through Resend's
-// API directly, from hello@, with replies going to support@ so they reach a person. Whoever calls this is the person
+// API directly, from accounts@, with replies going to support@ so they reach a person. Whoever calls this is the person
 // it is sent to: the address comes from their own session, never from the request.
 //
 // Once is enforced by profiles.welcomed_at (schema v47). The row is claimed before sending
@@ -13,7 +13,7 @@ const SUPABASE_URL = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! : '';
 const RESEND_KEY = typeof Deno !== 'undefined' ? Deno.env.get('RESEND_API_KEY')! : '';
 const APP = 'https://app.hitquota.app';
-const FROM = 'Quota <hello@hitquota.app>';
+const FROM = 'Quota <accounts@hitquota.app>';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
