@@ -326,6 +326,10 @@ await withPage(SIGNED_IN, async page => {
     // Recorded webm has no duration until it has been read to the end.
     if (!isFinite(v.duration)) { v.currentTime = 1e9; await new Promise(r => v.addEventListener('durationchange', r, {once: true})); v.currentTime = 0; }
     v.scrollIntoView({block: 'center'});
+    // The tab bar is docked to the bottom edge, so a clip as tall as the window has its
+    // line under the bar. Scrolled up clear of it, the way a person would to reach it.
+    const over = v.getBoundingClientRect().bottom - $('#bar').getBoundingClientRect().top + 8;
+    if (over > 0) scrollBy(0, over);
     return isFinite(v.duration) && v.duration > 3;
   });
   check('a real clip to try the controls on', ready);
@@ -5406,6 +5410,7 @@ await withPage(SIGNED_IN, async page => {
   await settle(page);
   await page.evaluate(() => {
     const b = document.createElement('button'); b.id = 'boom';
+    b.style.cssText = 'position:fixed;top:0;left:0;z-index:99';   // clear of the docked tab bar
     b.setAttribute('onclick', "throw new Error('tap went wrong')");
     document.body.append(b);
   });
