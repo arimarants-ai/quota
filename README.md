@@ -825,6 +825,18 @@ everyone showed up, is still there underneath as the "Crew bonus".
 - **Rest days never break it**, and do not count toward it either.
 - Nothing is stored: the run is worked out from posts, so it needed no migration.
 
+**The number at the top of Home is every group at once** (`overallRun`, "day streak · all
+groups"): the days in a row you did something somewhere. In groups A and B, finishing A on
+Monday and B on Tuesday is a 2 day streak, though each group's own is 1. A day counts if any
+group counted it (a day group's quota on one of its days, or anything posted towards a week,
+a month or a year); a day a group's pass covers is covered; a day every group rests neither
+adds nor breaks; and it breaks on a day something was expected (a day group's day, or a day a
+week, a month or a year could not do without, `dueToday`) and nothing counted. Today never
+breaks it until it is over. The profile, the colours (`stageOf(myStreak())`), the widget
+(`streak`, `unit`, and `done`: something finished in at least one group today), the badges
+and the confetti all read this one number. Each group's own streak is unchanged, and so is the
+countdown, which is about what is still owed.
+
 **A forfeit is optional and only words**, sixty characters at most, through the same word
 filter as everything else ("buys coffee", "does 20 pushups on camera", ...). Only the
 person who made the group sets, changes or clears it, when making it or from Manage.
