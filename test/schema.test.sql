@@ -1994,3 +1994,34 @@ begin
 end $$;
 reset role;
 \echo PASS: a badge at 10 days
+
+-- ---- v63: how long since somebody last posted, handed to the lapsed notice. Twice, as a live
+-- project might run it. The two people from v61: one whose last post was a 0 on 6 December,
+-- and one who has never posted.
+reset role;
+\i :v63
+\i :v63
+do $$
+declare zr uuid := '61000000-0000-0000-0000-000000000001'; nn uuid := '61000000-0000-0000-0000-000000000002';
+        r record; at timestamptz;
+begin
+  -- Six days on, still the lapsed notice, and it knows it has been six.
+  at := ('2026-12-12'::timestamp + make_interval(hours => public.slot_hour(zr, '2026-12-12'))) at time zone 'UTC';
+  select x.kind, x.since_days into r from public.notices_due_now(at) x where x.user_id = zr;
+  if r.kind is distinct from 'lapsed' or r.since_days is distinct from 6 then raise exception 'six days without a post should say 6, got %', r; end if;
+  -- Ten days on, ten.
+  at := ('2026-12-16'::timestamp + make_interval(hours => public.slot_hour(zr, '2026-12-16'))) at time zone 'UTC';
+  select x.kind, x.since_days into r from public.notices_due_now(at) x where x.user_id = zr;
+  if r.kind is distinct from 'lapsed' or r.since_days is distinct from 10 then raise exception 'ten days without a post should say 10, got %', r; end if;
+  -- Still one a day: asked again the same hour, nothing more goes out, lapsed or window.
+  if exists (select 1 from public.notices_due_now(at) x where x.user_id = zr) then raise exception 'a second notice went out the same day'; end if;
+  -- Somebody who has never posted is still lapsed, with no number to give.
+  at := ('2026-12-16'::timestamp + make_interval(hours => public.slot_hour(nn, '2026-12-16'))) at time zone 'UTC';
+  select x.kind, x.since_days into r from public.notices_due_now(at) x where x.user_id = nn;
+  if r.kind is distinct from 'lapsed' or r.since_days is not null then raise exception 'never posted should be lapsed with no number, got %', r; end if;
+  -- And it is only for the lapsed one: last call carries no number.
+  at := ('2026-12-17'::timestamp + make_interval(hours => public.lastcall_hour(public.slot_hour(zr, '2026-12-17')))) at time zone 'UTC';
+  select x.kind, x.since_days into r from public.notices_due_now(at) x where x.user_id = zr;
+  if r.kind is not null and r.since_days is not null then raise exception 'only a lapsed notice carries since_days, got %', r; end if;
+end $$;
+\echo PASS: how long since the last post

@@ -146,9 +146,11 @@ open(f'{w}/v60.sql', 'w').write(s[s.index('-- v60 (how often'):s.index('-- v61 (
 # And v61, a post of 0, the same way.
 open(f'{w}/v61.sql', 'w').write(s[s.index('-- v61 (a post of 0'):s.index('-- v62 (a badge at 10')])
 # And v62, a badge at 10 days.
-open(f'{w}/v62.sql', 'w').write(s[s.index('-- v62 (a badge at 10'):])
+open(f'{w}/v62.sql', 'w').write(s[s.index('-- v62 (a badge at 10'):s.index('-- v63 (how long since')])
+# And v63, how long since somebody last posted.
+open(f'{w}/v63.sql', 'w').write(s[s.index('-- v63 (how long since'):])
 EOF
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "set client_min_messages = warning" -f "$WORK/shim.sql" -f "$WORK/base.sql" -f "$WORK/v6.sql" >/dev/null
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f test/policies.test.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -v v60="$WORK/v60.sql" -v v61="$WORK/v61.sql" -v v62="$WORK/v62.sql" -f test/schema.test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -v v60="$WORK/v60.sql" -v v61="$WORK/v61.sql" -v v62="$WORK/v62.sql" -v v63="$WORK/v63.sql" -f test/schema.test.sql

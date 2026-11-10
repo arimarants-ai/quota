@@ -4619,3 +4619,143 @@ begin
 end $$;
 alter table public.badges add constraint badges_streak_check
   check (streak in (10, 25, 50, 100, 150, 250, 365, 500, 1000));
+
+-- ============================================================
+-- v63 (how long since somebody last posted): safe to run on an existing project, and safe to
+-- run twice. Redeploy wheelday after it (or before: each side copes without the other).
+--
+-- The lapsed notice (v34, as v60 left it) goes to somebody who has posted nothing for three
+-- days, and it always said "Three days since your last one", on day 3 and on day 30 alike.
+-- notices_due_now() now hands back one more column, since_days: the days since their last
+-- post that still stands, filled in for a lapsed notice only (null for anyone who has never
+-- posted). Who gets which message, and the one-a-day rule, are exactly v60's: only the column
+-- is new. A wheelday from before this ignores it; this wheelday without the column says three
+-- days, the way it always did.
+--
+-- One column more, so it is dropped rather than replaced, the same as v60 did.
+-- ============================================================
+drop function if exists public.notices_due_now(timestamptz);
+create function public.notices_due_now(p_now timestamptz default now())
+returns table (user_id uuid, kind text, hours int, group_name text, others int, mates int,
+               line text, done int, needs int, unit text, days_left int, since_days int)
+language sql security definer set search_path = public as $$
+  with folk as (
+    select p.id, coalesce(nullif(p.tz, ''), 'UTC') as zone, p.created_at
+      from public.profiles p
+     where coalesce(nullif(p.tz, ''), 'UTC') in (select name from pg_timezone_names)
+       and exists (select 1 from public.group_members gm where gm.user_id = p.id)
+  ), whenIs as (
+    select id, zone, created_at,
+           (p_now at time zone zone)::date as day,
+           extract(hour from (p_now at time zone zone))::int as hr
+      from folk
+  ), plan0 as (
+    select w.*,
+           public.slot_hour(w.id, w.day) as slot,
+           public.lastcall_hour(public.slot_hour(w.id, w.day)) as lc,
+           (w.created_at < p_now - interval '3 days'
+            and not exists (select 1 from public.posts po
+                             where po.user_id = w.id and po.day > w.day - 3 and po.removed_at is null)) as lapsed
+      from whenIs w
+  ), plan as (
+    select p.*, exists (select 1 from public.group_members gm
+                         where gm.user_id = p.id and public.goal_due(gm.group_id, p.id, p.day)) as daydue
+      from plan0 p
+  ), owed as (
+    select pl.id as uid, pl.day, g.id as gid, g.name as gname, g.schedule, o.metric, o.owed, o.nag
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.groups g on g.id = gm.group_id
+      cross join lateral public.quota_owed(g.id, pl.id, pl.day) o
+  ), behind as (
+    select uid, day, string_agg(distinct owed::text || ' ' || metric, ', ') as line
+      from owed where nag = 'day' group by uid, day
+  ), periodic as (
+    -- One a stretch: not again if one went in the last three days, whichever group it named.
+    select distinct on (o.uid) o.uid, o.day, o.gname,
+           case o.schedule when 'yearly' then 'year' else 'month' end as unit,
+           (public.period_end(o.schedule, o.day) - o.day + 1)::int as days_left,
+           (select string_agg(o2.owed::text || ' ' || o2.metric, ', ' order by o2.metric)
+              from owed o2 where o2.uid = o.uid and o2.gid = o.gid and o2.nag = 'period') as line
+      from owed o
+     where o.nag = 'period'
+       and not exists (select 1 from public.day_reminders r
+                        where r.user_id = o.uid and r.kind = 'period' and r.day > o.day - 3)
+     order by o.uid, public.period_end(o.schedule, o.day), o.gname
+  ), closing as (
+    select pl.id as uid, pl.day, w.name as wname,
+           public.challenge_day_count(sp.id, pl.day) as done,
+           public.challenge_required(sp.id) as needs
+      from plan pl
+      join public.group_members gm on gm.user_id = pl.id
+      join public.wheels w on w.group_id = gm.group_id and w.active
+      join public.spins sp on sp.wheel_id = w.id and sp.user_id = pl.id
+                          and sp.cycle = public.wheel_cycle(w, pl.day)
+     where not sp.sat_out
+       and (w.starts_on + ((sp.cycle + 1) * w.every_days - 1))::date = pl.day
+  ), closingNow as (
+    select distinct on (uid) uid, day, wname, done, needs
+      from closing where done < needs order by uid, needs - done desc, wname
+  ), want as (
+    select id, day, 'lapsed'::text as kind, 0 as hours from plan where hr = slot and lapsed and daydue
+    union all
+    select pl.id, pl.day, 'period'::text, 24 - pl.slot from plan pl
+      join periodic pe on pe.uid = pl.id
+     where pl.hr = pl.slot and not (pl.lapsed and pl.daydue)
+    union all
+    select pl.id, pl.day, 'open'::text, 24 - pl.slot from plan pl
+     where pl.hr = pl.slot and pl.daydue and not pl.lapsed
+       and not exists (select 1 from periodic pe where pe.uid = pl.id)
+    union all
+    select pl.id, pl.day, 'challenge'::text, 24 - pl.hr from plan pl
+      join closingNow c on c.uid = pl.id where pl.hr = pl.lc and not pl.lapsed
+    union all
+    select pl.id, pl.day, 'lastcall'::text, 24 - pl.hr from plan pl
+      join behind b on b.uid = pl.id
+     where pl.hr = pl.lc and not pl.lapsed
+       and not exists (select 1 from closingNow c where c.uid = pl.id)
+  ), pick as (
+    select w.id, w.day, w.kind, w.hours, x.gname, x.others, x.mates,
+           case when w.kind = 'period' then pe.line else b.line end as line,
+           c.done, c.needs, c.wname, pe.gname as pgname, pe.unit, pe.days_left
+      from want w
+      left join behind b on b.uid = w.id and b.day = w.day
+      left join closingNow c on c.uid = w.id and c.day = w.day
+      left join periodic pe on pe.uid = w.id and w.kind = 'period'
+      -- The group a message names is one that needs something today.
+      left join lateral (
+        select g.name as gname,
+               count(*) filter (where exists (
+                 select 1 from public.posts po
+                  where po.group_id = g.id and po.user_id = gm2.user_id and po.day = w.day and po.removed_at is null)) as others,
+               count(*) as mates
+          from public.group_members gm
+          join public.groups g on g.id = gm.group_id
+          join public.group_members gm2 on gm2.group_id = g.id and gm2.user_id <> w.id
+         where gm.user_id = w.id and public.goal_due(g.id, w.id, w.day)
+         group by g.id, g.name
+         order by 2 desc, g.id
+         limit 1
+      ) x on true
+  ), claimed as (
+    insert into public.day_reminders (user_id, day, kind)
+    select id, day, kind from pick
+    on conflict do nothing
+    returning day_reminders.user_id as uid, day_reminders.kind as k
+  )
+  select p.id, p.kind, p.hours,
+         coalesce(nullif(p.wname, ''), case when p.kind = 'period' then p.pgname end, p.gname, ''),
+         coalesce(p.others, 0)::int, coalesce(p.mates, 0)::int,
+         coalesce(p.line, ''), coalesce(p.done, 0)::int, coalesce(p.needs, 0)::int,
+         coalesce(p.unit, ''), coalesce(p.days_left, 0)::int,
+         -- How long it has really been, for a lapsed notice only: the days back from today, on
+         -- their own clock, to their last post that still stands. Asked here rather than for
+         -- everybody up in plan, so it is one lookup per lapsed person and not one per person.
+         -- Null for somebody who has never posted.
+         case when p.kind = 'lapsed' then
+           (p.day - (select max(po.day) from public.posts po
+                      where po.user_id = p.id and po.day <= p.day and po.removed_at is null))::int end
+    from pick p join claimed c on c.uid = p.id and c.k = p.kind;
+$$;
+revoke all on function public.notices_due_now(timestamptz) from public, anon, authenticated;
+grant execute on function public.notices_due_now(timestamptz) to service_role;

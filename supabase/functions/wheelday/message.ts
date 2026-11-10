@@ -48,6 +48,7 @@ export type Notice = {
   needs: number;                   // challenge days required
   unit?: string;                   // 'month' or 'year', for a period reminder (schema v60)
   days_left?: number;              // and how many days of it are left, today included
+  since_days?: number | null;      // for a lapsed one, days since their last post (schema v63)
 };
 
 const hrs = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
@@ -114,15 +115,29 @@ export function periodFor(n: Notice): string {
   return `${what} ${left === 1 ? `Last day of the ${unit}.` : `${left} days left this ${unit}.`}`;
 }
 
+// Three to six in words, the way the message always said three. Past that it is a number.
+const DAYS_WORD: Record<number, string> = { 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six' };
+
 /**
- * For somebody who has not opened the app in three days. It replaces the window one rather
+ * For somebody who has not posted in three days or more. It replaces the window one rather
  * than arriving beside it: two notifications in a day is what somebody who has stopped
  * caring uninstalls over.
+ *
+ * It says how long it has really been (since_days, schema v63). It used to say three days
+ * on day 30. From a week on it is a different message: by then they are falling behind,
+ * and the people they signed up with are the reason to come back, so it says that, once,
+ * plainly. Without the number (a database from before v63, or somebody who has never
+ * posted) it is the three days it always was.
  */
 export function lapsedFor(n: Notice): string {
+  const d = Number.isFinite(n.since_days as number) ? Math.round(n.since_days as number) : null;
+  if (d !== null && d >= 7) {
+    return `${d} days since your last post, and you're falling behind. ${n.group_name || 'Your group'} is relying on you.`;
+  }
   if (!n.group_name) return 'Your group has been going without you.';
+  const days = d !== null && d >= 3 ? DAYS_WORD[d] : 'Three';
   return n.others > 0
-    ? `${n.group_name} posted without you today. Three days since your last one.`
+    ? `${n.group_name} posted without you today. ${days} days since your last one.`
     : `${n.group_name} is still going. Your spot is still there.`;
 }
 

@@ -30,7 +30,7 @@ Then open the Vercel URL on your phone, *Share → Add to Home Screen*, and it b
 
 ## Updating the database
 
-`schema.sql` is the base schema followed by numbered blocks, `v2` through `v62`, each
+`schema.sql` is the base schema followed by numbered blocks, `v2` through `v63`, each
 appended when the change that needed it landed. Running the whole file is step 2 above,
 and that is only for a project with nothing in it yet. On a project that already has
 data, run the blocks it has not seen, oldest first; every block is written to be safe
@@ -455,6 +455,14 @@ both end as a row, and until now whoever sent the invitation heard nothing at al
 in the trigger, because by the time `pg_net`'s call lands there is no session left to ask.
 
 **This needs the v29 block of `schema.sql`**, and `wheelday` redeployed as well as `notify`.
+
+**The lapsed one says how long it has been** (v63). Somebody with nothing posted for three
+days gets it at the hour the window would have opened, in place of the window message, so it
+is still one a day. `notices_due_now()` hands back `since_days`, the days since their last
+post that still stands: three to six say "Four days since your last one", and from seven on it
+is a different line, "10 days since your last post, and you're falling behind. Mornings is
+relying on you." Without the number (before v63, or somebody who has never posted) it says
+three days, as it always did.
 
 ## Talking to each other
 

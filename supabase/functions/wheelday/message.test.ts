@@ -102,6 +102,32 @@ assert.equal(m.get('a'), 'Spin Challenge in Mornings before you post today.');
   ok(!/hour/.test(noticeBody(n({ kind: 'lapsed', others: 2 }))),
     'a lapsed message is not a countdown', lap);
 
+  // How long it has really been (schema v63). Three to six days: the same message, with the
+  // real count in it.
+  for (const [d, w] of [[3, 'Three'], [4, 'Four'], [5, 'Five'], [6, 'Six']] as const) {
+    const body = noticeBody(n({ kind: 'lapsed', others: 2, since_days: d }));
+    assert.equal(body, `Mornings posted without you today. ${w} days since your last one.`);
+  }
+  ok(true, 'three to six days say the real number, in the same words as before');
+  ok(/still going/.test(noticeBody(n({ kind: 'lapsed', others: 0, since_days: 5 }))),
+    '  and with nobody in today it is still the spot that is waiting');
+  // A week and more: falling behind, and the group is relying on them.
+  const ten = noticeBody(n({ kind: 'lapsed', others: 2, since_days: 10 }));
+  assert.equal(ten, "10 days since your last post, and you're falling behind. Mornings is relying on you.");
+  ok(true, 'ten days says ten, that they are falling behind, and who is relying on them', ten);
+  const week = noticeBody(n({ kind: 'lapsed', others: 0, since_days: 7 }));
+  ok(/^7 days since your last post/.test(week) && /falling behind/.test(week) && /Mornings is relying on you/.test(week),
+    '  from the seventh day on, whoever else has posted', week);
+  ok(!/Three days/.test(ten) && !/hour/.test(ten), '  and never says three, or counts down', ten);
+  const lone = noticeBody(n({ kind: 'lapsed', group_name: '', since_days: 12 }));
+  ok(/^12 days since your last post/.test(lone) && /Your group is relying on you/.test(lone), '  with no group to name, it is your group', lone);
+  // Without the number — a database from before v63, or somebody who has never posted —
+  // it says what it always said.
+  for (const since of [undefined, null]) {
+    ok(/Three days since your last one/.test(noticeBody(n({ kind: 'lapsed', others: 2, since_days: since }))),
+      `  and with no number (${since}) it is three days, as before`);
+  }
+
   // The promise the whole block exists to keep: the lapsed message stands in for the
   // window one, so it carries the same tag and replaces it rather than stacking beside it.
   assert.equal(NOTICE_META.lapsed.tag, NOTICE_META.open.tag);
