@@ -5415,17 +5415,17 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(300);
   const total = await page.evaluate(() => done(S.groups[0], me().id, 'pushups'));
   check('  and offers the day\'s card for it', await page.locator('#make').isVisible()
-    && (await page.locator('#make .face .t .tbig').innerText()).trim() === String(total),
-    await page.locator('#make .face').innerText());
+    && (await page.locator('#make .canvas > .face .t .tbig').innerText()).trim() === String(total),
+    await page.locator('#make .canvas > .face').innerText());
   check('    worded with the challenge, the way a post says it',
-    /of 50 cold shower pushups/i.test(await page.locator('#make .face .t .tsub').innerText()),
-    await page.locator('#make .face .t .tsub').innerText());
+    /of 50 cold shower pushups/i.test(await page.locator('#make .canvas > .face .t .tsub').innerText()),
+    await page.locator('#make .canvas > .face .t .tsub').innerText());
   check('    one card, not a second one about the challenge',
-    !/challenge done/i.test(await page.locator('#make .face .t').innerText()));
+    !/challenge done/i.test(await page.locator('#make .canvas > .face .t').innerText()));
   check('    wearing one of the looks, which can be swapped', await page.evaluate(() => {
     if (!tplOf(styleOf(S.draft).tpl)) return false;
     draftTpl('medal'); return styleOf(S.draft).tpl === 'medal';
-  }) && /cold shower pushups/i.test(await page.locator('#make .face .t-medal').innerText()));
+  }) && /cold shower pushups/i.test(await page.locator('#make .canvas > .face .t-medal').innerText()));
   check('    it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
   await page.evaluate(() => closeDraft());
 
@@ -5437,7 +5437,7 @@ await withPage(SIGNED_IN, async page => {
     suggestAfterPost(S.groups[0]);
   });
   await page.waitForTimeout(300);
-  const plain = await page.locator('#make .face .t .tsub').innerText();
+  const plain = await page.locator('#make .canvas > .face .t .tsub').innerText();
   check('  a day the challenge did not carry is just the day',
     /of 50 pushups/i.test(plain) && !/cold shower/i.test(plain), plain);
   await page.evaluate(() => closeDraft());
@@ -5460,18 +5460,18 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(250);
   check('finishing the day offers a story already written', await page.locator('#make').isVisible());
   check('  the day adds up to more than any one post of it', dayTotal === 62, String(dayTotal));
-  const big = (await page.locator('#make .face .t .tbig').innerText()).trim();
+  const big = (await page.locator('#make .canvas > .face .t .tbig').innerText()).trim();
   check('  and the number drawn large is the day, not the post that closed it', big === '62', big);
-  check('    with the day\'s goal under it', /of 50 pushups/i.test(await page.locator('#make .face .t .tsub').innerText()));
+  check('    with the day\'s goal under it', /of 50 pushups/i.test(await page.locator('#make .canvas > .face .t .tsub').innerText()));
   check('  it wears one of the looks it can write', await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl)));
   check('  it is a draft, not a post', await page.evaluate(() => S.stories.length) === 0);
-  check('  which can still be edited before it goes', await page.locator('#make .type').count() === 1);
+  check('  which can still be edited before it goes', await page.locator('#make .canvas > .face .type').count() === 1);
 
   // Whichever look the hash chose, the tray can swap it, and the day survives the swap.
   await page.evaluate(() => draftTpl('medal'));
   await page.waitForTimeout(200);
   check('  a different look can be chosen for it', await page.evaluate(() => styleOf(S.draft).tpl) === 'medal'
-    && (await page.locator('#make .face .t-medal .tbig').innerText()).trim() === '62');
+    && (await page.locator('#make .canvas > .face .t-medal .tbig').innerText()).trim() === '62');
   await page.evaluate(() => closeDraft());
 
   // Two quotas cannot both be a number the size of the card, so they become a list.
@@ -5483,12 +5483,12 @@ await withPage(SIGNED_IN, async page => {
   });
   await page.waitForTimeout(250);
   check('a group with two quotas gets both of them, as a list',
-    await page.locator('#make .face .t .tstack .tsrow').count() === 2
-    && /50/.test(await page.locator('#make .face .t .tstack').innerText())
-    && /situps/i.test(await page.locator('#make .face .t .tstack').innerText()),
-    await page.locator('#make .face .t').innerText());
+    await page.locator('#make .canvas > .face .t .tstack .tsrow').count() === 2
+    && /50/.test(await page.locator('#make .canvas > .face .t .tstack').innerText())
+    && /situps/i.test(await page.locator('#make .canvas > .face .t .tstack').innerText()),
+    await page.locator('#make .canvas > .face .t').innerText());
   check('  and no single number pretending to be the day',
-    await page.locator('#make .face .t .tbig').count() === 0);
+    await page.locator('#make .canvas > .face .t .tbig').count() === 0);
   await page.evaluate(() => closeDraft());
 
   // A milestone is reached by finishing a day, so sharing it shares that day: the same
@@ -5500,10 +5500,192 @@ await withPage(SIGNED_IN, async page => {
   await page.waitForTimeout(300);
   check('sharing a streak milestone offers the day\'s card', await page.locator('#make').isVisible()
     && await page.evaluate(() => Array.isArray(styleOf(S.draft).rows) && styleOf(S.draft).rows.length > 0),
-    await page.locator('#make .face').innerText());
+    await page.locator('#make .canvas > .face').innerText());
   check('  wearing a look, like every card it writes',
     await page.evaluate(() => !!tplOf(styleOf(S.draft).tpl)));
   await page.evaluate(() => closeDraft());
+});
+
+// ---- picking a look for the card it writes: a button with its name on it, and a row of the
+// real story in each look, your numbers and words included, drawn by the story's own code.
+for (const W of [390, 360]) await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: W, height: W === 360 ? 740 : 844 });
+  await settle(page);
+  await page.evaluate(() => { const g = S.groups[0]; S.totals = [...S.totals, { g: g.id, u: me().id, m: 'pushups', d: today(), n: 12 }];
+    suggestAfterPost(g); draftTpl('medal'); });
+  await page.waitForTimeout(300);
+  const LOOKS = ['Stamp', 'Wax', 'Medal', 'Confetti', 'Fireworks', 'Comic', 'Stickers'];
+  const bar = () => page.evaluate(() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return {l: b.left, r: b.right}; };
+    const lb = document.querySelector('#make .lookbtn'), go = document.querySelector('#make .go');
+    return {who: r('#make .who'), look: r('#make .lookbtn'), go: r('#make .go'), vw: innerWidth,
+      lookWhole: lb.scrollWidth <= lb.clientWidth + 1, goWhole: go.scrollWidth <= go.clientWidth + 1}; });
+  const b = await bar();
+  check(`${W}px: the look has its own button on the bottom bar, between the name and Share`, b.who.r <= b.look.l && b.look.r <= b.go.l && b.go.r <= b.vw
+    && b.lookWhole && b.goWhole, JSON.stringify(b));
+  check(`${W}px:   saying which look it is, with a picture of it`, await page.evaluate(() => {
+    const lb = document.querySelector('#make .lookbtn');
+    return lb.getAttribute('aria-label') === 'Change look, now Medal' && /Look\s*Medal/i.test(lb.innerText)
+      && !!lb.querySelector('.lkthumb .face.tpl .t-medal') && !lb.querySelector('[contenteditable]');
+  }));
+  check(`${W}px:   and the four-squares button is gone from the top`, await page.locator('#make [aria-label="Change the look"]').count() === 0);
+  const closed = await page.evaluate(() => { const c = getComputedStyle(document.querySelector('#make .lookbtn'));
+    return {bg: c.backgroundColor, fg: c.color, chev: getComputedStyle(document.querySelector('#make .lookbtn .chev')).transform}; });
+  check(`${W}px:   closed it is one of the editor's buttons, the chevron pointing up`, closed.bg === 'rgba(255, 255, 255, 0.16)' && closed.fg === 'rgb(255, 255, 255)'
+    && closed.chev === 'none', JSON.stringify(closed));
+
+  await page.locator('#make .lookbtn').click();
+  await page.waitForTimeout(350);
+  const open = await page.evaluate(() => { const c = getComputedStyle(document.querySelector('#make .lookbtn'));
+    return {bg: c.backgroundColor, fg: c.color, chev: getComputedStyle(document.querySelector('#make .lookbtn .chev')).transform}; });
+  check(`${W}px: tapped, it opens the looks and lights up, the chevron pointing down`, open.bg === 'rgb(255, 255, 255)' && open.fg === 'rgb(11, 12, 14)'
+    && /matrix\(-1/.test(open.chev) && await page.locator('#make .tray[data-tray=tpl]').count() === 1, JSON.stringify(open));
+  check(`${W}px:   headed "Pick a look", with all seven to swipe through`, /Pick a look/.test(await page.locator('#make .lkhead').innerText())
+    && /Swipe for all 7/.test(await page.locator('#make .lkhead').innerText())
+    && (await page.locator('#make .looks .lk').evaluateAll(xs => xs.map(x => x.getAttribute('aria-label')))).join() === LOOKS.map(n => `${n} look`).join());
+  const tiles = await page.evaluate(() => [...document.querySelectorAll('#make .looks .lk')].map(b => {
+    const f = b.querySelector('.lkp .face'), r = b.querySelector('.lkf').getBoundingClientRect(), fr = f.getBoundingClientRect();
+    return {tag: b.tagName, w: Math.round(r.width), h: Math.round(r.height), hidden: b.querySelector('.lkp').getAttribute('aria-hidden'),
+      edit: !!b.querySelector('[contenteditable]'), pe: getComputedStyle(b.querySelector('.lkp .face')).pointerEvents,
+      cover: fr.width >= r.width - 1 && fr.height >= r.height - 1, tpl: [...f.querySelector('.t').classList].find(c => /^t-/.test(c)), big: (f.querySelector('.tbig') || {}).textContent,
+      words: (f.querySelector('.type') || {}).textContent};
+  }));
+  check(`${W}px:   each a story-shaped tile of the real story in that look, with your number and your words`, tiles.length === 7
+    && tiles.every((t, i) => t.tag === 'BUTTON' && t.w === 88 && t.h === 156 && t.cover && t.big === '62' && t.words === 'Mornings'
+      && t.tpl === `t-${['stamp', 'wax', 'medal', 'confetti', 'fireworks', 'comic', 'sticker'][i]}`), JSON.stringify(tiles));
+  check(`${W}px:   pictures only: nothing in them can be edited, pressed or read out`, tiles.every(t => !t.edit && t.pe === 'none' && t.hidden === 'true'));
+  check(`${W}px:   drawn by the story's own code, the same as the card would be`, await page.evaluate(() => {
+    const t = [...document.querySelectorAll('#make .looks .lk')][3].querySelector('.lkp').innerHTML, ref = document.createElement('span');
+    ref.innerHTML = storyFace({...S.draft, style: {...styleOf(S.draft), tpl: 'confetti', bg: tplOf('confetti').bg, ink: tplOf('confetti').ink}}, false, false);
+    return t === ref.innerHTML;
+  }));
+  const on = () => page.evaluate(() => ({on: [...document.querySelectorAll('#make .lk.on')].map(b => b.getAttribute('aria-label')),
+    checks: document.querySelectorAll('#make .lk .lkon').length, ring: getComputedStyle(document.querySelector('#make .lk.on .lkf')).boxShadow,
+    name: getComputedStyle(document.querySelector('#make .lk.on .lkn')).color}));
+  const o1 = await on();
+  check(`${W}px:   the one you are on ringed, ticked and named in white`, o1.on.join() === 'Medal look' && o1.checks === 1
+    && /rgb\(5, 7, 6\) 0px 0px 0px 2.5px.*rgb\(255, 255, 255\) 0px 0px 0px 5px/.test(o1.ring) && o1.name === 'rgb(255, 255, 255)', JSON.stringify(o1));
+  check(`${W}px:   and scrolled into view the first time it opens`, await page.evaluate(() => {
+    const row = document.querySelector('#make .looks'), t = row.querySelector('.lk.on'), r = row.getBoundingClientRect(), x = t.getBoundingClientRect();
+    return x.left >= r.left && x.right <= r.right;
+  }));
+  // Flip through them: the card changes each time, the row stays open and stays where it was.
+  for (const [name, id] of [['Comic', 'comic'], ['Stickers', 'sticker'], ['Wax', 'wax'], ['Fireworks', 'fireworks']]) {
+    const tile = page.locator(`#make .lk[aria-label="${name} look"]`);
+    await tile.scrollIntoViewIfNeeded();
+    const before = await page.evaluate(() => document.querySelector('#make .looks').scrollLeft);
+    await tile.click();
+    await page.waitForTimeout(200);
+    const st = await page.evaluate(() => ({tpl: styleOf(S.draft).tpl, open: !!document.querySelector('#make .tray[data-tray=tpl]'),
+      sl: document.querySelector('#make .looks').scrollLeft, card: !!document.querySelector('#make .canvas > .face .t'), on: document.querySelector('#make .lk.on').getAttribute('aria-label'),
+      label: document.querySelector('#make .lookbtn').getAttribute('aria-label')}));
+    const card = await page.evaluate(id => !!document.querySelector(`#make .canvas > .face .t-${id}`), id);
+    check(`${W}px:   ${name}: the card changes, the row stays open where it was, the tick moves`, st.tpl === id && card && st.open
+      && Math.abs(st.sl - before) < 2 && st.on === `${name} look` && st.label === `Change look, now ${name}`, JSON.stringify({before, st}));
+  }
+  // A tap on the card, away from the words, puts it away.
+  const cf = await page.locator('#make .canvas > .face').boundingBox();
+  await page.mouse.click(cf.x + 20, cf.y + 20);
+  await page.waitForTimeout(250);
+  check(`${W}px: a tap on the card closes the looks`, await page.locator('#make .tray').count() === 0
+    && await page.evaluate(() => getComputedStyle(document.querySelector('#make .lookbtn .chev')).transform) === 'none');
+  await page.evaluate(() => closeDraft());
+});
+
+// The previews are the story, whatever the story holds: a list of quotas, a challenge, and
+// whatever was chosen after the look. And Share posts what the editor shows.
+await withPage(SIGNED_IN, async page => {
+  await settle(page);
+  await page.evaluate(() => suggest({rows: [{d: 62, t: 50, m: 'pushups', c: null}, {d: 24, t: 20, m: 'situps', c: null}], st: 9, seed: 'x', body: 'Day 9 · Mornings'}));
+  await page.waitForTimeout(250);
+  await page.evaluate(() => draftTray('tpl')); await page.waitForTimeout(250);
+  check('with two quotas every preview is the list, both numbers in it', await page.evaluate(() =>
+    [...document.querySelectorAll('#make .looks .lkp .face')].every(f => f.querySelectorAll('.tsrow').length === 2 && /situps/.test(f.textContent) && /24/.test(f.textContent))));
+  await page.evaluate(() => closeDraft());
+  await page.evaluate(() => suggest({rows: [{d: 62, t: 50, m: 'pushups', c: 'Cold shower'}], st: 9, seed: 'y', body: 'Day 9 · Mornings'}));
+  await page.waitForTimeout(250);
+  await page.evaluate(() => draftTray('tpl')); await page.waitForTimeout(250);
+  check('  and with a challenge, every preview names it, with the day\'s number', await page.evaluate(() =>
+    [...document.querySelectorAll('#make .looks .lkp .face')].every(f => /cold shower/i.test(f.textContent) && /62/.test(f.textContent))));
+  // A look, then a font, a colour and a sticker, then the looks again.
+  await page.locator('#make .lk[aria-label="Wax look"]').click(); await page.waitForTimeout(150);
+  await page.evaluate(() => { draftTray('font'); }); await page.waitForTimeout(150);
+  await page.locator('#make .tray .fonts button').nth(5).click(); await page.waitForTimeout(150);
+  await page.evaluate(() => { draftTray('ink'); }); await page.waitForTimeout(150);
+  await page.locator('#make .tray .dot').nth(4).click(); await page.waitForTimeout(150);
+  await page.evaluate(() => { draftSticker('🔥'); }); await page.waitForTimeout(150);
+  await page.locator('#make .lookbtn').click(); await page.waitForTimeout(300);
+  const after = await page.evaluate(() => {
+    const main = document.querySelector('#make .canvas > .face'), wax = document.querySelector('#make .lk[aria-label="Wax look"] .lkp .face');
+    const mt = main.querySelector('.type'), wt = wax.querySelector('.type');
+    const thumb = document.querySelector('#make .lookbtn .lkthumb .face .type');
+    // A tile is the story as it would be if that look were picked now, which brings the look's
+    // own ink with it (draftTpl); the button's picture is the card exactly as it is.
+    return {font: mt.style.fontFamily === wt.style.fontFamily, lookInk: wt.style.color !== mt.style.color && styleOf(S.draft).ink !== tplOf('wax').ink,
+      thumb: thumb.style.color === mt.style.color && thumb.style.fontFamily === mt.style.fontFamily, stk: wax.querySelectorAll('.stk').length, mainStk: main.querySelectorAll('.stk').length};
+  });
+  check('after a font, a colour and a sticker the looks open again, showing the font and the sticker', after.font && after.stk === 1 && after.mainStk === 1, JSON.stringify(after));
+  check('  each tile with that look\'s own colours, as picking it would give, and the button\'s picture the card as it is', after.lookInk && after.thumb, JSON.stringify(after));
+  // Put away, the way the other trays are, before reaching what was under it.
+  await page.locator('#make .lookbtn').click(); await page.waitForTimeout(250);
+  check('  and the Look button closes them again', await page.locator('#make .tray').count() === 0);
+  // The sticker on the card still drags, and only that one: the ones in the previews are pictures.
+  const stk = await page.locator('#make .canvas > .face .stk').boundingBox();
+  const was = await page.evaluate(() => JSON.stringify(styleOf(S.draft).stks));
+  await page.mouse.move(stk.x + stk.width / 2, stk.y + stk.height / 2); await page.mouse.down();
+  await page.mouse.move(stk.x + stk.width / 2 + 40, stk.y + stk.height / 2 + 60, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(200);
+  check('  the sticker on the card still drags', await page.evaluate(w => JSON.stringify(styleOf(S.draft).stks) !== w && styleOf(S.draft).stks.length === 1, was));
+  // And so do the words, and a tap on them still puts the caret in them.
+  const ty = await page.locator('#make .canvas > .face .type').boundingBox();
+  const wasXY = await page.evaluate(() => [styleOf(S.draft).x, styleOf(S.draft).y].join());
+  await page.mouse.move(ty.x + ty.width / 2, ty.y + ty.height / 2); await page.mouse.down();
+  await page.mouse.move(ty.x + ty.width / 2 - 30, ty.y + ty.height / 2 - 80, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(200);
+  check('  so do the words', await page.evaluate(w => [styleOf(S.draft).x, styleOf(S.draft).y].join() !== w, wasXY));
+  const ty2 = await page.locator('#make .canvas > .face .type').boundingBox();
+  await page.mouse.click(ty2.x + ty2.width / 2, ty2.y + ty2.height / 2); await page.waitForTimeout(150);
+  check('    and a tap on them is a caret in them', await page.evaluate(() => document.activeElement === document.querySelector('#make .canvas > .face .type')));
+  // Share: what goes up is what the editor shows.
+  const style = await page.evaluate(() => JSON.stringify(styleOf(S.draft)));
+  await page.evaluate(() => { document.activeElement && document.activeElement.blur(); });
+  await page.locator('#make .go').click();
+  await page.waitForTimeout(500);
+  const up = await page.evaluate(() => self.__stories.at(-1));
+  check('Share posts exactly the card the editor showed', !!up && JSON.stringify(up.style) === style && up.body === 'Day 9 · Mornings' && up.kind === 'text',
+    JSON.stringify({style, up: up && up.style}));
+});
+
+// The line under the figure: one line when it fits, wrapped within the card when it does not.
+// On a look only; words on any other story are sized as they always were.
+await withPage(SIGNED_IN, async page => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  const line = body => page.evaluate(async body => {
+    suggest({rows: [{d: 10, t: 10, m: 'pushups', c: null}], st: 10, seed: 's', body}); await new Promise(r => setTimeout(r, 200));
+    const t = document.querySelector('#make .canvas > .face .type'), f = t.closest('.face'), lh = parseFloat(getComputedStyle(t).lineHeight);
+    const pad = parseFloat(getComputedStyle(t).paddingTop) + parseFloat(getComputedStyle(t).paddingBottom);
+    const out = {lines: Math.round((t.getBoundingClientRect().height - pad) / lh), w: t.getBoundingClientRect().width / f.getBoundingClientRect().width};
+    closeDraft(); return out;
+  }, body);
+  const short = await line('Day 10 · Push-up crew');
+  check('on a look, "Day 10 · Push-up crew" stays on one line', short.lines === 1, JSON.stringify(short));
+  const long = await line('Day 10 · The early morning push-up crew from the office downstairs');
+  check('  and a line too long for the card wraps within 88% of it', long.lines >= 2 && long.w <= .885, JSON.stringify(long));
+  // A plain story: no Look button, and its words as wide as they always were.
+  const plain = await page.evaluate(async () => {
+    newStory({kind: 'text', body: 'Day 10 · Push-up crew'}); await new Promise(r => setTimeout(r, 200));
+    const t = document.querySelector('#make .canvas > .face .type');
+    const out = {look: !!document.querySelector('#make .lookbtn'), tpl: t.closest('.face').classList.contains('tpl'), tray: document.querySelectorAll('#make .looks').length};
+    closeDraft(); return out;
+  });
+  check('a plain text story has no Look button, and is not a look, so the one-line rule never reaches its words', !plain.look && !plain.tpl && plain.tray === 0, JSON.stringify(plain));
+  const media = await page.evaluate(async () => {
+    const out = [];
+    for (const kind of ['photo', 'video']) { newStory({kind, file: new File([new Uint8Array(10)], kind === 'photo' ? 'p.jpg' : 'v.mp4', {type: kind === 'photo' ? 'image/jpeg' : 'video/mp4'}), body: ''});
+      await new Promise(r => setTimeout(r, 150)); out.push(!!document.querySelector('#make .lookbtn')); closeDraft(); }
+    return out;
+  });
+  check('  nor does a photo or a video story', media.join() === 'false,false', JSON.stringify(media));
 });
 
 // A tap handler that throws used to throw into nothing: the rejection catcher only sees
