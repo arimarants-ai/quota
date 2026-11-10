@@ -71,6 +71,30 @@ suspensions and take-down emails (schema v56, the `moderation` function) are in 
 
 After changing anything in `app/`, run `npx cap sync` in `native/` before building.
 
+### The widgets
+
+The page works out what the phone shows about today (`todayForPhone`) and hands it over with
+`setWidget`; the widgets only read it. The art is the mascot, light and dark, in the widget's
+own asset catalog (`QuotaWidget/Assets.xcassets`) and in `res/drawable-nodpi` and
+`drawable-night-nodpi` on Android; only the picture on show is loaded.
+
+- **Streak** (the default): the art for the moment the day is at, the streak at the top
+  left and one line at the bottom. Morning, nothing posted yet (`posted: false`): the line of
+  the day. Partway, posted but not done: "50 pushups left today". From 8pm with today still
+  owed: the time left, counting down. Done, and a rest day. Lock screen ones stay words only,
+  and the Live Activity and the last-call notification stay at 10:15pm.
+- **Motivation**: one of fourteen pictures and its line a day, all fourteen in turn, with the
+  streak under it. The day picks it the same way on the page (`lineOfDay`), on the iPhone and
+  on Android: the local date's day number since 1 January 1970, mod 14.
+- **Countdown** (iPhone): the first quota still short (`cdLeft`, `cdMetric`, `cdGroup`, `cdPct`),
+  a bar, and the time left to midnight; "Done today" once nothing is owed.
+
+A snapshot from an app older than this has no `posted` in it, and then the Streak widget draws
+the way it did before. After the walkthrough, the store app shows one screen about adding them
+(`widgetsDlg`), once per account on the phone, never on the web. `test/native.test.mjs` checks
+what no compiler here can: the Xcode project file, the pictures the code names, the Android
+ids, and the fourteen lines being the same everywhere.
+
 ## Example crews
 
 Somebody who opens the app signed out, and not from an invite link, lands on an example

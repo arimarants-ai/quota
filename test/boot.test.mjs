@@ -7036,6 +7036,84 @@ async function withNative(mode, body, platform = 'ios', perm = {}) {
     await body(page, alerts);
   });
 }
+// What the widgets need to pick their moment and fill the Countdown: whether anything went in
+// today, and the first quota still short, as a number, what of, where and how far in.
+await withNative({ ...SIGNED_IN, wheel: false }, async page => {
+  await page.waitForTimeout(1600);
+  const snap = add => page.evaluate(n => {
+    S.totals = S.totals.filter(t => !(t.u === 'u1' && t.d === today()));
+    if (n != null) S.totals.push({g: 1, u: 'u1', d: today(), m: 'pushups', n});
+    __native.quota = []; syncPhone(new Date());
+    return (__native.quota.filter(x => x.fn === 'setWidget').at(-1) || {}).a;
+  }, add);
+  const none = await snap(null);
+  check('with nothing in today the widget is told nothing was posted', none.posted === false && none.done === false, JSON.stringify(none));
+  check('  and the Countdown gets the whole quota, what of, where, and none of it done',
+    none.cdLeft === 50 && none.cdMetric === 'pushups' && none.cdGroup === 'Mornings' && none.cdPct === 0, JSON.stringify(none));
+  const part = await snap(20);
+  check('partway: posted, not done, 30 left', part.posted === true && part.done === false && part.left === '30 pushups'
+    && part.cdLeft === 30 && part.cdPct === 0.4, JSON.stringify(part));
+  const zero = await snap(0);
+  check('  and a 0 is posting too', zero.posted === true && zero.cdLeft === 50, JSON.stringify(zero));
+  const all = await snap(50);
+  check('done: nothing left for the Countdown', all.done === true && all.cdLeft === 0 && all.cdPct === 1, JSON.stringify(all));
+  check('the line of the day is one of the fourteen, in turn, the same for a date wherever it is asked',
+    await page.evaluate(() => lineOfDay('1970-01-01').n === 1 && lineOfDay('1970-01-14').n === 14 && lineOfDay('1970-01-15').n === 1
+      && lineOfDay('2026-11-10').line === MOTIVATION[(dayNo('2026-11-10') % 14)] && MOTIVATION.length === 14));
+  await page.evaluate(() => { __native.quota = []; return logout(); });
+  await page.waitForTimeout(300);
+  const out = (await page.evaluate(() => __native.quota)).filter(x => x.fn === 'setWidget').at(-1);
+  check('signed out still says posted, so the widget knows the app is new enough for the art', out && out.a.signedIn === false && out.a.posted === false, JSON.stringify(out));
+});
+
+// The last step of setup: once the walkthrough is over, in the store app only, one screen
+// about the widgets, and never again.
+for (const [platform, theme] of [['ios', 'light'], ['android', 'dark']]) {
+  await withNative({ ...NO_WHEEL, samToday: true }, async page => {
+    await settle(page);
+    await page.evaluate(t => { setTheme(t); localStorage.removeItem(`widgets:${me().id}`); }, theme);
+    // Through to the last step, which leaves the proof sheet open: nothing on top of it.
+    await page.evaluate(() => startTour());
+    for (let i = 0; i < 6; i++) { await page.waitForTimeout(i === 5 ? 700 : 250); await page.locator('.tour .next').click().catch(() => {}); }
+    await page.waitForTimeout(400);
+    check(`${platform}: the widgets wait while the proof sheet is open`, /Post proof/.test(await page.locator('#dlg[open]').innerHTML().catch(() => ''))
+      && !/You're all set/.test(await page.locator('#dlg').innerText().catch(() => '')));
+    await page.evaluate(() => { dlg(); camClose && camClose(); });
+    await page.waitForTimeout(900);
+    const txt = await page.locator('#dlg[open]').innerText().catch(() => '');
+    check(`${platform}: then the last step of setup is the widgets`, /You're all set/.test(txt)
+      && /Add our widgets to stay on track\. Your streak and what's left today, right on your home screen and lock screen\./.test(txt), txt);
+    check(`${platform}:   with a check at the top`, await page.locator('#dlg .wsetup .tick svg').count() === 1);
+    const img = await page.evaluate(() => { const i = document.querySelector('#dlg .wprev img'); return i && {src: i.getAttribute('src'), w: i.naturalWidth}; });
+    await page.waitForFunction(() => { const i = document.querySelector('#dlg .wprev img'); return i && i.complete; }, null, { timeout: 4000 }).catch(() => {});
+    check(`${platform}:   a preview on the morning art for the ${theme} theme`, img && img.src === `widget/mascot-morning-${theme}.webp`
+      && await page.evaluate(() => document.querySelector('#dlg .wprev img').naturalWidth > 0), JSON.stringify(img));
+    check(`${platform}:   with a streak and the line of the day on it`, await page.evaluate(() =>
+      /\d+/.test(document.querySelector('#dlg .wprev b').textContent) && document.querySelector('#dlg .wprev em').textContent === lineOfDay().line));
+    const steps = await page.locator('#dlg .wsteps li').allInnerTexts();
+    check(`${platform}:   and the steps for this phone`, platform === 'ios'
+      ? steps.join('|') === 'Press and hold an empty spot on your home screen|Tap Edit, then Add Widget|Search \u201cQuota\u201d and pick one'
+      : steps.join('|') === 'Press and hold an empty spot on your home screen|Tap Widgets|Find Quota and pick one', steps.join('|'));
+    check(`${platform}:   Got it, a black pill, and Not now`, await page.evaluate(() => {
+      const g = document.querySelector('#dlg .gotit'), n = document.querySelector('#dlg .notnow');
+      return g && n && /Got it/.test(g.textContent) && /Not now/.test(n.textContent) && parseFloat(getComputedStyle(g).borderTopLeftRadius) > 20;
+    }));
+    await page.locator(platform === 'ios' ? '#dlg .gotit' : '#dlg .notnow').click();
+    await page.waitForTimeout(500);
+    check(`${platform}:   which closes it`, !(await page.evaluate(() => $('#dlg').open)));
+    await page.evaluate(() => { startTour(); endTour(); });
+    await page.waitForTimeout(900);
+    check(`${platform}:   and it never comes back`, !(await page.evaluate(() => $('#dlg').open && /You're all set/.test($('#dlg').innerText))));
+  }, platform);
+}
+// Not in a browser: there are no widgets to add from the web.
+await withPage({ ...NO_WHEEL }, async page => {
+  await settle(page);
+  await page.evaluate(() => { startTour(); endTour(); });
+  await page.waitForTimeout(900);
+  check('the web app never shows the widgets step', !(await page.evaluate(() => $('#dlg').open && /You're all set/.test($('#dlg').innerText))));
+});
+
 // The streak widgets and the countdown: the page tells the phone what the home screen says
 // about today, and starts the countdown from 10:15pm while a quota is still owed.
 await withNative({ ...SIGNED_IN, wheel: false }, async page => {

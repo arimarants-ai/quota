@@ -28,6 +28,7 @@ final class Countdown {
     static final int ID = 2215;
     private static final int RC_LAST_CALL = 1;
     private static final int RC_MIDNIGHT = 2;
+    private static final int RC_EVENING = 3;
 
     static boolean show(Context c, int streak, String unit, String left, String crew, long deadline) {
         if (Build.VERSION.SDK_INT >= 33
@@ -75,7 +76,8 @@ final class Countdown {
         NotificationManagerCompat.from(c).cancel(ID);
     }
 
-    // The next 10:15pm, and the next midnight (to put the widget onto the new day).
+    // The next 8pm (the widget's last hours), the next 10:15pm, and the next midnight (to put
+    // the widgets onto the new day).
     static void schedule(Context c) {
         AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
@@ -83,11 +85,15 @@ final class Countdown {
         long call = Today.lastCall(now);
         if (call <= now) call = Today.lastCall(Today.midnightAfter(now));
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, call, alarm(c, RC_LAST_CALL));
+        long eve = Today.evening(now);
+        if (eve <= now) eve = Today.evening(Today.midnightAfter(now));
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, eve, alarm(c, RC_EVENING));
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, Today.midnightAfter(now) + 30_000, alarm(c, RC_MIDNIGHT));
     }
 
     private static PendingIntent alarm(Context c, int code) {
-        Intent i = new Intent(c, CountdownReceiver.class).putExtra("what", code == RC_LAST_CALL ? "lastCall" : "midnight");
+        Intent i = new Intent(c, CountdownReceiver.class)
+                .putExtra("what", code == RC_LAST_CALL ? "lastCall" : code == RC_EVENING ? "evening" : "midnight");
         return PendingIntent.getBroadcast(c, code, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

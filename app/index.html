@@ -256,6 +256,25 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12p
 .smsprev span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .smsprev p{margin:10px 0 0 auto;max-width:88%;width:fit-content;background:#1d7cf2;color:#fff;padding:10px 13px;
   border-radius:18px 18px 4px 18px;font-size:14px;line-height:1.4;font-weight:500;overflow-wrap:anywhere}
+/* The last step of setup, in the store app: what a widget looks like, and how to add one. */
+.wsetup{text-align:center}
+.wsetup .tick{width:56px;height:56px;border-radius:50%;background:var(--mktint);display:grid;place-items:center;margin:6px auto 12px}
+.wsetup .tick svg{width:28px;height:28px;fill:none;stroke:var(--mkt);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.wsetup > p{margin:6px auto 0;max-width:320px}
+.wprev{position:relative;width:168px;height:168px;margin:18px auto 4px;border-radius:28px;overflow:hidden;text-align:left;
+  display:flex;flex-direction:column;padding:14px;box-sizing:border-box;color:#0b0c0e;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.wprev.dark{color:#fff}
+.wprev img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.wprev > :not(img){position:relative;z-index:1}
+.wprev b{font-size:40px;line-height:1;font-weight:800}
+.wprev span{font-size:12px;font-weight:600;opacity:.72}
+.wprev em{margin-top:auto;font-style:normal;font-weight:800;font-size:12.5px;line-height:1.25}
+.wsteps{list-style:none;counter-reset:w;margin:16px 0 4px;padding:6px 14px;background:var(--soft);border-radius:var(--r-card);text-align:left}
+.wsteps li{counter-increment:w;display:flex;align-items:center;gap:12px;padding:9px 0;font-size:14.5px;font-weight:600}
+.wsteps li::before{content:counter(w);flex:none;width:26px;height:26px;border-radius:50%;background:var(--card);display:grid;place-items:center;
+  font-size:12.5px;font-weight:800;color:var(--muted)}
+.wsetup .gotit{width:100%;margin-top:14px;padding:14px;background:var(--text);color:var(--bg)}
+.wsetup .notnow{width:100%;margin-top:4px;padding:12px}
 /* A link, not a button, because iOS allows a navigation to Messages only straight from the
    tap. So it is given the button's look by hand rather than inheriting button.primary. */
 .textbtn{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;box-sizing:border-box;
@@ -2067,7 +2086,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v178';
+const BUILD = 'quota-v179';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -3560,6 +3579,7 @@ function render() {
   if (on) ind.style.setProperty('--x', (on.offsetLeft + on.offsetWidth / 2 - 11) + 'px');
   maybePractice();
   maybeTour();
+  maybeWidgets();
 }
 
 // ---- words that do not go on Quota
@@ -7838,7 +7858,46 @@ function endTour() {
   if (!t) return;
   t.lay.remove();
   S.tour = null;
+  // The widgets come last, once, and only where there are widgets to add: the App Store and
+  // Play Store app. Not straight away: the last step leaves the post sheet open, so it waits
+  // until nothing is in the way, the way the walkthrough itself does.
+  if (NATIVE) S.widgetsDue = true;
   render();
+}
+
+// ---- the last step of setup: the widgets
+// One screen, once per account on this phone, after the walkthrough. Shown is shown: both
+// buttons close it, and so does anything else that closes a sheet.
+const widgetsKey = () => `widgets:${me().id}`;
+function maybeWidgets() {
+  if (!NATIVE || !S.widgetsDue || !me() || S.tour || $('#dlg').open || $('#cam').open || $('#app').classList.contains('out')) return;
+  S.widgetsDue = false;
+  try { if (localStorage[widgetsKey()]) return; localStorage[widgetsKey()] = '1'; } catch (e) { return; }
+  widgetsDlg();
+}
+// The line of the day: the Motivation widget's, and the Streak widget's in the morning. One a
+// day, the same for everybody on the same date, all fourteen in turn. The widgets work it out
+// the same way on the phone (Shared.swift, Today.java): the local date's day number since
+// 1 January 1970, mod 14.
+const MOTIVATION = ['Consistency is key.', 'Crush the day.', "Proof or it didn't happen.", 'Today counts.', "One post. That's all.",
+  "Your crew's watching.", 'Small reps, big streak.', 'Show up today.', 'Done beats perfect.', 'Future you says thanks.',
+  'Easy day? Still counts.', 'Keep it rolling.', 'Breathe. Then go.', 'You vs. yesterday.'];
+const lineOfDay = (d = today()) => { const i = ((dayNo(d) % 14) + 14) % 14; return {n: i + 1, line: MOTIVATION[i]}; };
+function widgetsDlg() {
+  const ios = window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform() === 'ios';
+  const steps = ios ? ['Press and hold an empty spot on your home screen', 'Tap Edit, then Add Widget', 'Search \u201cQuota\u201d and pick one']
+    : ['Press and hold an empty spot on your home screen', 'Tap Widgets', 'Find Quota and pick one'];
+  const dark = isDark();
+  dlg(`<div class="wsetup">
+    <div class="tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h2>You're all set</h2>
+    <p class="muted">Add our widgets to stay on track. Your streak and what's left today, right on your home screen and lock screen.</p>
+    <div class="wprev${dark ? ' dark' : ''}" role="img" aria-label="The Quota widget">
+      <img src="widget/mascot-morning-${dark ? 'dark' : 'light'}.webp" alt="" width="384" height="384">
+      <b class="num">12</b><span>day streak</span><em>${esc(lineOfDay().line)}</em></div>
+    <ol class="wsteps">${steps.map(t => `<li>${t}</li>`).join('')}</ol>
+    <button type="button" class="gotit" onclick="dlg()">Got it</button>
+    <button type="button" class="ghost notnow" onclick="dlg()">Not now</button></div>`);
 }
 // Every frame while it runs, because what it points at moves: the screen slides in, the
 // feed redraws when a load lands, the page scrolls. Asked for again each time rather than
@@ -7872,7 +7931,7 @@ function tourPlace() {
   box.classList.toggle('up', up);
   box.style.setProperty('--ax', `${Math.min(Math.max(20, r.left + r.width / 2 - left), bw - 20)}px`);
 }
-$('#dlg').addEventListener('close', () => { maybePractice(); maybeTour(); });
+$('#dlg').addEventListener('close', () => { maybePractice(); maybeTour(); setTimeout(maybeWidgets, 400); });
 
 // Deleting the account, from inside the app, which both stores require. Typing the word is
 // the confirmation: a button alone is one stray tap from losing everything.
@@ -11095,9 +11154,20 @@ function dueToday(g, uid = me().id, d = today()) {
 }
 // The groups that expect something today and do not have it yet: what the countdown is for.
 const owingToday = (uid = me().id) => myGroups().filter(g => dueToday(g) && !hit(g, uid));
+// The Countdown widget's numbers: the first quota still short in the first group that owes
+// something today, how much of it is left, what of, where, and how far in (0 to 1). Nothing
+// owed is a 0, which the widget reads as done.
+function countdownOf(g, uid) {
+  const x = g && g.quotas.map(qq => ({qq, d: isTotal(g) ? doneIn(g, uid, qq.metric) : done(g, uid, qq.metric)})).find(y => y.d < y.qq.target);
+  return x ? {cdLeft: x.qq.target - x.d, cdMetric: x.qq.metric, cdGroup: g.name, cdPct: Math.round(Math.max(0, Math.min(1, x.d / x.qq.target)) * 100) / 100}
+    : {cdLeft: 0, cdMetric: '', cdGroup: '', cdPct: 1};
+}
+// The widgets tell "nothing posted yet" from "partway" by `posted`, and an app from before
+// it sends no such field, which the widgets read as "draw it the old way". So it is sent
+// even signed out.
 function todayForPhone() {
   const m = me();
-  if (!m || !m.username) return {signedIn: false};
+  if (!m || !m.username) return {signedIn: false, posted: false};
   const gs = myGroups(), due = gs.filter(g => dueToday(g)), owing = owingToday(m.id), g = owing[0];
   // What is left: today's quota, or for a month or a year, what the total is still short by.
   const left = g ? (isTotal(g) ? shortOf(g, m.id) : g.quotas.map(qq => ({qq, n: done(g, m.id, qq.metric)})).filter(x => x.n < x.qq.target)
@@ -11108,6 +11178,9 @@ function todayForPhone() {
   const head = headStreak(m.id);
   return {signedIn: true, streak: head.n, unit: head.unit, day: today(),
     due: due.length > 0, done: head.done, left,
+    // Anything at all towards any group today, a 0 included: posted but not done is partway.
+    posted: gs.some(x => (totalsIndex().days.get(`${x.id}|${m.id}`) || NO_DAYS).has(today())),
+    ...countdownOf(g, m.id),
     // The days of the week anything is expected, for a day the app has not been opened on
     // yet. Only the groups judged a day at a time can say in advance; a week or a month
     // only knows once the app has looked.

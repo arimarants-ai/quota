@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="widget_text">#0B0C0E</color>
+    <!-- On the art: dark text on the light pictures, white on the dark ones (values-night). -->
+    <color name="widget_text_soft">#B30B0C0E</color>
+    <color name="widget_done">#0B5A34</color>
 </resources>
