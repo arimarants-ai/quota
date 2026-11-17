@@ -1484,6 +1484,15 @@ main.chatting{padding:0;min-height:0;height:calc(100vh - var(--kb,0px));height:c
 .li .social a{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--text);-webkit-tap-highlight-color:transparent;transition:color .15s,background-color .15s}
 .li .social a:active,.li .social a:focus-visible{color:#0A7F46;background:rgba(10,127,70,.14)}
 .li .social a:focus-visible{outline:2px solid #0A7F46;outline-offset:2px}
+/* The ring is for finding your place with a keyboard. Opening a sheet moves focus into it
+   (showModal picks the first thing in it), and Safari and the iOS app count focus a script
+   moved as keyboard focus unless a click focused something first, which a tap on a button
+   never does there. So a tap on the three dots or on Help drew the ring around whichever
+   option came first. :root.tapped is set by any tap or click and cleared by the next key
+   that moves around the page (the listeners by typingIn), so a keyboard brings the ring straight back. */
+:root.tapped :is(button,a,summary,.li .social a):focus-visible{outline:none}
+:root.tapped .stile:has(input:focus-visible),:root.tapped .gprow:has(input:focus-visible),
+:root.tapped .chal input:focus-visible ~ .box{box-shadow:none}
 @media (hover:hover){.li .social a:hover{color:#0A7F46;background:rgba(10,127,70,.14)}}
 .li .social svg{width:18px;height:18px;fill:currentColor;stroke:none}
 .sw{width:42px;height:25px;border-radius:var(--r-pill);background:var(--todo);position:relative;flex:none;transition:background .2s}
@@ -2119,7 +2128,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v182';
+const BUILD = 'quota-v183';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2236,6 +2245,16 @@ const setTheme = t => { document.documentElement.dataset.theme = t; localStorage
   // Android draws a bar of its own above the page rather than letting the page run under it.
   if (bar && Capacitor.getPlatform() === 'android') Promise.resolve(bar.setBackgroundColor({color: t === 'dark' ? '#0a0b0c' : '#ffffff'})).catch(() => {}); };
 setTheme(localStorage.theme || 'light');
+// Whether the last thing that happened was a tap (or a click) or a key, for the focus ring
+// above. Typing into a field is not moving around the page, and the iOS keyboard's own
+// keys arrive as key presses, so only Tab, or a key pressed outside a field, counts.
+const typingIn = t => !!t && (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'
+  || (t.tagName === 'INPUT' && !/^(button|submit|reset|checkbox|radio|range|color|file|image)$/i.test(t.type)));
+addEventListener('pointerdown', () => document.documentElement.classList.add('tapped'), true);
+addEventListener('keydown', e => {
+  if (e.isComposing || e.metaKey || e.ctrlKey) return;
+  if (e.key === 'Tab' || !typingIn(e.target)) document.documentElement.classList.remove('tapped');
+}, true);
 const FAKEMAIL = /@users\.quota\.local$/i;   // what the old accounts were given in place of an address
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 const toggleTheme = () => { setTheme(isDark() ? 'light' : 'dark'); render(); };

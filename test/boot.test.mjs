@@ -6288,6 +6288,70 @@ await withPage(NO_WHEEL, async page => {
   check('  somebody else\'s message cannot be edited', !(await page.locator('#app .m .reactpick.opts button').allInnerTexts()).includes('Edit'));
 });
 
+// ---- no ring around a menu's first option when a tap opened it
+// Opening a sheet moves focus into it, and Safari and the iOS app count that as keyboard
+// focus after a tap (a tap on a button focuses nothing there, so nothing says "pointer"),
+// which drew the green ring around the first option of the three dots and of Help.
+// Chromium decides the other way, so the browser's verdict is forced through DevTools to
+// what WebKit decides, and what is checked is that the ring is only drawn for keys.
+await withPage(NO_WHEEL, async page => {
+  await settle(page);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable'); await cdp.send('CSS.enable');
+  // What the focused element draws once the browser calls its focus keyboard focus.
+  const ringOnFocused = async () => {
+    const { root } = await cdp.send('DOM.getDocument', { depth: 0 });
+    await page.evaluate(() => document.activeElement.setAttribute('data-ringcheck', ''));
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: '[data-ringcheck]' });
+    await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: ['focus', 'focus-visible'] });
+    const r = await page.evaluate(() => { const a = document.activeElement; a.removeAttribute('data-ringcheck');
+      return { what: a.tagName + ' ' + (a.textContent || a.getAttribute('aria-label') || '').trim().slice(0, 24), inSheet: !!a.closest('dialog'),
+        outline: getComputedStyle(a).outlineStyle }; });
+    await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
+    return r;
+  };
+  const shut = async () => { await page.evaluate(() => { dlg(); if ($('#cam').open) camClose(); }); await page.waitForTimeout(400); };
+  const tapped = () => page.evaluate(() => document.documentElement.classList.contains('tapped'));
+
+  await page.locator('#app button.more').first().click();
+  await page.waitForTimeout(400);
+  let r = await ringOnFocused();
+  check('a tap on the three dots focuses the menu\'s first option', r.inSheet && /^BUTTON/.test(r.what), JSON.stringify(r));
+  check('  and draws no ring around it, even where the browser calls that keyboard focus', r.outline === 'none', JSON.stringify(r));
+  await shut();
+  await page.locator('.helpbtn').first().click();
+  await page.waitForTimeout(400);
+  r = await ringOnFocused();
+  check('the same for the help button', r.inSheet && r.outline === 'none', JSON.stringify(r));
+  await shut();
+  // Every other sheet opens through dlg(), and the camera and the cropper are dialogs of
+  // their own; the rule is the page's, so any of them opened after a tap is the same.
+  await page.locator('#app button.more').first().click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => openCam('post'));
+  await page.waitForTimeout(800);
+  r = await ringOnFocused();
+  check('  and for the camera', r.outline === 'none' && await page.evaluate(() => $('#cam').contains(document.activeElement)), JSON.stringify(r));
+  await shut();
+
+  // Typing is not moving around the page: a tap into a field and a few letters keep it a tap.
+  await page.locator('#app .cin [name=body]').first().click();
+  await page.keyboard.type('ok');
+  check('typing in a field still counts as tapping', await tapped());
+  await page.locator('#app .cin [name=body]').first().fill('');
+
+  // With keys, the ring is back: Tab, and Enter on the dots, opens it with the first option ringed.
+  await page.evaluate(() => document.activeElement.blur());
+  await page.keyboard.press('Tab');
+  check('a Tab puts the ring back', !(await tapped()));
+  await page.evaluate(() => document.querySelector('#app button.more').focus());
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(400);
+  r = await page.evaluate(() => { const a = document.activeElement; return { inSheet: !!a.closest('dialog'), fv: a.matches(':focus-visible'), outline: getComputedStyle(a).outlineStyle }; });
+  check('  so opening the menu from the keyboard rings its first option', r.inSheet && r.fv && r.outline === 'solid', JSON.stringify(r));
+  await shut();
+});
+
 // ---- text invites
 // The sheet. "Text an invite" is a real sms: link rather than a button that fetches and then
 // navigates, because iOS may refuse a navigation that happens after an await.
