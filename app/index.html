@@ -2128,7 +2128,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v183';
+const BUILD = 'quota-v184';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -8085,7 +8085,7 @@ async function deleteAccount(f) {
     if (NATIVE) await plug('PushNotifications')?.unregister();
     else if ('serviceWorker' in navigator) { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) await sub.unsubscribe(); }
   } catch (e) {}
-  try { indexedDB.deleteDatabase(OUTDB); } catch (e) {}
+  try { indexedDB.deleteDatabase(OUTDB); indexedDB.deleteDatabase(TAKEDB); } catch (e) {}
   try { localStorage.clear(); } catch (e) {}
   dlg();
   await logout();
@@ -8825,10 +8825,10 @@ function setupView() {
 // Bump TERMS_VERSION when any of them changes in a way that matters. It is written down
 // against each account, so it is always possible to say which wording somebody agreed to,
 // and an account on an older one is asked to agree again.
-const TERMS_VERSION = '2026-11-02';
+const TERMS_VERSION = '2026-11-17';
 // The date the documents say they were last changed. Usually TERMS_VERSION; later than it
 // when the wording moved in a way that asks nobody to agree again, like a new contact address.
-const LEGAL_UPDATED = '2026-11-10';
+const LEGAL_UPDATED = '2026-11-17';
 // Where every contact line in the documents points. support@ reaches both co-founders.
 const CONTACT = 'support@hitquota.app';
 // The website, where the same documents are published for anyone without the app, and
@@ -8841,29 +8841,41 @@ const LEGAL = {
 <p>These terms are the agreement between you and Quota, which is run by its two co-founders, Ari Marants and Justin Smith (“Quota”, “we”). By creating an account or using the app you agree to them, to the community guidelines, and to the privacy policy. If you do not agree, do not use Quota.</p>
 <h3>No tolerance for objectionable content or abusive users</h3>
 <p>There is no tolerance on Quota for objectionable content or for abusive behaviour. That means harassment, bullying, hate speech, threats, sexual content, content involving anybody under 18 in any sexual way, and anything else the community guidelines rule out. Posting it, or treating people that way, gets the content removed and the account suspended or deleted, with no warning required.</p>
-<ul>
-<li>Every post, story, comment, message and profile can be reported from inside the app, and anybody can be blocked.</li>
-<li>Reports are reviewed within 24 hours. Content that breaks these terms is removed, and the account behind it is removed as well where the guidelines say so.</li>
-<li>Whoever made a group can remove any post from it.</li>
-</ul>
 <h3>Your account</h3>
 <ul>
 <li>You must be 13 or older.</li>
 <li>Give a real email address and keep your password to yourself. You are responsible for what happens on your account.</li>
-<li>One person, one account. Do not make an account to get around a block or a removal.</li>
-<li>You can delete your account at any time from Settings. It deletes everything in it.</li>
+<li>One person, one account. Do not make an account to get around a block, a suspension or a removal.</li>
+<li>You can delete your account at any time from Settings. It deletes your account and everything in it, except the few records the privacy policy says are kept.</li>
 </ul>
-<h3>What you post</h3>
-<p>You own what you post. By posting it you give Quota permission to store it and show it to the people you shared it with, which is only what the app needs to work, and that permission ends when you delete it. Post only what you have the right to post, and only film people who are happy to be filmed.</p>
-<p>You are responsible for what you post, and for what you agree to with your groups, forfeits included. Quota does not review posts before they go up, and a forfeit is between the people in a group: Quota does not set it, enforce it, or answer for it.</p>
+<h3>What you post is yours, and your responsibility</h3>
+<p>You own what you post: clips, pictures, captions, comments, messages and stories. Quota does not claim it.</p>
+<p>By posting it you give Quota permission to store it, to make the copies and smaller versions needed to play it on every phone, and to show it to the people you shared it with. That is only what the app needs to work. The permission ends when you delete it, except for a copy of anything that was reported or taken down, which is kept for as long as it takes to deal with it or as the law requires.</p>
+<p>You are responsible for what you post, and for what you agree to with your groups, forfeits included. Post only what you have the right to post, and only film people who are happy to be filmed.</p>
+<h3>Quota is not responsible for what other people post</h3>
+<p>Everything on Quota is posted by the people who use it. Quota does not make it, does not check it before it goes up, and does not endorse it. Whoever posted something is responsible for it, not Quota. We act on what is reported to us, as described below, but we do not promise to find everything that breaks the rules, and we are not liable for anything someone else posts, says or does, on Quota or off it.</p>
+<p>A forfeit is between the people in a group: Quota does not set it, enforce it, or answer for it. The same goes for anything people arrange with each other through the app.</p>
+<h3>How Quota is moderated</h3>
+<ul>
+<li><b>Words.</b> What you type is checked against a list of slurs, sexually explicit words and strong swearing before it is saved, and refused if it has one in it.</li>
+<li><b>Reporting.</b> Every post, story, comment, message and profile can be reported from inside the app. A post, story, comment or message that is reported is hidden from everybody but whoever posted it while we look, and every report is reviewed within 24 hours. You can also report by email to <a href="mailto:${CONTACT}">${CONTACT}</a>.</li>
+<li><b>Blocking.</b> Anybody can be blocked. Everything they make is hidden from you straight away, and they are not told.</li>
+<li><b>Groups.</b> Whoever made a group can remove any post from it. Anybody in a group can question a post's proof, and the group decides whether it counts.</li>
+<li><b>Take-downs.</b> Content that breaks these terms or the guidelines is taken down. Whoever posted it is emailed from safety@hitquota.app saying what was taken down and why, and it counts as a strike.</li>
+<li><b>Warnings and suspension.</b> Strikes count for 180 days. The first is a warning, the second a final warning, and the third suspends the account. Nudity or sexual content, threats, and hate suspend an account the first time. A suspended account can still sign in and look, but cannot post, comment or message.</li>
+<li><b>Removal.</b> We can also delete an account, or stop it from signing in again, when it breaks these terms badly or repeatedly. Anything sexual involving somebody under 18 is reported to the authorities.</li>
+<li><b>If you think we got it wrong,</b> reply to the email we sent you and we will look at it again.</li>
+</ul>
+<h3>Your health</h3>
+<p>Quota helps you keep a promise to your friends. It is not medical or fitness advice. Only take on goals, challenges and forfeits that are safe for you, stop if something hurts, and check with a doctor if you are not sure. You do them at your own risk.</p>
 <h3>Using Quota fairly</h3>
 <p>Do not try to break, overload, or get around the app or its security; do not scrape it or read other people's data; and do not use it for anything illegal.</p>
 <h3>If things go wrong</h3>
-<p>Quota is free and is provided as it is. We work to keep it running and your data safe, but we cannot promise it will never be unavailable or lose something. As far as the law allows, we are not liable for indirect losses, or for what other people post. Nothing here takes away rights you have under the law where you live.</p>
+<p>Quota is free and is provided as it is. We work to keep it running and your data safe, but we cannot promise it will never be unavailable or lose something. As far as the law allows, we are not liable for indirect losses, or for what other people post or do. Nothing here takes away rights you have under the law where you live.</p>
 <h3>Ending it</h3>
 <p>You can stop using Quota and delete your account whenever you like. We can suspend or remove an account that breaks these terms, and we may change or stop the app. If these terms change in a way that matters you will be asked to agree again before carrying on.</p>
 <h3>The app stores</h3>
-<p>If you got Quota from Apple's App Store, these terms are between you and Quota, not Apple, and Apple has no responsibility for the app or its content. Apple's standard licence terms for apps also apply, and Apple and its subsidiaries may enforce these terms as third-party beneficiaries.</p>
+<p>If you got Quota from Apple's App Store, these terms are between you and Quota, not Apple, and Apple has no responsibility for the app or its content. Quota, not Apple, is responsible for supporting the app, for any claim about it (including a claim that it infringes somebody else's rights or breaks a law), and for any warranty the law gives you; if the app fails to meet one, you can tell Apple and it will refund what you paid, which for Quota is nothing. You may use the app only on Apple devices you own or control, as Apple's own terms allow, and only if you are not in a country under a US embargo or on a US list of prohibited people. Apple's standard licence terms for apps also apply, and Apple and its subsidiaries may enforce these terms as third-party beneficiaries.</p>
 <h3>Contact</h3>
 <p><a href="mailto:${CONTACT}">${CONTACT}</a></p>`},
 
@@ -8872,24 +8884,26 @@ const LEGAL = {
 <h3>What the app asks your phone for</h3>
 <ul>
 <li><b>The camera and microphone</b>, only when you tap to record proof, a story, or a picture of yourself. Nothing is recorded until you do.</li>
-<li><b>Your photos</b>, only when you choose a picture for your profile or a group, or save a recap. Proof can never come from your photos.</li>
+<li><b>Your photos</b>, only when you choose a picture for your profile, a group or a story, or save a recap. Proof can never come from your photos.</li>
 <li><b>Notifications</b>, only if you turn them on.</li>
 </ul>
 <p>Saying no to any of these leaves the rest of the app working, and your phone's Settings can change the answer at any time.</p>
 <h3>What Quota keeps</h3>
 <ul>
-<li><b>Your account.</b> Your email address, a username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Your email is used to confirm the account and to reset your password, and is never shown to anyone else.</li><li><b>About you.</b> Your full name and date of birth, which you give when you finish signing up. Accounts made before October 2026 may also have a gender on them, which is no longer asked for.</li><li><b>Signing in with Apple or Google.</b> If you use one of them, it tells Quota your name and email address. If you choose to hide your email from Apple, Quota only ever sees the forwarding address Apple gives it.</li>
+<li><b>Your account.</b> Your email address, a username, and a password stored only as a hash — nobody, including whoever runs Quota, can read it back. Your email is used to confirm the account, to reset your password, and for the emails described below, and is never shown to anyone else.</li><li><b>About you.</b> Your full name and date of birth, which you give when you finish signing up. Accounts made before October 2026 may also have a gender on them, which is no longer asked for.</li><li><b>Signing in with Apple or Google.</b> If you use one of them, it tells Quota your name and email address. If you choose to hide your email from Apple, Quota only ever sees the forwarding address Apple gives it.</li>
 <li><b>Your profile.</b> A display name, a bio and a picture, if you add them, and which of your groups you have chosen to show on it.</li>
 <li><b>What you post.</b> Proof clips and pictures, the amount and the metric, the caption, the day, and whether you put it on your profile.</li>
-<li><b>What you write.</b> Comments, stories, and the words on them.</li>
+<li><b>What you write.</b> Comments, messages, stories, and the words on them.</li>
 <li><b>What you tap.</b> Likes, reactions, and which stories you have watched.</li>
-<li><b>Your groups.</b> Names, goals, quotas, active days, wheels, spins and results.</li>
+<li><b>Your groups.</b> Names, goals, quotas, active days, wheels, spins and results, forfeits and who marked them paid, and the group's awards each month.</li>
+<li><b>Questioned proof.</b> If you question a post's proof, that you did and why, and each person's vote on it.</li>
 <li><b>Friends and invites.</b> Who you are friends with, and invitations sent or received.</li>
-<li><b>Your time zone</b>, so that a spin-day reminder arrives in your morning and not somebody else's.</li>
+<li><b>Your time zone</b>, so that a reminder arrives in your morning and not somebody else's.</li>
 <li><b>A push subscription</b>, only if you turn notifications on. Turning them off deletes it.</li>
 <li><b>When you last read each chat.</b> The people in that chat can see it, as "Seen" under what they sent you. Turn off Seen in Settings and nobody can, and you no longer see theirs.</li>
 <li><b>When you last opened the app.</b> One time per account, written over each time, used only to count how many people are using Quota on a given day. Nobody but the people who run Quota sees even the count.</li>
-<li><b>Reports and blocks.</b> If you report something, what you reported and why. If you block somebody, who.</li>
+<li><b>Reports and blocks.</b> If you report something, what you reported and why, with a copy of what was on the screen, because the original may be deleted before anyone looks. If you block somebody, who.</li>
+<li><b>Moderation.</b> If something of yours is taken down: what it was, the reason, any strike or suspension, and the email we sent you about it.</li>
 <li><b>A record of agreeing.</b> Each time you agree to these terms, the guidelines and this policy: when, which version, your username and email at the time, and the network address and browser it came from. It is proof that you agreed, and nothing else.</li>
 </ul>
 <h3>What Quota does not do</h3>
@@ -8897,47 +8911,60 @@ const LEGAL = {
 <h3>Who can see it</h3>
 <ul>
 <li>Your proof, captions, comments and results are visible to the members of the group you posted them in, and to nobody else.</li>
+<li>Your messages are visible to the people in that chat.</li>
+<li>When you question somebody's proof, the group sees that you did and why, and how the vote went.</li>
 <li>Anything you tick onto your profile is visible to anyone who can open your profile.</li>
 <li>Your stories are visible for 24 hours to the people you share a group with. Whoever posted a story is shown who watched it.</li>
 <li>Your username, display name and picture are visible to anyone searching for somebody to add.</li>
+<li>Reports, strikes and suspensions are seen only by you and by the two people who run Quota, who review them. Whoever you report is never told it was you.</li>
+<li>If you add a Quota widget, or the countdown on your lock screen, it shows your streak, what is left today, and which of your crew are done, to anyone who can see your phone's screen.</li>
 <li>Your password is visible to nobody.</li>
 </ul>
 <h3>Who else handles it</h3>
-<p>Three companies hold the data on Quota's behalf and are not allowed to use it for anything else:</p>
+<p>These companies handle data on Quota's behalf, only to do the job listed, and are not allowed to use it for anything else:</p>
 <ul>
-<li><b>Supabase</b> — the database, the sign-in, and the storage your clips and pictures sit in.</li>
-<li><b>Vercel</b> — serves the app itself, and keeps ordinary server logs (an address, a time, a page) for a short period.</li>
-<li><b>Resend</b> — sends the emails with your codes in them, so it sees your email address and the code.</li>
+<li><b>Supabase</b> — the database, the sign-in, and the storage for profile and group pictures and stories.</li>
+<li><b>Cloudflare</b> — stores proof clips and pictures (its R2 storage).</li>
+<li><b>Vercel</b> — serves the app and the website, and keeps ordinary server logs (an address, a time, a page) for a short period.</li>
+<li><b>Resend</b> — sends Quota's emails: your codes, the welcome email, and any email about something of yours being taken down. It sees your email address and what the email says.</li>
+<li><b>Anthropic</b> — when a moderator writes the reason something was taken down, that short note may be sent to Anthropic's AI to be rewritten politely before it is emailed. It is sent without your name or email address, and Anthropic does not use it to train its models.</li>
+<li><b>Google Fonts</b> — the app's typefaces are loaded from Google, which sees your network address when it sends them, as it would for any website that uses them. Nothing else about you is sent.</li>
 </ul>
 <p>If you turn notifications on, the message is delivered by your phone's own push service — Apple's or Google's, depending on the phone. They see that a message is going to your device.</p>
+<h3>When we would share it otherwise</h3>
+<p>Only if the law requires it, or to protect somebody from serious harm. Anything sexual involving somebody under 18 is reported to the National Center for Missing &amp; Exploited Children and kept as evidence.</p>
 <h3>How long it is kept</h3>
-<p>Posts, comments and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete account) deletes everything in it straight away, files included. A report is kept after the account it is about is gone, for as long as it takes to deal with it. The record of you agreeing to the terms and this policy is kept after the account is deleted too, because it is the proof of what was agreed if that is ever in question; it holds nothing but what is listed above, and nobody can change it. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
+<p>Posts, comments, messages and profiles are kept until you delete them or delete your account. Deleting a post deletes its file, and deleting your account (Settings → Delete account) deletes everything in it straight away, files included. A story stops being shown 24 hours after it goes up, but the row and the file behind it stay until the story is deleted.</p>
+<p>A few things are kept after that, and nothing else is: a report, with its copy of what was reported, for as long as it takes to deal with it; something taken down for breaking the rules, kept privately as evidence and never shown to anyone, with the record of the decision and any strike; and the record of you agreeing to the terms and this policy, because it is the proof of what was agreed if that is ever in question. It holds nothing but what is listed above, and nobody can change it.</p>
 <h3>What you can ask for</h3>
 <p>You can delete your account and everything in it yourself, from Settings. You can also ask for a copy of everything held about you, or for it to be corrected: email <a href="mailto:${CONTACT}">${CONTACT}</a> and it will be done within 30 days.</p>
 <h3>Age</h3>
 <p>Quota is not for anyone under 13. If you know of an account belonging to someone younger, email the address above and it will be removed.</p>
 <h3>Where it is</h3>
-<p>The database and the files are on Supabase's servers and the app is served from Vercel's. Both operate internationally, so your data may be stored or processed outside your own country.</p>
+<p>The database and files are on Supabase's and Cloudflare's servers, and the app is served from Vercel's. They operate internationally, so your data may be stored or processed outside your own country.</p>
 <h3>Changes</h3>
 <p>If this changes in a way that matters you will be asked to read and agree to it again before carrying on. The date at the top says when it last changed.</p>`},
 
   cookies: {title: 'Cookies and storage', sub: 'No cookies. What is kept on this phone', body: `
 <h3>Quota does not use cookies</h3>
-<p>No cookies are set by Quota, for any purpose, and there are no third-party cookies either — nothing on this page is loaded from an advertising or analytics company. That is why there is no banner asking you to accept any.</p>
+<p>No cookies are set by Quota, for any purpose, and there are no third-party cookies either — nothing in the app is loaded from an advertising or analytics company. Apart from Quota's own services, the only thing the app loads is its typefaces, from Google Fonts, which sets no cookies. That is why there is no banner asking you to accept any.</p>
 <h3>What is kept on your phone instead</h3>
-<p>A few things are held in the app's own storage on your phone. None of it is sent anywhere, and none of it identifies you to anybody:</p>
+<p>A few things are held in the app's own storage on your phone. None of it is used to track you, and none of it identifies you to anybody:</p>
 <ul>
 <li><b>Your sign-in.</b> A token that keeps you logged in, so the app does not ask for your password every time. Logging out removes it.</li>
+<li><b>A copy of what you last saw</b> — your groups, posts and messages — so the app opens straight away, even without a connection. Logging out removes it.</li>
+<li><b>Proof waiting to go up.</b> A clip or picture that could not be sent is kept until it can be, so a take you cannot film again is not lost. So is your last recording, for a few hours, in case you leave the post screen before posting it.</li>
+<li><b>What the widgets show.</b> If you use Quota's widgets or the countdown on your lock screen, the app leaves your streak, what is left today, and which of your crew are done where the phone can show them.</li>
 <li><b>Dark mode</b>, so the app opens the way you left it.</li>
 <li><b>Which camera you used last</b>, front or back.</li>
 <li><b>How fast your last upload went</b>, so the next progress bar can estimate itself.</li>
 <li><b>Whether you have already been asked</b> about notifications, about the camera, and about adding Quota to your home screen — so you are not asked twice.</li>
-<li><b>Which milestones have already been celebrated</b>, so the same run is not celebrated twice.</li>
+<li><b>Which tips, recaps and milestones you have already seen</b>, so they are not shown twice.</li>
 </ul>
-<h3>The offline copy</h3>
-<p>Quota keeps a copy of the app itself — the code and the icons — on your phone so that it opens without a connection. It holds the app, not your data.</p>
+<h3>The offline copy of the app</h3>
+<p>Quota also keeps a copy of the app itself — the code and the icons — on your phone so that it opens without a connection.</p>
 <h3>Clearing it</h3>
-<p>Logging out removes your sign-in; deleting the app, or deleting your account, removes all of it. Nothing you have posted is affected by anything but deleting it or your account.</p>`},
+<p>Logging out removes your sign-in and the copy of what you last saw; deleting the app, or deleting your account, removes all of it. Nothing you have posted is affected by anything but deleting it or your account.</p>`},
 
   guidelines: {title: 'Community guidelines', sub: 'What goes on Quota, and what does not', body: `
 <p>Quota is for showing your friends you did the thing. Everything below follows from that.</p>
@@ -8947,6 +8974,7 @@ const LEGAL = {
 <li>Say the number you actually did. A group only works if the number means something.</li>
 <li>Film other people only if they are happy to be filmed.</li>
 </ul>
+<p>If a post's proof looks off, tap the flag on it. The group votes, and proof the group does not accept stops counting towards the day.</p>
 <h3>How people are treated</h3>
 <ul>
 <li>No harassment, no pile-ons, no going after somebody for missing a day. Pressure is the point of the app. Cruelty is not.</li>
@@ -8955,14 +8983,15 @@ const LEGAL = {
 <li>No posting somebody else's private information.</li>
 <li>No pretending to be someone you are not, in a username, a display name or anywhere else.</li>
 </ul>
-<h3>Forfeits</h3>
+<h3>Forfeits and challenges</h3>
 <p>A forfeit is a small, friendly price for a missed day. Keep it that way.</p>
 <ul>
 <li>Cheap, safe and fun: buying the coffee, extra pushups, planning the next hangout.</li>
 <li>Nothing dangerous, nothing involving alcohol or drugs, nothing sexual, and nothing meant to humiliate somebody. A little friendly embarrassing is fine; cruelty is not.</li>
 <li>Never money, and nothing anybody has not agreed to by joining the group.</li>
+<li>The same goes for what is on a wheel: a challenge should be something everybody in the group can do safely.</li>
 </ul>
-<p>Nobody has to do a forfeit that breaks these rules, and whoever set it can be reported from their profile like anything else.</p>
+<p>Nobody has to do a forfeit or a challenge that breaks these rules, or that is not safe for them, and whoever set it can be reported from their profile like anything else.</p>
 <h3>What does not go on Quota</h3>
 <ul>
 <li>Nudity and sexual content.</li>
@@ -8971,14 +9000,20 @@ const LEGAL = {
 <li>Anything you do not have the right to post.</li>
 </ul>
 <h3>Language</h3>
-<p>Quota checks what you type before it saves it. Slurs, sexually explicit words and strong swearing are refused in captions, comments, stories, group names, bios and usernames, and you are told which word stopped it and why. It is a word list, not a reading of what you meant — take the word out and the rest goes through.</p>
+<p>Quota checks what you type before it saves it. Slurs, sexually explicit words and strong swearing are refused in everything you type — captions, comments, messages, stories, names, group names and bios — and you are told why. It is a word list, not a reading of what you meant — take the word out and the rest goes through.</p>
 <p>The list is not exhaustive. Getting something past it does not make it allowed; the rest of this page still applies.</p>
 <h3>Age</h3>
 <p>You have to be 13 or older to use Quota.</p>
-<h3>If these are broken</h3>
-<p>Posts, comments and stories that break these guidelines are taken down. An account that keeps breaking them is removed, and for slurs, threats, or sexual content involving anybody under 18 it goes on the first time.</p>
 <h3>Reporting and blocking</h3>
-<p>Tap ⋯ on a post or a story, or press and hold a comment or a message, and choose Report. Report and Block are also on everybody's profile. Every report is looked at within 24 hours. Blocking somebody hides everything they make from you straight away, and they are not told. You can also email <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>`},
+<p>Tap ⋯ on a post or a story, or press and hold a comment or a message, and choose Report. Report and Block are also on everybody's profile. A post, story, comment or message you report is hidden while it is looked at, and every report is looked at within 24 hours. Whoever you report is not told it was you. Blocking somebody hides everything they make from you straight away, and they are not told. You can also email <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
+<h3>If these are broken</h3>
+<p>What breaks these guidelines is taken down, and whoever posted it gets an email saying what and why. Each take-down is a strike, and strikes count for 180 days:</p>
+<ul>
+<li>The first strike is a warning.</li>
+<li>The second is a final warning.</li>
+<li>The third suspends the account: it can still sign in and look, but cannot post, comment or message.</li>
+</ul>
+<p>Nudity or sexual content, threats, and hate suspend an account the first time. An account can also be removed for good, and anything sexual involving somebody under 18 is reported to the authorities. If you think a decision was wrong, reply to the email about it and it will be looked at again.</p>`},
 };
 // legal:end
 const legalLinks = () => `<p class="legallinks">${Object.entries(LEGAL).map(([k, d]) =>
