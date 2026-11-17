@@ -65,10 +65,12 @@ Connect, Xcode or on a phone · **risk** = could still draw a rejection; what lo
 | 15 | **done** | 4.8 Login Services | Sign in with Apple is **not required**: the iOS app offers only Quota's own email (or username) and password. The Apple and Google buttons exist only on the website, when switched on in Supabase, and never in the native app (`offers()` returns nothing when `NATIVE`). If a third-party login is ever added to the iOS app, Sign in with Apple has to come with it. On 17 Nov nobody had ever signed in with Apple or Google. | `offers()` |
 | 16 | **needs Ari** | 2.3.3, 2.3.9 Screenshots | More than half of each set has to show the app in use (not a login or splash). Use the demo accounts, not real people's faces or names. | §5 |
 | 17 | **needs Ari** | Push | `App.entitlements` says `aps-environment: development`. With automatic signing Xcode switches it to production when you distribute to App Store Connect; check the archive's entitlements (Organizer → Distribute → the summary) say `production`. Push must never be required: it is not, the app works with notifications off. | `App.entitlements` |
-| 18 | **done** | 2.5.2, 2.5.19 | No code is downloaded or changed after review: `app/` is bundled at build time (`webDir`), no remote server URL. Every feature is reachable and described in the review notes; nothing hidden or switched on later. | `capacitor.config.json` |
-| 19 | **done** | 4.5.3, 4.5.4 | Notifications are opt-in and only about your groups; the Live Activity is the countdown to midnight on a day your quota is due, nothing else. | — |
-| 20 | **done** | Export compliance | `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only), so no encryption questions on each upload. | `Info.plist` |
-| 21 | **done** | Out-of-date parts of this file | Fixed: Xcode 16 → 26; the age rating section rewritten for the current questions; the App Privacy table (Audio Data) and the list of processors; "run the v46 block" (the live database is well past it, at v56 and later); the privacy and terms pages "go live when this branch merges" (they are live); the Sign in with Apple review note, which said there is no social login anywhere (the website shows Apple and Google buttons when they are switched on in Supabase; the app never does); the review notes on locked proof and on the native features. | this file |
+| 18 | **needs Ari** | EU Digital Services Act | Declare Quota a **non-trader** in App Store Connect's DSA compliance step (Business → Digital Services Act compliance): it is free, with no purchases or ads, so it is not run as a business. A non-trader's address and phone number are not shown on the EU App Store. Without a declaration, Apple will not offer the app in the EU at all. If Quota ever starts charging or earning money from it, change this to trader, which shows a verified address, phone and email on the EU listing. | §6 step 11 |
+| 19 | **needs Ari** | Licence agreement (EULA) | Quota uses **Apple's standard licence agreement**. In App Store Connect → App Information → License Agreement, leave it on Apple's standard one; do not add a custom EULA. The terms of use say so and link to it (https://www.apple.com/legal/internet-services/itunes/dev/stdeula/), and apply on top of it. That is why the terms carry no postal address: Apple's minimum terms for a custom licence would require one. | §1, terms |
+| 20 | **done** | 2.5.2, 2.5.19 | No code is downloaded or changed after review: `app/` is bundled at build time (`webDir`), no remote server URL. Every feature is reachable and described in the review notes; nothing hidden or switched on later. | `capacitor.config.json` |
+| 21 | **done** | 4.5.3, 4.5.4 | Notifications are opt-in and only about your groups; the Live Activity is the countdown to midnight on a day your quota is due, nothing else. | — |
+| 22 | **done** | Export compliance | `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only), so no encryption questions on each upload. | `Info.plist` |
+| 23 | **done** | Out-of-date parts of this file | Fixed: Xcode 16 → 26; the age rating section rewritten for the current questions; the App Privacy table (Audio Data) and the list of processors; "run the v46 block" (the live database is well past it, at v56 and later); the privacy and terms pages "go live when this branch merges" (they are live); the Sign in with Apple review note, which said there is no social login anywhere (the website shows Apple and Google buttons when they are switched on in Supabase; the app never does); the review notes on locked proof and on the native features. | this file |
 
 ---
 
@@ -87,6 +89,7 @@ Connect, Xcode or on a phone · **risk** = could still draw a rejection; what lo
 | Marketing URL | https://hitquota.app | |
 | Privacy Policy URL | https://hitquota.app/privacy | |
 | Copyright | 2026 Ari Marants and Justin Smith | |
+| License Agreement | Apple's standard licence agreement (leave it as it is; no custom EULA) | |
 
 **Description** (also used on Google Play):
 
@@ -226,7 +229,7 @@ Paste this, with the password filled in:
 > **Posting proof:** tap + and record a photo or clip with the camera. Proof must be taken in the app that day, so the photo library isn't offered for proof. It is used for profile and group pictures.
 >
 > **User-generated content safeguards (Guideline 1.2):**
-> - *Terms / EULA:* agreed to at sign-up ("By continuing you agree to Quota's terms, privacy policy and guidelines, which allow no abuse or objectionable content"), and again on an "I agree" screen whenever they change. All of them are under Settings → Legal.
+> - *Terms / EULA:* agreed to at sign-up ("By continuing you agree to Quota's terms, privacy policy and guidelines, which allow no abuse or objectionable content"), and again on an "I agree" screen whenever they change. All of them are under Settings → Legal. The app uses Apple's standard EULA; Quota's terms of use apply on top of it.
 > - *Report:* tap ⋯ on any post or story → Report; press and hold any comment or message → Report; open any profile → Report. A reason is required.
 > - *Block:* open any profile → Block, or ⋯ on their post → Block. Their content disappears immediately. Settings → Blocked to undo.
 > - *Remove content:* the creator of a group can remove any post in it (⋯ → "Remove from <group name>"). Authors can delete their own.
@@ -334,7 +337,7 @@ Enrol in **Play App Signing** when you upload (the default).
 10. Fill in `app/.well-known/assetlinks.json`: Play Console → your app → Setup → App signing → "App signing key certificate" → SHA-256 fingerprint. Paste it in place of the placeholder, keeping the colons. If you also sign builds yourself for testing, add your upload key's fingerprint as a second entry in the array (`keytool -list -v -keystore your.keystore`). It's served at `https://app.hitquota.app/.well-known/assetlinks.json`. You only need it if you add app links, or if you publish the PWABuilder/TWA package instead of the Capacitor one.
 
 **Store setup**
-11. App Store Connect → new app: name, bundle ID, SKU `quota-ios`, primary language English. Fill in section 1, 2, 3, 4 and upload the screenshots. Pricing: free. Availability: your choice.
+11. App Store Connect → Business → Digital Services Act compliance: declare **non-trader** while Quota is free (checklist item 18). Then App Store Connect → new app: name, bundle ID, SKU `quota-ios`, primary language English. Leave the License Agreement on Apple's standard one (item 19). Fill in section 1, 2, 3, 4 and upload the screenshots. Pricing: free. Availability: your choice.
 12. Play Console → create app → the same sections, plus Data safety, Target audience, Content rating, App access and Ads (No).
 13. Galaxy Store → the same, uploading the APK or AAB.
 
