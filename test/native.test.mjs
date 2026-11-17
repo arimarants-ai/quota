@@ -101,4 +101,29 @@ const dayNo = d => Math.round(Date.parse(d) / 864e5), idx = d => ((dayNo(d) % 14
 ok(idx('1970-01-01') === 0 && idx('1970-01-15') === 0 && idx('2026-11-10') === (dayNo('2026-11-10') % 14), 'and the day picks the line the same way the phones do');
 ok(/func motivationIndex/.test(swift) && /timeIntervalSince1970 \/ 86_400/.test(swift) && /floorDiv\(utc\.getTimeInMillis\(\), 86_400_000L\)/.test(java),
   '  from the local date as a day since 1970, on both phones');
+// ---- the privacy manifests
+// Apple refuses a build whose code reads or writes UserDefaults without a privacy manifest
+// saying why, and both targets do: the app writes what the widgets show into the App Group
+// (QuotaPlugin.setWidget) and the widgets read it (Shared.swift). A manifest that is in the
+// folder but not in the target's Resources phase is not in the build at all.
+for (const [name, folder, targetId, groupId] of [['the app', 'App', '504EC3031FED79650016851F', '504EC3061FED79650016851F'], ['the widget extension', 'QuotaWidget', 'C8A8385A2F42125E2E21F879', '2E42BBA11BEBC9C81E241D74']]) {
+  const file = `native/ios/App/${folder}/PrivacyInfo.xcprivacy`;
+  ok(existsSync(join(ROOT, file)), `${name} has a privacy manifest (${file})`);
+  const xml = read(file);
+  ok(/<key>NSPrivacyTracking<\/key>\s*<false\/>/.test(xml), '  which says it does not track');
+  ok(/NSPrivacyAccessedAPICategoryUserDefaults<\/string>\s*<key>NSPrivacyAccessedAPITypeReasons<\/key>\s*<array>\s*<string>1C8F\.1<\/string>/.test(xml),
+    '  and gives the App Group reason (1C8F.1) for UserDefaults');
+  const rid = /([0-9A-F]{24}) \/\* Resources \*\//.exec(section(folder, targetId))?.[1];
+  const b = /([0-9A-F]{24}) \/\* PrivacyInfo\.xcprivacy in Resources \*\//.exec(section('Resources', rid))?.[1];
+  const ref = b && new RegExp(`${b} /\\* PrivacyInfo\\.xcprivacy in Resources \\*/ = \\{isa = PBXBuildFile; fileRef = ([0-9A-F]{24})`).exec(pbx)?.[1];
+  ok(!!ref && section(folder, groupId).includes(`${ref} /* PrivacyInfo.xcprivacy */`), `  and it is in the Resources phase of ${name}, from the ${folder} folder`);
+}
+// What the app's manifest says it collects is what App Store Connect is told (STORE_SUBMISSION.md, section 3).
+{
+  const xml = read('native/ios/App/App/PrivacyInfo.xcprivacy'), store = read('STORE_SUBMISSION.md');
+  const types = [...xml.matchAll(/NSPrivacyCollectedDataType(\w+)<\/string>/g)].map(m => m[1]).filter(t => !/^Purpose/.test(t));
+  const label = { EmailAddress: 'Email Address', Name: 'Name', PhotosorVideos: 'Photos or Videos', AudioData: 'Audio Data', OtherUserContent: 'Other User Content',
+    EmailsOrTextMessages: 'Emails or Text Messages', UserID: 'User ID', DeviceID: 'Device ID', OtherDataTypes: 'Other Data', ProductInteraction: 'Product Interaction' };
+  ok(types.length > 0 && types.every(t => label[t] && store.includes(label[t])), `the app's manifest lists ${types.length} kinds of data, each one in the App Privacy answers`);
+}
 console.log('PASS: the widgets hold together where no compiler looks');

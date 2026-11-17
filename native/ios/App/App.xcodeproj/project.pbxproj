@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A1C0E3F2B6D4A1F00C0FFE2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9A1C0E3F2B6D4A1F00C0FFE1 /* PrivacyInfo.xcprivacy */; };
+		9A1C0E3F2B6D4A1F00C0FFE4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9A1C0E3F2B6D4A1F00C0FFE3 /* PrivacyInfo.xcprivacy */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3433346F6C7F65D2367B3276 /* QuotaLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8550F8708B0ECB04EA1B2BD1 /* QuotaLiveActivity.swift */; };
 		3D8736F762E0287CC707549E /* Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9762CFDE0A765F91969C312A /* Shared.swift */; };
@@ -55,6 +57,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		9A1C0E3F2B6D4A1F00C0FFE1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9A1C0E3F2B6D4A1F00C0FFE3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		02B5A4248C0B8746EA5111A1 /* QuotaActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuotaActivityAttributes.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -110,6 +114,7 @@
 				8550F8708B0ECB04EA1B2BD1 /* QuotaLiveActivity.swift */,
 				679DB65FA1F933C8E47BA680 /* Assets.xcassets */,
 				D5110EDE8DA271DDD05486B7 /* Info.plist */,
+				9A1C0E3F2B6D4A1F00C0FFE3 /* PrivacyInfo.xcprivacy */,
 				7540F0F3FA96C18D0D4E8D18 /* QuotaWidget.entitlements */,
 			);
 			name = QuotaWidget;
@@ -155,6 +160,7 @@
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
 				504EC3131FED79650016851F /* Info.plist */,
+				9A1C0E3F2B6D4A1F00C0FFE1 /* PrivacyInfo.xcprivacy */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				FED7B65C37CD3BC90327DFD2 /* QuotaPlugin.swift */,
@@ -267,6 +273,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0827F634185D70DF50785BB0 /* Assets.xcassets in Resources */,
+				9A1C0E3F2B6D4A1F00C0FFE4 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,6 +287,7 @@
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+				9A1C0E3F2B6D4A1F00C0FFE2 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -36,6 +36,42 @@ with Apple, so change it now if you want something else.
 
 ---
 
+## 0. Readiness checklist (checked 17 November 2026)
+
+Quota checked against the App Store Review Guidelines as they stood on 17 November 2026
+(last updated by Apple on 16 October 2026), Apple's list of common rejections ("over 40% of
+unresolved issues are related to guideline 2.1: App Completeness"), and the age rating,
+privacy manifest and account deletion pages. Riskiest first.
+
+**done** = handled in the app or this repo · **needs Ari** = only you can do it, in App Store
+Connect, Xcode or on a phone · **risk** = could still draw a rejection; what lowers it is said.
+
+| # | Status | Guideline | What | Where |
+|---|---|---|---|---|
+| 1 | **needs Ari** | 2.1 App Completeness (the most common rejection) | **There is no demo account yet.** On 17 Nov there was no `appreview@` user and no "App Review" group in the live database. Create both accounts, the group, and the buddy's content (section 4). Post the buddy's proof on the **day before** you submit, and again the day before any resubmission: today's posts from others stay locked until you post your own, so a reviewer opening the app sees "Post yours to unlock" over anything from today. The review notes now say so. Check the login still works on the day review starts. | §4, §6 step 6 |
+| 2 | **needs Ari** | Upcoming requirements | **Build with Xcode 26 and the iOS 26 SDK.** Required for uploads since 28 April 2026; this file used to say Xcode 16. The deployment targets (iOS 15 app, iOS 16.2 widgets) are fine; the minimum is iOS 13. | §6 Build iOS |
+| 3 | **risk** · needs Ari | 2.1, "crashes and bugs" | The native code (both-cameras plugin, widgets, Live Activity) has never been compiled here. Run it on a real iPhone through TestFlight before submitting, using the checks at the top of this file, and try every screen the review notes mention. | top of file |
+| 4 | **done** · needs Ari to build | Privacy manifests (required since 1 May 2024) | **There was no `PrivacyInfo.xcprivacy`.** Both targets use a required-reason API (UserDefaults through the App Group: the app writes what the widgets show, the widgets read it), and App Store Connect refuses such a build without a manifest. Added `App/PrivacyInfo.xcprivacy` and `QuotaWidget/PrivacyInfo.xcprivacy`: no tracking, UserDefaults with reason `1C8F.1` (App Group), and the app's collected data types matching §3. Both are in their target's Resources phase (`test/native.test.mjs` checks). The project file was edited by hand: after archiving, Xcode → Organizer → right-click the archive → **Generate Privacy Report** should list both. Capacitor and its plugins bring their own. | `native/ios/App/*/PrivacyInfo.xcprivacy` |
+| 5 | **needs Ari** | 2.3.6 Age rating | The age rating questionnaire changed (13+, 16+ and 18+ added; new questions on capabilities, social media, wellness, shared location and dating; the social media and new descriptor answers are required for any submission now). §2 has the answers for the current questions. Expected: **13+**, with a Social Media descriptor. | §2 |
+| 6 | **risk** · needs Ari | Age assurance (Texas SB 2420, from 4 June 2026) | Quota accepts people from 13 and checks age only from the birthday typed at sign-up. Apple's guidance is for apps that serve minors to use the Declared Age Range API (and the Significant Change API for parental consent) where state laws require it. Nothing in the guidelines makes it a rejection reason for a 13+ app today, but it is a legal question about under-18s in Texas and similar states. Decide with a lawyer whether to adopt the API or raise the minimum age to 18. | — |
+| 7 | **risk** (lowered) | 4.2 Minimum Functionality | A Capacitor app is a web view, which is what 4.2 is about. What is genuinely native in Quota: its own camera that films with the front and back cameras at once (AVFoundation, `DualCamPlugin.swift`), push notifications through APNs, three home screen widgets (Streak, Motivation, Countdown) and a lock screen Live Activity counting down to midnight (WidgetKit / ActivityKit), haptics, the system photo picker and saving recaps to Photos, keeping the screen awake while recording, and invite links that open the app (once the Team ID is in, item 13). Every screen is bundled in the app and opens offline (only the typefaces come from Google Fonts); no page is loaded from a website, and there is no browser UI or link out of the app to sign in. The review notes list all of this. | §4 |
+| 8 | **risk** (lowered) | 1.4.5 Physical harm | Apps must not urge "challenges … in a way that risks physical harm". Quota is daily fitness goals, with wheels of challenges and forfeits. The terms now have a "Your health" section (not medical advice, only take on what is safe for you), and the guidelines say a wheel challenge must be safe for everybody in the group and nobody has to do one that is not. Keep screenshots and the description about consistency, not extremes. | terms, guidelines |
+| 9 | **needs Ari** | 5.1.1, 2.3 App Privacy | The App Privacy answers (§3) now include **Audio Data** (clips have sound) and the processors added in the privacy policy (Cloudflare R2 for clips, Anthropic for rewording a moderator's note, Google Fonts). They have to match the manifest and the policy; enter them in App Store Connect as §3 says. | §3 |
+| 10 | **done** | 1.2 User-generated content | Filter: slurs, sexual words and strong swearing are refused in every typed field. Report: every post, story, comment, message and profile, from inside the app; reported content is hidden until reviewed. Block: from a profile or a post's ⋯, instant. Moderation within 24 hours, strikes, take-down emails (`MODERATION.md`). Published contact: support@hitquota.app in Settings → Support, in every document, and on hitquota.app/support. Terms (EULA) with zero tolerance, agreed at sign-up and again when they change. **Needs Ari:** keep reading Reports and support@ every day; the Oct 2026 text makes it "your responsibility to remove content that violates" the terms. | `MODERATION.md` |
+| 11 | **done** | 5.1.1(v) Account deletion | Settings → Delete account → type "delete" → Delete everything. Deletes the account, every post, story and file (shared content included) straight away, and clears the phone. Not hidden, no email or call needed. | `deleteAccount()` |
+| 12 | **done** | 5.1.1(i) Privacy policy | In the app (Settings, and the sign-up screen's fine print) and at https://hitquota.app/privacy for App Store Connect. Covers what is collected, who handles it (now including third-party AI, which 5.1.2 asks to be disclosed), how long it is kept, and how to delete it. **Needs Ari:** open the link the day you submit; a broken privacy or support link is a listed rejection. | `LEGAL` |
+| 13 | **needs Ari** | Placeholders | `app/.well-known/apple-app-site-association` still says `REPLACE_WITH_TEAM_ID`; fill it in from the Membership page and redeploy (§6 step 17). It is not in the app binary, but invite links will not open the app until it is done. | §6 |
+| 14 | **done** | 5.1.1(ii), (iv) Purpose strings | Camera, microphone, photos and save-to-photos each name the feature and an example ("…when you record proof of your daily goal, a story, or a profile picture"). The microphone is asked for only when recording video, never for a photo. English is the only localisation, so there is nothing else to translate. | `Info.plist` |
+| 15 | **done** | 4.8 Login Services | Sign in with Apple is **not required**: the iOS app offers only Quota's own email (or username) and password. The Apple and Google buttons exist only on the website, when switched on in Supabase, and never in the native app (`offers()` returns nothing when `NATIVE`). If a third-party login is ever added to the iOS app, Sign in with Apple has to come with it. On 17 Nov nobody had ever signed in with Apple or Google. | `offers()` |
+| 16 | **needs Ari** | 2.3.3, 2.3.9 Screenshots | More than half of each set has to show the app in use (not a login or splash). Use the demo accounts, not real people's faces or names. | §5 |
+| 17 | **needs Ari** | Push | `App.entitlements` says `aps-environment: development`. With automatic signing Xcode switches it to production when you distribute to App Store Connect; check the archive's entitlements (Organizer → Distribute → the summary) say `production`. Push must never be required: it is not, the app works with notifications off. | `App.entitlements` |
+| 18 | **done** | 2.5.2, 2.5.19 | No code is downloaded or changed after review: `app/` is bundled at build time (`webDir`), no remote server URL. Every feature is reachable and described in the review notes; nothing hidden or switched on later. | `capacitor.config.json` |
+| 19 | **done** | 4.5.3, 4.5.4 | Notifications are opt-in and only about your groups; the Live Activity is the countdown to midnight on a day your quota is due, nothing else. | — |
+| 20 | **done** | Export compliance | `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only), so no encryption questions on each upload. | `Info.plist` |
+| 21 | **done** | Out-of-date parts of this file | Fixed: Xcode 16 → 26; the age rating section rewritten for the current questions; the App Privacy table (Audio Data) and the list of processors; "run the v46 block" (the live database is well past it, at v56 and later); the privacy and terms pages "go live when this branch merges" (they are live); the Sign in with Apple review note, which said there is no social login anywhere (the website shows Apple and Google buttons when they are switched on in Supabase; the app never does); the review notes on locked proof and on the native features. | this file |
+
+---
+
 ## 1. Listing text
 
 ### App Store
@@ -101,23 +137,35 @@ Galaxy Store uses the same text.
 
 It has user-generated video, chat, and no in-app purchases. Quota itself requires users to be 13+.
 
-**Apple (App Store Connect → App Information → Age Rating):**
+**Apple (App Store Connect → App Information → Age Rating).** The questionnaire was
+rebuilt in 2025 (ratings 4+, 9+, 13+, 16+, 18+) and has had more questions added since: the
+social media ones (required since September 2026) and Shared Location and Dating (required
+for any submission from 16 November 2026). Answer every one; the ones below are all of them
+as of 17 November 2026.
 
 | Question | Answer |
 |---|---|
-| Violence (cartoon, realistic, graphic) | None |
-| Sexual content or nudity | None |
-| Profanity or crude humour | None (strong words are filtered out) |
-| Alcohol, tobacco, drugs; horror; mature themes; gambling; simulated gambling; contests | None / No |
-| Medical or treatment information | None |
-| Health or wellness topics | Yes, infrequent (fitness goals). Answer No if it pushes the rating up; it's not medical. |
+| Parental controls | No |
+| Age assurance | No (the birthday typed at sign-up is not one of Apple's methods; see checklist item 6) |
 | Unrestricted web access | No |
-| User-generated content | **Yes** |
+| User-generated content | **Yes** (videos and photos shared in groups) |
 | Messaging and chat | **Yes** |
-| Parental controls / age assurance | No |
+| Social media | **Yes**: a feed of friends' posts with likes, comments and stories. This sets a minimum of 13+ and adds the Social Media descriptor. |
+| Social media disabled for users under 13 | Not applicable: nobody under 13 can make an account |
+| Shared location | No |
+| Dating and relationships | No |
 | Advertising | No |
+| Contests | Infrequent (a group's streaks and monthly awards are a friendly fitness contest; Apple counts "sport or fitness contests") |
+| Gambling, simulated gambling | None / No (the wheel picks a challenge; nothing is staked) |
+| Health or wellness topics | **Yes** (exercise goals). This alone is 9+. |
+| Medical or treatment information | None |
+| Violence (cartoon, realistic, graphic), violent themes | None |
+| Sexual content or nudity, suggestive themes | None |
+| Profanity or crude humour | None (strong words are filtered out) |
+| Alcohol, tobacco, drugs; horror or fear; mature themes | None |
 
-Expected result: **13+**. Pick 13+ even if the calculator offers lower; the terms say 13+.
+Expected result: **13+** with the Social Media descriptor. If the calculator ever offers
+less, set 13+ yourself (allowed: you can choose a higher rating); the terms say 13+.
 
 **Google Play (IARC questionnaire):** category *Social* or *All other app types*. Violence,
 sexuality, language, controlled substances, gambling: No. "Can users interact or exchange
@@ -138,6 +186,7 @@ own database and is never shared, which is not tracking in Apple's sense.
 | Contact Info → Email Address | Yes | Yes | App Functionality | Personal info → Email address |
 | Contact Info → Name | Yes (display name) | Yes | App Functionality | Personal info → Name |
 | User Content → Photos or Videos | Yes (proof, stories, pictures) | Yes | App Functionality | Photos and videos → Photos, Videos |
+| User Content → Audio Data | Yes (the sound on proof clips and stories) | Yes | App Functionality | Audio → Voice or sound recordings |
 | User Content → Other User Content | Yes (captions, comments, stories, group names) | Yes | App Functionality | App activity → Other user-generated content |
 | User Content → Emails or Text Messages | Yes (in-app chat) | Yes | App Functionality | Messages → Other in-app messages |
 | User Content → Customer Support | Yes (if they email) | Yes | App Functionality | — |
@@ -149,7 +198,12 @@ own database and is never shared, which is not tracking in Apple's sense.
 
 Google also asks: data encrypted in transit **Yes**; users can request deletion **Yes** (in
 the app, and at hitquota.app/support); data shared with third parties **No** (Supabase,
-Vercel and Resend are processors acting for Quota, which doesn't count as sharing).
+Cloudflare, Vercel, Resend and Anthropic are processors acting for Quota, which doesn't count as sharing).
+
+Every type in this table except Customer Support (which arrives by email, outside the app) is
+also declared in `native/ios/App/App/PrivacyInfo.xcprivacy`, and `test/native.test.mjs` fails if
+the manifest names a type this table does not. Change the policy, the manifest and these
+answers together.
 
 ---
 
@@ -165,6 +219,8 @@ Paste this, with the password filled in:
 
 > **Demo account:** appreview@hitquota.app / `<PASSWORD>`. It's already a member of a group called "App Review" with another user who has posted, so every feature can be seen without creating content.
 >
+> **Locked proof:** today's proof from other people in a group stays locked ("Post yours to unlock") until you post your own, which is the point of the app. Earlier days are never locked. To see today's posts, tap + and post a photo of anything.
+>
 > **Joining a group:** the demo account is already in one. To try joining, tap Groups → + → create one, then Invite; or open the invite link we can send on request.
 >
 > **Posting proof:** tap + and record a photo or clip with the camera. Proof must be taken in the app that day, so the photo library isn't offered for proof. It is used for profile and group pictures.
@@ -179,9 +235,11 @@ Paste this, with the password filled in:
 >
 > **Account deletion (5.1.1(v)):** Settings (gear on the Profile tab) → Delete account → type "delete" → Delete everything. It deletes the account and all its data immediately.
 >
-> **Sign in with Apple:** not offered because Quota has no third-party or social login, only email and password.
+> **Sign in with Apple (4.8):** the app offers only Quota's own sign-in, an email or username and a password. There is no third-party or social login in the app.
 >
-> **Native features:** home-screen streak widgets, a lock-screen countdown to midnight (Live Activity), push notifications (daily reminder, a crew member posting, a last call before midnight), haptics and the camera. The app's screens are bundled in the app, not loaded from a website.
+> **Native features (4.2):** Quota's own camera, which can film with the front and back cameras at once (AVFoundation); three home screen widgets (Streak, Motivation, Countdown) and a lock screen countdown to midnight (Live Activity); push notifications (daily reminder, a crew member posting, a last call before midnight); haptics; the system photo picker and saving recaps to Photos. The app's screens are bundled in the app and open offline; none is loaded from a website.
+>
+> **Safety of challenges (1.4.5):** goals and wheel challenges are chosen by each group. The terms say Quota is not medical advice and to take on only what is safe for you, and the guidelines that a challenge must be safe for everybody in the group and nobody has to do one that is not.
 >
 > **In-app purchases:** none. Everything in the app is free, so there is nothing to restore.
 
@@ -223,14 +281,14 @@ them. It does render the awards card (`app/screenshot-awards.png`) as a stand-in
 In roughly this order.
 
 **Database and functions (before any build is reviewed)**
-1. Run the **v46** block of `supabase/schema.sql` in the SQL editor.
-2. Redeploy **notify** and **wheelday** from their `bundled.ts` (full replace). Both send push, and both now know the native kinds.
+1. The live database must be on the latest block of `supabase/schema.sql` (v64 when this was written; it was past v56 on 17 November 2026). Run any block it has not seen, oldest first, as the README says.
+2. Every function in `supabase/functions/` deployed from current `main`: `notify`, `wheelday`, `media` and `moderation` from their `bundled.ts`, `welcome` and `signin` from `index.ts`.
 3. Make yourselves moderators (SQL in `MODERATION.md`) and turn notifications on in the app.
 
 **Accounts and legal**
 4. Apple Developer Program ($99/yr). As an individual, the seller name shown is your legal name. As a company, you need a D-U-N-S number first. Google Play Console ($25 one-off; new personal accounts must run a closed test with 12 testers for 14 days before production). Samsung Seller Portal (free).
 5. Decide whose name is on it. The terms and privacy policy name Ari Marants and Justin Smith. If you set up a company, change the first line of `LEGAL.privacy` and `LEGAL.terms` in `app/index.html`, then run `node test/legal-pages.mjs --write`.
-6. Create the review accounts in section 4, the App Review group, and some content.
+6. Create the review accounts in section 4, the App Review group, and some content (checklist item 1: none of it existed on 17 November 2026). The buddy's proof goes up the day before you submit, so it is not locked for the reviewer.
 
 **Push credentials**
 7. **Apple:** Certificates, Identifiers & Profiles → Keys → + → Apple Push Notifications service → download the `.p8` (you only get it once). Also register the identifier `app.hitquota.quota` with Push Notifications ticked.
@@ -242,7 +300,7 @@ In roughly this order.
    - `APNS_TOPIC` = `app.hitquota.quota`
    - `FCM_SERVICE_ACCOUNT` = the whole service account JSON
 
-**Build iOS** (needs a Mac with Xcode 16+ from the App Store):
+**Build iOS** (needs a Mac with **Xcode 26** or later: App Store Connect has refused builds from older SDKs since 28 April 2026):
 
 ```bash
 cd native && npm ci && npx cap sync ios && npx cap open ios
@@ -281,7 +339,7 @@ Enrol in **Play App Signing** when you upload (the default).
 13. Galaxy Store → the same, uploading the APK or AAB.
 
 **Domain and email** (already done, check they still hold)
-14. hitquota.app/privacy, /terms and /support go live when this branch merges (the `quota-site` project). Open each one before you submit.
+14. hitquota.app/privacy, /terms and /support are served by the `quota-site` project from `site/`. Open each one the day you submit: a broken support or privacy link is one of Apple's listed rejections.
 15. support@hitquota.app forwards to your inbox (Cloudflare Email Routing) and is the address in the app. Someone has to read it daily for the 24-hour promise.
 
 **After launch**
