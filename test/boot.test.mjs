@@ -3633,6 +3633,37 @@ await withPage(NO_WHEEL, async page => {
       return getComputedStyle(s).fill === 'none';
     }, other));
 
+  // The flag is in the row every post card draws (acts), and an opened post is the same
+  // card, so it is on both. Checked as something a finger can reach, not only as an element
+  // in the page: nothing in the row's redesigns may cover it, shrink it or push it out of
+  // the card.
+  const reachable = sel => page.evaluate(sel => {
+    const b = document.querySelector(sel);
+    if (!b) return 'not there';
+    b.scrollIntoView({block: 'center'});
+    const r = b.getBoundingClientRect(), card = b.closest('.post').getBoundingClientRect();
+    for (let e = b; e; e = e.parentElement) { const c = getComputedStyle(e); if (c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return 'hidden'; }
+    if (r.width < 20 || r.height < 20) return `${r.width}x${r.height}`;
+    if (r.left < card.left || r.right > card.right) return 'outside the card';
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return hit && b.contains(hit) ? 'ok' : `covered by ${hit && hit.outerHTML.slice(0, 60)}`;
+  }, sel);
+  let at = await reachable(`#app .post[data-post="${other}"] .acts .flg`);
+  check('  where it can be seen and tapped, beside the reaction', at === 'ok'
+    && await page.evaluate(o => !!document.querySelector(`#app .post[data-post="${o}"] .acts .react + .flg`), other), at);
+  await page.evaluate(id => openPost(id), other);
+  await page.waitForTimeout(600);
+  at = await reachable(`#onewrap .post[data-post="${other}"] .acts .flg`);
+  check('  and on the same post opened on its own', at === 'ok', at);
+  await page.evaluate(() => closePost());
+  await page.waitForTimeout(400);
+  await page.evaluate(id => openPost(id), own);
+  await page.waitForTimeout(600);
+  check('    but not on your own post opened', await page.locator('#onewrap .acts .flg').count() === 0
+    && await page.locator('#onewrap .acts .react').count() === 1);
+  await page.evaluate(() => closePost());
+  await page.waitForTimeout(400);
+
   await page.locator(`.post[data-post="${other}"] .acts .flg`).click();
   await page.waitForTimeout(350);
   check('  tapping it asks what is wrong rather than flagging on the spot',
