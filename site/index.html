@@ -25,7 +25,7 @@
 <link rel="icon" href="/icon-192.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Oswald:wght@600&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Oswald:wght@600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <style>
 :root{--bg:#ffffff;--alt:#f5f5f7;--ink:#1d1d1f;--mute:#6e6e73;--line:#d2d2d7;--g0:#0b5a34;--g1:#12934f;--g2:#2fd36f;--red:#ff3b5c;--dark:#0b0c0e;color-scheme:light}
@@ -137,22 +137,8 @@ footer .fbase{grid-column:1/-1;display:flex;justify-content:space-between;flex-w
 /* phone: mirrors the real feed screen */
 .phone{width:300px;justify-self:center;background:#000;border-radius:44px;padding:11px;box-shadow:0 30px 60px rgba(0,0,0,.5),0 0 0 2px #2c2c2e;transform:translateY(40px)}
 .screen{background:#fff;color:var(--ink);border-radius:34px;height:600px;overflow:hidden;position:relative;font-size:12px}
-.screen .top{display:flex;align-items:center;padding:24px 18px 12px}
-.screen .top>span{display:flex;align-items:center;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase}
-.screen .top small{color:var(--mute);font-weight:500;font-size:9px;letter-spacing:.1em}
-.screen .top>span svg{width:17px;height:17px;margin-right:6px}
-.screen .streak{display:flex;align-items:center;gap:12px;padding:6px 18px 12px;border-bottom:1px solid #eee}
-.screen .streak b{font-size:52px;line-height:1;background:linear-gradient(#0b5a34,#2fd36f);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;font-variant-numeric:tabular-nums}
-.screen .streak div{font-size:12px}.screen .streak div b{font-size:13px;background:none;color:var(--ink);display:block}
-.screen .streak small{color:var(--mute);font-size:10px}
-.qrow{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:4px solid #f2f2f2;font-weight:600}
-.qrow i{flex:1;height:3px;border-radius:2px;background:linear-gradient(90deg,#0b5a34,#2fd36f)}
-.qrow i span.part{animation:bar2 1.6s ease .4s forwards}
 @keyframes bar2{from{width:60%}to{width:40%}}
-.qrow i span{display:block;height:100%;width:0;background:#e5e5ea;margin-left:auto;animation:bar 1.6s ease .4s forwards}
 @keyframes bar{from{width:60%}to{width:0}}
-.stories{display:flex;gap:14px;padding:12px 18px 6px}.stories div{text-align:center;font-size:9px;font-weight:600}.stories .av{width:40px;height:40px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-size:14px;margin:0 auto 4px;box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--g1);position:relative}.stories .av.g{background:#e5e5ea;color:#111;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #e5e5ea}.stories .av i{position:absolute;right:-3px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:var(--g1);color:#fff;font-style:normal;font-size:11px;line-height:1;display:grid;place-content:center;padding-bottom:1px;border:1.5px solid #fff}
-.screen .lbl{color:var(--mute);padding:12px 18px 6px}
 .card2{margin:0 12px;border:1px solid #e5e5ea}
 .card2 .who{display:flex;align-items:center;gap:8px;padding:10px}
 .card2 .av{width:26px;height:26px;border-radius:50%;background:#111;color:#fff;display:grid;place-content:center;font-weight:600;font-size:11px}
@@ -160,10 +146,6 @@ footer .fbase{grid-column:1/-1;display:flex;justify-content:space-between;flex-w
 .vid{height:150px;background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%);position:relative}
 .vid::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 70%,rgba(255,255,255,.12),transparent 40%),radial-gradient(circle at 20% 80%,rgba(255,255,255,.08),transparent 35%)}
 .vid .tag{position:absolute;top:10px;right:10px;background:var(--g2);color:#06230f;font-weight:700;font-size:10px;padding:5px 8px;letter-spacing:.04em;z-index:1}
-.tabs{position:absolute;left:12px;right:12px;bottom:12px;background:#fff;border-radius:999px;box-shadow:0 4px 18px rgba(0,0,0,.14);display:flex;justify-content:space-around;align-items:center;padding:8px 6px;font-size:9px;color:var(--mute)}
-.tabs span{text-align:center}.tabs span b{display:block;width:16px;height:12px;margin:0 auto 3px;border-radius:3px;background:#c7c7cc}
-.tabs .on{color:var(--ink);font-weight:600}.tabs .on b{background:var(--ink)}
-.tabs .plus{width:40px;height:40px;border-radius:50%;background:var(--g1);color:#fff;font-size:22px;display:grid;place-content:center;margin-top:-22px;font-weight:300}
 /* explainer figures */
 .fig{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;font-size:14px;max-width:420px;width:100%}
 section:not(.alt) .fig{background:var(--alt);border-color:transparent}
@@ -317,44 +299,8 @@ section:not(.alt) .fig{background:var(--alt);border-color:transparent}
 .screen{display:flex;flex-direction:column}
 .feedscroll{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:18px}
 .feedscroll::-webkit-scrollbar{display:none}
-.screen .top{justify-content:space-between}
-.screen .top .chat{width:18px;height:18px;fill:none;stroke:var(--ink);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.pact{margin:9px 12px 0;border:1px solid #e5e5ea;padding:0}
-.pact summary{display:flex;align-items:center;gap:6px;padding:7px 9px;cursor:pointer;list-style:none;font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
-.pact summary::-webkit-details-marker{display:none}
-.pact summary::after{content:none}
-.pact .dt{width:5px;height:5px;border-radius:50%;background:var(--g1)}
-.pact .n{margin-left:auto;color:var(--g0)}
-.pact svg{width:10px;height:10px;stroke:var(--mute);fill:none;stroke-width:2.2;transition:transform .2s}
-.pact[open] svg{transform:rotate(180deg)}
-.pact .e{display:flex;align-items:center;gap:7px;padding:6px 9px;border-top:1px solid #e5e5ea;font-size:9.5px;line-height:1.2}
-.pact .e p{margin:0;font-size:9.5px;min-width:0;color:var(--mute);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pact .e p b{color:var(--ink);font-weight:700}
-.pact .pav{width:17px;height:17px;font-size:8px}
-.pact .e .t{margin-left:auto;color:var(--mute);font-size:8px;white-space:nowrap}
-.pav{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-content:center;font-size:9.5px;font-weight:700;color:#fff;background:#111}
-.pav.b{width:28px;height:28px;font-size:11px}
-.dayl{color:var(--mute);padding:14px 16px 6px;font-size:11px}
-.pp{margin:0 12px 10px;border:1px solid #e5e5ea}
-.pp .hd{display:flex;align-items:center;gap:8px;padding:9px 10px}
-.pp .hd b{display:block;font-size:11.5px}.pp .hd small{color:var(--mute);font-size:9.5px}
-.pp .rl{position:relative;aspect-ratio:4/5;overflow:hidden}
-.pp .rl .bd{position:absolute;top:9px;right:9px;background:var(--g2);color:#06230f;font-weight:700;font-size:9.5px;padding:4px 7px;letter-spacing:.03em;text-transform:uppercase}
-.pp .rl .pl{position:absolute;left:50%;top:50%;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;background:rgba(0,0,0,.35);display:grid;place-content:center}
-.pp .rl .pl i{border-left:12px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent;margin-left:3px}
-.pp .rl .rx{position:absolute;left:9px;bottom:9px;display:flex;flex-direction:column-reverse;gap:2px;font-size:19px;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.5)}
-.pp .rl .rx span{animation:bob 3s ease-in-out infinite}
-.pp .rl .rx span:nth-child(2){animation-delay:.6s}.pp .rl .rx span:nth-child(3){animation-delay:1.2s}
 @keyframes bob{50%{transform:translateY(-3px)}}
-.pp .ac{display:flex;align-items:center;gap:13px;padding:8px 10px 2px}
-.pp .ac button{background:none;border:0;padding:0;display:flex;align-items:center;gap:4px;font:inherit;font-size:10.5px;font-weight:700;color:var(--ink);cursor:pointer}
-.pp .ac svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.pp .ac .lk.on{color:#ff3b5c}.pp .ac .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
 @keyframes heart{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
-.pp .ac .cc{margin-left:auto;font-size:10px;color:var(--mute);font-weight:500}
-.pp .cp{padding:4px 10px 0;font-size:11px}.pp .cp b{margin-right:5px}
-.pp .cm{padding:4px 10px 9px}
-.pp .cm div{font-size:10.5px;padding:2px 0}.pp .cm b{margin-right:5px}.pp .cm span{color:var(--mute)}
 .phint{font-size:14px;color:#8e8e93;margin-top:28px;display:flex;align-items:center;gap:8px}
 .phint i{width:14px;height:22px;border:1.5px solid #8e8e93;border-radius:8px;position:relative}
 .phint i::after{content:"";position:absolute;left:50%;top:4px;width:2px;height:5px;margin-left:-1px;background:#8e8e93;border-radius:1px;animation:wheel 1.6s ease-in-out infinite}
@@ -554,100 +500,234 @@ nav ul .mget{display:none}
 @media (max-width:820px){.cards.four{grid-template-columns:1fr}}
 
 /* tour screens, drawn from the app's own layout */
-.msc2{background:#fff;border-radius:27px;height:420px;overflow:hidden;text-align:left;position:relative;font-size:9px;color:#0b0c0e}
-.tsc{padding:16px 11px 0;border-bottom:1px solid #e8e9ea}
-.tlogo{display:flex;align-items:center;gap:4px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:9px;letter-spacing:.09em}
-.tlogo svg{width:12px;height:12px;border-radius:3px}
-.th1{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:19px;margin:9px 0 9px;text-transform:uppercase;line-height:1.1}
-.th1.gear{display:flex;align-items:center;justify-content:space-between}
-.th1.gear svg{width:13px;height:13px;fill:none;stroke:#0b0c0e;stroke-width:1.8}
-.tbody{padding:8px 11px 0}
-.tback{color:#8b8f94;font-weight:700;font-size:8px;margin-bottom:8px}
-.tcard{border:1px solid #e8e9ea;padding:8px}
-.tq{display:inline-block;border:1px solid #e8e9ea;padding:3px 6px;font-weight:700;font-size:8px}
-.tbtns{display:flex;gap:5px;margin-top:7px}
-.tbtns b{flex:1;background:#0b0c0e;color:#fff;text-align:center;padding:6px 0;font-size:8.5px}
-.tbtns span{background:#f5f6f6;padding:6px 10px;font-weight:700;font-size:8.5px}
-.tsec{font-size:7px;font-weight:700;letter-spacing:.14em;color:#8b8f94;margin:11px 0 5px}
-.tlist{padding:2px 8px}
-.tm{display:flex;align-items:center;gap:7px;padding:6px 0;border-top:1px solid #e8e9ea}
-.tm:first-child{border-top:0}
-.tm .pav{width:20px;height:20px;font-size:8px}
-.tm div{flex:1}.tm b{display:block;font-size:9px}.tm b em{font-style:normal;color:#8b8f94;font-weight:500}
-.tm small{color:#8b8f94;font-size:7.5px}
-.tm i{font-style:normal;font-weight:800;font-size:7.5px;border:1px solid #e8e9ea;padding:3px 5px}
-.tm i.ok{border-color:#0b5a34;color:#0b5a34}
-.tbar{position:absolute;left:8px;right:8px;bottom:9px;background:rgba(255,255,255,.94);border:1px solid #e8e9ea;border-radius:999px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:4px 2px;box-shadow:0 6px 16px -8px rgba(0,0,0,.35)}
-.tbar span{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:6.5px;font-weight:700;color:#8b8f94;position:relative}
-.tbar svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.tbar span.on{color:#0b0c0e}
-.tbar span.on::after{content:"";position:absolute;bottom:-3px;width:14px;height:1.5px;border-radius:1px;background:#12934f}
-.tbar .tadd{width:28px;height:28px;border-radius:50%;background:#1db061;color:#06230f;justify-self:center;display:grid;place-content:center;margin:-10px 0 -6px;box-shadow:0 4px 10px -4px rgba(0,0,0,.4)}
-.tbar .tadd svg{width:14px;height:14px;stroke-width:2.4}
-.tcam{position:absolute;inset:0;background:radial-gradient(circle at 45% 42%,#2a9a55,#0b5a34 55%,#06230f 100%);color:#fff}
-.ctl{display:flex;justify-content:space-between;padding:16px 11px}
-.cbtn{width:24px;height:24px;border-radius:50%;background:rgba(0,40,15,.55);display:grid;place-content:center}
-.cbtn svg{width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}
-.cmode{position:absolute;bottom:62px;left:0;right:0;display:flex;justify-content:center;gap:4px}
-.cmode b,.cmode span{padding:4px 11px;border-radius:999px;font-size:8.5px;font-weight:700}
-.cmode b{background:#fff;color:#0b0c0e}.cmode span{background:rgba(0,40,15,.6);color:rgba(255,255,255,.7)}
-.cshut{position:absolute;bottom:16px;left:0;right:0;height:40px}
-.cring{position:absolute;left:50%;top:0;width:40px;height:40px;margin-left:-20px;border-radius:50%;border:3px solid #fff;background:#3fa845;box-shadow:0 6px 14px -6px rgba(0,0,0,.5)}
-.coff{position:absolute;left:32px;top:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,40,15,.7);border:1px solid rgba(255,255,255,.15);display:grid;place-content:center;font-size:8px;font-weight:700}
-.twho{display:flex;align-items:center;gap:9px}
-.twho b{display:block;font-size:11px;font-weight:800}.twho small{color:#8b8f94;font-size:8px}
-.tbio{margin:7px 0 0;font-size:8.5px}
-.tstats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #e8e9ea;margin-top:8px}
-.tstats div{text-align:center;padding:5px 0;border-right:1px solid #e8e9ea}.tstats div:last-child{border-right:0}
-.tstats b{display:block;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:15px;line-height:1.1}
-.tstats b.g{color:#0b5a34}
-.tstats small{font-size:6px;font-weight:800;letter-spacing:.1em;color:#8b8f94}
-.tnum{margin-top:6px;background:#f5f6f6;text-align:center;padding:5px 0;font-weight:700;font-size:8px}
-.tbadges{display:flex;gap:9px;margin-top:8px;padding-top:7px;border-top:1px solid #e8e9ea}
-.tbadges span{display:flex;flex-direction:column;align-items:center;gap:1px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:7.5px;color:#8b8f94}
-.tbadges svg{width:17px;height:17px}
-.tgchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;padding-top:7px;border-top:1px solid #e8e9ea}
-.tgchips span{border:1px solid #e8e9ea;padding:3px 6px;font-size:7.5px;color:#8b8f94}.tgchips b{color:#0b0c0e}
-.tptab{margin-top:8px;border-top:1px solid #e8e9ea;text-align:center;padding:6px 0 5px;border-bottom:1.5px solid #0b5a34;font-size:7px;font-weight:800;letter-spacing:.12em}
-.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5px;margin:1.5px -11px 0}
-.tgrid i{aspect-ratio:1;position:relative;font-style:normal;background:radial-gradient(circle at 35% 35%,#1b7a45,#06230f 75%)}
-.tgrid i:nth-child(2n){background:radial-gradient(circle at 60% 40%,#6b4a2f,#1a120b 75%)}
-.tgrid i:nth-child(3n){background:radial-gradient(circle at 50% 50%,#3a4a5c,#0e1319 75%)}
-.tgrid i{color:#fff;font-weight:800;font-size:7px;display:flex;align-items:flex-end;padding:3px}
 /* phone: reacting and flagging, as the app does it */
-.pp .ac{position:relative}
-.pp .ac .flg svg{fill:none}
-.pp .ac .flg.on{color:#0b5a34}.pp .ac .flg.on svg{fill:currentColor}
-.ptray{position:absolute;left:4px;bottom:calc(100% - 2px);z-index:5;display:flex;flex-wrap:nowrap;align-items:center;padding:3px;background:#fff;border:1px solid #e5e5ea;box-shadow:0 8px 20px -10px rgba(11,12,14,.5);animation:popin .19s cubic-bezier(.2,.9,.25,1);transform-origin:left bottom;max-width:calc(100% - 8px);overflow-x:auto;scrollbar-width:none}
-.ptray::-webkit-scrollbar{display:none}
-.pp .ac .ptray button{display:block;background:none;border:0;padding:3px 4px;font-size:15px;line-height:1;cursor:pointer;flex:none;transition:transform .12s;color:inherit}
-.pp .ac .ptray button:active{transform:scale(1.35)}
-.pp .ac .ptray .more{font-size:12px;font-weight:800;color:#8b8f94;min-width:18px}
 @keyframes popin{from{opacity:0;transform:scale(.85)}}
-.pp .rl .rx{z-index:2}
-.pp .rl .rx span.mine{cursor:pointer}
-.fst{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#f5f6f6;border-top:1px solid #e5e5ea;font-size:9.5px;line-height:1.3}
-.fst svg{width:12px;height:12px;flex:none;fill:currentColor;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
-.fst span{flex:1}.fst em{font-style:normal;color:#8b8f94;font-variant-numeric:tabular-nums;font-size:9px}
-.pveil{position:absolute;inset:0;background:rgba(11,12,14,.35);z-index:8;animation:fadein .2s}
-.psheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:#fff;border-radius:18px 18px 0 0;padding:16px 14px 14px;animation:sheetup .28s cubic-bezier(.2,.8,.2,1)}
-.psheet::before{content:"";display:block;width:26px;height:3px;border-radius:2px;background:#e5e5ea;margin:-6px auto 10px}
 @keyframes sheetup{from{transform:translateY(100%)}}
 @keyframes fadein{from{opacity:0}}
-.psheet h3{font-size:15px;margin:0 0 4px;letter-spacing:-.01em}
-.psheet .pm{font-size:9.5px;color:#8b8f94;margin:0;line-height:1.4;max-width:none;letter-spacing:0}
-.pchip{display:flex;align-items:center;gap:7px;margin:10px 0 8px;padding:6px 7px;background:#f5f6f6}
-.pchip .pav{width:20px;height:20px;font-size:8px}
-.pchip b{display:block;font-size:9.5px}.pchip em{font-style:normal;font-size:8.5px;color:#8b8f94}
-.psheet textarea{display:block;box-sizing:border-box;border:1px solid #e5e5ea;padding:8px;font:inherit;font-size:16px;transform:scale(.62);transform-origin:top left;width:161.3%;height:90px;margin-bottom:-34px;resize:none;border-radius:0;background:#fff;color:#0b0c0e}
-.psheet textarea:focus{outline:none;border-color:#12934f}
-.psheet textarea.need{border-color:#ff3b5c}
-.prow{display:flex;gap:6px;margin-top:10px}
-.prow button{flex:1;border:0;padding:8px 0;font:inherit;font-size:10px;font-weight:700;cursor:pointer;color:#0b0c0e}
-.pcancel{background:#f5f6f6}.prow .psubmit{background:#12934f;color:#fff}
-.psheet .pfine{font-size:8px;color:#8b8f94;margin:8px 0 0;line-height:1.4;max-width:none;letter-spacing:0}
-.pp .ac .ptray{height:32px;padding:0 3px;box-sizing:border-box}
-.pp .ac .ptray button{height:30px;display:flex;align-items:center;justify-content:center;padding:0 4px;margin:0;gap:0}
+
+/* ---- phone mockups: drawn from the app's own stylesheet (app/index.html), scaled to fit.
+   Rounded and filled, the app's rule: a pill for anything you tap, a box inside a card, a card
+   for a panel, almost no lines. Colours are the app's stage 4, the one a 23-day streak gets. */
+.qs{--mk:#2fd36f;--mkt:#11814a;--onmk:#06230f;--mktint:#e6f9ef;--g1:#0a5230;--g2:#48ec8b;--soft:#f5f6f6;--line:#e8e9ea;
+  --text:#0b0c0e;--muted:#8b8f94;--todo:#d7d9da;--mute:#8b8f94;--ink:#0b0c0e;
+  font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--text);letter-spacing:0}
+.qs svg:not(.mk){fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.qs .num{font-variant-numeric:tabular-nums}
+/* the bottom bar: full width, flush, a hairline on top, five equal columns, the add button a rounded square */
+.qbar{position:absolute;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;
+  background:rgba(255,255,255,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.qbar span{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;color:var(--muted)}
+.qbar span.on{color:var(--text);font-weight:800}
+.qbar span.on::after{content:"";position:absolute;left:50%;background:var(--mk)}
+.qbar .add{justify-self:center;background:var(--mk);color:var(--onmk)}
+.qbar .add svg{stroke:var(--onmk);stroke-width:2.4}
+
+/* hero phone (feed): app widths x0.71 */
+.screen.qs{font-size:10.5px}
+.qs .top{display:flex;align-items:center;justify-content:space-between;padding:24px 14px 2px}
+.qs .top .lg{display:flex;align-items:center;gap:6px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase}
+.qs .top .lg svg{width:17px;height:17px}
+.qs .top .end{display:flex;align-items:center;gap:9px}
+.qs .top .help{width:15px;height:15px;color:var(--muted);stroke-width:1.8}
+.qs .top .chat{width:18px;height:18px;stroke-width:1.9}
+.qs .streak{display:flex;align-items:flex-end;gap:9px;margin-top:11px;padding:0 14px 10px}
+.qs .streak>b{font-size:52px;font-weight:800;letter-spacing:-.02em;line-height:.8;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em;
+  background:linear-gradient(to top,var(--g1),var(--g2));-webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 9px rgba(72,236,139,.3))}
+.qs .streak div{font-weight:700;font-size:11px;line-height:1.3}
+.qs .streak div b{display:block}
+.qs .streak small{display:block;color:var(--muted);font-weight:600;font-size:9px}
+.qs .qmini{padding:0 14px}
+.qs .qmini div{display:grid;grid-template-columns:minmax(60px,auto) minmax(24px,1fr) auto;align-items:center;gap:0 9px;padding:6px 0;font-size:9px;font-weight:800}
+.qs .qmini b{font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:10px;text-align:right;font-variant-numeric:tabular-nums}
+.qs .qmini i{display:block;height:2px;background:linear-gradient(90deg,#0b5a34,#2fd36f 55%,#48ec8b);overflow:hidden}
+.qs .qmini i::after{content:"";display:block;height:100%;margin-left:var(--w);width:calc(100% - var(--w));background:var(--line);animation:minifill 1.6s ease .4s backwards}
+@keyframes minifill{from{margin-left:0;width:100%}}
+.qs .stories{display:flex;gap:10px;padding:10px 14px 2px}
+.qs .stories .s{flex:none;width:45px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.qs .rg{position:relative;display:grid;place-items:center;width:41px;height:41px;padding:2px;border-radius:50%;background:linear-gradient(135deg,#0b5a34,#2fd36f 52%,#7ef0b0)}
+.qs .s.me .rg{background:none;box-shadow:inset 0 0 0 1.5px var(--line)}
+.qs .rg .pav{width:100%;height:100%;font-size:12px;box-shadow:0 0 0 1.5px #fff}
+.qs .rg i{position:absolute;right:-1.5px;bottom:-1.5px;width:14px;height:14px;border-radius:50%;background:var(--mk);border:1.5px solid #fff;display:grid;place-items:center}
+.qs .rg i svg{width:8.5px;height:8.5px;stroke:var(--onmk);stroke-width:3}
+.qs .stories .nm{font-size:8px;font-weight:700;color:var(--muted);white-space:nowrap}
+.qs .stories .me .nm{color:var(--text)}
+.pav{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-content:center;font-size:9.5px;font-weight:800;color:#fff;background:#0b0c0e;text-transform:uppercase}
+.pav.b{width:24px;height:24px;font-size:10px}
+.pav.todo{background:var(--todo);color:var(--text)}
+.pact{margin:10px 12px 0;border-radius:13px;background:var(--soft);overflow:hidden}
+.pact summary{display:flex;align-items:center;gap:6.5px;padding:8px 9px;cursor:pointer;list-style:none;font-size:7.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.pact summary::-webkit-details-marker{display:none}
+.pact summary::after{content:none}
+.pact .dt{width:5px;height:5px;border-radius:50%;background:var(--mk)}
+.pact .n{margin-left:auto;color:var(--mkt);letter-spacing:.1em}
+.pact summary svg{width:10.5px;height:10.5px;stroke:var(--muted);stroke-width:2.2;transition:transform .18s}
+.pact[open] summary svg{transform:rotate(180deg)}
+.pact .e{display:flex;align-items:center;gap:7px;padding:6.5px 9px;font-size:9.5px;line-height:1.2}
+.pact .e p{margin:0;font-size:9.5px;min-width:0;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pact .e p b{color:var(--text);font-weight:800}
+.pact .pav{width:17px;height:17px;font-size:8px}
+.pact .e .t{margin-left:auto;color:var(--muted);font-size:8px;font-weight:700;white-space:nowrap}
+.dayl{color:var(--muted);padding:14px 13px 6px;font-size:10px;font-weight:600}
+.pp{margin:0 12px 10px;border-radius:13px;background:var(--soft);overflow:hidden}
+.pp .hd{display:flex;align-items:center;gap:7px;padding:8.5px 10px}
+.pp .hd>div{min-width:0}
+.pp .hd b{display:block;font-size:10.5px;font-weight:800;line-height:1.2}
+.pp .hd small{display:block;color:var(--muted);font-size:9px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp .gt{display:inline-flex;align-items:center;gap:4px;margin-left:auto;flex:none;max-width:44%;padding:4px 6.5px;border-radius:999px;background:#fff;
+  font:600 9px/1 Oswald,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;overflow:hidden}
+.pp .gt svg{width:10.5px;height:10.5px;flex:none}
+.pp .mo{display:flex;gap:2px;padding:3px 2px 3px 4px}
+.pp .mo i{width:2.5px;height:2.5px;border-radius:50%;background:var(--muted)}
+.pp .rl{position:relative;aspect-ratio:4/5;overflow:hidden}
+.pp .rl::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(to top,rgba(0,0,0,.45),transparent);pointer-events:none}
+.pp .rl .bd{position:absolute;top:8.5px;right:8.5px;z-index:3;background:#2fd36f;color:#06230f;font:600 9.5px/1.2 Oswald,system-ui,sans-serif;padding:3.5px 7px;border-radius:999px;letter-spacing:.02em;text-transform:uppercase}
+.pp .rl .pl{position:absolute;left:50%;top:50%;width:41px;height:41px;margin:-20.5px 0 0 -20.5px;border-radius:50%;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.75);backdrop-filter:blur(4px);display:grid;place-content:center}
+.pp .rl .pl i{border-left:12px solid #fff;border-top:7px solid transparent;border-bottom:7px solid transparent;margin-left:3px}
+.pp .rl .rx{position:absolute;left:10px;bottom:13px;z-index:2;display:flex;flex-direction:column-reverse;gap:2px;font-size:18.5px;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.pp .rl .rx span{animation:bob 3.4s ease-in-out infinite}
+.pp .rl .rx span:nth-child(2){animation-delay:-.7s}.pp .rl .rx span:nth-child(3){animation-delay:-1.4s}
+.pp .rl .rx span.mine{cursor:pointer}
+.pp .ac{position:relative;display:flex;align-items:center;gap:13px;padding:7px 10px 2px}
+.pp .ac button{background:none;border:0;padding:0;display:flex;align-items:center;gap:4px;font:inherit;font-size:9.5px;font-weight:800;color:var(--text);cursor:pointer}
+.pp .ac svg{width:18px;height:18px;stroke-width:1.9}
+.pp .ac .lk.on{color:#ff3b5c}.pp .ac .lk.on svg{fill:#ff3b5c;stroke:#ff3b5c;animation:heart .35s cubic-bezier(.2,.8,.2,1)}
+.pp .ac .flg.on{color:var(--mkt)}.pp .ac .flg.on svg{fill:currentColor}
+.pp .ac .cc{margin-left:auto;font-size:9px;color:var(--muted);font-weight:700}
+.pp .cp{padding:6px 10px 0;font-size:10px}.pp .cp b{font-weight:800;margin-right:4px}
+.pp .cm{padding:3px 10px 9px}
+.pp .cm div{font-size:10px;padding:2px 0}.pp .cm b{font-weight:800;margin-right:4px}.pp .cm span{color:var(--muted);font-weight:500}
+.ptray{position:absolute;left:6px;bottom:calc(100% - 4px);z-index:5;display:flex;flex-wrap:nowrap;align-items:center;height:32px;padding:0 4px;box-sizing:border-box;
+  background:#fff;border-radius:999px;box-shadow:0 7px 18px -8px rgba(11,12,14,.5);animation:popin .19s cubic-bezier(.2,.9,.25,1);transform-origin:left bottom;max-width:calc(100% - 12px);overflow-x:auto;scrollbar-width:none}
+.ptray::-webkit-scrollbar{display:none}
+.pp .ac .ptray button{display:flex;align-items:center;justify-content:center;height:30px;background:none;border:0;padding:0 4px;margin:0;font-size:15.5px;line-height:1;cursor:pointer;flex:none;transition:transform .12s;color:inherit}
+.pp .ac .ptray button:active{transform:scale(1.35)}
+.pp .ac .ptray .more{font-size:12px;font-weight:800;color:var(--muted);min-width:18px}
+.fst{display:flex;align-items:center;gap:6.5px;margin:6px 10px 0;padding:7px 10px;background:#fff;border-radius:8.5px;font-size:9.5px;line-height:1.35}
+.fst svg{width:12px;height:12px;flex:none;fill:currentColor;stroke-width:1.6}
+.fst span{flex:1;font-weight:600}.fst b{font-weight:800}.fst em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums;font-size:9px}
+.pveil{position:absolute;inset:0;background:rgba(11,12,14,.35);z-index:8;animation:fadein .2s}
+.psheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:#fff;border-radius:17px 17px 0 0;padding:14px 13px 13px;box-shadow:0 -7px 28px rgba(0,0,0,.2);animation:sheetup .28s cubic-bezier(.2,.8,.2,1)}
+.psheet::before{content:"";display:block;width:26px;height:3px;border-radius:2px;background:var(--line);margin:-4px auto 10px}
+.psheet h3{font-size:14px;font-weight:800;margin:0 0 3px;letter-spacing:0}
+.psheet .pm{font-size:9.5px;color:var(--muted);font-weight:600;margin:0;line-height:1.4;max-width:none;letter-spacing:0}
+.pchip{display:flex;align-items:center;gap:6.5px;margin:11px 0 10px;padding:6.5px 7px;background:var(--soft)}
+.pchip .pav{width:17px;height:17px;font-size:8px}
+.pchip b{display:block;font-size:9px;font-weight:800}.pchip em{font-style:normal;font-size:8.5px;color:var(--muted)}
+.psheet textarea{display:block;box-sizing:border-box;border:0;padding:12px;font:inherit;font-size:16px;transform:scale(.62);transform-origin:top left;width:161.3%;height:90px;margin-bottom:-34px;resize:none;border-radius:12px;background:var(--soft);color:var(--text)}
+.psheet textarea:focus{outline:2px solid var(--mk)}
+.psheet textarea.need{box-shadow:inset 0 0 0 2px #ff3b5c}
+.prow{display:flex;gap:6px;margin-top:11px}
+.prow button{flex:1;border:0;border-radius:999px;padding:8px 0;font:inherit;font-size:10px;font-weight:800;cursor:pointer;color:var(--text);background:var(--soft)}
+.prow .psubmit{background:#0b0c0e;color:#fff}
+.psheet .pfine{font-size:8.5px;color:var(--muted);margin:8px 0 0;line-height:1.45;max-width:none;letter-spacing:0}
+.screen .feedscroll{padding-bottom:12px}
+/* The hero lets the bottom of the phone run off its lower edge, 29px of screen (13px on a
+   phone), so the bar sits at the edge that can be seen. */
+.screen .qbar{bottom:29px;height:44px}
+.screen .qbar span{gap:2px;font-size:8px}
+.screen .qbar svg{width:15.5px;height:15.5px}
+.screen .qbar span.on::after{bottom:-4px;width:15.5px;height:1.5px;margin-left:-7.75px}
+.screen .qbar .add{width:37px;height:28px;border-radius:8.5px}
+.screen .qbar .add svg{width:15.5px;height:15.5px}
+
+/* "A look inside": app widths x0.52 */
+.msc2{background:#fff;border-radius:27px;height:420px;overflow:hidden;text-align:left;position:relative;font-size:7.8px}
+.qs .hdr{padding:16px 10px 0}
+.qs .hdr .tp{display:flex;align-items:center;justify-content:space-between}
+.qs .hdr .lg{display:flex;align-items:center;gap:4px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:9px;letter-spacing:.09em;text-transform:uppercase}
+.qs .hdr .lg svg{width:12.5px;height:12.5px}
+.qs .hdr .help{width:11px;height:11px;color:var(--muted);stroke-width:1.8}
+.qs .hdr .end{display:flex;align-items:center;gap:5px}
+.qs .gback{font-size:7px;font-weight:700;color:var(--muted)}
+.qs .date{font-size:5.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.qs .big{display:flex;align-items:flex-end;gap:7px;margin-top:8px;padding-bottom:7px}
+.qs .big>b{font-size:38.5px;font-weight:800;letter-spacing:-.02em;line-height:.8;padding:.08em .04em .2em 0;margin:-.08em 0 -.2em;
+  background:linear-gradient(to top,var(--g1),var(--g2));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 6px rgba(72,236,139,.3))}
+.qs .big div{font-weight:700;font-size:8px;line-height:1.3}
+.qs .big small{display:block;color:var(--muted);font-weight:600;font-size:6.5px}
+.qs .crewline{margin:4px 0 0;padding-bottom:6px;font-size:6.8px;font-weight:700;color:var(--muted)}
+.qs .qcard{margin:7px 9px;border-radius:9.5px;padding:8px;background:var(--soft)}
+.qs .ghead{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.qs .gav{width:39.5px;height:39.5px;border-radius:50%;display:grid;place-items:center;background:var(--mk);color:var(--onmk);font-weight:800;font-size:15.5px;flex:none}
+.qs .ghead b{display:block;font-size:10px;font-weight:800;line-height:1.2}
+.qs .ghead div span{font-size:6.8px;font-weight:600;color:var(--muted)}
+.qs .qchip{display:inline-block;padding:2.6px 5.2px;border-radius:999px;background:#fff;font-size:6px;font-weight:800;letter-spacing:.02em;white-space:nowrap}
+.qs .qchip.ok{background:var(--mktint);color:var(--mkt)}
+.qs .qbtn{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px;padding:5.7px 8px;border-radius:999px;background:#fff;font-size:7.5px;font-weight:800}
+.qs .qbtn svg{width:9px;height:9px;stroke-width:2}
+.qs .qcard .qbtn:first-of-type{margin-top:7px}
+.qs .qbtn.dark{background:#0b0c0e;color:#fff}
+.qs .qbtn.sm{padding:3.6px 6px;font-size:6.8px}
+.qs .qbtn.ghost{background:none;color:var(--muted);font-weight:600;padding:3px 0 0}
+.qs .sec{margin:11px 9px 4px;font-size:6.2px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.qs .missline{margin:0 9px 5px;font-size:7px;font-weight:700}
+.qs .missline b{font:600 7.5px Oswald,system-ui,sans-serif;color:var(--mkt)}
+.qs .qcard.crew{padding:2px 8px}
+.qs .mrow{display:flex;align-items:center;gap:5px;padding:5px 0;border:0}
+.qs .mrow b{flex:none}
+.qs .pst{flex:none;width:24px;text-align:center;line-height:1}
+.qs .pst b{display:block;font-family:Oswald,system-ui,sans-serif;font-size:14.5px;font-weight:600;color:var(--mk)}
+.qs .pst small{font-size:5.2px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.qs .mrow .pav{width:21px;height:21px;font-size:8px}
+.qs .mrow .grow{min-width:0;flex:1}
+.qs .mrow .grow>b{display:block;font-size:7.5px;font-weight:800}
+.qs .mrow .grow>b em{font-style:normal;font-weight:600;color:var(--muted)}
+.qs .mrow .qchip{margin-top:2px}
+.qs .rate{font-size:6px;font-weight:600;color:var(--muted);margin-top:2px}
+.msc2 .qbar{height:32px}
+.msc2 .qbar span{gap:1.5px;font-size:5.7px}
+.msc2 .qbar svg{width:11.5px;height:11.5px}
+.msc2 .qbar span.on::after{bottom:-3px;width:11.5px;height:1px;margin-left:-5.75px}
+.msc2 .qbar .add{width:27px;height:21px;border-radius:6px}
+.msc2 .qbar .add svg{width:11.5px;height:11.5px}
+/* the camera: green stands in for what the lens sees */
+.qcam{position:absolute;inset:0;background:radial-gradient(circle at 45% 42%,#2a9a55,#0b5a34 55%,#06230f 100%);color:#fff}
+.qcam .ct{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:5px;padding:16px 7px 5px}
+.qcam .sp{flex:1}
+.qcam .cb{width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;flex:none}
+.qcam .cb svg{width:11.5px;height:11.5px;stroke:#fff}
+.qcam .cpill{max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 7px;border-radius:999px;background:rgba(0,0,0,.5);font-size:6.8px;font-weight:800}
+.qcam .cbt{position:absolute;left:0;right:0;bottom:0;padding:8px 13.5px 14px;background:linear-gradient(transparent,rgba(0,0,0,.55))}
+.qcam .modes{display:flex;justify-content:center;gap:13.5px;margin-bottom:8px}
+.qcam .modes span{padding:3px 1px;color:rgba(255,255,255,.8);font:700 6.8px/1 system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.qcam .modes .on{color:#2fd36f}
+.qcam .row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;justify-items:center}
+.qcam .row .cb{width:26px;height:26px}
+.qcam .row .cb svg{width:11.5px;height:11.5px}
+.qcam .shut{width:41.6px;height:41.6px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center}
+.qcam .shut i{width:33.3px;height:33.3px;border-radius:50%;background:#2fd36f}
+/* profile */
+.qs .h1{display:flex;align-items:center;justify-content:space-between;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:17.5px;text-transform:uppercase;margin:8px 0}
+.qs .h1 svg{width:12px;height:12px;stroke-width:1.8}
+.qs .pf{padding:0 9.5px}
+.qs .pwho{display:flex;gap:7px;align-items:flex-start}
+.qs .pwho .pav{width:39.5px;height:39.5px;font-size:15.5px}
+.qs .pwho div{padding-top:2px}
+.qs .pwho b{display:block;font-size:10.5px;font-weight:800;line-height:1.2}
+.qs .pwho div span{color:var(--muted);font-weight:600;font-size:7.3px}
+.qs .bio{margin:7px 0 0;font-size:7.5px;line-height:1.5}
+.qs .pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:8px}
+.qs .pstats div{padding:5.7px 2px;text-align:center;background:var(--soft);border-radius:6px}
+.qs .pstats b{display:block;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:13.5px;line-height:1}
+.qs .pstats div:first-child b{padding:.06em .04em .18em 0;margin-bottom:-.18em;background:linear-gradient(to top,var(--g1),var(--g2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.qs .pstats small{font-size:5.2px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.qs .pf .qbtn{background:var(--soft);margin-top:7px}
+.qs .bshelf{display:flex;gap:6px;margin-top:8px;padding-top:7px}
+.qs .bshelf span{display:flex;flex-direction:column;align-items:center;gap:2px;font-family:Oswald,system-ui,sans-serif;font-weight:600;font-size:6.2px;color:var(--muted)}
+.qs .bshelf svg{width:15.6px;height:15.6px;stroke:none}
+.qs .gchips{display:flex;flex-wrap:wrap;gap:3.6px;margin-top:8px;padding-top:7px}
+.qs .gchips span{display:flex;align-items:baseline;gap:3px;padding:3px 5.7px;border-radius:999px;background:var(--soft);font-size:6.5px;font-weight:700}
+.qs .gchips em{font-style:normal;font-weight:600;color:var(--muted)}
+.qs .ptab{margin-top:9px;padding:4.7px 0;border-radius:999px;background:var(--soft);text-align:center;font-size:5.7px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.qs .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin:5px -9.5px 0}
+.qs .pgrid i{aspect-ratio:1;display:flex;align-items:flex-end;padding:2.5px;font:600 6px Oswald,system-ui,sans-serif;font-style:normal;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85);
+  background:radial-gradient(circle at 35% 35%,#1b7a45,#06230f 75%)}
+.qs .pgrid i:nth-child(2n){background:radial-gradient(circle at 60% 40%,#6b4a2f,#1a120b 75%)}
+.qs .pgrid i:nth-child(3n){background:radial-gradient(circle at 50% 50%,#3a4a5c,#0e1319 75%)}
+@media (max-width:760px){.screen .qbar{bottom:13px}}
 
 /* A page's own heading is its h1 now that each page has an address, set at the size its
    h2 was so nothing moves on screen. */
@@ -713,17 +793,16 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 <div><div class="hviz" aria-hidden="true"><div class="hav"><i style="background:#12934f;animation-delay:0.00s">A</i><i style="background:#3b6fd8;animation-delay:0.07s">J</i><i style="background:#d8673b;animation-delay:0.14s">M</i><i style="background:#8a55d6;animation-delay:0.21s">S</i></div><div class="hdays"><b style="animation-delay:0.35s"></b><b style="animation-delay:0.43s"></b><b style="animation-delay:0.51s"></b><b style="animation-delay:0.59s"></b><b style="animation-delay:0.67s"></b><b style="animation-delay:0.75s"></b><b class="now" style="animation-delay:.83s"></b></div></div>
 <h1>Proof or it didn't happen</h1><p class="sub">Pick a daily goal with your crew. Post proof before midnight, or owe them the forfeit.</p>
 <div class="links"><a href="/what">What it is</a><a href="/get">Get the app</a></div><div class="phint"><i></i><span class="pd">Scroll the phone to look around</span><span class="pm">Swipe inside the phone to look around</span></div></div>
-<div class="phone"><div class="screen">
-<div class="top"><span><svg viewBox="0 0 132 132" style="border-radius:3px"><use href="#mark"/></svg>QUOTA</span><svg class="chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></div>
+<div class="phone"><div class="screen qs">
+<div class="top"><span class="lg"><svg class="mk" viewBox="0 0 26 26"><use href="#mark"/></svg>Quota</span><span class="end"><svg class="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01"/></svg><svg class="chat" viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg></span></div>
 <div class="feedscroll" tabindex="0" aria-label="Example Quota feed, scrollable">
 <div class="streak"><b>23</b><div><b>day streak</b><small>best 23 · 1 of 2 quotas done today</small></div></div>
-<div class="qrow" style="border-bottom:0;padding-bottom:4px">pushups<i><span></span></i>100/100</div>
-<div class="qrow">read pages<i><span class="part"></span></i>12/20</div>
-<div class="stories"><div><div class="av">M<i>+</i></div>Add story</div><div><div class="av g">S</div>Sam</div><div><div class="av g">T</div>Theo</div><div><div class="av g">P</div>Priya</div></div>
+<div class="qmini"><div><span>pushups</span><i style="--w:100%"></i><b>100/100</b></div><div><span>read pages</span><i style="--w:60%"></i><b>12/20</b></div></div>
+<div class="stories"><div class="s me"><span class="rg"><span class="pav">M</span><i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i></span><span class="nm">Add story</span></div><div class="s"><span class="rg"><span class="pav" style="background:#6e6e73">S</span></span><span class="nm">Sam</span></div><div class="s"><span class="rg"><span class="pav" style="background:#0b5a34">T</span></span><span class="nm">Theo</span></div><div class="s"><span class="rg"><span class="pav" style="background:#8a1f30">P</span></span><span class="nm">Priya</span></div></div>
 <details class="pact"><summary><span class="dt"></span>Today<span class="n">6</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary><div class="e"><span class="pav" style="background:#111">M</span><p><b>Maya</b> commented on your proof</p><span class="t">2m</span></div><div class="e"><span class="pav" style="background:#8a1f30">P</span><p><b>Priya</b> posted 25 pages</p><span class="t">28m</span></div><div class="e"><span class="pav" style="background:#6e6e73">S</span><p><b>Sam</b> posted 70 pushups</p><span class="t">1h</span></div><div class="e"><span class="pav" style="background:#1d4e89">J</span><p><b>Jordan</b> posted 100 pushups</p><span class="t">2h</span></div><div class="e"><span class="pav" style="background:#12934f">L</span><p><b>Lena</b> wants to be friends</p><span class="t">3h</span></div><div class="e"><span class="pav" style="background:#0b5a34">T</span><p><b>Theo</b> invited you to a group</p><span class="t">5h</span></div></details>
-<div class="dayl">Today</div><div class="pp" data-g="push" data-mine="1"><div class="hd"><span class="pav b" style="background:#111">M</span><div><b>Maya</b><small>@maya · 7:32 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%)"><span class="bd">+30 pushups</span><div class="pl"><i></i></div><div class="rx"><span>🔥</span><span>💪</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="4"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>4</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><span class="cc">2 comments</span></div><div class="cp"><b>maya</b>last set of the night</div><div class="cm"><div><b>sam</b><span>finally</span></div><div><b>theo</b><span>form looked clean</span></div></div></div><div class="pp" data-g="read"><div class="hd"><span class="pav b" style="background:#8a1f30">P</span><div><b>Priya</b><small>@priya · 7:05 PM · Book club</small></div></div><div class="rl" style="background:radial-gradient(circle at 40% 60%,#6b4a2f,#1a120b 72%)"><span class="bd">+25 pages</span><div class="pl"><i></i></div><div class="rx"><span>📚</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="3"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>3</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cp"><b>priya</b>chapter 12 was wild</div><div class="cm"><div><b>lena</b><span>no spoilers!!</span></div></div></div><div class="pp" data-g="push"><div class="hd"><span class="pav b" style="background:#6e6e73">S</span><div><b>Sam</b><small>@sam · 6:05 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 65% 35%,#3a4a5c,#0e1319 72%)"><span class="bd">+70 pushups</span><div class="pl"><i></i></div><div class="rx"><span>🔥</span><span>👏</span><span>😤</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="5"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>5</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">3 comments</span></div><div class="cm"><div><b>maya</b><span>70 in one go??</span></div><div><b>sam</b><span>broke it into 3 sets</span></div><div><b>jordan</b><span>still counts</span></div></div></div><div class="pp" data-g="push"><div class="hd"><span class="pav b" style="background:#1d4e89">J</span><div><b>Jordan</b><small>@jordan · 5:48 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 35% 40%,#4a4f57,#111316 72%)"><span class="bd">+100 pushups</span><div class="pl"><i></i></div><div class="rx"><span>💯</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="6"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>6</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">0 comments</span></div><div class="cp"><b>jordan</b>done before dinner</div><div style="height:9px"></div></div><div class="pp" data-g="read"><div class="hd"><span class="pav b" style="background:#12934f">L</span><div><b>Lena</b><small>@lena · 2:14 PM · Book club</small></div></div><div class="rl" style="background:radial-gradient(circle at 70% 70%,#1f6f62,#07201c 72%)"><span class="bd">+40 pages</span><div class="pl"><i></i></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="2"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>2</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cp"><b>lena</b>on the train</div><div class="cm"><div><b>priya</b><span>which book?</span></div></div></div><div class="dayl">Yesterday</div><div class="pp" data-g="push" data-day="Yesterday"><div class="hd"><span class="pav b" style="background:#0b5a34">T</span><div><b>Theo</b><small>@theo · 11:52 PM · Pushup club</small></div></div><div class="rl" style="background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%)"><span class="bd">+100 pushups</span><div class="pl"><i></i></div><div class="rx"><span>😅</span><span>⏰</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="7"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>7</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">3 comments</span></div><div class="cp"><b>theo</b>8 minutes to spare</div><div class="cm"><div><b>maya</b><span>cutting it close</span></div><div><b>jordan</b><span>living dangerously</span></div><div><b>theo</b><span>it counts</span></div></div></div><div class="pp" data-g="read" data-day="Yesterday"><div class="hd"><span class="pav b" style="background:#8a1f30">P</span><div><b>Priya</b><small>@priya · 9:30 PM · Book club</small></div></div><div class="rl" style="background:radial-gradient(circle at 40% 60%,#6b4a2f,#1a120b 72%)"><span class="bd">+20 pages</span><div class="pl"><i></i></div><div class="rx"><span>📖</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="3"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>3</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Question this one"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cm"><div><b>lena</b><span>nice</span></div></div></div>
+<div class="dayl">Today</div><div class="pp" data-g="push" data-mine="1"><div class="hd"><span class="pav b" style="background:#111">M</span><div><b>Maya</b><small>@maya · 7:32 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Pushup club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%)"><span class="bd">+30 pushups</span><div class="pl"><i></i></div><div class="rx"><span>🔥</span><span>💪</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="4"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>4</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><span class="cc">2 comments</span></div><div class="cp"><b>maya</b>last set of the night</div><div class="cm"><div><b>sam</b><span>finally</span></div><div><b>theo</b><span>form looked clean</span></div></div></div><div class="pp" data-g="read"><div class="hd"><span class="pav b" style="background:#8a1f30">P</span><div><b>Priya</b><small>@priya · 7:05 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Book club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 40% 60%,#6b4a2f,#1a120b 72%)"><span class="bd">+25 pages</span><div class="pl"><i></i></div><div class="rx"><span>📚</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="3"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>3</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Flag this"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cp"><b>priya</b>chapter 12 was wild</div><div class="cm"><div><b>lena</b><span>no spoilers!!</span></div></div></div><div class="pp" data-g="push"><div class="hd"><span class="pav b" style="background:#6e6e73">S</span><div><b>Sam</b><small>@sam · 6:05 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Pushup club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 65% 35%,#3a4a5c,#0e1319 72%)"><span class="bd">+70 pushups</span><div class="pl"><i></i></div><div class="rx"><span>🔥</span><span>👏</span><span>😤</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="5"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>5</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Flag this"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">3 comments</span></div><div class="cm"><div><b>maya</b><span>70 in one go??</span></div><div><b>sam</b><span>broke it into 3 sets</span></div><div><b>jordan</b><span>still counts</span></div></div></div><div class="pp" data-g="push"><div class="hd"><span class="pav b" style="background:#1d4e89">J</span><div><b>Jordan</b><small>@jordan · 5:48 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Pushup club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 35% 40%,#4a4f57,#111316 72%)"><span class="bd">+100 pushups</span><div class="pl"><i></i></div><div class="rx"><span>💯</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="6"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>6</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Flag this"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">0 comments</span></div><div class="cp"><b>jordan</b>done before dinner</div><div style="height:9px"></div></div><div class="pp" data-g="read"><div class="hd"><span class="pav b" style="background:#12934f">L</span><div><b>Lena</b><small>@lena · 2:14 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Book club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 70% 70%,#1f6f62,#07201c 72%)"><span class="bd">+40 pages</span><div class="pl"><i></i></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="2"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>2</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Flag this"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cp"><b>lena</b>on the train</div><div class="cm"><div><b>priya</b><span>which book?</span></div></div></div><div class="dayl">Yesterday</div><div class="pp" data-g="push" data-day="Yesterday"><div class="hd"><span class="pav b" style="background:#0b5a34">T</span><div><b>Theo</b><small>@theo · 11:52 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Pushup club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 30% 30%,#1b7a45,#06230f 70%)"><span class="bd">+100 pushups</span><div class="pl"><i></i></div><div class="rx"><span>😅</span><span>⏰</span></div></div><div class="ac"><button type="button" class="lk on" aria-label="Like" data-n="7"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>7</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Flag this"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">3 comments</span></div><div class="cp"><b>theo</b>8 minutes to spare</div><div class="cm"><div><b>maya</b><span>cutting it close</span></div><div><b>jordan</b><span>living dangerously</span></div><div><b>theo</b><span>it counts</span></div></div></div><div class="pp" data-g="read" data-day="Yesterday"><div class="hd"><span class="pav b" style="background:#8a1f30">P</span><div><b>Priya</b><small>@priya · 9:30 PM</small></div><span class="gt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Book club</span></span><span class="mo"><i></i><i></i><i></i></span></div><div class="rl" style="background:radial-gradient(circle at 40% 60%,#6b4a2f,#1a120b 72%)"><span class="bd">+20 pages</span><div class="pl"><i></i></div><div class="rx"><span>📖</span></div></div><div class="ac"><button type="button" class="lk" aria-label="Like" data-n="3"><svg viewBox="0 0 24 24"><path d="M12 20.5 4.2 13a4.8 4.8 0 0 1 6.8-6.8l1 1 1-1A4.8 4.8 0 0 1 19.8 13z"/></svg><b>3</b></button><button type="button" class="rct" aria-label="React"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></svg></button><button type="button" class="flg" aria-label="Flag this"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></button><span class="cc">1 comment</span></div><div class="cm"><div><b>lena</b><span>nice</span></div></div></div>
 </div>
-<div class="pveil" hidden></div><div class="psheet" hidden role="dialog" aria-label="Question this one"><h3>Question this one</h3><p class="pm">The group decides, not you and not us. Say what is wrong with it — everyone voting reads this.</p><div class="pchip"><span class="pav"></span><span><b></b><em>Today</em></span></div><textarea id="pflag" maxlength="300" rows="3" placeholder="Not full range — elbows barely bent on most of them."></textarea><div class="prow"><button type="button" class="pcancel">Cancel</button><button type="button" class="psubmit">Submit flag</button></div><p class="pfine"></p></div></div></div>
+<div class="qbar" aria-hidden="true"><span class="on"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div><div class="pveil" hidden></div><div class="psheet" hidden role="dialog" aria-label="Flag this"><h3>Flag this</h3><p class="pm">The group decides, not you and not us. Say what is wrong with it — everyone voting reads this.</p><div class="pchip"><span class="pav"></span><span><b></b><em>Today</em></span></div><textarea id="pflag" maxlength="300" rows="3" placeholder="What's wrong with it?"></textarea><div class="prow"><button type="button" class="pcancel">Cancel</button><button type="button" class="psubmit">Submit flag</button></div><p class="pfine"></p></div></div></div>
 </div></header>
 
 <section><div class="wrap"><div class="split">
@@ -738,9 +817,9 @@ h1.ph{font-size:clamp(32px,5vw,48px);letter-spacing:-.035em;line-height:1.08;mar
 
 <section class="alt"><div class="wrap center"><div class="eyebrow">A look inside</div><h2>Three screens you'll use every day.</h2>
 <div class="tour">
-<figure><div class="mph"><div class="msc2"><div class="tsc"><div class="tlogo"><svg viewBox="0 0 132 132"><use href="#mark"/></svg>QUOTA</div><div class="th1">PUSHUP CLUB</div></div><div class="tbody"><div class="tback">‹ Groups</div><div class="tcard"><span class="tq">100 pushups / day</span><div class="tbtns"><b>Invite a friend</b><span>Edit</span></div></div><div class="tsec">TODAY</div><div class="tcard tlist"><div class="tm"><span class="pav" style="background:#111">M</span><div><b>Maya <em>(you)</em></b><small>23 day streak</small></div><i class="ok">100/100</i></div><div class="tm"><span class="pav" style="background:#e5e5ea;color:#111">S</span><div><b>Sam</b><small>23 day streak</small></div><i class="ok">100/100</i></div><div class="tm"><span class="pav" style="background:#e5e5ea;color:#111">J</span><div><b>Jordan</b><small>23 day streak</small></div><i class="ok">100/100</i></div><div class="tm"><span class="pav" style="background:#e5e5ea;color:#111">T</span><div><b>Theo</b><small>23 day streak</small></div><i class="">0/100</i></div></div></div><div class="tbar"><span class=""><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span class="on"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="tadd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class=""><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div></div></div><figcaption><b>Your group</b>Who's done and who isn't, at a glance.</figcaption></figure>
-<figure><div class="mph"><div class="msc2"><div class="tcam"><div class="ctl"><span class="cbtn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></span><span class="cbtn"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div><div class="cmode"><b>Video</b><span>Photo</span></div><div class="cshut"><span class="coff">Off</span><span class="cring"></span></div></div></div></div><figcaption><b>The camera</b>Opens full screen. A photo or up to ten seconds of video.</figcaption></figure>
-<figure><div class="mph"><div class="msc2"><div class="tsc"><div class="tlogo"><svg viewBox="0 0 132 132"><use href="#mark"/></svg>QUOTA</div><div class="th1 gear">PROFILE<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div></div><div class="tbody"><div class="twho"><span class="pav" style="background:#111;width:38px;height:38px;font-size:14px">M</span><div><b>Maya</b><small>@maya</small></div></div><p class="tbio">Pushups before breakfast.</p><div class="tstats"><div><b class="g">23</b><small>STREAK</small></div><div><b>104</b><small>BEST</small></div><div><b>18</b><small>ON SHOW</small></div></div><div class="tnum">Your numbers</div><div class="tbadges"><span><svg viewBox="0 0 24 24" style="fill:#12934f"><path d="M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z"/></svg>25</span><span><svg viewBox="0 0 24 24" style="fill:#0b5a34"><path d="M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z"/><path fill="#fff" d="M12 7.1l1.5 3.4 3.7.35-2.8 2.45.83 3.6L12 15l-3.2 1.9.83-3.6-2.8-2.45 3.7-.35Z"/></svg>50</span><span><svg viewBox="0 0 24 24" style="fill:#c9a227"><path d="M3.2 8.6 7 12l5-8 5 8 3.8-3.4-1.5 11.4H4.7Z"/></svg>100</span></div><div class="tgchips"><span><b>Pushup club</b> 23 day streak</span><span><b>Book club</b> 12 day streak</span></div><div class="tptab">PROOF · 18</div><div class="tgrid"><i>+100</i><i>+25</i><i>+100</i><i>+30</i><i>+100</i><i>+40</i></div></div><div class="tbar"><span class=""><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span class=""><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="tadd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class=""><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div></div></div><figcaption><b>Your profile</b>Your streak, your badges, and your proof.</figcaption></figure>
+<figure><div class="mph"><div class="msc2 qs"><div class="hdr"><div class="tp"><span class="gback">‹ Groups</span><span class="end"><span class="date">Pushup club</span><svg class="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01"/></svg></span></div><div class="big"><b>23</b><div>day streak<small>yours, in this crew · 1 pass left</small></div></div><p class="crewline">Crew bonus: 23 days everyone showed up</p></div><div class="qcard"><div class="ghead"><span class="gav">P</span><div><b>Pushup club</b><span>4 people</span></div></div><span class="qchip">100 pushups / day</span><div class="qbtn"><svg viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-8.5 8 9 9 0 0 1-3.6-.7L4 20.5l1.3-4a8.2 8.2 0 0 1-.8-3.6 8 8 0 0 1 8-8 8 8 0 0 1 8 7.1z"/></svg>Chat</div><div class="qbtn dark">Invite a friend</div><div class="qbtn sm">History</div><div class="qbtn ghost">Manage</div></div><div class="sec">Crew</div><p class="missline">Theo hasn't posted — <b>4h left</b></p><div class="qcard crew"><div class="mrow"><div class="pst"><b>23</b><small>days</small></div><span class="pav">M</span><div class="grow"><b>Maya <em>(you)</em></b><span class="qchip ok">100/100</span><div class="rate">hit the quota 97% of the last 30 days</div></div></div><div class="mrow"><div class="pst"><b>23</b><small>days</small></div><span class="pav">S</span><div class="grow"><b>Sam</b><span class="qchip ok">100/100</span><div class="rate">hit the quota 93% of the last 30 days</div></div></div><div class="mrow"><div class="pst"><b>23</b><small>days</small></div><span class="pav">J</span><div class="grow"><b>Jordan</b><span class="qchip ok">100/100</span><div class="rate">hit the quota 90% of the last 30 days</div></div></div><div class="mrow"><div class="pst"><b>23</b><small>days</small></div><span class="pav todo">T</span><div class="grow"><b>Theo</b><span class="qchip">0/100</span><div class="rate">hit the quota 87% of the last 30 days</div></div></div></div><div class="qbar" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span class="on"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div></div></div><figcaption><b>Your group</b>Who's done and who isn't, at a glance.</figcaption></figure>
+<figure><div class="mph"><div class="msc2 qs"><div class="qcam"><div class="ct"><span class="cb"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span class="sp"></span><span class="cpill">Pushup club · 100 pushups</span><span class="sp"></span><span class="cb"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 8-11h-6z"/></svg></span><span class="cb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2h5"/></svg></span></div><div class="cbt"><div class="modes"><span class="on">Video</span><span>Photo</span></div><div class="row"><span class="cb"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 3v18"/></svg></span><span class="shut"><i></i></span><span class="cb"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></span></div></div></div></div></div><figcaption><b>The camera</b>Opens full screen. A photo or up to ten seconds of video.</figcaption></figure>
+<figure><div class="mph"><div class="msc2 qs"><div class="hdr"><div class="tp"><span class="lg"><svg class="mk" viewBox="0 0 26 26"><use href="#mark"/></svg>Quota</span><svg class="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01"/></svg></div><div class="h1">Profile<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div></div><div class="pf"><div class="pwho"><span class="pav">M</span><div><b>Maya</b><span>@maya</span></div></div><p class="bio">Pushups before breakfast.</p><div class="pstats"><div><b>23</b><small>Day streak</small></div><div><b>104</b><small>Best</small></div><div><b>18</b><small>On show</small></div></div><div class="qbtn sm">Stats</div><div class="bshelf"><span><svg viewBox="0 0 24 24" style="fill:#12934f"><path d="M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z"/></svg>25</span><span><svg viewBox="0 0 24 24" style="fill:#0b5a34"><path d="M12 1.7 20.4 4.8V11c0 5.6-3.5 9.6-8.4 11.3C7.1 20.6 3.6 16.6 3.6 11V4.8Z"/><path fill="#fff" d="M12 7.1l1.5 3.4 3.7.35-2.8 2.45.83 3.6L12 15l-3.2 1.9.83-3.6-2.8-2.45 3.7-.35Z"/></svg>50</span><span><svg viewBox="0 0 24 24" style="fill:#c9a227"><path d="M3.2 8.6 7 12l5-8 5 8 3.8-3.4-1.5 11.4H4.7Z"/></svg>100</span></div><div class="gchips"><span><b>Pushup club</b><em>23 day streak</em></span><span><b>Book club</b><em>12 day streak</em></span></div><div class="ptab">Proof · 18</div><div class="pgrid"><i>+100</i><i>+25</i><i>+100</i><i>+30</i><i>+100</i><i>+40</i></div></div><div class="qbar" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 15c2.8 0 5 1.3 5 4"/></svg>Groups</span><span class="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 19c0-3.3 2.7-5 6-5s6 1.7 6 5M19 8v6M16 11h6"/></svg>Friends</span><span class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>Profile</span></div></div></div><figcaption><b>Your profile</b>Your streak, your badges, and your proof.</figcaption></figure>
 </div></div></section>
 
 <section><div class="wrap"><div class="eyebrow">What people use it for</div><h2>Any goal you can show.</h2><p class="lead">If you can film yourself doing it, or having done it, it can be a quota.</p>
