@@ -4,7 +4,7 @@
 // the cases where a slip would quietly widen them: someone else's group, someone else's
 // file, a path that climbs out of where it was meant to be.
 import { canDelete, canView, cleanKey, kindOf, planUpload, posterOf, PROOF_MAX, STORY_MAX,
-  viewWindow, VIEW_SECONDS } from './rules.ts';
+  UPLOADS_PER_DAY, UPLOADS_PER_HOUR, viewWindow, VIEW_SECONDS } from './rules.ts';
 
 let failed = 0;
 const ok = (cond: boolean, what: string, detail?: unknown) => {
@@ -40,6 +40,16 @@ ok(!canDelete(theirs, ME), 'not somebody else\'s, even in your group');
 ok(canDelete(`stories/${ME}/1.jpg`, ME), 'your own story file');
 ok(!canDelete(`stories/${THEM}/1.jpg`, ME), 'not somebody else\'s story');
 ok(!canDelete(`${ME}/7/1.mp4`, ME), 'not a proof path with you in the wrong folder');
+
+// A file something still needs is kept, even from its owner: the clip, its still, either way round.
+const held = new Set([mine]);
+ok(!canDelete(mine, ME, held), 'not your own clip while it is held');
+ok(!canDelete(posterOf(mine), ME, held), '  nor its still');
+ok(!canDelete(mine, ME, new Set([posterOf(mine)])), '  nor the clip when it is the still that is held');
+ok(!canDelete(`stories/${ME}/1.jpg`, ME, new Set([`stories/${ME}/1.jpg`])), '  nor a held story file');
+ok(canDelete(`7/${ME}/2.mp4`, ME, held), 'but your other clips are still yours to delete');
+ok(canDelete(`7/${ME}/2.jpg`, ME, new Set([`7/${ME}/2`])), '  and a picture is not mistaken for a still');
+ok(UPLOADS_PER_HOUR > 0 && UPLOADS_PER_HOUR <= UPLOADS_PER_DAY, 'the upload caps are an hour inside a day');
 
 // Upload: the key is built here, from who is asking and when.
 const up = planUpload({ group_id: 7, ext: 'mp4', contentType: 'video/mp4', size: 2_000_000, thumbSize: 40_000 }, ME, 1789575067364);

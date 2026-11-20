@@ -200,6 +200,136 @@ begin
 end $$;
 reset role;
 
+-- ---- v65: who can call what, length limits, and how fast one person can write
+--
+-- Checked here, before app2 is handed everything below.
+do $$
+declare open_to_anon text[];
+begin
+  select array_agg(p.oid::regprocedure::text order by 1) into open_to_anon
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'EXECUTE');
+  if cardinality(open_to_anon) <> 2 or not open_to_anon @> array['code_group(text)', 'quota_numbers(timestamp with time zone)'] then
+    raise exception 'the anon key can call more (or less) than the two signed-out functions: %', open_to_anon;
+  end if;
+  if has_function_privilege('authenticated', 'public.unspun(bigint, uuid, date)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.rate_ok(text, int, interval, int, interval)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.media_held(text[])', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.write_limit()', 'EXECUTE') then
+    raise exception 'a signed-in account can call a function the app never calls';
+  end if;
+  if not has_function_privilege('authenticated', 'public.is_member(bigint)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.are_friends(uuid, uuid)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.my_profile()', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.moderating()', 'EXECUTE') then
+    raise exception 'a signed-in account lost a function the app or its policies call';
+  end if;
+  if not has_function_privilege('service_role', 'public.rate_ok(text, int, interval, int, interval)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.media_held(text[])', 'EXECUTE') then
+    raise exception 'the edge functions cannot reach what they call';
+  end if;
+end $$;
+
+-- Everything below writes and then rolls itself back (the QT001 at the end), so the tests
+-- after it start from the same rows as before.
+do $$
+declare got text; ok boolean;
+begin
+  begin
+    -- A function made from now on is closed to anon from the start.
+    create function public.v65_probe() returns int language sql as 'select 1';
+    if has_function_privilege('anon', 'public.v65_probe()', 'EXECUTE') then
+      raise exception 'a new function starts out open to the anon key';
+    end if;
+
+    -- Length limits.
+    begin
+      insert into public.posts (group_id, user_id, metric, amount, video_path, day, caption)
+        values (90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 1, 'cap.mp4', current_date, repeat('x', 201));
+      raise exception 'a 201-character caption went in';
+    exception when check_violation then null;
+    end;
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day, caption)
+      values (90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 1, 'cap.mp4', current_date, repeat('x', 200));
+    begin
+      insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+        values (90, 'aaaaaaaa-0000-0000-0000-000000000001', repeat('m', 41), 1, 'met.mp4', current_date);
+      raise exception 'a 41-character metric went in';
+    exception when check_violation then null;
+    end;
+    begin
+      insert into public.groups (name, quotas) values (repeat('n', 41), '[{"metric":"pushups","target":1}]');
+      raise exception 'a 41-character group name went in';
+    exception when check_violation then null;
+    end;
+    begin
+      insert into public.groups (name, goal, quotas) values ('ok', repeat('g', 201), '[{"metric":"pushups","target":1}]');
+      raise exception 'a 201-character goal went in';
+    exception when check_violation then null;
+    end;
+
+    -- How fast: 30 posts in an hour are fine, the 31st is not. Written with nobody signed in
+    -- first, which is not counted against anybody, then once as them.
+    perform set_config('test.uid', '', true);
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+      select 90, 'aaaaaaaa-0000-0000-0000-000000000002', 'pushups', 1, 'burst' || i || '.mp4', current_date
+        from generate_series(1, 30) i;
+    perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+    begin
+      insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+        values (90, 'aaaaaaaa-0000-0000-0000-000000000002', 'pushups', 1, 'one-more.mp4', current_date);
+      raise exception 'the 31st post in an hour went in';
+    exception when raise_exception then
+      get stacked diagnostics got = message_text;
+      if got not like 'That''s a lot in a short time%' then raise; end if;
+    end;
+    -- Somebody else is not held back by it.
+    insert into public.posts (group_id, user_id, metric, amount, video_path, day)
+      values (90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 1, 'mine.mp4', current_date);
+    -- And the same rule stands on the other tables.
+    perform set_config('test.uid', '', true);
+    insert into public.comments (post_id, user_id, body)
+      select 900, 'aaaaaaaa-0000-0000-0000-000000000002', 'c' || i from generate_series(1, 60) i;
+    perform set_config('test.uid', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+    begin
+      insert into public.comments (post_id, user_id, body) values (900, 'aaaaaaaa-0000-0000-0000-000000000002', 'again');
+      raise exception 'the 61st comment in an hour went in';
+    exception when raise_exception then
+      get stacked diagnostics got = message_text;
+      if got not like 'That''s a lot in a short time%' then raise; end if;
+    end;
+    if (select count(*) from pg_trigger where tgname in ('messages_write_limit', 'invites_write_limit', 'groups_write_limit')) <> 3 then
+      raise exception 'messages, invites or groups have no write limit';
+    end if;
+    perform set_config('test.uid', '', true);
+
+    -- rate_ok(): yes until a limit, then no, and a no is not counted.
+    if not public.rate_ok('t1', 2, '1 hour', 3, '1 day') or not public.rate_ok('t1', 2, '1 hour', 3, '1 day')
+       or public.rate_ok('t1', 2, '1 hour', 3, '1 day') then
+      raise exception 'rate_ok() did not stop at its hourly limit';
+    end if;
+    if not public.rate_ok('t2', 2, '1 hour', 3, '1 day') then raise exception 'rate_ok() keys are not apart'; end if;
+    if exists (select 1 from public.rate_hits where key in ('t1', 't2')) then
+      raise exception 'rate_ok() kept a key as it was typed';
+    end if;
+
+    -- media_held(): what a report points at, and a file whose post is hidden, are held; a
+    -- post's file with nothing against it is not.
+    insert into public.reports (by_user, user_id, what, thing_id, reason, media_path)
+      values ('aaaaaaaa-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000003', 'user', null, 'spam', '90/x/1.mp4');
+    insert into public.posts (id, group_id, user_id, metric, amount, video_path, day, hidden_at) overriding system value
+      values (950, 90, 'aaaaaaaa-0000-0000-0000-000000000001', 'pushups', 1, '90/a/hidden.mp4', current_date, now());
+    select coalesce(array_agg(x order by x), '{}') into got
+      from public.media_held(array['90/x/1.mp4.jpg', '90/a/hidden.mp4', 'ari.mp4', '90/x/other.mp4']) x;
+    if got <> '{90/a/hidden.mp4,90/x/1.mp4}' then
+      raise exception 'media_held() held the wrong files: %', got;
+    end if;
+
+    raise exception using errcode = 'QT001';
+  exception when sqlstate 'QT001' then null;
+  end;
+end $$;
+
 create role app2 nologin;
 -- A signed-in account, as far as policies written `to authenticated` are concerned.
 grant authenticated to app2;

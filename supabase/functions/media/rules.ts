@@ -82,10 +82,19 @@ export function canView(key: string, groups: Set<number>, visibleStories: Set<st
   return k.bucket === 'proof' ? groups.has(k.group) : visibleStories.has(key);
 }
 
-export function canDelete(key: string, uid: string): boolean {
+// `held` is every file a report or a moderation decision still needs (media_held() in the
+// database). A clip's still goes with its clip, either way round.
+export function canDelete(key: string, uid: string, held: Set<string> = new Set()): boolean {
   const k = kindOf(key);
-  return !!k && k.owner === uid;
+  if (!k || k.owner !== uid) return false;
+  const clip = /\.jpg$/i.test(key) && isVideoKey(key.slice(0, -4)) ? key.slice(0, -4) : key;
+  return !held.has(key) && !held.has(clip) && !held.has(posterOf(clip));
 }
+
+// How many uploads one person may be handed, proof and stories together.
+export const UPLOADS_PER_HOUR = 60;
+export const UPLOADS_PER_DAY = 300;
+export const UPLOAD_LIMIT_LINE = "You've uploaded a lot in a short time. Try again in a little while.";
 
 export type UploadAsk = { group_id?: unknown; story?: unknown; ext?: unknown; contentType?: unknown; size?: unknown; thumbSize?: unknown };
 export type UploadPlan = { key: string; contentType: string; size: number; thumb: { key: string; size: number } | null; group: number | null };

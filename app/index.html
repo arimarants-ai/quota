@@ -2128,7 +2128,7 @@ if (typeof supabase === 'undefined') {
 // Kept in step with VERSION in sw.js, and checked by test/static.test.mjs. It is what
 // answers "which build is this phone actually running", which is the first thing worth
 // knowing about a fault that only happens on somebody's own device.
-const BUILD = 'quota-v185';
+const BUILD = 'quota-v186';
 const SUPABASE_URL = 'https://txvjakpeyfnzigtsvmja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dmpha3BleWZuemlndHN2bWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTgzMDgsImV4cCI6MjEwMzg3NDMwOH0.W5YleWkxqjWFN-V9THtpO7Jcwy6LalqIYyAblXjkb9c';
 // Max video size. 50 MB is the hard cap on Supabase's free plan (verified: 50 MB uploads, 51 MB rejected).
@@ -2214,6 +2214,8 @@ function friendlyError(err, fallback) {
   const m = String((err && (err.message || err.error_description || err.msg)) || (typeof err === 'string' ? err : '') || '');
   const code = String((err && (err.code || err.error_code)) || ''), status = err && err.status;
   if ((typeof navigator !== 'undefined' && navigator.onLine === false) || /failed to fetch|load failed|networkerror|network request failed|fetch failed|could not reach/i.test(m)) return "Couldn't reach Quota. Check your connection.";
+  if (/a lot in a short time/i.test(m)) return m;
+  if (code === '23514' && /_len\b/.test(m)) return "That's too long. Shorten it and try again.";
   if (status === 429 || /rate limit|too many|security purposes/i.test(m)) return "That's a lot of tries in a row. Wait a minute and try again.";
   if (/otp_expired/.test(code) || /token has expired or is invalid|invalid otp/i.test(m)) return 'That code is wrong or has expired. Send a new one and try again.';
   if (/invalid login credentials/i.test(m)) return 'Wrong email, username or password.';
@@ -2276,6 +2278,9 @@ const myStreak = () => { const m = S.me; if (!m) return 0; return headStreak(m.i
 const LOGO = bg => bg ? ICON :
   `<svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="66" cy="66" r="46" fill="none" stroke="var(--line)" stroke-width="18"/><circle cx="66" cy="66" r="46" fill="none" stroke="var(--mk)" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(RING * Math.min(1, myStreak() / CAP)).toFixed(1)} ${RING}" transform="rotate(-90 66 66)"/><rect x="86" y="86" width="22" height="34" rx="11" fill="var(--mk)" transform="rotate(-45 97 103)"/></svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// A value as a quoted JS string inside an on…="…" attribute: JSON for the JS, esc() for the
+// attribute around it. Use this, not '${esc(x)}', for anything passed to an inline handler.
+const jsq = s => esc(JSON.stringify(String(s ?? '')));
 // Made by a function rather than written out once, so the example crews (demoState) start
 // from exactly the same shape the app does and every screen finds what it expects.
 const freshS = () => ({blocked: new Set(), mut: {}, cseen: {}, settle: [], joined: {}, noForfeits: true, creply: null, mreply: null, needEmail: false, emailLater: false, editEmail: false, email: '', emailTo: '', sentTo: '', sub: null, installAfter: null, more: 0, invited: undefined, me: null, profiles: {}, friends: [], groups: [], posts: [], comments: [], totals: [], invites: [], wheels: [], spins: [], ticks: [], likes: [], reacts: [], stories: [], seen: [], views: [], slikes: [], sreacts: [], badges: [], clikes: [], spost: {}, hist: [], feedEnd: {}, cursor: {}, days: {}, allFrom: 0, flags: [], fvotes: [], flag: null,
@@ -5783,13 +5788,13 @@ const freshRecaps = g => recapsOf(g).filter(r => !watched().includes(r.key)).len
 
 function recapsView(g) {
   const rs = recapsOf(g), open = openPeriod(g), seen = watched();
-  const card = r => `<div class="rwrap"><button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},'${esc(r.key)}')">
+  const card = r => `<div class="rwrap"><button type="button" class="rcard${seen.includes(r.key) ? '' : ' fresh'}" onclick="openRecap(${g.id},${jsq(r.key)})">
     <span class="sheet">${r.posts.slice(0, 8).map((p, i) => `<i style="--n:${i}"></i>`).join('')}
       ${r.posts.length ? `<video class="proof" muted playsinline preload="none"${lazyPoster(r.posts[0])}></video>` : ''}</span>
     <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
     <span class="meta"><b>${esc(r.name)}</b><em>${r.kind === 'month' && monthAwards(g, r.from).some(a => awardShown(a).length) ? 'Awards · ' : ''}${plural(r.posts.length, 'clip')} · ${esc(dayLabel(r.from))}–${esc(dayLabel(r.to))}</em></span>
     ${seen.includes(r.key) ? '' : '<span class="new">New</span>'}</button>
-    ${r.posts.length ? `<button type="button" class="small rshare" onclick="shareRecap(${g.id},'${esc(r.key)}')">Share</button>` : ''}</div>`;
+    ${r.posts.length ? `<button type="button" class="small rshare" onclick="shareRecap(${g.id},${jsq(r.key)})">Share</button>` : ''}</div>`;
   return `<div class="hdr"><div class="top"><button type="button" class="ghost gback" onclick="closeSub()">‹ ${esc(g.name)}</button>
       <span class="end"><span class="date">Recaps</span>${helpBtn()}</span></div></div>
   ${histTabs(g, 'recaps')}
@@ -6156,7 +6161,7 @@ function owedCard(g) {
   return `<h3>Owed</h3><div class="card list owed">${who.length ? who.map(({u: uid, days}) => { const u = user(uid), mine = uid === m.id;
       return `<div class="row">${av(u, 'sm')}<div class="grow"><b>${mine ? 'You owe' : `${esc(name(u))} owes`}: ${esc(g.forfeit)}${days.length > 1 ? ` ×${days.length}` : ''}</b>
         <div class="muted">for ${esc(when(days))}${mine ? ' · a crewmate marks it paid' : ''}</div></div>${
-        mine ? '' : `<button type="button" class="small" onclick="markPaid(${g.id},'${esc(uid)}')">Paid</button>`}</div>`; }).join('')
+        mine ? '' : `<button type="button" class="small" onclick="markPaid(${g.id},${jsq(uid)})">Paid</button>`}</div>`; }).join('')
     : `<p class="muted">Nobody owes anything right now.</p>`}
     ${paid.length ? `<p class="muted small paidline">Paid: ${paid.map(r => `${esc(r.u === m.id ? 'you' : name(user(r.u)))} for ${esc(byDay(g) ? dayLabel(r.d) : periodLabel(g, r.d))}${r.by ? `, marked by ${esc(r.by === m.id ? 'you' : name(user(r.by)))}` : ''}`).join(' · ')}</p>` : ''}</div>`;
 }
@@ -6210,7 +6215,7 @@ function feed(ps, showGroup, bare, scope) {
     // The header sits on the card above the clip, so the clip is only the clip. The
     // player is the clip and a pause: no native controls, ever.
     return h + `<div class="card post" data-post="${p.id}">
-      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho('${esc(p.userId)}')">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${p.review ? '<em class="review">Under review</em>' : ''}</div></div>
+      <div class="head">${avStory(u, '', true)}<div class="grow"><div class="line"><button type="button" class="who" onclick="openWho(${jsq(p.userId)})">${esc(name(u))}</button>${badgeChip(u.id)}</div><div class="when">@${esc(u.username || '')}${u.username ? ' · ' : ''}${time(p.ts)}${p.review ? '<em class="review">Under review</em>' : ''}</div></div>
         ${showGroup && g.id ? `<button type="button" class="gtag" onclick="openGroup(${g.id})" aria-label="Open ${esc(g.name)}">${GROUP_ICON}<span>${esc(g.name)}</span></button>` : ''}
         <button type="button" class="more" onclick="postMenu(${p.id})" aria-label="More">${DOTS}</button></div>
       ${p.review ? `<p class="rvline">Someone reported this, so it's hidden from your group while we take a look. It still counts for your day.</p>` : ''}
@@ -6825,7 +6830,7 @@ async function markChatRead(key) {
 
 function chatsView() {
   const rows = chatRows(), groups = rows.filter(c => c.group), people = rows.filter(c => !c.group);
-  const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat('${esc(c.key)}')">
+  const row = c => `<button type="button" class="crow${c.unread ? ' un' : ''}" onclick="openChat(${jsq(c.key)})">
     ${c.group ? gav(c.group) : av(c.who, '')}
     <span class="gr"><b>${esc(c.name)}</b>
       <span>${c.last ? `${c.last.userId === me().id ? 'You: ' : (c.group ? esc(name(user(c.last.userId))) + ': ' : '')}${esc(c.last.body)}`
@@ -6919,7 +6924,7 @@ function seenLine(key, list) {
   }
   const ids = rows.filter(r => r.ts >= mine.ts).sort((a, b) => a.ts - b.ts).map(r => r.u);
   if (!ids.length) return null;
-  return {id: mine.id, html: `<button type="button" class="cseen" onclick="seenByDlg('${esc(key)}',${mine.id})" aria-label="Seen by ${ids.length}">Seen by ${
+  return {id: mine.id, html: `<button type="button" class="cseen" onclick="seenByDlg(${jsq(key)},${mine.id})" aria-label="Seen by ${ids.length}">Seen by ${
     faces(ids, 3)}${ids.length > 3 ? `<i>+${ids.length - 3}</i>` : ''}</button>`};
 }
 function seenByDlg(key, id) {
@@ -6927,7 +6932,7 @@ function seenByDlg(key, id) {
   if (!msg) return;
   const when = ts => (ymd(new Date(ts)) === today() ? '' : dayLabel(ymd(new Date(ts))) + ' ') + time(ts);
   const seen = rows.filter(r => r.ts >= msg.ts).sort((a, b) => a.ts - b.ts), not = rows.filter(r => !(r.ts >= msg.ts));
-  const row = (r, t) => { const u = user(r.u); return `<button type="button" class="row prow pgo" onclick="dlg();openWho('${esc(r.u)}')">${av(u, 'lg')}<span class="grow"><b>${esc(name(u))}</b></span>${t ? `<span class="muted">${esc(t)}</span>` : ''}</button>`; };
+  const row = (r, t) => { const u = user(r.u); return `<button type="button" class="row prow pgo" onclick="dlg();openWho(${jsq(r.u)})">${av(u, 'lg')}<span class="grow"><b>${esc(name(u))}</b></span>${t ? `<span class="muted">${esc(t)}</span>` : ''}</button>`; };
   dlg(`<h2>Seen by</h2><p class="muted">\u201c${esc(clip(msg.body, 80))}\u201d</p>
     <div class="list">${seen.map(r => row(r, when(r.ts))).join('')}</div>
     ${not.length ? `<p class="sec" style="margin-top:16px">Not seen yet</p><div class="list">${not.map(r => row(r, '')).join('')}</div>` : ''}
@@ -6960,7 +6965,7 @@ function chatView(key) {
     <div class="msgs" id="msgs">${chatBody(key)}</div>
     <div class="emoji cemoji" hidden>${EMOJI.map(e => `<button type="button" onclick="putChatEmoji(this,'${e}')">${e}</button>`).join('')}</div>
     ${replyBar(key)}
-    <form class="csend" onsubmit="event.preventDefault();sendMessage(this,'${esc(key)}')">
+    <form class="csend" onsubmit="event.preventDefault();sendMessage(this,${jsq(key)})">
       <button type="button" class="emo" onclick="toggleChatEmoji(this)" aria-label="Emoji">${SMILEY}</button>
       <textarea class="autogrow" rows="1" name="body" placeholder="${S.medit && S.medit.key === key ? 'Edit your message' : 'Message'}" maxlength="2000" required autocomplete="off" enterkeyhint="send"></textarea>
       <button class="primary">${S.medit && S.medit.key === key ? 'Save' : 'Send'}</button>
@@ -7082,7 +7087,7 @@ function msgMenu(row, id) {
     <button type="button" onclick="closeTrays();copyText(${id},'m')">Copy</button>
     ${canEdit(msg) ? `<button type="button" onclick="startEdit('message',${id})">Edit</button>` : ''}
     ${msg.userId === me().id ? `<button type="button" class="bad" onclick="closeTrays();delMessage(${id})">Delete</button>`
-      : `<button type="button" onclick="closeTrays();reportDlg('message',${id},'${esc(msg.userId)}')">Report</button>`}`;
+      : `<button type="button" onclick="closeTrays();reportDlg('message',${id},${jsq(msg.userId)})">Report</button>`}`;
   row.appendChild(opts);
   // The last few lines sit right on the box you type in, and a menu under one of them would
   // open underneath it. The conversation scrolls far enough to show all of it, up and down
@@ -8146,15 +8151,15 @@ function profileMutuals(uid) {
   const text = ids.length === 1 ? `Friends with ${names[0]}`
     : ids.length === 2 ? `Friends with ${names[0]} and ${names[1]}`
     : `Friends with ${names.join(', ')} and <b>${plural(ids.length - 2, 'other')}</b> you know`;
-  return `<button type="button" class="pmut" onclick="mutualsDlg('${esc(uid)}')">${faces(ids, 3)}<span>${text}</span><span class="go">\u203a</span></button>`;
+  return `<button type="button" class="pmut" onclick="mutualsDlg(${jsq(uid)})">${faces(ids, 3)}<span>${text}</span><span class="go">\u203a</span></button>`;
 }
 // What you can do about somebody from their profile, so a profile is a place to add from.
 function friendButton(uid) {
   const st = standing(uid), inv = S.invites.find(i => i.type === 'friend' && i.from === uid && i.to === me().id);
-  const b = st === 'none' ? `<button class="primary grow" onclick="inviteFriend('${esc(uid)}')">Add friend</button>`
+  const b = st === 'none' ? `<button class="primary grow" onclick="inviteFriend(${jsq(uid)})">Add friend</button>`
     : st === 'sent' ? `<button class="grow" disabled>Requested</button>`
     : st === 'asked' && inv ? `<button class="primary grow" onclick="accept(${inv.id})">Accept friend request</button>`
-    : st === 'friends' && !S.noChat ? `<button class="grow" onclick="openChat('${esc(uKey(uid))}')">Message</button>` : '';
+    : st === 'friends' && !S.noChat ? `<button class="grow" onclick="openChat(${jsq(uKey(uid))})">Message</button>` : '';
   return b ? `<div class="row pad pfriend">${b}</div>` : '';
 }
 function personView(uid) {
@@ -8185,9 +8190,9 @@ function personView(uid) {
     ${own || S.blocked.has(uid) ? '' : friendButton(uid)}
     <div class="stats">${stat(cur, 'day streak')}${stat(bst, 'best')}${stat(own ? shown : grid.length, 'on show')}</div>
     ${own ? `<div class="row pad"><button class="small grow" onclick="openSub('stats')">Stats</button></div>`
-      : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,'${esc(uid)}')">Report</button>${S.blocked.has(uid)
-        ? `<button class="small grow" onclick="unblockUser('${esc(uid)}')">Unblock</button>` : `<button class="small grow" onclick="blockAsk('${esc(uid)}')">Block</button>`}</div>`}
-    ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg('${esc(uid)}',${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
+      : `<div class="row pad"><button class="small grow" onclick="reportDlg('user',0,${jsq(uid)})">Report</button>${S.blocked.has(uid)
+        ? `<button class="small grow" onclick="unblockUser(${jsq(uid)})">Unblock</button>` : `<button class="small grow" onclick="blockAsk(${jsq(uid)})">Block</button>`}</div>`}
+    ${badgesOf(uid).length ? `<div class="bshelf">${badgesOf(uid).map(b => `<button type="button" onclick="badgeDlg(${jsq(uid)},${b.n})" aria-label="${b.n} day streak badge">${badgeMark(b.n)}<span>${b.n}</span></button>`).join('')}</div>`
       : own ? `<p class="muted pad">Badges start at a 10 day streak.</p>` : ''}
     ${chips.length ? `<div class="gchips">${chips.map(g => `<button type="button" class="gchip" onclick="${g.members.includes(me().id) ? `openGroup(${g.id})` : ''}"><b>${esc(g.name)}</b>${
       mine.includes(g) && streak(g, uid) ? `<em>${esc(streakText(g, streak(g, uid)))}</em>` : ''}</button>`).join('')}</div>` : ''}
@@ -8197,7 +8202,7 @@ function personView(uid) {
       : pro.loading ? `<p class="muted pad">Loading…</p>`
       : pro.err ? `<div class="card empty"><b>This grid could not be loaded</b>
           <p class="muted">That was the network, not an empty grid.</p>
-          <button class="small" style="margin-top:12px" onclick="retryProfile('${esc(uid)}')">Retry</button></div>`
+          <button class="small" style="margin-top:12px" onclick="retryProfile(${jsq(uid)})">Retry</button></div>`
       : grid.length ? `<div class="pgrid">${grid.map(p => tile(p, own)).join('')}</div>`
       : `<p class="muted pad">${own ? 'Nothing here yet. Post some proof and it lands in this grid.'
         : `Only what ${esc(name(u))} chose to show here.`}</p>`}
@@ -9124,7 +9129,7 @@ const topBadge = uid => badgesOf(uid).slice(-1)[0];
 function badgeChip(uid) {
   const b = topBadge(uid);
   if (!b) return '';
-  return `<button type="button" class="bchip" onclick="event.stopPropagation();badgeDlg('${esc(uid)}',${b.n})"
+  return `<button type="button" class="bchip" onclick="event.stopPropagation();badgeDlg(${jsq(uid)},${b.n})"
     aria-label="${b.n} day streak badge">${badgeMark(b.n)}</button>`;
 }
 function badgeDlg(uid, n) {
@@ -9771,7 +9776,7 @@ function paintTakeBtns() {
   r.className = have ? 'retake' : 'teal grow';
   if (ph) ph.hidden = have;
 }
-const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
+const quotaRow = (qq = {metric: '', target: ''}) => `<div class="row" style="margin-top:8px"><input name="metric" placeholder="pushups" value="${esc(qq.metric)}" required maxlength="40"><input name="target" type="number" min="1" placeholder="100" value="${qq.target}" required style="width:96px;flex:none"><button type="button" class="ghost" onclick="this.parentNode.remove()">✕</button></div>`;
 // Everything you do to a group rather than in it. These were all on the group screen at
 // once — nine buttons under its name — which made the two anybody actually uses hard to
 // find among the seven they do not. Nothing has been taken away; it is behind one door.
@@ -9857,7 +9862,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
   const more = !!(g.id && (g.avatar_path || g.goal));
   dlg(`<h2>${g.id ? 'Edit' : 'New'} group</h2><form onsubmit="event.preventDefault();saveGroup(this,${g.id || 0})" onchange="if(event.target.name==='sched')paintSched(this)">
     ${g.id ? '' : `<label>Start from</label><div class="presets mini">${PRESETS.map((x, i) => `<button type="button" onclick="fillPreset(this,${i})">${esc(x.label)}</button>`).join('')}</div>`}
-    <label>Name</label><input name="name" value="${esc(g.name)}" required placeholder="Push crew">
+    <label>Name</label><input name="name" value="${esc(g.name)}" required maxlength="40" placeholder="Push crew">
     <label>How often</label>
     <div class="sched">${SCHED_TILES.map(([k, t, line]) => `<label class="stile"><input type="radio" name="sched" value="${k}"${k === sc ? ' checked' : ''}>
       <b>${t}</b><em>${line}</em></label>`).join('')}</div>
@@ -9878,7 +9883,7 @@ function groupDlg(g = {name: '', goal: '', quotas: [{metric: 'pushups', target: 
             <button type="button" class="grow" onclick="pickPhoto(this)">Library</button></div>
           <p class="muted" style="margin-top:6px;font-size:12px">A picture for the group. Anyone in it can change it.</p></div></div>
       <input name="photo" type="file" accept="image/*" hidden onchange="pickAvatar(this)">
-      <label>Group goal</label><textarea class="autogrow" rows="1" name="goal" placeholder="e.g. 100 pushups a day for 30 days">${esc(g.goal || '')}</textarea>
+      <label>Group goal</label><textarea class="autogrow" rows="1" name="goal" maxlength="200" placeholder="e.g. 100 pushups a day for 30 days">${esc(g.goal || '')}</textarea>
     </details>
     ${g.id ? '' : `<p class="muted" style="margin-top:12px">You can invite friends once the group is created.</p>`}
     <div class="row" style="margin-top:18px"><button type="button" onclick="dlg()">Cancel</button><button class="primary grow">Save</button></div></form>`);
@@ -10201,7 +10206,7 @@ function doneCard(r) {
       ${emailed && r.polished_reason ? `<span class="rwhy">“${esc(r.polished_reason)}”</span>` : ''}
       ${emailed ? (r.email_error ? `<span class="rerr">The email didn't go out.</span>` : r.email_sent_at ? `<em>Emailed ${esc(stamp(r.email_sent_at))}</em>` : '') : ''}
       <span class="racts">${emailed && r.email_error ? `<button type="button" class="small" onclick="retryEmail(this,${r.id})">Retry email</button>` : ''}
-        ${r.suspended ? `<button type="button" class="small" onclick="liftAsk('${esc(r.poster_id)}')">Lift suspension</button>` : ''}</span></span></div>`;
+        ${r.suspended ? `<button type="button" class="small" onclick="liftAsk(${jsq(r.poster_id)})">Lift suspension</button>` : ''}</span></span></div>`;
 }
 function openReport(id) {
   const fresh = !S.reports && !S.report;
@@ -10243,7 +10248,7 @@ function reportView(id) {
       ${r.what === 'post' && r.caption ? `<p class="rcap">${esc(r.caption)}</p>` : ''}
       ${r.what === 'post' && hasAmount(r.amount) ? `<p class="muted">${esc(`${r.amount} ${r.challenge ? r.challenge + ' ' : ''}${r.metric || ''}`)}</p>` : ''}
       <div class="rbox">${reps}</div>
-      ${r.suspended ? `<button type="button" class="small" onclick="liftAsk('${esc(r.poster_id)}')">Lift suspension</button>` : ''}
+      ${r.suspended ? `<button type="button" class="small" onclick="liftAsk(${jsq(r.poster_id)})">Lift suspension</button>` : ''}
     </div>
     ${open ? `<div class="rdecide">
       <button type="button" class="keep" onclick="keepIt(this,${r.id})"><b>Keep it up</b><em>Back up · no strike</em></button>
@@ -10370,7 +10375,7 @@ function liftAsk(uid) {
   const nm = r ? r.poster_name : 'them';
   dlg(`<h2>Lift ${esc(nm)}’s suspension?</h2><p class="muted">They can post, comment and message again straight away. Their strikes stay on record.</p>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button>
-      <button type="button" class="primary grow" onclick="liftIt(this,'${esc(uid)}')">Lift suspension</button></div>`);
+      <button type="button" class="primary grow" onclick="liftIt(this,${jsq(uid)})">Lift suspension</button></div>`);
 }
 async function liftIt(btn, uid) {
   btn.disabled = true;
@@ -10887,7 +10892,7 @@ function peopleList() {
       : st === 'asked' ? `<span class="muted">Asked you</span>`
       : `<button class="small primary" onclick="inviteFriend('${u.id}')">Add</button>`;
     // The whole row opens their profile, to look before adding; the button adds from here.
-    return `<div class="row prow"><button type="button" class="pgo" onclick="openWho('${esc(u.id)}')">${av(u, 'lg')}<span class="grow">
+    return `<div class="row prow"><button type="button" class="pgo" onclick="openWho(${jsq(u.id)})">${av(u, 'lg')}<span class="grow">
       <b>${esc(name(u))}</b><span class="muted">@${esc(u.username)}</span>${mutualLine(u.id)}</span></button>${right}</div>`;
   }).join('') + `</div><p class="muted small" style="margin-top:6px">Tap someone to see their profile first.</p>`;
 }
@@ -10934,7 +10939,7 @@ function rankPeople(rows, term) {
 function mutualsDlg(id) {
   const ids = mutualsOf(id), u = user(id);
   dlg(`<h2>Mutual friends</h2><p class="muted">You and ${esc(firstName(u))} are both friends with ${ids.length} ${ids.length === 1 ? 'person' : 'people'}.</p>
-    <div class="list">${ids.map(f => { const x = user(f); return `<button type="button" class="row prow pgo" onclick="dlg();openWho('${esc(f)}')">${av(x, 'lg')}<span class="grow"><b>${esc(name(x))}</b><span class="muted">@${esc(x.username || '')}</span></span></button>`; }).join('')}</div>
+    <div class="list">${ids.map(f => { const x = user(f); return `<button type="button" class="row prow pgo" onclick="dlg();openWho(${jsq(f)})">${av(x, 'lg')}<span class="grow"><b>${esc(name(x))}</b><span class="muted">@${esc(x.username || '')}</span></span></button>`; }).join('')}</div>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Close</button></div>`);
 }
 
@@ -12979,13 +12984,13 @@ const REASONS = [['spam', 'Spam or a scam'], ['harassment', 'Bullying or harassm
 const REPORTED = {post: 'this post', story: 'this story', comment: 'this comment', message: 'this message'};
 // The two rows every menu about somebody else's thing ends with.
 const reportRows = (what, id, uid) =>
-  `<button type="button" onclick="reportDlg('${what}',${id},'${esc(uid)}')">Report</button>
-   <button type="button" class="bad" onclick="blockAsk('${esc(uid)}')">Block @${esc(user(uid).username || '')}</button>`;
+  `<button type="button" onclick="reportDlg('${what}',${id},${jsq(uid)})">Report</button>
+   <button type="button" class="bad" onclick="blockAsk(${jsq(uid)})">Block @${esc(user(uid).username || '')}</button>`;
 function reportDlg(what, id, uid) {
   const u = user(uid);
   dlg(`<h2>Report ${REPORTED[what] || `@${esc(u.username || '')}`}</h2>
     <p class="muted">Only the people who run Quota see a report, and ${esc(name(u))} is not told who sent it. Every one is looked at within 24 hours.</p>
-    <form onsubmit="event.preventDefault();sendReport(this,'${what}',${id || 0},'${esc(uid)}')">
+    <form onsubmit="event.preventDefault();sendReport(this,'${what}',${id || 0},${jsq(uid)})">
       <div class="reasons">${REASONS.map(([k, l]) => `<label class="check"><input type="radio" name="reason" value="${k}" required><span>${l}</span></label>`).join('')}</div>
       <label>Anything we should know <span class="muted">(optional)</span></label>
       <textarea class="autogrow" rows="1" name="details" data-raw maxlength="500" autocomplete="off" placeholder="What happened"></textarea>
@@ -13017,7 +13022,7 @@ async function sendReport(f, what, id, uid) {
   if (what !== 'user') render();
   const u = user(uid);
   dlg(`<h2>Report sent</h2><p class="muted">Thank you. Somebody who runs Quota will look at it within 24 hours, and anything that breaks the rules comes down.${S.blocked.has(uid) ? '' : ` If you would rather not see ${esc(name(u))} again in the meantime, you can block them.`}</p>
-    <div class="menu">${S.blocked.has(uid) ? '' : `<button type="button" class="bad" onclick="blockAsk('${esc(uid)}')">Block @${esc(u.username || '')}</button>`}
+    <div class="menu">${S.blocked.has(uid) ? '' : `<button type="button" class="bad" onclick="blockAsk(${jsq(uid)})">Block @${esc(u.username || '')}</button>`}
       <button type="button" onclick="dlg()">Done</button></div>`);
 }
 function blockAsk(uid) {
@@ -13026,7 +13031,7 @@ function blockAsk(uid) {
     <p class="muted">You will not see anything ${esc(name(u))} posts, comments, sends or puts on a story, anywhere in Quota, and you stop being friends. They are not told. If you are in a group together you both stay in it.</p>
     <p class="muted" style="margin-top:8px">Settings → Blocked undoes it.</p>
     <div class="row" style="margin-top:18px"><button type="button" class="grow" onclick="dlg()">Cancel</button>
-      <button type="button" class="primary grow" onclick="blockUser('${esc(uid)}')">Block</button></div>`);
+      <button type="button" class="primary grow" onclick="blockUser(${jsq(uid)})">Block</button></div>`);
 }
 // Everything they made leaves the screen at once, before the database has answered, and
 // load() keeps it that way from then on.
@@ -13053,7 +13058,7 @@ function blockedDlg() {
   dlg(`<h2>Blocked</h2><p class="muted">Nothing they make shows up for you. Unblocking brings it back; it does not make you friends again.</p>
     ${ids.length ? `<div class="list" style="margin-top:12px">${ids.map(id => { const u = user(id);
       return `<div class="li">${av(u)}<span class="t"><b>${esc(name(u))}</b><em>@${esc(u.username || '')}</em></span>
-        <button type="button" class="small" onclick="unblockUser('${esc(id)}')">Unblock</button></div>`; }).join('')}</div>`
+        <button type="button" class="small" onclick="unblockUser(${jsq(id)})">Unblock</button></div>`; }).join('')}</div>`
       : '<p class="muted" style="margin-top:12px">Nobody.</p>'}
     <button type="button" style="width:100%;margin-top:16px" onclick="dlg()">Done</button>`);
 }
@@ -13208,7 +13213,7 @@ function commentMenu(el) {
     <button type="button" onclick="closeTrays();copyText(${id},'c')">Copy</button>
     ${canEdit(c) ? `<button type="button" onclick="startEdit('comment',${id})">Edit</button>` : ''}
     ${mine ? `<button type="button" class="bad" onclick="closeTrays();delCommentAsk(${id})">Delete</button>`
-      : `<button type="button" onclick="closeTrays();reportDlg('comment',${id},'${esc(c.userId)}')">Report</button>`}`, 'opts');
+      : `<button type="button" onclick="closeTrays();reportDlg('comment',${id},${jsq(c.userId)})">Report</button>`}`, 'opts');
 }
 // Asked first, like every delete. One with replies under it takes them with it, so that is said too.
 function delCommentAsk(id) {
@@ -13597,7 +13602,7 @@ function nextDrop() {
   const box = $('#drop'), card = drops.shift();
   clearTimeout(dropTimer); dropTimer = null;
   if (!card) { box.hidden = true; box.innerHTML = ''; return; }
-  box.innerHTML = `<button type="button" class="dropcard" onclick="takeDrop('${esc(card.go)}')">
+  box.innerHTML = `<button type="button" class="dropcard" onclick="takeDrop(${jsq(card.go)})">
     ${av(card.who, '')}<span class="gr"><b>${esc(card.name)}</b><span>${card.text}</span></span></button>
     <button type="button" class="x" onclick="nextDrop()" aria-label="Dismiss">✕</button>`;
   box.hidden = false;

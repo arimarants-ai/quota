@@ -5,15 +5,15 @@
 // this once an hour and public.wheel_due_now() works out whose morning it is. That
 // function also claims each reminder as it returns it, so an overlapping run or a retried
 // call cannot wake the same person twice for the same spin.
-import { send, type Subscription } from '../notify/push.ts';
+import { sameSecret, send, type Subscription } from '../notify/push.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
-const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:hello@quota.app';
+const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:support@hitquota.app';
 const HOOK_SECRET = Deno.env.get('HOOK_SECRET')!;
-const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://quota-jet.vercel.app';
+const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://app.hitquota.app';
 // Who to tell when the machinery stops. Unset and none of this runs: an alarm with nowhere
 // to ring is not worth a query an hour.
 const OWNER_USER_ID = Deno.env.get('OWNER_USER_ID') ?? '';
@@ -73,7 +73,7 @@ async function blast(messages: Map<string, string>, title: string, tag: string) 
 Deno.serve(async (req) => {
   // The cron job is the only caller; a shared secret keeps the endpoint from being driven
   // by anyone who finds the URL.
-  if (req.headers.get('x-hook-secret') !== HOOK_SECRET) return new Response('forbidden', { status: 403 });
+  if (!sameSecret(req.headers.get('x-hook-secret'), HOOK_SECRET)) return new Response('forbidden', { status: 403 });
 
   // Two questions on the same hourly beat, because both are "whose clock says so right
   // now" and neither is worth a cron job, a function and a secret of its own. Each claims

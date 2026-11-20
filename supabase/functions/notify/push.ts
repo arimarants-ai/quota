@@ -203,3 +203,13 @@ export async function send(sub: Subscription, payload: string, opts: {
   });
   return res.status;
 }
+
+// Whether the secret a caller sent is the one this function was given. Every byte is
+// looked at whatever the first difference, so how long it takes says nothing about it.
+export function sameSecret(given: string | null, want: string | undefined): boolean {
+  if (!want || given == null) return false;
+  const a = new TextEncoder().encode(given), b = new TextEncoder().encode(want);
+  let d = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) d |= (a[i] ?? 0) ^ b[i];
+  return d === 0;
+}

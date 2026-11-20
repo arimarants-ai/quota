@@ -50,8 +50,25 @@ function filePart(buf, contentType) {
   const end = buf.indexOf(mark, start);
   return buf.subarray(start + 4, end < 0 ? buf.length : end - 2);
 }
+// The app's own Content-Security-Policy, from app/vercel.json, on everything served here,
+// so a screen that needs something the policy does not allow fails here rather than on the
+// live site. The browser reports each violation to /csp-report; the run fails on any.
+const CSP = JSON.parse(readSync(join(ROOT, 'vercel.json'), 'utf8')).headers
+  .find(h => h.source === '/(.*)').headers.find(h => h.key === 'Content-Security-Policy').value
+  // The stub's storage host stands in for the project's.
+  .replaceAll('https://txvjakpeyfnzigtsvmja.supabase.co', '$& https://stub.invalid') + '; report-uri /csp-report';
+const cspReports = [];
 const server = createServer(async (req, res) => {
   let p = req.url.split(/[?#]/)[0];
+  if (req.method === 'POST' && p === '/csp-report') {
+    const parts = [];
+    req.on('data', c => parts.push(c));
+    req.on('end', () => {
+      try { const r = JSON.parse(Buffer.concat(parts).toString())['csp-report'] || {}; cspReports.push(`${r['violated-directive'] || r['effective-directive']} blocked ${r['blocked-uri']} on ${r['document-uri']}`); } catch {}
+      res.writeHead(204); res.end();
+    });
+    return;
+  }
   if (p === '/last-upload.mp4') {       // served back so the bytes can be decoded and checked
     res.writeHead(lastUpload ? 200 : 404, { 'content-type': 'video/mp4' });
     return res.end(lastUpload || '');
@@ -94,7 +111,7 @@ const server = createServer(async (req, res) => {
   try {
     let body = await readFile(join(ROOT, p));
     if (p === '/index.html' && req.url.includes('local')) body = String(body).replace(/const SUPABASE_URL = '[^']+'/, `const SUPABASE_URL = '${base}'`);
-    res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream' });
+    res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream', 'content-security-policy': CSP });
     res.end(body);
   } catch { res.writeHead(404); res.end('not found'); }
 });
@@ -1839,13 +1856,13 @@ await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
 // it says so with Retry rather than staying a black box.
 await withPage({ ...SIGNED_IN, manyPosts: 3 }, async page => {
   await settle(page);
-  await page.route('https://stall.test/**', () => {});      // asked for, never answered
+  await page.route('https://acct.r2.cloudflarestorage.com/stall/**', () => {});      // asked for, never answered
   const before = await page.evaluate(() => {
     self.__fresh = 0;
-    self.freshUrl = async () => { self.__fresh++; return 'https://stall.test/clip.mp4?' + self.__fresh; };
+    self.freshUrl = async () => { self.__fresh++; return 'https://acct.r2.cloudflarestorage.com/stall/clip.mp4?' + self.__fresh; };
     const vs = [...document.querySelectorAll('#app .reel video.proof')], v = vs[0];
-    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://stall.test/other.mp4'; });
-    v.removeAttribute('src'); v.dataset.src = 'https://stall.test/clip.mp4';
+    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://acct.r2.cloudflarestorage.com/stall/other.mp4'; });
+    v.removeAttribute('src'); v.dataset.src = 'https://acct.r2.cloudflarestorage.com/stall/clip.mp4';
     v.closest('.reel').classList.remove('bust');
     playClip(v, +v.closest('[data-post]').dataset.post);
     return vs.length;
@@ -8497,6 +8514,12 @@ await withPage(null, async page => {
     logs.join(' | '));
 });
 
+// Reports arrive a moment after the violation, so give the last ones time to land.
+await new Promise(r => setTimeout(r, 500));
+{
+  const seen = [...new Set(cspReports)];
+  check('nothing the app did was blocked by its Content-Security-Policy', !seen.length, seen.slice(0, 10).join('\n        '));
+}
 await browser.close();
 if (chrome) await chrome.close();
 server.close();
