@@ -12,10 +12,10 @@
 // An email address typed into the box is passed straight through. There is nothing to
 // look up, and Supabase's own rate limiting applies to the sign-in attempt either way.
 //
-// Supabase limits sign-ins per address, and every call from here comes from the same
-// one, so the person's own address goes along with the attempt. Supabase only acts on it
-// when the project has it switched on and the call carries a secret key (SB_SECRET_KEY,
-// an sb_secret_... key); without those it is ignored and the limit below still holds.
+// The person's own address goes along with the attempt, so Supabase's limits count them
+// and not this function. Supabase only acts on it when the project has it switched on and
+// the call carries a secret key (SB_SECRET_KEY, an sb_secret_... key); without those it is
+// ignored and the limit below still holds.
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;

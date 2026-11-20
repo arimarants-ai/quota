@@ -113,7 +113,9 @@ Deno.serve(async req => {
     if (body.action === 'delete') {
       const keys = paths(body.paths);
       const deleted: string[] = [], refused: string[] = [];
-      const held = new Set<string>(keys.length ? await rpc('media_held', { p_keys: keys }) as string[] : []);
+      // Rows come back as plain strings or as { media_held: '...' }; either is read.
+      const held = new Set<string>((keys.length ? await rpc('media_held', { p_keys: keys }) as unknown[] : [])
+        .map(r => typeof r === 'string' ? r : String(Object.values(r as object)[0])));
       for (const k of keys) {
         if (canDelete(k, uid, held) && await removeObject(k)) deleted.push(k); else refused.push(k);
       }
