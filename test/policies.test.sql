@@ -298,8 +298,7 @@ begin
       get stacked diagnostics got = message_text;
       if got not like 'That''s a lot in a short time%' then raise; end if;
     end;
-    if not exists (select 1 from pg_trigger where tgname in ('messages_write_limit', 'invites_write_limit', 'groups_write_limit')
-                   group by true having count(*) = 3) then
+    if (select count(*) from pg_trigger where tgname in ('messages_write_limit', 'invites_write_limit', 'groups_write_limit')) <> 3 then
       raise exception 'messages, invites or groups have no write limit';
     end if;
     perform set_config('test.uid', '', true);
