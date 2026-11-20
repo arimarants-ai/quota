@@ -209,7 +209,7 @@ begin
   select array_agg(p.oid::regprocedure::text order by 1) into open_to_anon
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'EXECUTE');
-  if open_to_anon is distinct from array['code_group(text)', 'quota_numbers(timestamp with time zone)'] then
+  if cardinality(open_to_anon) <> 2 or not open_to_anon @> array['code_group(text)', 'quota_numbers(timestamp with time zone)'] then
     raise exception 'the anon key can call more (or less) than the two signed-out functions: %', open_to_anon;
   end if;
   if has_function_privilege('authenticated', 'public.unspun(bigint, uuid, date)', 'EXECUTE')

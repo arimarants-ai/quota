@@ -54,7 +54,9 @@ function filePart(buf, contentType) {
 // so a screen that needs something the policy does not allow fails here rather than on the
 // live site. The browser reports each violation to /csp-report; the run fails on any.
 const CSP = JSON.parse(readSync(join(ROOT, 'vercel.json'), 'utf8')).headers
-  .find(h => h.source === '/(.*)').headers.find(h => h.key === 'Content-Security-Policy').value + '; report-uri /csp-report';
+  .find(h => h.source === '/(.*)').headers.find(h => h.key === 'Content-Security-Policy').value
+  // The stub's storage host stands in for the project's.
+  .replaceAll('https://txvjakpeyfnzigtsvmja.supabase.co', '$& https://stub.invalid') + '; report-uri /csp-report';
 const cspReports = [];
 const server = createServer(async (req, res) => {
   let p = req.url.split(/[?#]/)[0];
@@ -1854,13 +1856,13 @@ await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
 // it says so with Retry rather than staying a black box.
 await withPage({ ...SIGNED_IN, manyPosts: 3 }, async page => {
   await settle(page);
-  await page.route('https://stall.test/**', () => {});      // asked for, never answered
+  await page.route('https://acct.r2.cloudflarestorage.com/stall/**', () => {});      // asked for, never answered
   const before = await page.evaluate(() => {
     self.__fresh = 0;
-    self.freshUrl = async () => { self.__fresh++; return 'https://stall.test/clip.mp4?' + self.__fresh; };
+    self.freshUrl = async () => { self.__fresh++; return 'https://acct.r2.cloudflarestorage.com/stall/clip.mp4?' + self.__fresh; };
     const vs = [...document.querySelectorAll('#app .reel video.proof')], v = vs[0];
-    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://stall.test/other.mp4'; });
-    v.removeAttribute('src'); v.dataset.src = 'https://stall.test/clip.mp4';
+    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://acct.r2.cloudflarestorage.com/stall/other.mp4'; });
+    v.removeAttribute('src'); v.dataset.src = 'https://acct.r2.cloudflarestorage.com/stall/clip.mp4';
     v.closest('.reel').classList.remove('bust');
     playClip(v, +v.closest('[data-post]').dataset.post);
     return vs.length;
