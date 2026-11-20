@@ -1856,13 +1856,13 @@ await withPage({ ...SIGNED_IN, queryError: 'boom' }, async (page, alerts) => {
 // it says so with Retry rather than staying a black box.
 await withPage({ ...SIGNED_IN, manyPosts: 3 }, async page => {
   await settle(page);
-  await page.route('https://acct.r2.cloudflarestorage.com/stall/**', () => {});      // asked for, never answered
+  await page.route('https://2e62071aa4f6cc2f85570623ec6fed5c.r2.cloudflarestorage.com/quota-proof/stall/**', () => {});      // asked for, never answered
   const before = await page.evaluate(() => {
     self.__fresh = 0;
-    self.freshUrl = async () => { self.__fresh++; return 'https://acct.r2.cloudflarestorage.com/stall/clip.mp4?' + self.__fresh; };
+    self.freshUrl = async () => { self.__fresh++; return 'https://2e62071aa4f6cc2f85570623ec6fed5c.r2.cloudflarestorage.com/quota-proof/stall/clip.mp4?' + self.__fresh; };
     const vs = [...document.querySelectorAll('#app .reel video.proof')], v = vs[0];
-    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://acct.r2.cloudflarestorage.com/stall/other.mp4'; });
-    v.removeAttribute('src'); v.dataset.src = 'https://acct.r2.cloudflarestorage.com/stall/clip.mp4';
+    vs.slice(1).forEach(o => { o.dataset.go = '1'; o.src = 'https://2e62071aa4f6cc2f85570623ec6fed5c.r2.cloudflarestorage.com/quota-proof/stall/other.mp4'; });
+    v.removeAttribute('src'); v.dataset.src = 'https://2e62071aa4f6cc2f85570623ec6fed5c.r2.cloudflarestorage.com/quota-proof/stall/clip.mp4';
     v.closest('.reel').classList.remove('bust');
     playClip(v, +v.closest('[data-post]').dataset.post);
     return vs.length;

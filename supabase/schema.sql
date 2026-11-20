@@ -5137,3 +5137,42 @@ begin
 end $$;
 alter default privileges in schema public revoke execute on functions from anon;
 alter default privileges revoke execute on functions from public;
+
+-- ============================================================
+-- v66 (hardening): safe to run on an existing project, and safe to run twice. Redeploy
+-- `signin` after it (it calls rate_count() and rate_add()).
+--
+-- rate_count() and rate_add(): the same counter as rate_ok(), split in two, for a limit that
+-- counts only some outcomes: ask first, and add only when the outcome is one that counts.
+-- Service role only, and keys stored hashed, as rate_ok() keeps them.
+--
+-- And a fixed search_path on the four functions that had none. None of them reads a table,
+-- so they get an empty one.
+-- ============================================================
+create or replace function public.rate_count(p_key text, p_window interval)
+returns int language sql stable security definer set search_path = public as $$
+  select count(*)::int from public.rate_hits
+   where key = encode(sha256(convert_to(coalesce(p_key, ''), 'UTF8')), 'hex') and at > now() - p_window;
+$$;
+
+create or replace function public.rate_add(p_keys text[])
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if random() < 0.01 then delete from public.rate_hits where at < now() - interval '2 days'; end if;
+  insert into public.rate_hits (key)
+    select encode(sha256(convert_to(coalesce(k, ''), 'UTF8')), 'hex') from unnest(p_keys) k;
+end $$;
+
+revoke all on function public.rate_count(text, interval) from public, anon, authenticated;
+revoke all on function public.rate_add(text[]) from public, anon, authenticated;
+grant execute on function public.rate_count(text, interval) to service_role;
+grant execute on function public.rate_add(text[]) to service_role;
+
+do $$
+declare f record;
+begin
+  for f in select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname in ('wheel_cycle', 'consents_append_only', 'chat_reads_stamp', 'borrow_slice') loop
+    execute format('alter function %s set search_path = %L', f.sig, '');
+  end loop;
+end $$;

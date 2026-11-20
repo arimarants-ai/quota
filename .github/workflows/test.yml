@@ -76,6 +76,8 @@ jobs:
 
       # Who may sign what on R2: the storage policies, moved into the media function.
       - run: node --experimental-strip-types supabase/functions/media/rules.test.ts
+      # How many wrong tries sign-in allows, and that a sign-in that works is never counted.
+      - run: node --experimental-strip-types supabase/functions/signin/limits.test.ts
 
       # What a take-down email says, for each kind of take-down, and the polish falling back
       # to the moderator's own words whenever the model cannot be reached.
