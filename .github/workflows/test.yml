@@ -111,4 +111,5 @@ jobs:
         run: npm ci --no-audit --no-fund && npx cap sync android
       - if: steps.changed.outputs.skip != 'true'
         working-directory: native/android
-        run: ./gradlew assembleDebug --no-daemon
+        # Release too, so the minified build (R8) is checked, not just the debug one.
+        run: ./gradlew assembleDebug assembleRelease --no-daemon

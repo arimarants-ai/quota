@@ -4980,3 +4980,160 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.day_notices_now(timestamptz) from public, anon, authenticated;
 grant execute on function public.day_notices_now(timestamptz) to service_role;
+
+-- ============================================================
+-- v65 (hardening): safe to run on an existing project, and safe to run twice. Redeploy
+-- `media` and `signin` after it (both call rate_ok(); media calls media_held()).
+--
+-- Who may call which function: anon only the two the signed-out pages use, code_group() and
+-- quota_numbers(); authenticated only what the app calls and what its policies and guards
+-- call as the user; service_role everything. Functions made after this start closed to anon.
+--
+-- Length limits on posts and groups, the same as the app's own fields; a per-person ceiling
+-- on how fast posts, comments, messages, invites and groups can be written; and rate_ok(),
+-- a counter the edge functions use for theirs.
+-- ============================================================
+
+-- A counter for the edge functions' own limits. Only the service role reaches it, and the
+-- key is stored hashed, so an address or a username typed at sign-in is never kept.
+create table if not exists public.rate_hits (
+  key text not null,
+  at timestamptz not null default now()
+);
+create index if not exists rate_hits_key_at on public.rate_hits (key, at);
+create index if not exists rate_hits_at on public.rate_hits (at);
+alter table public.rate_hits enable row level security;
+revoke all on table public.rate_hits from public, anon, authenticated;
+
+-- Counts one more against p_key and says yes, unless that would go over either limit, in
+-- which case it counts nothing and says no.
+create or replace function public.rate_ok(p_key text, p_short_max int, p_short interval, p_long_max int, p_long interval)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare k text := encode(sha256(convert_to(coalesce(p_key, ''), 'UTF8')), 'hex');
+begin
+  perform pg_advisory_xact_lock(hashtextextended(k, 65));
+  delete from public.rate_hits where key = k and at < now() - greatest(p_short, p_long);
+  if random() < 0.01 then delete from public.rate_hits where at < now() - interval '2 days'; end if;
+  if (select count(*) from public.rate_hits where key = k and at > now() - p_short) >= p_short_max
+     or (select count(*) from public.rate_hits where key = k and at > now() - p_long) >= p_long_max then
+    return false;
+  end if;
+  insert into public.rate_hits (key) values (k);
+  return true;
+end $$;
+
+-- Which of these files something still needs: anything a report points at, and any post or
+-- story file whose row is hidden, taken down or has a report waiting on it. A clip's still
+-- is asked about as its clip. The media function will not delete these, whoever asks.
+create or replace function public.media_held(p_keys text[])
+returns setof text language sql stable security definer set search_path = public as $$
+  with k as (
+    select x as key from unnest(p_keys) x
+    union select left(x, -4) from unnest(p_keys) x where x ~* '\.(mp4|mov|webm|m4v)\.jpg$'
+  )
+  select r.media_path from public.reports r join k on k.key = r.media_path
+  union select p.video_path from public.posts p join k on k.key = p.video_path
+   where p.hidden_at is not null or p.removed_at is not null
+      or exists (select 1 from public.reports r where r.what = 'post' and r.thing_id = p.id and r.resolved_at is null)
+  union select s.media_path from public.stories s join k on k.key = s.media_path
+   where s.hidden_at is not null or s.removed_at is not null
+      or exists (select 1 from public.reports r where r.what = 'story' and r.thing_id = s.id and r.resolved_at is null);
+$$;
+
+-- How fast one person can write. Generous enough that nobody using the app reaches it.
+-- Arguments: the column naming who wrote the row, then the most an hour and the most a day.
+-- Only rows written as somebody (auth.uid() set) are counted against them.
+create or replace function public.write_limit() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare who uuid; n_hour int; n_day int;
+begin
+  if auth.uid() is null then return new; end if;
+  who := (to_jsonb(new) ->> tg_argv[0])::uuid;
+  if who is null then return new; end if;
+  execute format('select count(*) filter (where created_at > now() - interval ''1 hour''), count(*)
+                    from %I.%I where %I = $1 and created_at > now() - interval ''1 day''',
+                 tg_table_schema, tg_table_name, tg_argv[0])
+    into n_hour, n_day using who;
+  if n_hour >= tg_argv[1]::int or n_day >= tg_argv[2]::int then
+    raise exception 'That''s a lot in a short time. Take a short break and try again.'
+      using errcode = 'P0001', hint = 'write_limit';
+  end if;
+  return new;
+end $$;
+
+create index if not exists posts_user_created on public.posts (user_id, created_at);
+create index if not exists comments_user_created on public.comments (user_id, created_at);
+create index if not exists messages_user_created on public.messages (user_id, created_at);
+create index if not exists invites_from_created on public.invites (from_user, created_at);
+create index if not exists groups_creator_created on public.groups (created_by, created_at);
+
+drop trigger if exists posts_write_limit on public.posts;
+create trigger posts_write_limit before insert on public.posts
+  for each row execute function public.write_limit('user_id', '30', '100');
+drop trigger if exists comments_write_limit on public.comments;
+create trigger comments_write_limit before insert on public.comments
+  for each row execute function public.write_limit('user_id', '60', '300');
+drop trigger if exists messages_write_limit on public.messages;
+create trigger messages_write_limit before insert on public.messages
+  for each row execute function public.write_limit('user_id', '120', '1000');
+-- Friend requests and group invites are both rows here.
+drop trigger if exists invites_write_limit on public.invites;
+create trigger invites_write_limit before insert on public.invites
+  for each row execute function public.write_limit('from_user', '40', '150');
+drop trigger if exists groups_write_limit on public.groups;
+create trigger groups_write_limit before insert on public.groups
+  for each row execute function public.write_limit('created_by', '10', '20');
+
+-- Length limits, the same as the app's fields. Added unchecked and then checked, so the
+-- check of what is already there does not hold a long lock; a second run finds them there.
+do $$
+declare c record;
+begin
+  for c in select * from (values
+    ('posts', 'posts_caption_len', 'char_length(caption) <= 200'),
+    ('posts', 'posts_metric_len', 'char_length(metric) <= 40'),
+    ('groups', 'groups_name_len', 'char_length(name) <= 40'),
+    ('groups', 'groups_goal_len', 'char_length(goal) <= 200')) v(t, n, expr)
+  loop
+    if not exists (select 1 from pg_constraint where conname = c.n and conrelid = format('public.%I', c.t)::regclass) then
+      execute format('alter table public.%I add constraint %I check (%s) not valid', c.t, c.n, c.expr);
+    end if;
+    execute format('alter table public.%I validate constraint %I', c.t, c.n);
+  end loop;
+end $$;
+
+-- Function privileges. Every function in public: closed to PUBLIC and anon, open to the
+-- service role. Then anon gets the two signed-out ones back, and authenticated keeps only
+-- the ones it needs. Granted by name, so every overload is covered.
+do $$
+declare f record;
+  signed_out text[] := array['code_group', 'quota_numbers'];
+  signed_in text[] := array[
+    -- what the app calls
+    'accept_invite', 'admin_agreements', 'am_moderator', 'chat_seen', 'close_due_flags', 'code_group',
+    'create_group', 'delete_account', 'held_posts', 'join_by_code', 'lift_suspension', 'mod_names',
+    'mod_open_count', 'mod_reports', 'moderate_report', 'mute_group', 'mutual_friends', 'my_files',
+    'my_invite_code', 'my_profile', 'quota_numbers', 'record_consent', 'save_wheel', 'seen', 'sit_out',
+    'spin', 'use_challenge',
+    -- what row level security calls as the user
+    'are_friends', 'can_see_comment', 'can_see_message', 'can_see_story', 'can_see_user', 'flag_group',
+    'flag_owner', 'is_member', 'is_suspended', 'under_review',
+    -- what the guards call as the user
+    'moderating', 'via_service_role'];
+begin
+  for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.prokind = 'f' loop
+    execute format('revoke execute on function %s from public, anon', f.sig);
+    execute format('grant execute on function %s to service_role', f.sig);
+    if f.proname = any(signed_in) then
+      execute format('grant execute on function %s to authenticated', f.sig);
+    else
+      execute format('revoke execute on function %s from authenticated', f.sig);
+    end if;
+    if f.proname = any(signed_out) then
+      execute format('grant execute on function %s to anon', f.sig);
+    end if;
+  end loop;
+end $$;
+alter default privileges in schema public revoke execute on functions from anon;
+alter default privileges revoke execute on functions from public;

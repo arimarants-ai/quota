@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# The page reaches these through Capacitor's bridge by name, so R8 must not rename or drop them.
+-keep @com.getcapacitor.annotation.CapacitorPlugin public class * { *; }
+-keep class app.hitquota.quota.** { *; }
+-keep class com.getcapacitor.** { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

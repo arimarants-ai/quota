@@ -208,6 +208,16 @@ export async function send(sub: Subscription, payload: string, opts: {
   return res.status;
 }
 
+// Whether the secret a caller sent is the one this function was given. Every byte is
+// looked at whatever the first difference, so how long it takes says nothing about it.
+export function sameSecret(given: string | null, want: string | undefined): boolean {
+  if (!want || given == null) return false;
+  const a = new TextEncoder().encode(given), b = new TextEncoder().encode(want);
+  let d = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) d |= (a[i] ?? 0) ^ b[i];
+  return d === 0;
+}
+
 // Pure notification-text logic, kept out of index.ts so it can be tested without Deno.
 export type Quota = { metric: string; target: number };
 export type Post = { metric: string; amount: number };
@@ -359,9 +369,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
-const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:hello@quota.app';
+const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:support@hitquota.app';
 const HOOK_SECRET = Deno.env.get('HOOK_SECRET')!;
-const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://quota-jet.vercel.app';
+const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://app.hitquota.app';
 
 const rest = async (path: string, init: RequestInit = {}) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -374,7 +384,7 @@ const rest = async (path: string, init: RequestInit = {}) => {
 
 Deno.serve(async (req) => {
   // The trigger is the only caller; a shared secret keeps the endpoint from being driven by anyone else.
-  if (req.headers.get('x-hook-secret') !== HOOK_SECRET) return new Response('forbidden', { status: 403 });
+  if (!sameSecret(req.headers.get('x-hook-secret'), HOOK_SECRET)) return new Response('forbidden', { status: 403 });
 
   // The trigger says what kind of thing happened rather than leaving it to be guessed
   // from the shape of the row: an invite carries a group_id too, and reading one as a post

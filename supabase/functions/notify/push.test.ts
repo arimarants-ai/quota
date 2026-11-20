@@ -1,5 +1,5 @@
 // Self-check for push.ts. Run: node --experimental-strip-types push.test.ts
-import { encrypt, vapidHeader, b64u, unb64u, send, jwt, apnsBody, fcmBody } from './push.ts';
+import { encrypt, vapidHeader, b64u, unb64u, send, jwt, apnsBody, fcmBody, sameSecret } from './push.ts';
 
 const subtle = crypto.subtle;
 const dec = new TextDecoder();
@@ -126,5 +126,9 @@ ok(seen[0].url === 'https://oauth2.googleapis.com/token' && seen[1].url === 'htt
   && seen[1].headers.Authorization === 'Bearer AT' && JSON.parse(seen[1].body).message.token === 'xyz', '  signed in as the service account, to the project');
 answer = url => /oauth2/.test(url) ? Response.json({ access_token: 'AT' }) : new Response('{}', { status: 404 });
 ok(await send({ endpoint: 'fcm:gone', p256dh: '', auth: '' }, JSON.stringify(note), vapid) === 410, '  and an unregistered token is reported as gone');
+
+ok(sameSecret('s3cret', 's3cret'), 'the hook secret matches itself');
+ok(!sameSecret('s3creT', 's3cret') && !sameSecret('s3cre', 's3cret') && !sameSecret('s3crett', 's3cret'), '  and nothing that differs by a letter or a length');
+ok(!sameSecret(null, 's3cret') && !sameSecret('', '') && !sameSecret('x', undefined), '  and nothing at all when either side is missing');
 
 console.log('\nall push.ts checks passed');

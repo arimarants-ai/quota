@@ -86,10 +86,19 @@ export function canView(key: string, groups: Set<number>, visibleStories: Set<st
   return k.bucket === 'proof' ? groups.has(k.group) : visibleStories.has(key);
 }
 
-export function canDelete(key: string, uid: string): boolean {
+// `held` is every file a report or a moderation decision still needs (media_held() in the
+// database). A clip's still goes with its clip, either way round.
+export function canDelete(key: string, uid: string, held: Set<string> = new Set()): boolean {
   const k = kindOf(key);
-  return !!k && k.owner === uid;
+  if (!k || k.owner !== uid) return false;
+  const clip = /\.jpg$/i.test(key) && isVideoKey(key.slice(0, -4)) ? key.slice(0, -4) : key;
+  return !held.has(key) && !held.has(clip) && !held.has(posterOf(clip));
 }
+
+// How many uploads one person may be handed, proof and stories together.
+export const UPLOADS_PER_HOUR = 60;
+export const UPLOADS_PER_DAY = 300;
+export const UPLOAD_LIMIT_LINE = "You've uploaded a lot in a short time. Try again in a little while.";
 
 export type UploadAsk = { group_id?: unknown; story?: unknown; ext?: unknown; contentType?: unknown; size?: unknown; thumbSize?: unknown };
 export type UploadPlan = { key: string; contentType: string; size: number; thumb: { key: string; size: number } | null; group: number | null };
@@ -203,6 +212,17 @@ const rest = async (path: string) => {
   return res.json();
 };
 
+// A database function, as the service role. Throws on anything but a 2xx, so a caller
+// that cannot get an answer stops rather than guessing one.
+const rpc = async (fn: string, args: Record<string, unknown>) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST', body: JSON.stringify(args),
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`${fn} -> ${res.status}`);
+  return res.json();
+};
+
 // is_member(), for every group at once.
 const groupsOf = async (uid: string) =>
   new Set<number>((await rest(`group_members?select=group_id&user_id=eq.${uid}`) as { group_id: number }[]).map(r => Number(r.group_id)));
@@ -241,6 +261,9 @@ Deno.serve(async req => {
       const plan = planUpload(body, uid, Date.now());
       if (typeof plan === 'string') return json({ error: plan }, 400);
       if (plan.group !== null && !(await groupsOf(uid)).has(plan.group)) return json({ error: 'not a member of that group' }, 403);
+      // Counted only once the ask itself is good, so a mistake does not use one up.
+      if (!(await rpc('rate_ok', { p_key: `upload:${uid}`, p_short_max: UPLOADS_PER_HOUR, p_short: '1 hour', p_long_max: UPLOADS_PER_DAY, p_long: '1 day' })))
+        return json({ error: UPLOAD_LIMIT_LINE }, 429);
       const headers = (type: string, size: number) => ({ 'Content-Type': type, 'Cache-Control': CACHE_CONTROL, 'Content-Length': String(size) });
       const put = headers(plan.contentType, plan.size);
       const thumb = plan.thumb && { key: plan.thumb.key, headers: headers('image/jpeg', plan.thumb.size) };
@@ -269,8 +292,9 @@ Deno.serve(async req => {
     if (body.action === 'delete') {
       const keys = paths(body.paths);
       const deleted: string[] = [], refused: string[] = [];
+      const held = new Set<string>(keys.length ? await rpc('media_held', { p_keys: keys }) as string[] : []);
       for (const k of keys) {
-        if (canDelete(k, uid) && await removeObject(k)) deleted.push(k); else refused.push(k);
+        if (canDelete(k, uid, held) && await removeObject(k)) deleted.push(k); else refused.push(k);
       }
       return json({ deleted, refused });
     }

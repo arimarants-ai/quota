@@ -11,7 +11,7 @@
 //   { action: 'delete', paths: [...] }     -> { deleted: [...], refused: [...] }
 //
 // Deployed with JWT verification on: nobody signed out gets as far as this file.
-import { canDelete, canView, CACHE_CONTROL, cleanKey, kindOf, MAX_PATHS, planUpload, STORY_PREFIX, UPLOAD_SECONDS, viewWindow } from './rules.ts';
+import { canDelete, canView, CACHE_CONTROL, cleanKey, kindOf, MAX_PATHS, planUpload, STORY_PREFIX, UPLOAD_LIMIT_LINE, UPLOAD_SECONDS, UPLOADS_PER_DAY, UPLOADS_PER_HOUR, viewWindow } from './rules.ts';
 import { presign, removeObject } from './r2.ts';
 
 const SUPABASE_URL = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL')! : '';
@@ -30,6 +30,17 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 const rest = async (path: string) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
   if (!res.ok) throw new Error(`${path.split('?')[0]} -> ${res.status}`);
+  return res.json();
+};
+
+// A database function, as the service role. Throws on anything but a 2xx, so a caller
+// that cannot get an answer stops rather than guessing one.
+const rpc = async (fn: string, args: Record<string, unknown>) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST', body: JSON.stringify(args),
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`${fn} -> ${res.status}`);
   return res.json();
 };
 
@@ -71,6 +82,9 @@ Deno.serve(async req => {
       const plan = planUpload(body, uid, Date.now());
       if (typeof plan === 'string') return json({ error: plan }, 400);
       if (plan.group !== null && !(await groupsOf(uid)).has(plan.group)) return json({ error: 'not a member of that group' }, 403);
+      // Counted only once the ask itself is good, so a mistake does not use one up.
+      if (!(await rpc('rate_ok', { p_key: `upload:${uid}`, p_short_max: UPLOADS_PER_HOUR, p_short: '1 hour', p_long_max: UPLOADS_PER_DAY, p_long: '1 day' })))
+        return json({ error: UPLOAD_LIMIT_LINE }, 429);
       const headers = (type: string, size: number) => ({ 'Content-Type': type, 'Cache-Control': CACHE_CONTROL, 'Content-Length': String(size) });
       const put = headers(plan.contentType, plan.size);
       const thumb = plan.thumb && { key: plan.thumb.key, headers: headers('image/jpeg', plan.thumb.size) };
@@ -99,8 +113,9 @@ Deno.serve(async req => {
     if (body.action === 'delete') {
       const keys = paths(body.paths);
       const deleted: string[] = [], refused: string[] = [];
+      const held = new Set<string>(keys.length ? await rpc('media_held', { p_keys: keys }) as string[] : []);
       for (const k of keys) {
-        if (canDelete(k, uid) && await removeObject(k)) deleted.push(k); else refused.push(k);
+        if (canDelete(k, uid, held) && await removeObject(k)) deleted.push(k); else refused.push(k);
       }
       return json({ deleted, refused });
     }
