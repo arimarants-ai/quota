@@ -220,7 +220,7 @@ begin
   end if;
   if not has_function_privilege('authenticated', 'public.is_member(bigint)', 'EXECUTE')
      or not has_function_privilege('authenticated', 'public.are_friends(uuid, uuid)', 'EXECUTE')
-     or not has_function_privilege('authenticated', 'public.create_group(text, text, jsonb)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.my_profile()', 'EXECUTE')
      or not has_function_privilege('authenticated', 'public.moderating()', 'EXECUTE') then
     raise exception 'a signed-in account lost a function the app or its policies call';
   end if;
