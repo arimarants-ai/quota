@@ -330,6 +330,43 @@ begin
   end;
 end $$;
 
+-- ---- v66: the counter split in two, and a fixed search_path where there was none
+do $$
+declare n int;
+begin
+  if has_function_privilege('anon', 'public.rate_count(text, interval)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.rate_count(text, interval)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.rate_add(text[])', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.rate_add(text[])', 'EXECUTE') then
+    raise exception 'the sign-in counters can be reached from the app';
+  end if;
+  if not has_function_privilege('service_role', 'public.rate_count(text, interval)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.rate_add(text[])', 'EXECUTE') then
+    raise exception 'the sign-in function cannot reach its counters';
+  end if;
+  begin
+    if public.rate_count('v66-a', '10 minutes') <> 0 then raise exception 'a new key started above nought'; end if;
+    perform public.rate_add(array['v66-a', 'v66-b']);
+    perform public.rate_add(array['v66-a']);
+    if public.rate_count('v66-a', '10 minutes') <> 2 or public.rate_count('v66-b', '10 minutes') <> 1 then
+      raise exception 'rate_add() and rate_count() disagree: % and %', public.rate_count('v66-a', '10 minutes'), public.rate_count('v66-b', '10 minutes');
+    end if;
+    if public.rate_count('v66-c', '10 minutes') <> 0 then raise exception 'keys are not kept apart'; end if;
+    if exists (select 1 from public.rate_hits where key like 'v66-%') then raise exception 'a key was kept as it was typed'; end if;
+    -- The window is the window: an old failure is not counted against a short one.
+    update public.rate_hits set at = now() - interval '1 hour' where key = encode(sha256(convert_to('v66-b', 'UTF8')), 'hex');
+    if public.rate_count('v66-b', '10 minutes') <> 0 or public.rate_count('v66-b', '1 day') <> 1 then
+      raise exception 'rate_count() did not keep to its window';
+    end if;
+    raise exception using errcode = 'QT001';
+  exception when sqlstate 'QT001' then null;
+  end;
+  select count(*) into n from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public' and p.proname in ('wheel_cycle', 'consents_append_only', 'chat_reads_stamp', 'borrow_slice')
+     and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%');
+  if n > 0 then raise exception '% of the four still has no fixed search_path', n; end if;
+end $$;
+
 create role app2 nologin;
 -- A signed-in account, as far as policies written `to authenticated` are concerned.
 grant authenticated to app2;

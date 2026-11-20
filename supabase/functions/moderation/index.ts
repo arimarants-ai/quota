@@ -24,7 +24,7 @@ const SERVICE_KEY = secret('SUPABASE_SERVICE_ROLE_KEY');
 const ANON_KEY = secret('SUPABASE_ANON_KEY');
 const RESEND_KEY = secret('RESEND_API_KEY');
 const ANTHROPIC_KEY = secret('ANTHROPIC_API_KEY');
-const VAPID = { publicKey: secret('VAPID_PUBLIC_KEY'), privateKey: secret('VAPID_PRIVATE_KEY'), subject: secret('VAPID_SUBJECT') || 'mailto:hello@hitquota.app' };
+const VAPID = { publicKey: secret('VAPID_PUBLIC_KEY'), privateKey: secret('VAPID_PRIVATE_KEY'), subject: secret('VAPID_SUBJECT') || 'mailto:support@hitquota.app' };
 const SITE_URL = secret('SITE_URL') || 'https://app.hitquota.app';
 
 const CORS = {

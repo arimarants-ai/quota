@@ -1,3 +1,4 @@
+import { counts, failureKeys, limitsFor, overLimit, type Outcome } from './limits.ts';
 // Logging in with a username instead of an email address.
 //
 // Supabase signs people in by email, so a username has to be turned into one first. The
@@ -21,9 +22,6 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SECRET_KEY = Deno.env.get('SB_SECRET_KEY') ?? '';
 
-// Tries allowed before a pause: from one address, and at one account.
-const PER_IP = { p_short_max: 30, p_short: '10 minutes', p_long_max: 200, p_long: '1 day' };
-const PER_ID = { p_short_max: 10, p_short: '10 minutes', p_long_max: 50, p_long: '1 day' };
 const SLOW = "That's a lot of tries in a row. Wait a few minutes and try again.";
 // A refusal never comes back sooner than this, whatever it was refused for.
 const FLOOR_MS = 900;
@@ -48,13 +46,14 @@ const admin = async (path: string) => {
   return res.json();
 };
 
-const rateOk = async (key: string, limits: Record<string, unknown>) => {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/rate_ok`, {
-    method: 'POST', body: JSON.stringify({ p_key: key, ...limits }),
+// The service role's view of the failure counters (rate_count, rate_add in the database).
+const rpc = async (fn: string, args: Record<string, unknown>) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST', body: JSON.stringify(args),
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
   });
-  if (!res.ok) throw new Error(`rate_ok -> ${res.status}`);
-  return (await res.json()) === true;
+  if (!res.ok) throw new Error(`${fn} -> ${res.status}`);
+  return res.status === 204 ? null : res.json();
 };
 
 // The caller's own address, as the platform saw it.
@@ -96,23 +95,27 @@ Deno.serve(async (req) => {
   if (!id || !password) return refuse({ error: WRONG }, 400);
 
   const ip = clientIp(req);
+  const limits = limitsFor(id, ip);
   try {
-    const [byIp, byId] = await Promise.all([
-      ip ? rateOk(`signin-ip:${ip}`, PER_IP) : Promise.resolve(true),
-      rateOk(`signin-id:${id.toLowerCase()}`, PER_ID),
-    ]);
-    if (!byIp || !byId) return refuse({ error: SLOW }, 429);
+    const seen = await Promise.all(limits.map(l => rpc('rate_count', { p_key: l.key, p_window: l.window })));
+    if (overLimit(limits, seen.map(Number))) return refuse({ error: SLOW }, 429);
   } catch { return refuse({ error: 'Could not log in just now. Try again.' }, 503); }
+
+  // How it went decides what is counted: a wrong answer, and nothing else.
+  const done = async (o: Outcome, body: unknown, status: number) => {
+    if (counts(o)) await rpc('rate_add', { p_keys: failureKeys(limits) }).catch(() => {});
+    return refuse(body, status);
+  };
 
   let email: string | null = id.includes('@') ? id : null;
   if (!email) {
     try { email = await emailForUsername(id.toLowerCase()); }
-    catch { return refuse({ error: 'Could not log in just now. Try again.' }, 503); }
+    catch { return done('unavailable', { error: 'Could not log in just now. Try again.' }, 503); }
     // No such username: a password check all the same, against an address nobody has, and
     // answered the same as a wrong password.
     if (!email) {
       await passwordGrant(NOBODY, password, ip).catch(() => {});
-      return refuse({ error: WRONG }, 400);
+      return done('wrong', { error: WRONG }, 400);
     }
   }
 
@@ -122,9 +125,9 @@ Deno.serve(async (req) => {
     // An unconfirmed address is worth saying out loud, because the fix is in their inbox
     // rather than in the password box.
     const code = String(data?.error_code ?? data?.error ?? '');
-    if (/not_confirmed/i.test(code)) return refuse({ error: 'Confirm your email first. Check your inbox for the link.', unconfirmed: true }, 400);
-    if (res.status === 429) return refuse({ error: SLOW }, 429);
-    return refuse({ error: res.status === 400 ? WRONG : 'Could not log in just now. Try again.' }, res.status === 400 ? 400 : 503);
+    if (/not_confirmed/i.test(code)) return done('unconfirmed', { error: 'Confirm your email first. Check your inbox for the link.', unconfirmed: true }, 400);
+    if (res.status === 429) return done('slow', { error: SLOW }, 429);
+    return res.status === 400 ? done('wrong', { error: WRONG }, 400) : done('unavailable', { error: 'Could not log in just now. Try again.' }, 503);
   }
   // Only the two tokens go back. The app hands them to supabase-js, which takes it from there.
   return json({ access_token: data.access_token, refresh_token: data.refresh_token });
